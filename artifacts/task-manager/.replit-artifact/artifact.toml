@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Quản lý công việc"
+description = "Ứng dụng quản lý công việc bằng tiếng Việt, lưu trữ dữ liệu bền vững và cho phép chủ sở hữu chỉnh sửa trong khi mọi người khác chỉ có thể xem."
+version = "1.0.0"
+id = "artifacts/task-manager"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18810
+
+[services.development]
+run = "pnpm --filter @workspace/task-manager run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/task-manager", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/task-manager/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18810"
+BASE_PATH = "/"
