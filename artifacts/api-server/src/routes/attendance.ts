@@ -15,6 +15,7 @@ import {
 import {
   db,
   attendanceTable,
+  membersTable,
   type AttendanceStatus,
 } from "@workspace/db";
 import { requireOwner } from "../middlewares/owner";
@@ -22,6 +23,7 @@ import { requireOwner } from "../middlewares/owner";
 const router: IRouter = Router();
 
 type AttendanceWrite = {
+  memberId: number | null;
   employeeName: string;
   workDate: string;
   checkIn: string | null;
@@ -51,6 +53,9 @@ router.get("/attendance", async (req, res): Promise<void> => {
   }
   if (query.data.status) {
     filters.push(eq(attendanceTable.status, query.data.status as AttendanceStatus));
+  }
+  if (query.data.memberId !== undefined) {
+    filters.push(eq(attendanceTable.memberId, query.data.memberId));
   }
   const search = query.data.search?.trim();
   if (search) {
@@ -113,6 +118,7 @@ router.post("/attendance", requireOwner, async (req, res): Promise<void> => {
   }
 
   const values: AttendanceWrite = {
+    memberId: parsed.data.memberId,
     employeeName: parsed.data.employeeName,
     workDate: parsed.data.workDate,
     checkIn: parsed.data.checkIn ?? null,
@@ -120,6 +126,17 @@ router.post("/attendance", requireOwner, async (req, res): Promise<void> => {
     status: parsed.data.status as AttendanceStatus,
     note: parsed.data.note ?? null,
   };
+  if (values.memberId === null) {
+    res.status(400).json({ error: "Cần chọn thành viên." });
+    return;
+  }
+  const [member] = await db.select().from(membersTable)
+    .where(eq(membersTable.id, values.memberId)).limit(1);
+  if (!member) {
+    res.status(400).json({ error: "Không tìm thấy thành viên được chọn." });
+    return;
+  }
+  values.employeeName = member.name;
 
   const [record] = await db.insert(attendanceTable).values(values).returning();
   res.status(201).json(CreateAttendanceResponse.parse(toAttendanceResponse(record)));
@@ -142,6 +159,19 @@ router.patch("/attendance/:id", requireOwner, async (req, res): Promise<void> =>
 
   const update: Partial<AttendanceWrite> = {};
   if (parsed.data.employeeName !== undefined) update.employeeName = parsed.data.employeeName;
+  if ("memberId" in parsed.data) {
+    const memberId = parsed.data.memberId ?? null;
+    update.memberId = memberId;
+    if (memberId !== null) {
+      const [member] = await db.select().from(membersTable)
+        .where(eq(membersTable.id, memberId)).limit(1);
+      if (!member) {
+        res.status(400).json({ error: "Không tìm thấy thành viên được chọn." });
+        return;
+      }
+      update.employeeName = member.name;
+    }
+  }
   if (parsed.data.workDate !== undefined) update.workDate = parsed.data.workDate;
   if ("checkIn" in parsed.data) update.checkIn = parsed.data.checkIn ?? null;
   if ("checkOut" in parsed.data) update.checkOut = parsed.data.checkOut ?? null;
