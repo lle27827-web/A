@@ -14,4 +14,5 @@ export type ListAttendanceParams = {
 date?: string;
 search?: string;
 status?: AttendanceStatus;
+memberId?: number;
 };

@@ -9,21 +9,26 @@ import {
   getGetAttendanceSummaryQueryKey,
   getGetTaskSummaryQueryKey,
   getListAttendanceQueryKey,
+  getListMembersQueryKey,
   getListTasksQueryKey,
+  useAskAssistant,
   useCreateAttendance,
+  useCreateMember,
   useCreateTask,
   useDeleteAttendance,
+  useDeleteMember,
   useDeleteTask,
   useGetAttendanceSummary,
   useGetCurrentAccess,
   useGetTaskSummary,
   useListAttendance,
+  useListMembers,
   useListTasks,
   useUpdateAttendance,
   useUpdateTask,
 } from '@workspace/api-client-react';
-import type { AttendanceInput, AttendanceRecord, AttendanceStatus, AttendanceUpdate, Task, TaskPriority, TaskStatus } from '@workspace/api-client-react';
-import { AlertCircle, ArrowUpRight, CalendarDays, Check, CheckCheck, ChevronDown, Circle, Clock3, Eye, ListFilter, LoaderCircle, LockKeyhole, Mic, MicOff, Plus, Search, ShieldCheck, Trash2, Users, X } from 'lucide-react';
+import type { AttendanceInput, AttendanceRecord, AttendanceStatus, AttendanceUpdate, MemberInput, MemberRecord, Task, TaskPriority, TaskStatus } from '@workspace/api-client-react';
+import { AlertCircle, ArrowUpRight, CalendarDays, Check, CheckCheck, ChevronDown, Circle, Clock3, Eye, ListFilter, LoaderCircle, LockKeyhole, Mic, MicOff, Plus, Search, Send, ShieldCheck, Trash2, Users, X } from 'lucide-react';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 import { Form } from '@/components/ui/form';
 import NotFound from '@/pages/not-found';
@@ -319,11 +324,7 @@ function TaskHome() {
         </div>
       </header>
 
-      <VoiceAssistant isOwner={isOwner} overview={summaryQuery.data ? `Tổng cộng ${summaryQuery.data.total} công việc, ${summaryQuery.data.inProgress} việc đang làm, ${summaryQuery.data.done} việc đã xong và ${summaryQuery.data.overdue} việc quá hạn.` : 'Chưa có dữ liệu tổng quan công việc.'} onSearch={(query) => setFilters((current) => ({ ...current, search: query }))} onCreate={() => { setDialogTask('new'); setOperationError(''); }} onEdit={(query) => {
-        const target = tasks.find((task) => task.title.toLocaleLowerCase('vi').includes(query.toLocaleLowerCase('vi')));
-        if (target) setDialogTask(target);
-        else setNotice(`Không tìm thấy công việc phù hợp với “${query}”.`);
-      }} />
+      <VoiceAssistant isOwner={isOwner} />
 
       <section className="intro-grid animate-rise">
         <div className="intro-copy">
@@ -455,157 +456,121 @@ type BrowserRecognition = {
   stop: () => void;
 };
 
-function VoiceAssistant({ isOwner, overview, onSearch, onCreate, onEdit }: {
-  isOwner: boolean;
-  overview: string;
-  onSearch: (query: string) => void;
-  onCreate: () => void;
-  onEdit: (query: string) => void;
-}) {
-  const [, setLocation] = useLocation();
+type ChatMessage = { role: 'user' | 'assistant'; content: string };
+type ProposedAction = { kind: string; id: number | null; summary: string; payload: Record<string, unknown> };
+
+function VoiceAssistant({ isOwner }: { isOwner: boolean }) {
   const [listening, setListening] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const [status, setStatus] = useState('');
   const [supported, setSupported] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [status, setStatus] = useState('');
+  const [proposal, setProposal] = useState<ProposedAction | null>(null);
   const recognitionRef = useRef<BrowserRecognition | null>(null);
+  const ask = useAskAssistant();
+  const cache = useQueryClient();
+  const createTask = useCreateTask();
+  const updateTask = useUpdateTask();
+  const deleteTask = useDeleteTask();
+  const createMember = useCreateMember();
+  const deleteMember = useDeleteMember();
+  const createAttendance = useCreateAttendance();
+  const updateAttendance = useUpdateAttendance();
+  const deleteAttendance = useDeleteAttendance();
 
   useEffect(() => {
     const browser = window as Window & { SpeechRecognition?: new () => BrowserRecognition; webkitSpeechRecognition?: new () => BrowserRecognition };
     setSupported(Boolean((browser.SpeechRecognition || browser.webkitSpeechRecognition) && window.speechSynthesis));
-    return () => {
-      recognitionRef.current?.stop();
-      window.speechSynthesis?.cancel();
-    };
+    return () => { recognitionRef.current?.stop(); window.speechSynthesis?.cancel(); };
   }, []);
-
-  function speak(text: string) {
-    if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'vi-VN';
-    window.speechSynthesis.speak(utterance);
+  function invalidateAction(kind: string) {
+    if (kind.includes('task')) {
+      void cache.invalidateQueries({ queryKey: getListTasksQueryKey() });
+      void cache.invalidateQueries({ queryKey: getGetTaskSummaryQueryKey() });
+    }
+    if (kind.includes('attendance')) {
+      void cache.invalidateQueries({ queryKey: getListAttendanceQueryKey() });
+      void cache.invalidateQueries({ queryKey: getGetAttendanceSummaryQueryKey() });
+    }
+    if (kind.includes('member')) void cache.invalidateQueries({ queryKey: getListMembersQueryKey() });
   }
-
-  function processCommand(raw: string) {
-    const command = raw.trim();
-    const normalized = command.toLocaleLowerCase('vi');
-    setTranscript(command);
-    const searchQuery = command.replace(/^(hãy\s+)?(tìm|lọc|tìm kiếm)\s*/i, '').trim();
-    if (searchQuery && searchQuery !== command) {
-      onSearch(searchQuery);
-      setStatus(`Đang lọc theo: ${searchQuery}`);
-      speak(`Đang lọc theo ${searchQuery}`);
-      return;
-    }
-    if (/(thêm|tạo|ghi nhận|tạo mới)/i.test(normalized)) {
-      if (isOwner) {
-        onCreate();
-        setStatus('Đã mở biểu mẫu mới. Hãy kiểm tra và lưu thủ công.');
-        speak('Đã mở biểu mẫu mới. Tôi chưa lưu dữ liệu.');
-      } else {
-        const response = 'Bạn đang ở chế độ chỉ xem. Chỉ chủ sở hữu mới có thể thêm hoặc thay đổi dữ liệu.';
-        setStatus(response);
-        speak(response);
-      }
-      return;
-    }
-    if (/(tổng quan|tình hình|bao nhiêu|đọc thống kê)/i.test(normalized)) {
-      setStatus(overview);
-      speak(overview);
-      return;
-    }
-    if (/(sửa|chỉnh sửa|cập nhật)/i.test(normalized)) {
-      if (!isOwner) {
-        const response = 'Bạn đang ở chế độ chỉ xem. Tôi không thể mở thao tác chỉnh sửa.';
-        setStatus(response);
-        speak(response);
-        return;
-      }
-      const query = command.replace(/.*?(sửa|chỉnh sửa|cập nhật)\s*/i, '').trim();
-      if (query) {
-        onEdit(query);
-        const response = `Đã tìm mục phù hợp với “${query}”. Hãy kiểm tra biểu mẫu trước khi lưu.`;
-        setStatus(response);
-        speak('Đã mở mục phù hợp để chỉnh sửa. Tôi chưa lưu dữ liệu.');
-      } else {
-        const response = 'Hãy nói tên công việc hoặc nhân viên cần chỉnh sửa.';
-        setStatus(response);
-        speak(response);
-      }
-      return;
-    }
-    if (/(chấm công|điểm danh|ngày công|attendance)/i.test(normalized)) {
-      setLocation('/attendance');
-      const response = 'Đã mở trang chấm công.';
-      setStatus(response);
-      speak(response);
-      return;
-    }
-    if (/(công việc|danh sách việc|nhiệm vụ|task)/i.test(normalized)) {
-      setLocation('/');
-      const response = 'Đã mở danh sách công việc.';
-      setStatus(response);
-      speak(response);
-      return;
-    }
-    setStatus('Chưa nhận ra yêu cầu. Bạn có thể tìm, đọc tổng quan hoặc chuyển trang.');
+  function submitMessage(content = draft) {
+    const text = content.trim();
+    if (!text || ask.isPending) return;
+    const next: ChatMessage[] = [...messages, { role: 'user' as const, content: text }].slice(-13);
+    setMessages(next);
+    setDraft('');
+    setStatus('Đang gửi câu hỏi đến trợ lý.');
+    ask.mutate({ data: { messages: next } }, {
+      onSuccess: (response) => {
+        setMessages((current) => [...current, { role: 'assistant' as const, content: response.message }].slice(-14));
+        setProposal(response.action ?? null);
+        setStatus('Trợ lý đã trả lời.');
+        if (window.speechSynthesis && typeof SpeechSynthesisUtterance !== 'undefined') {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(response.message);
+          utterance.lang = 'vi-VN';
+          window.speechSynthesis.speak(utterance);
+        }
+      },
+      onError: () => setStatus('Chưa gửi được câu hỏi. Vui lòng thử lại.'),
+    });
   }
-
   function toggleListening() {
-    if (listening) {
-      recognitionRef.current?.stop();
-      setListening(false);
-      setStatus('Đã dừng nghe.');
-      return;
-    }
+    if (listening) { recognitionRef.current?.stop(); setListening(false); setStatus('Đã dừng nghe.'); return; }
     const browser = window as Window & { SpeechRecognition?: new () => BrowserRecognition; webkitSpeechRecognition?: new () => BrowserRecognition };
     const Recognition = browser.SpeechRecognition || browser.webkitSpeechRecognition;
-    if (!Recognition || !window.speechSynthesis) {
-      setStatus('Trình duyệt này chưa hỗ trợ nhận diện và phát giọng nói.');
-      return;
-    }
+    if (!Recognition || !window.speechSynthesis) { setStatus('Trình duyệt này chưa hỗ trợ nhận diện và phát giọng nói.'); return; }
     try {
       const recognition = new Recognition();
-      recognition.lang = 'vi-VN';
-      recognition.continuous = false;
-      recognition.interimResults = false;
+      recognition.lang = 'vi-VN'; recognition.continuous = false; recognition.interimResults = false;
       recognition.onresult = (event) => {
         const result = event.results[event.resultIndex]?.[0]?.transcript ?? '';
-        if (result) processCommand(result);
+        if (result) { setDraft(result); setStatus('Đã nhận diện nội dung. Đang gửi đến trợ lý.'); submitMessage(result); }
       };
       recognition.onerror = (event) => {
-        const message = event.error === 'not-allowed' || event.error === 'service-not-allowed'
-          ? 'Quyền dùng micrô bị từ chối. Hãy cho phép micrô trong cài đặt trình duyệt.'
-          : event.error === 'audio-capture'
-            ? 'Không tìm thấy micrô khả dụng.'
-            : `Nhận diện giọng nói gặp lỗi (${event.error}).`;
         setListening(false);
-        setStatus(message);
+        setStatus(event.error === 'not-allowed' || event.error === 'service-not-allowed' ? 'Quyền dùng micrô bị từ chối. Hãy cho phép micrô trong cài đặt trình duyệt.' : event.error === 'audio-capture' ? 'Không tìm thấy micrô khả dụng.' : `Nhận diện giọng nói gặp lỗi (${event.error}).`);
       };
       recognition.onend = () => setListening(false);
       recognitionRef.current = recognition;
-      setTranscript('');
-      setStatus('Đang nghe tiếng Việt. Hãy nói một yêu cầu ngắn.');
-      setListening(true);
-      recognition.start();
-    } catch {
-      setListening(false);
-      setStatus('Không thể bật micrô. Hãy kiểm tra quyền truy cập và thử lại.');
+      setStatus('Đang nghe tiếng Việt. Hãy nói câu hỏi hoặc yêu cầu.');
+      setListening(true); recognition.start();
+    } catch { setListening(false); setStatus('Không thể bật micrô. Hãy kiểm tra quyền truy cập và thử lại.'); }
+  }
+  function executeProposal() {
+    if (!isOwner || !proposal) return;
+    const p = proposal.payload;
+    const done = () => { invalidateAction(proposal.kind); setStatus('Đã xác nhận và hoàn tất thao tác.'); setProposal(null); };
+    const failed = () => setStatus('Thao tác chưa hoàn tất. Hãy kiểm tra quyền và thử lại.');
+    switch (proposal.kind) {
+      case 'create_task': createTask.mutate({ data: p as never }, { onSuccess: done, onError: failed }); break;
+      case 'update_task': if (proposal.id !== null) updateTask.mutate({ id: proposal.id, data: p as never }, { onSuccess: done, onError: failed }); break;
+      case 'delete_task': if (proposal.id !== null && window.confirm('Xóa công việc này? Thao tác không thể hoàn tác.')) deleteTask.mutate({ id: proposal.id }, { onSuccess: done, onError: failed }); break;
+      case 'create_member': createMember.mutate({ data: p as unknown as MemberInput }, { onSuccess: done, onError: failed }); break;
+      case 'delete_member': if (proposal.id !== null && window.confirm('Xóa thành viên này? Lịch sử chấm công trước đây vẫn được giữ nguyên.')) deleteMember.mutate({ id: proposal.id }, { onSuccess: done, onError: failed }); break;
+      case 'create_attendance': createAttendance.mutate({ data: p as unknown as AttendanceInput }, { onSuccess: done, onError: failed }); break;
+      case 'update_attendance': if (proposal.id !== null) updateAttendance.mutate({ id: proposal.id, data: p as AttendanceUpdate }, { onSuccess: done, onError: failed }); break;
+      case 'delete_attendance': if (proposal.id !== null && window.confirm('Xóa bản ghi chấm công này? Thao tác không thể hoàn tác.')) deleteAttendance.mutate({ id: proposal.id }, { onSuccess: done, onError: failed }); break;
+      default: setProposal(null);
     }
   }
-
-  return <aside className="voice-panel" aria-label="Trợ lý giọng nói">
-    <div className="voice-copy"><span className="section-kicker">TRỢ LÝ TIẾNG VIỆT</span><p>Ra lệnh tìm kiếm, đọc tổng quan hoặc chuyển trang.</p></div>
-    <button type="button" className={`voice-button ${listening ? 'listening' : ''}`} onClick={toggleListening} aria-pressed={listening} aria-label={listening ? 'Dừng nghe' : 'Bắt đầu nghe'} data-testid="button-voice-toggle">
-      {listening ? <MicOff size={17} /> : <Mic size={17} />} {listening ? 'Đang nghe' : 'Nói với Cùng Làm'}
-    </button>
-    <p className="voice-compatibility" data-testid="status-voice-support">{supported ? 'Trình duyệt có hỗ trợ giọng nói. Quyền micrô sẽ được hỏi khi bắt đầu.' : 'Trình duyệt chưa hỗ trợ đầy đủ Web Speech API.'}</p>
-    <p className="voice-disclaimer">Nhận diện giọng nói có thể được nhà cung cấp trình duyệt xử lý từ xa.</p>
-    <div className="voice-live" aria-live="polite" aria-atomic="true" data-testid="status-voice-live">
-      {transcript && <p><strong>Bạn đã nói:</strong> {transcript}</p>}
-      <p>{status || 'Ví dụ: “Tìm việc mua rau”, “đọc tổng quan”, “mở chấm công”.'}</p>
+  const pending = ask.isPending || createTask.isPending || updateTask.isPending || deleteTask.isPending || createMember.isPending || deleteMember.isPending || createAttendance.isPending || updateAttendance.isPending || deleteAttendance.isPending;
+  return <section className="assistant-panel" aria-labelledby="assistant-title" data-testid="panel-assistant">
+    <header className="assistant-heading"><div><span className="section-kicker">TRỢ LÝ CÙNG LÀM</span><h2 id="assistant-title">Hỏi về công việc, nhóm và ca làm</h2><p>Đặt câu hỏi bằng văn bản hoặc giọng nói. Mọi thay đổi đều cần chủ sở hữu duyệt.</p></div>
+      <button type="button" className={`voice-button ${listening ? 'listening' : ''}`} onClick={toggleListening} aria-pressed={listening} aria-label={listening ? 'Dừng nghe' : 'Bắt đầu nói với trợ lý'} data-testid="button-voice-toggle">{listening ? <MicOff size={17} /> : <Mic size={17} />}{listening ? 'Đang nghe' : 'Nói câu hỏi'}</button></header>
+    <p className="assistant-privacy">Nội dung trò chuyện và lời nói đã nhận diện được gửi đến OpenAI thông qua Replit AI Integrations để xử lý.</p>
+    <div className="assistant-thread" aria-live="polite" aria-label="Cuộc trò chuyện" data-testid="list-assistant-messages">
+      {messages.length === 0 ? <p className="assistant-empty">Ví dụ: “Tuần này ai đi muộn nhiều nhất?” hoặc “Thêm thành viên tên Lan”.</p> : messages.map((message, index) => <article className={`chat-message ${message.role}`} key={`${index}-${message.role}`} data-testid={`message-assistant-${index}`}><span>{message.role === 'user' ? 'Bạn' : 'Cùng Làm'}</span><p>{message.content}</p></article>)}
+      {ask.isError && <p className="assistant-error" role="alert">Không thể kết nối trợ lý lúc này. Hãy thử gửi lại.</p>}
     </div>
-  </aside>;
+    {proposal && <div className="assistant-proposal" data-testid="panel-assistant-proposal"><div><span className="section-kicker">ĐỀ XUẤT CHỜ DUYỆT</span><p>{proposal.summary}</p></div>{isOwner && <div className="proposal-actions"><button type="button" className="button-secondary" onClick={() => setProposal(null)} data-testid="button-reject-assistant-action">Bỏ qua</button><button type="button" className="button-primary" onClick={executeProposal} disabled={pending} data-testid="button-confirm-assistant-action">Xác nhận thao tác</button></div>}</div>}
+    <form className="assistant-compose" onSubmit={(event) => { event.preventDefault(); submitMessage(); }}>
+      <label className="sr-only" htmlFor="assistant-message">Nhập câu hỏi cho trợ lý</label><input id="assistant-message" value={draft} maxLength={4000} onChange={(event) => setDraft(event.target.value)} placeholder="Nhập câu hỏi bằng tiếng Việt..." disabled={pending} data-testid="input-assistant-message" />
+      <button type="submit" className="button-primary" disabled={pending || !draft.trim()} aria-label="Gửi câu hỏi" data-testid="button-send-assistant">{pending ? <LoaderCircle className="spin" size={16} /> : <Send size={16} />}<span>Gửi</span></button>
+    </form>
+    <div className="assistant-live" aria-live="polite" aria-atomic="true" data-testid="status-assistant-live">{status || (supported ? 'Giọng nói tiếng Việt sẵn sàng; trình duyệt sẽ yêu cầu quyền micrô khi bắt đầu.' : 'Trình duyệt chưa hỗ trợ đầy đủ Web Speech API.')}</div>
+  </section>;
 }
 
 function AttendanceHome() {
@@ -616,6 +581,7 @@ function AttendanceHome() {
   const [notice, setNotice] = useState('');
   const [operationError, setOperationError] = useState('');
   const cache = useQueryClient();
+  const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
   const params = useMemo(() => {
     const result: { date?: string; search?: string; status?: AttendanceStatus } = { date };
     if (search.trim()) result.search = search.trim();
@@ -626,6 +592,11 @@ function AttendanceHome() {
   const recordsQuery = useListAttendance(params, { query: { queryKey: getListAttendanceQueryKey(params) } });
   const summaryQuery = useGetAttendanceSummary(summaryParams, { query: { queryKey: getGetAttendanceSummaryQueryKey(summaryParams) } });
   const accessQuery = useGetCurrentAccess({ query: { queryKey: getGetCurrentAccessQueryKey(), retry: false } });
+  const membersQuery = useListMembers({ query: { queryKey: getListMembersQueryKey() } });
+  const memberHistoryParams = useMemo(() => selectedMemberId === null ? undefined : { memberId: selectedMemberId }, [selectedMemberId]);
+  const memberHistoryQuery = useListAttendance(memberHistoryParams, { query: { queryKey: getListAttendanceQueryKey(memberHistoryParams) } });
+  const createMember = useCreateMember();
+  const deleteMember = useDeleteMember();
   const createRecord = useCreateAttendance();
   const updateRecord = useUpdateAttendance();
   const deleteRecord = useDeleteAttendance();
@@ -667,8 +638,6 @@ function AttendanceHome() {
       onError: handleError,
     });
   }
-  const overview = summary ? `Ngày ${formatDate(date)} có ${summary.total} bản ghi: ${summary.present} có mặt, ${summary.late} đi muộn, ${summary.absent} vắng, ${summary.leave} nghỉ phép. ${summary.checkedIn} người đã vào ca và ${summary.checkedOut} người đã kết thúc ca.` : 'Chưa có dữ liệu tổng quan chấm công cho ngày này.';
-
   return <main className="workspace">
     <header className="topbar">
       <Link href="/" className="brand-lockup" data-testid="link-home"><span className="brand-mark"><CheckCheck size={19} strokeWidth={2.5} /></span><span className="brand-name">Cùng Làm</span></Link>
@@ -676,11 +645,16 @@ function AttendanceHome() {
         {!accessQuery.isLoading && isOwner ? <AccountControl /> : accessQuery.data?.signedIn ? <AccountControl /> : <div className="auth-actions"><Link href="/sign-in" className="topbar-signin" data-testid="link-owner-signin">Chủ sở hữu đăng nhập <ArrowUpRight size={15} /></Link>{accessQuery.data?.ownerConfigured && <Link href="/sign-up" className="signup-link" data-testid="link-owner-signup">Tạo tài khoản</Link>}</div>}
       </div>
     </header>
-    <VoiceAssistant isOwner={isOwner} overview={overview} onSearch={setSearch} onCreate={() => { setDialogRecord('new'); setOperationError(''); }} onEdit={(query) => {
-      const target = records.find((record) => record.employeeName.toLocaleLowerCase('vi').includes(query.toLocaleLowerCase('vi')));
-      if (target) setDialogRecord(target);
-      else setNotice(`Không tìm thấy bản ghi phù hợp với “${query}”.`);
-    }} />
+    <VoiceAssistant isOwner={isOwner} />
+    <MemberDirectory members={membersQuery.data ?? []} history={memberHistoryQuery.data ?? []} selectedId={selectedMemberId} isOwner={isOwner}
+      loading={membersQuery.isLoading} error={membersQuery.isError} historyLoading={memberHistoryQuery.isLoading}
+      onRetry={() => void membersQuery.refetch()} onSelect={setSelectedMemberId}
+      onCreate={(input) => createMember.mutate({ data: input }, { onSuccess: () => { void cache.invalidateQueries({ queryKey: getListMembersQueryKey() }); setNotice('Đã thêm thành viên.'); }, onError: handleError })}
+      onDelete={(member) => {
+        if (!window.confirm(`Xóa ${member.name}? Lịch sử chấm công trước đây vẫn được giữ nguyên và tiếp tục hiển thị trong hồ sơ của họ.`)) return;
+        deleteMember.mutate({ id: member.id }, { onSuccess: () => { void cache.invalidateQueries({ queryKey: getListMembersQueryKey() }); void cache.invalidateQueries({ queryKey: getListAttendanceQueryKey() }); setSelectedMemberId((current) => current === member.id ? null : current); setNotice('Đã xóa thành viên; lịch sử chấm công vẫn được giữ.'); }, onError: handleError });
+      }}
+      busy={createMember.isPending || deleteMember.isPending} />
     <section className="attendance-intro animate-rise">
       <div><div className="eyebrow"><span className="eyebrow-dot" /> NHỊP LÀM VIỆC CỦA NHÓM</div><h1>Chấm công <em>rõ ràng</em>,<br />cùng nhau đúng nhịp.</h1><p>Theo dõi tình hình từng ngày, để cả nhóm biết ai đã vào ca và ai cần được hỏi thăm.</p></div>
       <div className="attendance-date-card"><span className="section-kicker">NGÀY ĐANG XEM</span><label htmlFor="attendance-date">Chọn ngày</label><input id="attendance-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} data-testid="input-attendance-date" /><span className="date-caption"><CalendarDays size={15} />{formatDate(date)}</span></div>
@@ -713,8 +687,42 @@ function AttendanceHome() {
       </div>
     </section>
     <footer className="workspace-footer"><span className="footer-brand"><span className="tiny-mark"><CheckCheck size={13} /></span> Cùng Làm</span><span>Rõ nhịp mỗi ngày, nhẹ lòng cả nhóm.</span><span className="footer-access"><span className="live-dot" /> Dữ liệu chấm công được chia sẻ</span></footer>
-    {dialogRecord !== null && isOwner && <AttendanceDialog record={dialogRecord === 'new' ? null : dialogRecord} busy={createRecord.isPending || updateRecord.isPending} error={operationError} initialDate={date} onClose={() => { setDialogRecord(null); setOperationError(''); }} onSubmit={submitAttendance} />}
+     {dialogRecord !== null && isOwner && <AttendanceDialog record={dialogRecord === 'new' ? null : dialogRecord} busy={createRecord.isPending || updateRecord.isPending} error={operationError} initialDate={date} onClose={() => { setDialogRecord(null); setOperationError(''); }} onSubmit={submitAttendance} />}
   </main>;
+}
+
+function MemberDirectory({ members, history, selectedId, isOwner, loading, error, historyLoading, onRetry, onSelect, onCreate, onDelete, busy }: {
+  members: MemberRecord[]; history: AttendanceRecord[]; selectedId: number | null; isOwner: boolean; loading: boolean; error: boolean; historyLoading: boolean;
+  onRetry: () => void; onSelect: (id: number | null) => void; onCreate: (input: MemberInput) => void; onDelete: (member: MemberRecord) => void; busy: boolean;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [formError, setFormError] = useState('');
+  const form = useForm<MemberInput>({ defaultValues: { name: '' } });
+  const selected = members.find((member) => member.id === selectedId);
+  function submit(values: MemberInput) {
+    setFormError('');
+    const name = values.name.trim();
+    if (!name) { setFormError('Hãy nhập tên thành viên.'); return; }
+    onCreate({ name });
+    form.reset({ name: '' });
+    setAdding(false);
+  }
+  return <section className="member-directory" aria-labelledby="member-directory-title" data-testid="section-member-directory">
+    <div className="section-title-row"><div><span className="section-kicker">NHỮNG NGƯỜI CÙNG LÀM</span><div className="title-line"><h2 id="member-directory-title">Thành viên nhóm</h2><span className="task-count">{loading ? '…' : members.length}</span></div></div>
+      {isOwner && <button className="button-primary" type="button" onClick={() => setAdding((value) => !value)} data-testid="button-add-member"><Plus size={17} />Thêm thành viên</button>}
+    </div>
+    {adding && isOwner && <div className="member-form-panel"><Form {...form}><form onSubmit={form.handleSubmit(submit)}><label className="form-label" htmlFor="member-name">Tên thành viên <span>*</span><input id="member-name" autoFocus maxLength={120} {...form.register('name', { required: 'Hãy nhập tên thành viên.', maxLength: { value: 120, message: 'Tên không quá 120 ký tự.' } })} placeholder="Ví dụ: Minh Anh" data-testid="input-member-name" /></label>{(formError || form.formState.errors.name?.message) && <p role="alert" className="form-error">{formError || form.formState.errors.name?.message}</p>}<div className="dialog-actions"><button type="button" className="button-secondary" onClick={() => { setAdding(false); setFormError(''); }}>Hủy</button><button className="button-primary" type="submit" disabled={busy} data-testid="button-save-member">{busy && <LoaderCircle className="spin" size={15} />}Lưu thành viên</button></div></form></Form></div>}
+    {error ? <div className="inline-banner danger" role="alert" data-testid="status-members-error"><AlertCircle size={16} /><span>Không tải được danh sách thành viên.</span><button onClick={onRetry}>Thử lại</button></div> : loading ? <div className="member-skeleton" aria-label="Đang tải thành viên"><span /><span /><span /></div> : members.length === 0 ? <div className="member-empty" data-testid="status-empty-members"><Users size={20} /><p>Chưa có thành viên nào trong nhóm.</p>{isOwner && <span>Thêm người đầu tiên để bắt đầu ghi nhận ca làm.</span>}</div> : <div className="member-layout">
+      <ul className="member-list" aria-label="Danh sách thành viên" data-testid="list-members">{members.map((member) => <li key={member.id} className={selectedId === member.id ? 'selected' : ''} data-testid={`item-member-${member.id}`}>
+        <button type="button" className="member-select" onClick={() => onSelect(selectedId === member.id ? null : member.id)} aria-pressed={selectedId === member.id} aria-label={`Xem lịch sử chấm công của ${member.name}`} data-testid={`button-select-member-${member.id}`}><span className="person-initials" aria-hidden="true">{member.name.trim().slice(0, 1).toLocaleUpperCase('vi')}</span><span><strong>{member.name}</strong><small>Chọn để xem lịch sử ca</small></span><ArrowUpRight size={15} /></button>
+        {isOwner && <button type="button" className="icon-button delete member-delete" onClick={() => onDelete(member)} aria-label={`Xóa ${member.name}`} data-testid={`button-delete-member-${member.id}`} disabled={busy}><Trash2 size={15} /></button>}
+      </li>)}</ul>
+      {selected && <section className="member-history" aria-labelledby="member-history-title" data-testid="section-member-history"><div className="member-history-heading"><div><span className="section-kicker">LỊCH SỬ CA LÀM</span><h3 id="member-history-title">{selected.name}</h3></div><button className="icon-button" type="button" onClick={() => onSelect(null)} aria-label="Đóng lịch sử" data-testid="button-close-member-history"><X size={17} /></button></div>
+        {historyLoading ? <div className="member-skeleton"><span /><span /><span /></div> : history.filter((item) => item.memberId === selected.id || item.employeeName === selected.name).length === 0 ? <p className="member-history-empty">Chưa có lịch sử chấm công cho thành viên này.</p> : <div className="attendance-table-wrap"><table className="attendance-table"><caption>Tất cả ngày làm việc của {selected.name}</caption><thead><tr><th scope="col">Ngày làm việc</th><th scope="col">Tình trạng</th><th scope="col">Vào ca</th><th scope="col">Tan ca</th><th scope="col">Ghi chú</th></tr></thead><tbody>{history.filter((item) => item.memberId === selected.id || item.employeeName === selected.name).sort((a, b) => b.workDate.localeCompare(a.workDate)).map((item) => <tr key={item.id} data-testid={`row-member-history-${item.id}`}><th scope="row">{formatDate(item.workDate)}</th><td><span className={`attendance-status ${item.status}`}><span className="status-dot" />{attendanceStatusLabel(item.status)}</span></td><td>{item.checkIn ?? 'Chưa ghi nhận'}</td><td>{item.checkOut ?? 'Chưa ghi nhận'}</td><td>{item.note || '—'}</td></tr>)}</tbody></table></div>}
+      </section>}
+    </div>}
+    <p className="member-history-note">Xóa thành viên không xóa các bản ghi chấm công cũ.</p>
+  </section>;
 }
 
 function AttendanceStat({ label, value, tone }: { label: string; value: number; tone: string }) {
@@ -724,10 +732,19 @@ function AttendanceStat({ label, value, tone }: { label: string; value: number; 
 function AttendanceDialog({ record, busy, error, initialDate, onClose, onSubmit }: {
   record: AttendanceRecord | null; busy: boolean; error: string; initialDate: string; onClose: () => void; onSubmit: (input: AttendanceInput) => void;
 }) {
+  const membersQuery = useListMembers({ query: { queryKey: getListMembersQueryKey() } });
   const form = useForm<AttendanceInput>({
-    defaultValues: record ? { employeeName: record.employeeName, workDate: record.workDate, checkIn: record.checkIn ?? '', checkOut: record.checkOut ?? '', status: record.status, note: record.note ?? '' } : { employeeName: '', workDate: initialDate, checkIn: '', checkOut: '', status: 'present', note: '' },
+    defaultValues: record ? { memberId: record.memberId ?? 0, employeeName: record.employeeName, workDate: record.workDate, checkIn: record.checkIn ?? '', checkOut: record.checkOut ?? '', status: record.status, note: record.note ?? '' } : { memberId: 0, employeeName: '', workDate: initialDate, checkIn: '', checkOut: '', status: 'present', note: '' },
   });
-  const validation = form.formState.errors.employeeName?.message ?? form.formState.errors.workDate?.message;
+  useEffect(() => {
+    if (record) return;
+    const first = membersQuery.data?.[0];
+    if (first && !form.getValues('memberId')) {
+      form.setValue('memberId', first.id);
+      form.setValue('employeeName', first.name);
+    }
+  }, [form, membersQuery.data, record]);
+  const validation = form.formState.errors.memberId?.message ?? form.formState.errors.employeeName?.message ?? form.formState.errors.workDate?.message;
   useEffect(() => {
     function handleKey(event: KeyboardEvent) {
       if (event.key === 'Escape' && !busy) onClose();
@@ -746,8 +763,8 @@ function AttendanceDialog({ record, busy, error, initialDate, onClose, onSubmit 
       }
     }}>
       <div className="dialog-heading"><div><span className="section-kicker">{record ? 'CHỈNH SỬA BẢN GHI' : 'THÊM VÀO NGÀY'}</span><h2 id="attendance-dialog-title">{record ? 'Cập nhật chấm công' : 'Thêm bản ghi chấm công'}</h2></div><button type="button" className="dialog-close" onClick={onClose} disabled={busy} aria-label="Đóng hộp thoại chấm công" data-testid="button-close-attendance-dialog"><X size={19} /></button></div>
-      <Form {...form}><form onSubmit={form.handleSubmit((values) => onSubmit({ ...values, employeeName: values.employeeName.trim(), checkIn: values.checkIn || null, checkOut: values.checkOut || null, note: values.note?.trim() || null }))}>
-        <label className="form-label" htmlFor="attendance-employee">Tên nhân sự <span>*</span><input id="attendance-employee" autoFocus maxLength={120} {...form.register('employeeName', { required: 'Hãy nhập tên nhân sự.', maxLength: { value: 120, message: 'Tên không quá 120 ký tự.' } })} placeholder="Ví dụ: Minh Anh" data-testid="input-attendance-employee" /></label>
+       <Form {...form}><form onSubmit={form.handleSubmit((values) => onSubmit({ ...values, employeeName: membersQuery.data?.find((member) => member.id === Number(values.memberId))?.name ?? values.employeeName.trim(), memberId: Number(values.memberId), checkIn: values.checkIn || null, checkOut: values.checkOut || null, note: values.note?.trim() || null }))}>
+         <label className="form-label" htmlFor="attendance-member">Thành viên <span>*</span><select id="attendance-member" {...form.register('memberId', { valueAsNumber: true, required: 'Hãy chọn thành viên.', min: { value: 1, message: 'Hãy chọn thành viên.' }, onChange: (event) => { const member = membersQuery.data?.find((item) => item.id === Number(event.target.value)); form.setValue('employeeName', member?.name ?? ''); } })} data-testid="select-attendance-member"><option value={0}>{membersQuery.isLoading ? 'Đang tải thành viên…' : 'Chọn thành viên'}</option>{membersQuery.data?.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select></label>
         <label className="form-label" htmlFor="attendance-work-date">Ngày làm việc <span>*</span><input id="attendance-work-date" type="date" {...form.register('workDate', { required: 'Hãy chọn ngày làm việc.' })} data-testid="input-attendance-work-date" /></label>
         <div className="form-two"><label className="form-label" htmlFor="attendance-check-in">Giờ vào ca<input id="attendance-check-in" type="time" {...form.register('checkIn')} data-testid="input-attendance-check-in" /></label><label className="form-label" htmlFor="attendance-check-out">Giờ tan ca<input id="attendance-check-out" type="time" {...form.register('checkOut')} data-testid="input-attendance-check-out" /></label></div>
         <label className="form-label" htmlFor="attendance-status">Tình trạng<select id="attendance-status" {...form.register('status')} data-testid="select-attendance-form-status"><option value="present">Có mặt</option><option value="late">Đi muộn</option><option value="absent">Vắng</option><option value="leave">Nghỉ phép</option></select></label>

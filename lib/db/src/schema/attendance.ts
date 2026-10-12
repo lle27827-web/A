@@ -1,6 +1,7 @@
 import { createInsertSchema } from "drizzle-zod";
-import { date, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { date, integer, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
 import { z } from "zod/v4";
+import { membersTable } from "./members";
 
 export const attendanceStatuses = ["present", "late", "absent", "leave"] as const;
 
@@ -8,6 +9,7 @@ export type AttendanceStatus = (typeof attendanceStatuses)[number];
 
 export const attendanceTable = pgTable("attendance", {
   id: serial("id").primaryKey(),
+  memberId: integer("member_id").references(() => membersTable.id, { onDelete: "set null" }),
   employeeName: varchar("employee_name", { length: 120 }).notNull(),
   workDate: date("work_date", { mode: "string" }).notNull(),
   checkIn: varchar("check_in", { length: 5 }),

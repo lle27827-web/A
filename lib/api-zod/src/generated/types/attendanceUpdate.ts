@@ -8,6 +8,8 @@
 import type { AttendanceStatus } from './attendanceStatus';
 
 export interface AttendanceUpdate {
+  /** @nullable */
+  memberId?: number | null;
   /**
      * @minLength 1
      * @maxLength 120

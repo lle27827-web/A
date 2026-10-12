@@ -14,6 +14,10 @@ tags:
     description: Công việc
   - name: attendance
     description: Chấm công
+  - name: members
+    description: Thành viên
+  - name: assistant
+    description: Trợ lý thông minh
   - name: auth
     description: Quyền truy cập
 paths:
@@ -155,6 +159,88 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AccessStatus"
+  /members:
+    get:
+      operationId: listMembers
+      tags: [members]
+      summary: Xem danh sách thành viên
+      responses:
+        "200":
+          description: Danh sách thành viên
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MemberRecord"
+    post:
+      operationId: createMember
+      tags: [members]
+      summary: Thêm thành viên (chỉ chủ sở hữu)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberInput"
+      responses:
+        "201":
+          description: Thành viên đã được tạo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberRecord"
+        "400":
+          description: Dữ liệu không hợp lệ
+        "401":
+          description: Cần đăng nhập
+        "403":
+          description: Chỉ chủ sở hữu được phép thao tác
+  /members/{id}:
+    delete:
+      operationId: deleteMember
+      tags: [members]
+      summary: Xóa thành viên (chỉ chủ sở hữu, giữ lịch sử chấm công)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Thành viên đã được xóa; lịch sử ca làm được giữ lại
+        "401":
+          description: Cần đăng nhập
+        "403":
+          description: Chỉ chủ sở hữu được phép thao tác
+        "404":
+          description: Không tìm thấy thành viên
+  /assistant:
+    post:
+      operationId: askAssistant
+      tags: [assistant]
+      summary: Hỏi trợ lý về dữ liệu công việc và chấm công
+      description: Gửi hội thoại cùng dữ liệu ứng dụng liên quan tới AI để trả lời hoặc đề xuất một thao tác; không thực hiện thao tác thay đổi.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssistantRequest"
+      responses:
+        "200":
+          description: Câu trả lời và đề xuất thao tác nếu có
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssistantResponse"
+        "400":
+          description: Yêu cầu không hợp lệ
+        "401":
+          description: Cần đăng nhập để dùng trợ lý AI
+        "503":
+          description: Dịch vụ trợ lý AI chưa sẵn sàng
   /attendance:
     get:
       operationId: listAttendance
@@ -174,6 +260,10 @@ paths:
           name: status
           schema:
             $ref: "#/components/schemas/AttendanceStatus"
+        - in: query
+          name: memberId
+          schema:
+            type: integer
       responses:
         "200":
           description: Danh sách chấm công
@@ -396,6 +486,8 @@ components:
       properties:
         id:
           type: integer
+        memberId:
+          type: ["integer", "null"]
         employeeName:
           type: string
         workDate:
@@ -417,10 +509,12 @@ components:
         updatedAt:
           type: string
           format: date-time
-      required: [id, employeeName, workDate, checkIn, checkOut, status, note, createdAt, updatedAt]
+      required: [id, memberId, employeeName, workDate, checkIn, checkOut, status, note, createdAt, updatedAt]
     AttendanceInput:
       type: object
       properties:
+        memberId:
+          type: integer
         employeeName:
           type: string
           minLength: 1
@@ -439,10 +533,12 @@ components:
         note:
           type: ["string", "null"]
           maxLength: 2000
-      required: [employeeName, workDate, status]
+      required: [memberId, employeeName, workDate, status]
     AttendanceUpdate:
       type: object
       properties:
+        memberId:
+          type: ["integer", "null"]
         employeeName:
           type: string
           minLength: 1
@@ -482,4 +578,75 @@ components:
         checkedOut:
           type: integer
       required: [date, total, present, late, absent, leave, checkedIn, checkedOut]
+    MemberRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, createdAt]
+    MemberInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+      required: [name]
+    AssistantMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+          maxLength: 4000
+      required: [role, content]
+    AssistantRequest:
+      type: object
+      properties:
+        messages:
+          type: array
+          minItems: 1
+          maxItems: 14
+          items:
+            $ref: "#/components/schemas/AssistantMessage"
+      required: [messages]
+    AssistantActionKind:
+      type: string
+      enum:
+        - create_task
+        - update_task
+        - delete_task
+        - create_attendance
+        - update_attendance
+        - delete_attendance
+        - create_member
+        - delete_member
+    AssistantAction:
+      type: object
+      properties:
+        kind:
+          $ref: "#/components/schemas/AssistantActionKind"
+        id:
+          type: ["integer", "null"]
+        summary:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+      required: [kind, id, summary, payload]
+    AssistantResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        action:
+          $ref: "#/components/schemas/AssistantAction"
+      required: [message]
 

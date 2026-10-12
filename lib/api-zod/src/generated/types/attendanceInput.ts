@@ -8,6 +8,7 @@
 import type { AttendanceStatus } from './attendanceStatus';
 
 export interface AttendanceInput {
+  memberId: number;
   /**
      * @minLength 1
      * @maxLength 120

@@ -110,6 +110,8 @@ export const AttendanceStatus = {
 
 export interface AttendanceRecord {
   id: number;
+  /** @nullable */
+  memberId: number | null;
   employeeName: string;
   /** @pattern ^\d{4}-\d{2}-\d{2}$ */
   workDate: string;
@@ -131,6 +133,7 @@ export interface AttendanceRecord {
 }
 
 export interface AttendanceInput {
+  memberId: number;
   /**
      * @minLength 1
      * @maxLength 120
@@ -157,6 +160,8 @@ export interface AttendanceInput {
 }
 
 export interface AttendanceUpdate {
+  /** @nullable */
+  memberId?: number | null;
   /**
      * @minLength 1
      * @maxLength 120
@@ -194,6 +199,71 @@ export interface AttendanceSummary {
   checkedOut: number;
 }
 
+export interface MemberRecord {
+  id: number;
+  name: string;
+  createdAt: string;
+}
+
+export interface MemberInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name: string;
+}
+
+export type AssistantMessageRole = typeof AssistantMessageRole[keyof typeof AssistantMessageRole];
+
+
+export const AssistantMessageRole = {
+  user: 'user',
+  assistant: 'assistant',
+} as const;
+
+export interface AssistantMessage {
+  role: AssistantMessageRole;
+  /** @maxLength 4000 */
+  content: string;
+}
+
+export interface AssistantRequest {
+  /**
+     * @minItems 1
+     * @maxItems 14
+     */
+  messages: AssistantMessage[];
+}
+
+export type AssistantActionKind = typeof AssistantActionKind[keyof typeof AssistantActionKind];
+
+
+export const AssistantActionKind = {
+  create_task: 'create_task',
+  update_task: 'update_task',
+  delete_task: 'delete_task',
+  create_attendance: 'create_attendance',
+  update_attendance: 'update_attendance',
+  delete_attendance: 'delete_attendance',
+  create_member: 'create_member',
+  delete_member: 'delete_member',
+} as const;
+
+export type AssistantActionPayload = { [key: string]: unknown };
+
+export interface AssistantAction {
+  kind: AssistantActionKind;
+  /** @nullable */
+  id: number | null;
+  summary: string;
+  payload: AssistantActionPayload;
+}
+
+export interface AssistantResponse {
+  message: string;
+  action?: AssistantAction;
+}
+
 export type ListTasksParams = {
 search?: string;
 status?: TaskStatus;
@@ -207,6 +277,7 @@ export type ListAttendanceParams = {
 date?: string;
 search?: string;
 status?: AttendanceStatus;
+memberId?: number;
 };
 
 export type GetAttendanceSummaryParams = {

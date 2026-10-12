@@ -9,6 +9,8 @@ import type { AttendanceStatus } from './attendanceStatus';
 
 export interface AttendanceRecord {
   id: number;
+  /** @nullable */
+  memberId: number | null;
   employeeName: string;
   /** @pattern ^\d{4}-\d{2}-\d{2}$ */
   workDate: string;

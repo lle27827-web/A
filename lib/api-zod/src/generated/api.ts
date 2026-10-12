@@ -148,6 +148,73 @@ export const GetCurrentAccessResponse = zod.object({
 
 
 /**
+ * @summary Xem danh sách thành viên
+ */
+export const ListMembersResponseItem = zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const ListMembersResponse = zod.array(ListMembersResponseItem)
+
+
+/**
+ * @summary Thêm thành viên (chỉ chủ sở hữu)
+ */
+export const createMemberBodyNameMax = 120;
+
+
+
+export const CreateMemberBody = zod.object({
+  "name": zod.string().min(1).max(createMemberBodyNameMax)
+})
+
+export const CreateMemberResponse = zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Xóa thành viên (chỉ chủ sở hữu, giữ lịch sử chấm công)
+ */
+export const DeleteMemberParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const DeleteMemberResponse = zod.void()
+
+
+/**
+ * Gửi hội thoại cùng dữ liệu ứng dụng liên quan tới AI để trả lời hoặc đề xuất một thao tác; không thực hiện thao tác thay đổi.
+ * @summary Hỏi trợ lý về dữ liệu công việc và chấm công
+ */
+export const askAssistantBodyMessagesItemContentMax = 4000;
+
+export const askAssistantBodyMessagesMax = 14;
+
+
+
+export const AskAssistantBody = zod.object({
+  "messages": zod.array(zod.object({
+  "role": zod.enum(['user', 'assistant']),
+  "content": zod.string().max(askAssistantBodyMessagesItemContentMax)
+})).min(1).max(askAssistantBodyMessagesMax)
+})
+
+export const AskAssistantResponse = zod.object({
+  "message": zod.string(),
+  "action": zod.object({
+  "kind": zod.enum(['create_task', 'update_task', 'delete_task', 'create_attendance', 'update_attendance', 'delete_attendance', 'create_member', 'delete_member']),
+  "id": zod.number().int().nullable(),
+  "summary": zod.string(),
+  "payload": zod.record(zod.string(), zod.unknown())
+}).optional()
+})
+
+
+/**
  * @summary Xem danh sách chấm công
  */
 export const listAttendanceQueryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
@@ -156,7 +223,8 @@ export const listAttendanceQueryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$'
 export const ListAttendanceQueryParams = zod.object({
   "date": zod.coerce.string().regex(listAttendanceQueryDateRegExp).optional(),
   "search": zod.coerce.string().optional(),
-  "status": zod.enum(['present', 'late', 'absent', 'leave']).optional()
+  "status": zod.enum(['present', 'late', 'absent', 'leave']).optional(),
+  "memberId": zod.coerce.number().int().optional()
 })
 
 export const listAttendanceResponseWorkDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
@@ -166,6 +234,7 @@ export const listAttendanceResponseCheckOutRegExp = new RegExp('^([01]\\d|2[0-3]
 
 export const ListAttendanceResponseItem = zod.object({
   "id": zod.number().int(),
+  "memberId": zod.number().int().nullable(),
   "employeeName": zod.string(),
   "workDate": zod.string().regex(listAttendanceResponseWorkDateRegExp),
   "checkIn": zod.string().regex(listAttendanceResponseCheckInRegExp).nullable(),
@@ -191,6 +260,7 @@ export const createAttendanceBodyNoteMax = 2000;
 
 
 export const CreateAttendanceBody = zod.object({
+  "memberId": zod.number().int(),
   "employeeName": zod.string().min(1).max(createAttendanceBodyEmployeeNameMax),
   "workDate": zod.string().regex(createAttendanceBodyWorkDateRegExp),
   "checkIn": zod.string().regex(createAttendanceBodyCheckInRegExp).nullish(),
@@ -206,6 +276,7 @@ export const createAttendanceResponseCheckOutRegExp = new RegExp('^([01]\\d|2[0-
 
 export const CreateAttendanceResponse = zod.object({
   "id": zod.number().int(),
+  "memberId": zod.number().int().nullable(),
   "employeeName": zod.string(),
   "workDate": zod.string().regex(createAttendanceResponseWorkDateRegExp),
   "checkIn": zod.string().regex(createAttendanceResponseCheckInRegExp).nullable(),
@@ -259,6 +330,7 @@ export const updateAttendanceBodyNoteMax = 2000;
 
 
 export const UpdateAttendanceBody = zod.object({
+  "memberId": zod.number().int().nullish(),
   "employeeName": zod.string().min(1).max(updateAttendanceBodyEmployeeNameMax).optional(),
   "workDate": zod.string().regex(updateAttendanceBodyWorkDateRegExp).optional(),
   "checkIn": zod.string().regex(updateAttendanceBodyCheckInRegExp).nullish(),
@@ -274,6 +346,7 @@ export const updateAttendanceResponseCheckOutRegExp = new RegExp('^([01]\\d|2[0-
 
 export const UpdateAttendanceResponse = zod.object({
   "id": zod.number().int(),
+  "memberId": zod.number().int().nullable(),
   "employeeName": zod.string(),
   "workDate": zod.string().regex(updateAttendanceResponseWorkDateRegExp),
   "checkIn": zod.string().regex(updateAttendanceResponseCheckInRegExp).nullable(),

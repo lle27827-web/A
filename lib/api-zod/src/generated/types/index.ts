@@ -7,6 +7,13 @@
  */
 
 export * from './accessStatus';
+export * from './assistantAction';
+export * from './assistantActionKind';
+export * from './assistantActionPayload';
+export * from './assistantMessage';
+export * from './assistantMessageRole';
+export * from './assistantRequest';
+export * from './assistantResponse';
 export * from './attendanceInput';
 export * from './attendanceRecord';
 export * from './attendanceStatus';
@@ -16,6 +23,8 @@ export * from './getAttendanceSummaryParams';
 export * from './healthStatus';
 export * from './listAttendanceParams';
 export * from './listTasksParams';
+export * from './memberInput';
+export * from './memberRecord';
 export * from './task';
 export * from './taskInput';
 export * from './taskPriority';

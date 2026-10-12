@@ -21,6 +21,8 @@ import type {
 
 import type {
   AccessStatus,
+  AssistantRequest,
+  AssistantResponse,
   AttendanceInput,
   AttendanceRecord,
   AttendanceSummary,
@@ -29,6 +31,8 @@ import type {
   HealthStatus,
   ListAttendanceParams,
   ListTasksParams,
+  MemberInput,
+  MemberRecord,
   Task,
   TaskInput,
   TaskSummary,
@@ -628,6 +632,334 @@ export function useGetCurrentAccess<TData = Awaited<ReturnType<typeof getCurrent
 
 
 
+
+export const getListMembersUrl = () => {
+
+
+
+
+  return `/api/members`
+}
+
+/**
+ * @summary Xem danh sách thành viên
+ */
+export const listMembers = async ( options?: Parameters<typeof customFetch>[1]): Promise<MemberRecord[]> => {
+
+  return customFetch<MemberRecord[]>(getListMembersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMembersQueryKey = () => {
+    return [
+    `/api/members`
+    ] as const;
+    }
+
+
+export const getListMembersQueryOptions = <TData = Awaited<ReturnType<typeof listMembers>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMembersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMembers>>> = ({ signal }) => listMembers({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMembers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMembersQueryResult = NonNullable<Awaited<ReturnType<typeof listMembers>>>
+export type ListMembersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Xem danh sách thành viên
+ */
+
+export function useListMembers<TData = Awaited<ReturnType<typeof listMembers>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMembersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateMemberUrl = () => {
+
+
+
+
+  return `/api/members`
+}
+
+/**
+ * @summary Thêm thành viên (chỉ chủ sở hữu)
+ */
+export const createMember = async (memberInput: MemberInput, options?: Parameters<typeof customFetch>[1]): Promise<MemberRecord> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<MemberRecord>(getCreateMemberUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(memberInput)
+  }
+);}
+
+
+
+
+
+export const getCreateMemberMutationKey = () => ['createMember'] as const;
+
+export const getCreateMemberMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMember>>, TError,CreateMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createMember>>, TError,CreateMemberMutationVariables, TContext> => {
+
+const mutationKey = getCreateMemberMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createMember>>, CreateMemberMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createMember(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateMemberMutationResult = NonNullable<Awaited<ReturnType<typeof createMember>>>
+    export type CreateMemberMutationBody = BodyType<MemberInput>
+    export type CreateMemberMutationError = ErrorType<void>
+    export type CreateMemberMutationVariables = {data: BodyType<MemberInput>}
+
+    /**
+ * @summary Thêm thành viên (chỉ chủ sở hữu)
+ */
+export const useCreateMember = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMember>>, TError,CreateMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createMember>>,
+        TError,
+        CreateMemberMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateMemberMutationOptions(options));
+    }
+
+export const getDeleteMemberUrl = (id: number,) => {
+
+
+
+
+  return `/api/members/${id}`
+}
+
+/**
+ * @summary Xóa thành viên (chỉ chủ sở hữu, giữ lịch sử chấm công)
+ */
+export const deleteMember = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteMemberUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteMemberMutationKey = () => ['deleteMember'] as const;
+
+export const getDeleteMemberMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMember>>, TError,DeleteMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteMember>>, TError,DeleteMemberMutationVariables, TContext> => {
+
+const mutationKey = getDeleteMemberMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMember>>, DeleteMemberMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteMember(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteMemberMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMember>>>
+
+    export type DeleteMemberMutationError = ErrorType<void>
+    export type DeleteMemberMutationVariables = {id: number}
+
+    /**
+ * @summary Xóa thành viên (chỉ chủ sở hữu, giữ lịch sử chấm công)
+ */
+export const useDeleteMember = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMember>>, TError,DeleteMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteMember>>,
+        TError,
+        DeleteMemberMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteMemberMutationOptions(options));
+    }
+
+export const getAskAssistantUrl = () => {
+
+
+
+
+  return `/api/assistant`
+}
+
+/**
+ * Gửi hội thoại cùng dữ liệu ứng dụng liên quan tới AI để trả lời hoặc đề xuất một thao tác; không thực hiện thao tác thay đổi.
+ * @summary Hỏi trợ lý về dữ liệu công việc và chấm công
+ */
+export const askAssistant = async (assistantRequest: AssistantRequest, options?: Parameters<typeof customFetch>[1]): Promise<AssistantResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AssistantResponse>(getAskAssistantUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(assistantRequest)
+  }
+);}
+
+
+
+
+
+export const getAskAssistantMutationKey = () => ['askAssistant'] as const;
+
+export const getAskAssistantMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof askAssistant>>, TError,AskAssistantMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof askAssistant>>, TError,AskAssistantMutationVariables, TContext> => {
+
+const mutationKey = getAskAssistantMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof askAssistant>>, AskAssistantMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  askAssistant(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AskAssistantMutationResult = NonNullable<Awaited<ReturnType<typeof askAssistant>>>
+    export type AskAssistantMutationBody = BodyType<AssistantRequest>
+    export type AskAssistantMutationError = ErrorType<void>
+    export type AskAssistantMutationVariables = {data: BodyType<AssistantRequest>}
+
+    /**
+ * @summary Hỏi trợ lý về dữ liệu công việc và chấm công
+ */
+export const useAskAssistant = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof askAssistant>>, TError,AskAssistantMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof askAssistant>>,
+        TError,
+        AskAssistantMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAskAssistantMutationOptions(options));
+    }
 
 export const getListAttendanceUrl = (params?: ListAttendanceParams,) => {
   const normalizedParams = new URLSearchParams();
