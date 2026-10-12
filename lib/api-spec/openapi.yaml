@@ -3,7 +3,7 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API cho danh sách công việc chỉ chủ sở hữu mới được chỉnh sửa
+  description: API quản lý công việc và chấm công; chỉ chủ sở hữu được chỉnh sửa dữ liệu
 servers:
   - url: /api
     description: Base API path
@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: tasks
     description: Công việc
+  - name: attendance
+    description: Chấm công
   - name: auth
     description: Quyền truy cập
 paths:
@@ -153,6 +155,131 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AccessStatus"
+  /attendance:
+    get:
+      operationId: listAttendance
+      tags: [attendance]
+      summary: Xem danh sách chấm công
+      parameters:
+        - in: query
+          name: date
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}-\d{2}$'
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: status
+          schema:
+            $ref: "#/components/schemas/AttendanceStatus"
+      responses:
+        "200":
+          description: Danh sách chấm công
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AttendanceRecord"
+        "400":
+          description: Bộ lọc không hợp lệ
+    post:
+      operationId: createAttendance
+      tags: [attendance]
+      summary: Tạo bản ghi chấm công (chỉ chủ sở hữu)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttendanceInput"
+      responses:
+        "201":
+          description: Bản ghi chấm công đã được tạo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceRecord"
+        "400":
+          description: Dữ liệu không hợp lệ
+        "401":
+          description: Cần đăng nhập
+        "403":
+          description: Chỉ chủ sở hữu được phép thao tác
+  /attendance/summary:
+    get:
+      operationId: getAttendanceSummary
+      tags: [attendance]
+      summary: Thống kê chấm công theo ngày
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}-\d{2}$'
+      responses:
+        "200":
+          description: Số lượng bản ghi theo trạng thái
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceSummary"
+        "400":
+          description: Ngày không hợp lệ
+  /attendance/{id}:
+    patch:
+      operationId: updateAttendance
+      tags: [attendance]
+      summary: Cập nhật bản ghi chấm công (chỉ chủ sở hữu)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttendanceUpdate"
+      responses:
+        "200":
+          description: Bản ghi chấm công đã được cập nhật
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceRecord"
+        "400":
+          description: Dữ liệu không hợp lệ
+        "401":
+          description: Cần đăng nhập
+        "403":
+          description: Chỉ chủ sở hữu được phép thao tác
+        "404":
+          description: Không tìm thấy bản ghi
+    delete:
+      operationId: deleteAttendance
+      tags: [attendance]
+      summary: Xóa bản ghi chấm công (chỉ chủ sở hữu)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Bản ghi chấm công đã được xóa
+        "401":
+          description: Cần đăng nhập
+        "403":
+          description: Chỉ chủ sở hữu được phép thao tác
+        "404":
+          description: Không tìm thấy bản ghi
 components:
   schemas:
     HealthStatus:
@@ -261,4 +388,98 @@ components:
         ownerConfigured:
           type: boolean
       required: [signedIn, isOwner, ownerConfigured]
+    AttendanceStatus:
+      type: string
+      enum: [present, late, absent, leave]
+    AttendanceRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        employeeName:
+          type: string
+        workDate:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        checkIn:
+          type: ["string", "null"]
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+        checkOut:
+          type: ["string", "null"]
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+        status:
+          $ref: "#/components/schemas/AttendanceStatus"
+        note:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, employeeName, workDate, checkIn, checkOut, status, note, createdAt, updatedAt]
+    AttendanceInput:
+      type: object
+      properties:
+        employeeName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        workDate:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        checkIn:
+          type: ["string", "null"]
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+        checkOut:
+          type: ["string", "null"]
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+        status:
+          $ref: "#/components/schemas/AttendanceStatus"
+        note:
+          type: ["string", "null"]
+          maxLength: 2000
+      required: [employeeName, workDate, status]
+    AttendanceUpdate:
+      type: object
+      properties:
+        employeeName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        workDate:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        checkIn:
+          type: ["string", "null"]
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+        checkOut:
+          type: ["string", "null"]
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+        status:
+          $ref: "#/components/schemas/AttendanceStatus"
+        note:
+          type: ["string", "null"]
+          maxLength: 2000
+    AttendanceSummary:
+      type: object
+      properties:
+        date:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        total:
+          type: integer
+        present:
+          type: integer
+        late:
+          type: integer
+        absent:
+          type: integer
+        leave:
+          type: integer
+        checkedIn:
+          type: integer
+        checkedOut:
+          type: integer
+      required: [date, total, present, late, absent, leave, checkedIn, checkedOut]
 

@@ -42,7 +42,7 @@ export const requireOwner: RequestHandler = async (req, res, next): Promise<void
   }
 
   if (!status.isOwner) {
-    res.status(403).json({ error: "Chỉ chủ sở hữu mới được thay đổi công việc." });
+    res.status(403).json({ error: "Chỉ chủ sở hữu mới được thay đổi dữ liệu." });
     return;
   }
 
