@@ -35,41 +35,44 @@ const clerkAppearance = {
     logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
   },
   variables: {
-    colorPrimary: '#2d6959',
-    colorForeground: '#233b35',
-    colorMutedForeground: '#66736d',
-    colorDanger: '#a83d38',
-    colorBackground: '#ffffff',
-    colorInput: '#f8f5ed',
-    colorInputForeground: '#233b35',
-    colorNeutral: '#d9d5ca',
+    colorPrimary: '#f8c93f',
+    colorPrimaryForeground: '#0b0c0e',
+    colorForeground: '#f8f7f4',
+    colorMutedForeground: '#b9bcc2',
+    colorMuted: '#1a1c20',
+    colorDanger: '#f28b82',
+    colorBackground: '#111317',
+    colorInput: '#1a1c20',
+    colorInputForeground: '#f8f7f4',
+    colorNeutral: '#f8f7f4',
+    colorBorder: '#30333a',
     fontFamily: 'DM Sans, sans-serif',
     borderRadius: '0.8rem',
   },
   elements: {
     rootBox: 'w-full flex justify-center',
-    cardBox: 'bg-[#fffdf8] rounded-2xl w-[440px] max-w-full overflow-hidden shadow-xl',
+    cardBox: 'bg-[#111317] border border-[#30333a] rounded-2xl w-[440px] max-w-full overflow-hidden shadow-xl',
     card: '!shadow-none !border-0 !bg-transparent !rounded-none',
     footer: '!shadow-none !border-0 !bg-transparent !rounded-none',
-    headerTitle: 'text-[#233b35] font-bold tracking-tight',
-    headerSubtitle: 'text-[#66736d]',
-    socialButtonsBlockButtonText: 'text-[#233b35] font-semibold',
-    formFieldLabel: 'text-[#233b35] font-semibold',
-    footerActionLink: 'text-[#2d6959] font-semibold',
-    footerActionText: 'text-[#66736d]',
-    dividerText: 'text-[#66736d]',
-    identityPreviewEditButton: 'text-[#2d6959]',
-    formFieldSuccessText: 'text-[#2d6959]',
-    alertText: 'text-[#7d332f]',
+    headerTitle: 'text-[#f8f7f4] font-bold tracking-tight',
+    headerSubtitle: 'text-[#b9bcc2]',
+    socialButtonsBlockButtonText: 'text-[#f8f7f4] font-semibold',
+    formFieldLabel: 'text-[#f8f7f4] font-semibold',
+    footerActionLink: 'text-[#f8c93f] font-semibold',
+    footerActionText: 'text-[#b9bcc2]',
+    dividerText: 'text-[#b9bcc2]',
+    identityPreviewEditButton: 'text-[#f8c93f]',
+    formFieldSuccessText: 'text-[#8fe0b4]',
+    alertText: 'text-[#f8f7f4]',
     logoBox: 'mb-2',
     logoImage: 'rounded-xl',
-    socialButtonsBlockButton: 'border-[#d9d5ca] bg-[#fffdf8] hover:bg-[#f4f0e7]',
-    formButtonPrimary: 'bg-[#2d6959] hover:bg-[#25574a] text-white shadow-none',
-    formFieldInput: 'bg-[#f8f5ed] border-[#d9d5ca] text-[#233b35]',
-    footerAction: 'border-t border-[#e4dfd4]',
-    dividerLine: 'bg-[#d9d5ca]',
-    alert: 'bg-[#fbefeb] border-[#e9c5bd]',
-    otpCodeFieldInput: 'border-[#d9d5ca] bg-[#f8f5ed]',
+    socialButtonsBlockButton: 'border-[#30333a] bg-[#1a1c20] hover:bg-[#24272c] text-[#f8f7f4]',
+    formButtonPrimary: 'bg-[#f8c93f] hover:bg-[#f0bb20] text-[#0b0c0e] shadow-none',
+    formFieldInput: 'bg-[#1a1c20] border-[#30333a] text-[#f8f7f4]',
+    footerAction: 'border-t border-[#30333a]',
+    dividerLine: 'bg-[#30333a]',
+    alert: 'bg-[#2a1715] border-[#7a3a34]',
+    otpCodeFieldInput: 'border-[#30333a] bg-[#1a1c20] text-[#f8f7f4]',
     formFieldRow: 'gap-1.5',
     main: 'gap-5',
   },
@@ -112,7 +115,7 @@ function SignInPage() {
 function SignUpPage() {
   return (
     <AuthFrame>
-      <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
+      <SignUp appearance={clerkAppearance} routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
     </AuthFrame>
   );
 }
@@ -136,7 +139,7 @@ function ClerkRoutes() {
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
       localization={{
-        signIn: { start: { title: 'Chào mừng trở lại', subtitle: 'Đăng nhập để quản lý thành viên và ca làm.' } },
+        signIn: { start: { title: 'Chào mừng trở lại', subtitle: 'Đăng nhập để quản lý Nhân viên và ca làm.' } },
         signUp: { start: { title: 'Tạo tài khoản chủ sở hữu', subtitle: 'Quản lý chấm công cho cả nhóm.' } },
       }}
       routerPush={(to) => setLocation(stripBase(to))}

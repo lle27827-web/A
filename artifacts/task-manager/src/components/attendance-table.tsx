@@ -19,7 +19,7 @@ export function AttendanceTable({ records, caption, isOwner, showDate, busy, onE
         <caption>{caption}</caption>
         <thead>
           <tr>
-            <th scope="col">Thành viên</th>
+            <th scope="col">Nhân viên</th>
             {showDate && <th scope="col">Ngày</th>}
             <th scope="col">Tình trạng</th>
             <th scope="col">Vào ca</th>

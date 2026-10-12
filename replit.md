@@ -1,6 +1,6 @@
 # Cùng Làm
 
-Ứng dụng quản lý thành viên và chấm công: mọi người có thể xem, chỉ chủ sở hữu được phép thay đổi dữ liệu.
+Ứng dụng quản lý nhân viên và chấm công: mọi người có thể xem, chỉ chủ sở hữu được phép thay đổi dữ liệu.
 
 ## Run & Operate
 
@@ -36,9 +36,11 @@
 
 ## Product
 
-The app manages members and attendance with a white background and top search for member names and shifts. Selecting a member shows full shift history. The owner can add/delete members and add/edit/delete attendance after signing in with the configured Clerk account.
+The user wants two views, Chủ and Nhân viên, both with black backgrounds and white text. Keep search at the top and use “Nhân viên” rather than “Thành viên” in the interface. A settings gear selects the view and the employee displayed in the employee view, with the selection remembered on the current browser.
 
-The user removed the AI assistant and the Công việc feature. There are no active AI endpoints or voice features. Historical task data remains in the database; do not drop it without explicit permission.
+Choosing the Chủ view is a presentation preference, never authorization. Only the verified owner account may edit in that view; the Nhân viên view is read-only even when previewed by the owner. Employee selection is a display filter, not a private employee-account access boundary: the existing public-read policy remains unchanged.
+
+Selecting an employee shows shift history. The owner can add/delete employees and add/edit/delete attendance after signing in with the configured Clerk account. The current app has no active AI endpoints, voice features, or Công việc feature. Historical task data remains in the database; do not drop it without explicit permission.
 
 ## Gotchas
 

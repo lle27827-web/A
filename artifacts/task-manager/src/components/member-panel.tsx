@@ -24,33 +24,33 @@ export function MemberList({ members, selectedId, isOwner, loading, error, busy,
   return (
     <section className="panel members" aria-labelledby="members-title" data-testid="section-members">
       <div className="panel-head">
-        <h2 id="members-title">Thành viên <span className="count" data-testid="text-member-count">{loading ? '…' : members.length}</span></h2>
+        <h2 id="members-title">Nhân viên <span className="count" data-testid="text-member-count">{loading ? '…' : members.length}</span></h2>
         {isOwner && <button type="button" className="btn small" onClick={() => setAdding((v) => !v)} aria-expanded={adding} data-testid="button-add-member"><Plus size={14} />Thêm</button>}
       </div>
       {adding && isOwner && (
         <Form {...form}>
           <form className="member-form" onSubmit={form.handleSubmit((values) => onCreate({ name: values.name.trim() }, () => { form.reset({ name: '' }); setAdding(false); }))}>
-            <label className="sr-only" htmlFor="member-name">Tên thành viên</label>
-            <input id="member-name" autoFocus maxLength={120} placeholder="Tên thành viên" {...form.register('name', { validate: (v) => v.trim().length > 0 || 'Hãy nhập tên thành viên.' })} data-testid="input-member-name" />
+            <label className="sr-only" htmlFor="member-name">Tên Nhân viên</label>
+            <input id="member-name" autoFocus maxLength={120} placeholder="Tên Nhân viên" {...form.register('name', { validate: (v) => v.trim().length > 0 || 'Hãy nhập tên Nhân viên.' })} data-testid="input-member-name" />
             <button type="submit" className="btn primary small" disabled={busy} data-testid="button-save-member">{busy ? <LoaderCircle className="spin" size={14} /> : 'Lưu'}</button>
-            <button type="button" className="icon-btn" onClick={() => setAdding(false)} aria-label="Hủy thêm thành viên"><X size={15} /></button>
+            <button type="button" className="icon-btn" onClick={() => setAdding(false)} aria-label="Hủy thêm Nhân viên"><X size={15} /></button>
             {form.formState.errors.name && <p className="form-error" role="alert">{form.formState.errors.name.message}</p>}
           </form>
         </Form>
       )}
       {error ? (
-        <div className="banner danger" role="alert" data-testid="status-members-error"><AlertCircle size={15} /><span>Không tải được thành viên.</span><button type="button" onClick={onRetry}>Thử lại</button></div>
-      ) : loading ? <TableSkeleton label="Đang tải thành viên" /> : members.length === 0 ? (
-        <div className="empty small" data-testid="status-empty-members"><Users size={18} /><p>Chưa có thành viên.{isOwner ? ' Thêm người đầu tiên để bắt đầu.' : ''}</p></div>
+        <div className="banner danger" role="alert" data-testid="status-members-error"><AlertCircle size={15} /><span>Không tải được Nhân viên.</span><button type="button" onClick={onRetry}>Thử lại</button></div>
+      ) : loading ? <TableSkeleton label="Đang tải Nhân viên" /> : members.length === 0 ? (
+        <div className="empty small" data-testid="status-empty-members"><Users size={18} /><p>Chưa có Nhân viên.{isOwner ? ' Thêm người đầu tiên để bắt đầu.' : ''}</p></div>
       ) : (
-        <ul className="member-list" aria-label="Danh sách thành viên" data-testid="list-members">
+        <ul className="member-list" aria-label="Danh sách Nhân viên" data-testid="list-members">
           {members.map((m) => (
             <li key={m.id} className={selectedId === m.id ? 'selected' : ''}>
               <button type="button" className="member-btn" onClick={() => onSelect(selectedId === m.id ? null : m.id)} aria-pressed={selectedId === m.id} data-testid={`button-select-member-${m.id}`}>
                 <span className="initials" aria-hidden="true">{initial(m.name)}</span>
                 <span className="member-name">{m.name}</span>
               </button>
-              {isOwner && <button type="button" className="icon-btn danger" onClick={() => onDelete(m)} disabled={busy} aria-label={`Xóa thành viên ${m.name}`} data-testid={`button-delete-member-${m.id}`}><Trash2 size={14} /></button>}
+              {isOwner && <button type="button" className="icon-btn danger" onClick={() => onDelete(m)} disabled={busy} aria-label={`Xóa Nhân viên ${m.name}`} data-testid={`button-delete-member-${m.id}`}><Trash2 size={14} /></button>}
             </li>
           ))}
         </ul>
@@ -84,13 +84,13 @@ export function MemberHistory({ member, records, loading, error, isOwner, busy, 
         </div>
         <div className="head-actions">
           {isOwner && <button type="button" className="btn small" onClick={onAdd} data-testid="button-add-member-shift"><Plus size={14} />Thêm ca</button>}
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Đóng lịch sử thành viên" data-testid="button-close-member-history"><X size={16} /></button>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Đóng lịch sử Nhân viên" data-testid="button-close-member-history"><X size={16} /></button>
         </div>
       </div>
       {error ? (
         <div className="banner danger" role="alert"><AlertCircle size={15} /><span>Không tải được lịch sử ca.</span><button type="button" onClick={onRetry}>Thử lại</button></div>
       ) : loading ? <TableSkeleton label="Đang tải lịch sử ca" /> : sorted.length === 0 ? (
-        <div className="empty small" data-testid="status-empty-history"><p>Thành viên này chưa có ca nào được ghi nhận.</p></div>
+        <div className="empty small" data-testid="status-empty-history"><p>Nhân viên này chưa có ca nào được ghi nhận.</p></div>
       ) : (
         <AttendanceTable records={sorted} caption={`Toàn bộ ca làm của ${member.name}, mới nhất trước`} isOwner={isOwner} showDate busy={busy} onEdit={onEdit} onDelete={onDelete} testId="member-history" />
       )}

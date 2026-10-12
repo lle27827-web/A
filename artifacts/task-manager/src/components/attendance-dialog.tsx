@@ -57,13 +57,13 @@ export function AttendanceDialog({ record, members, busy, error, initialDate, in
           <button type="button" className="icon-btn" onClick={onClose} disabled={busy} aria-label="Đóng hộp thoại" data-testid="button-close-attendance-dialog"><X size={18} /></button>
         </div>
         {members.length === 0 && !record ? (
-          <p className="form-error" role="alert">Hãy thêm thành viên trước khi ghi nhận ca làm.</p>
+          <p className="form-error" role="alert">Hãy thêm Nhân viên trước khi ghi nhận ca làm.</p>
         ) : (
           <Form {...form}>
             <form onSubmit={form.handleSubmit(submit)} className="form-grid">
-              <label className="field" htmlFor="attendance-member">Thành viên
-                <select id="attendance-member" autoFocus {...form.register('memberId', { valueAsNumber: true, min: { value: record?.memberId === null ? 0 : 1, message: 'Hãy chọn thành viên.' } })} data-testid="select-attendance-member">
-                  <option value={0}>{record && record.memberId === null ? `${record.employeeName} (đã xóa)` : 'Chọn thành viên'}</option>
+              <label className="field" htmlFor="attendance-member">Nhân viên
+                <select id="attendance-member" autoFocus {...form.register('memberId', { valueAsNumber: true, min: { value: record?.memberId === null ? 0 : 1, message: 'Hãy chọn Nhân viên.' } })} data-testid="select-attendance-member">
+                  <option value={0}>{record && record.memberId === null ? `${record.employeeName} (đã xóa)` : 'Chọn Nhân viên'}</option>
                   {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
               </label>
