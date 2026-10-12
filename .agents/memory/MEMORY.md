@@ -1,0 +1,1 @@
+- [React workspace compatibility](react-workspace-compatibility.md) — keep Clerk's web React peer range isolated from the Expo-pinned workspace versions.
