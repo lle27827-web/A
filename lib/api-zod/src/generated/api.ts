@@ -522,7 +522,6 @@ export const ListServiceSessionsQueryParams = zod.object({
 })
 
 export const ListServiceSessionsResponseItem = zod.object({
-  "cardDeleted": zod.boolean().optional().describe('Thẻ đã xóa khỏi danh sách, ca và lương vẫn được giữ lại.'),
   "id": zod.number().int(),
   "cardId": zod.number().int().nullable(),
   "memberId": zod.number().int().nullable(),
@@ -566,7 +565,6 @@ export const CreateServiceSessionBody = zod.object({
 })
 
 export const CreateServiceSessionResponse = zod.object({
-  "cardDeleted": zod.boolean().optional().describe('Thẻ đã xóa khỏi danh sách, ca và lương vẫn được giữ lại.'),
   "id": zod.number().int(),
   "cardId": zod.number().int().nullable(),
   "memberId": zod.number().int().nullable(),
@@ -616,7 +614,6 @@ export const UpdateServiceSessionBody = zod.object({
 })
 
 export const UpdateServiceSessionResponse = zod.object({
-  "cardDeleted": zod.boolean().optional().describe('Thẻ đã xóa khỏi danh sách, ca và lương vẫn được giữ lại.'),
   "id": zod.number().int(),
   "cardId": zod.number().int().nullable(),
   "memberId": zod.number().int().nullable(),

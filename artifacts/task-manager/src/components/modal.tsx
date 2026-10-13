@@ -1,18 +1,28 @@
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import * as D from '@radix-ui/react-dialog';
 import { AlertTriangle, LoaderCircle, X } from 'lucide-react';
 
 export function Modal({ title, description, onClose, children, testId }: { title: string; description?: string; onClose: () => void; children: ReactNode; testId?: string }) {
+  const opener = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }, []);
   return (
     <D.Root open onOpenChange={(o) => { if (!o) onClose(); }}>
       <D.Portal>
         <D.Overlay className="settings-overlay" />
-        <D.Content className="settings-dialog" data-testid={testId} aria-describedby={description ? undefined : undefined}>
+        <D.Content className="settings-dialog" data-testid={testId} onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          requestAnimationFrame(() => {
+            const target = opener.current?.isConnected ? opener.current : document.getElementById('main');
+            target?.focus({ preventScroll: true });
+          });
+        }}>
           <div className="dialog-head">
             <D.Title asChild><h2>{title}</h2></D.Title>
             <D.Close asChild><button type="button" className="icon-btn" aria-label="Đóng"><X size={18} /></button></D.Close>
           </div>
-          <D.Description className="sub" style={{ marginBottom: 14 }}>{description ?? ' '}</D.Description>
+          {description && <D.Description className="sub" style={{ marginBottom: 14 }}>{description}</D.Description>}
           {children}
         </D.Content>
       </D.Portal>

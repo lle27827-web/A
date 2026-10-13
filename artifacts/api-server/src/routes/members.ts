@@ -10,6 +10,7 @@ import {
   UpdateMemberResponse,
 } from "@workspace/api-zod";
 import { db, membersTable } from "@workspace/db";
+import { deleteMember } from "../lib/massage";
 import { requireEditor } from "../middlewares/owner";
 import { massageHandler, parseInput } from "./massage-errors";
 
@@ -50,20 +51,14 @@ router.patch("/members/:id", requireEditor, massageHandler(async (req, res) => {
   res.json(UpdateMemberResponse.parse({ ...member, createdAt: member.createdAt.toISOString() }));
 }));
 
-router.delete("/members/:id", requireEditor, async (req, res): Promise<void> => {
+router.delete("/members/:id", requireEditor, massageHandler(async (req, res): Promise<void> => {
   const params = DeleteMemberParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const [member] = await db.delete(membersTable)
-    .where(eq(membersTable.id, params.data.id))
-    .returning({ id: membersTable.id });
-  if (!member) {
-    res.status(404).json({ error: "Không tìm thấy thành viên." });
-    return;
-  }
+  await deleteMember(params.data.id);
   res.sendStatus(204);
-});
+}));
 
 export default router;

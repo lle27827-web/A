@@ -23,10 +23,13 @@ router.get("/service-sessions", massageHandler(async (req, res) => {
     const { start, end } = monthBounds(q.month);
     filters.push(gte(serviceSessionsTable.workDate, start), lt(serviceSessionsTable.workDate, end));
   }
-  const rows = await db.select({ session: serviceSessionsTable, deletedAt: treatmentCardsTable.deletedAt })
-    .from(serviceSessionsTable).leftJoin(treatmentCardsTable, eq(serviceSessionsTable.cardId, treatmentCardsTable.id)).where(and(...filters))
+  const visibleVisits = sql`(${serviceSessionsTable.cardId} is null or exists (
+    select 1 from ${treatmentCardsTable} where ${treatmentCardsTable.id} = ${serviceSessionsTable.cardId}
+      and ${treatmentCardsTable.deletedAt} is null
+  ))`;
+  const rows = await db.select().from(serviceSessionsTable).where(and(...filters, visibleVisits))
     .orderBy(desc(serviceSessionsTable.workDate), desc(serviceSessionsTable.id));
-  res.json(ListServiceSessionsResponse.parse(rows.map(({ session, deletedAt }) => sessionResponse(session, Boolean(deletedAt)))));
+  res.json(ListServiceSessionsResponse.parse(rows.map(sessionResponse)));
 }));
 router.post("/service-sessions", requireEditor, massageHandler(async (req, res) => {
   res.status(201).json(CreateServiceSessionResponse.parse(await saveSession(parseInput(CreateServiceSessionBody, req.body))));
@@ -42,7 +45,7 @@ router.delete("/service-sessions/:id", requireEditor, massageHandler(async (req,
 router.get("/massage-summary", massageHandler(async (req, res) => {
   const { month, date } = parseInput(GetMassageSummaryQueryParams, req.query);
   res.set("Cache-Control", "private, no-store");
-  res.json(GetMassageSummaryResponse.parse(await getFacilityRevenue(month, date)));
+  res.json(GetMassageSummaryResponse.parse(await getFacilityRevenue(month, date instanceof Date ? date.toISOString().slice(0, 10) : date)));
 }));
 router.get("/member-payroll", massageHandler(async (req, res) => {
   const { memberId, month } = parseInput(GetMemberPayrollQueryParams, req.query);
@@ -53,7 +56,11 @@ router.get("/member-payroll", massageHandler(async (req, res) => {
     minutes: sql<number>`coalesce(sum(${serviceSessionsTable.minutes}), 0)`,
     salary: sql<number>`coalesce(sum(${serviceSessionsTable.earnings}), 0)`,
   }).from(serviceSessionsTable).where(and(eq(serviceSessionsTable.memberId, memberId),
-    gte(serviceSessionsTable.workDate, start), lt(serviceSessionsTable.workDate, end)));
+    gte(serviceSessionsTable.workDate, start), lt(serviceSessionsTable.workDate, end),
+    sql`(${serviceSessionsTable.cardId} is null or exists (
+      select 1 from ${treatmentCardsTable} where ${treatmentCardsTable.id} = ${serviceSessionsTable.cardId}
+        and ${treatmentCardsTable.deletedAt} is null
+    ))`));
   res.json(GetMemberPayrollResponse.parse({
     month, member: { ...member, createdAt: member.createdAt.toISOString() },
     totalMinutes: Number(row.minutes), totalSalary: Number(row.salary),

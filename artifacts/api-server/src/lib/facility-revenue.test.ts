@@ -5,7 +5,7 @@ import { db, pool, serviceSessionsTable, treatmentCardsTable } from "@workspace/
 import { getFacilityRevenue } from "./facility-revenue";
 import { deleteCard } from "./massage";
 
-test("facility report sums service pay and card sales without joining or changing history", async () => {
+test("daily and monthly reports count recorded visits, and deleting a card removes its revenue and visits", async () => {
   const cardIds: number[] = [];
   const sessionIds: number[] = [];
   const month = "2099-02";
@@ -45,13 +45,16 @@ test("facility report sums service pay and card sales without joining or changin
     assert.equal(updated.cardRevenue, after.cardRevenue - 1200);
     assert.equal(updated.revenue, after.revenue - 1200);
     await deleteCard(cards[0].id);
-    const archivedReport = await getFacilityRevenue(month, date);
-    assert.equal(archivedReport.cardRevenue, updated.cardRevenue - 800);
-    assert.equal(archivedReport.serviceRevenue, updated.serviceRevenue);
-    assert.equal(archivedReport.cardVisits, updated.cardVisits);
-    assert.equal(archivedReport.today.cardRevenue, baseline.today.cardRevenue);
-    assert.equal(archivedReport.today.serviceRevenue, baseline.today.serviceRevenue + 150);
-    assert.equal(archivedReport.today.cardVisits, baseline.today.cardVisits + 1);
+    const removedReport = await getFacilityRevenue(month, date);
+    assert.equal(removedReport.cardRevenue, updated.cardRevenue - 800);
+    assert.equal(removedReport.serviceRevenue, updated.serviceRevenue - 200);
+    assert.equal(removedReport.revenue, updated.revenue - 1000);
+    assert.equal(removedReport.cardVisits, updated.cardVisits - 2);
+    assert.equal(removedReport.walkInVisits, updated.walkInVisits);
+    assert.equal(removedReport.cardsSold, updated.cardsSold - 1);
+    assert.equal(removedReport.today.cardRevenue, baseline.today.cardRevenue);
+    assert.equal(removedReport.today.serviceRevenue, baseline.today.serviceRevenue);
+    assert.equal(removedReport.today.cardVisits, baseline.today.cardVisits);
     await assert.rejects(getFacilityRevenue(month, "2099-02-30"));
     await db.delete(serviceSessionsTable).where(inArray(serviceSessionsTable.id, sessionIds));
     sessionIds.length = 0;

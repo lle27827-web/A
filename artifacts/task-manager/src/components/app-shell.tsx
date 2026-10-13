@@ -4,7 +4,7 @@ import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { getGetCurrentAccessQueryKey, getListManagersQueryKey, getListMembersQueryKey, getListTreatmentCardsQueryKey, useGetCurrentAccess, useListMembers } from '@workspace/api-client-react';
 import type { AccessStatus, MemberRecord } from '@workspace/api-client-react';
 import { AlertCircle, ArrowUpRight, Check, Eye, Hand, LoaderCircle, LockKeyhole, RefreshCw, Search, ShieldCheck, ShieldX, X } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { SearchResults } from '@/components/search-results';
 import { ViewSettings, useViewPrefs, type ViewPrefs } from '@/components/view-settings';
 import { statusCode } from '@/lib/attendance';
@@ -87,7 +87,7 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
           {isSignedIn && <SignOutButton />}
         </div>
       </div></header>
-      <main className="main" id="main">
+      <main className="main" id="main" tabIndex={-1}>
         <section className="gate panel" aria-labelledby="gate-title" aria-busy={checking} data-testid="section-access-gate">
           {checking ? (
             <><LoaderCircle className="spin" size={26} aria-hidden="true" /><h1 id="gate-title" className="page-title">Đang xác minh quyền</h1><p className="sub">Dữ liệu chỉ hiện sau khi máy chủ xác nhận vai trò của bạn.</p></>
@@ -128,6 +128,7 @@ function RoleBadge({ label, ok, loading }: { label: string; ok: boolean; loading
 function AuthorizedShell({ access, accessKey, email, roleLabel, recheck, rechecking, children, employeeView }: {
   access: AccessStatus; accessKey: QueryKey; email: string; roleLabel: string; recheck: () => void; rechecking: boolean; children: ReactNode; employeeView: ReactNode;
 }) {
+  const [location] = useLocation();
   const cache = useQueryClient();
   const isOwner = access.isOwner === true;
   const hasManageAccess = access.canManage === true;
@@ -146,6 +147,16 @@ function AuthorizedShell({ access, accessKey, email, roleLabel, recheck, recheck
   const showResults = query.trim().length > 0;
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const lastLocation = useRef(location);
+  useEffect(() => {
+    if (lastLocation.current === location) return;
+    lastLocation.current = location;
+    requestAnimationFrame(() => {
+      const main = document.getElementById('main');
+      const target = main?.querySelector<HTMLElement>('h1, h2') ?? main;
+      target?.focus({ preventScroll: false });
+    });
+  }, [location]);
 
   const ctx: ShellCtx = {
     access, accessKey, accessLoading: false, isOwner, hasManageAccess, canEdit, employeeMode, prefs, members,

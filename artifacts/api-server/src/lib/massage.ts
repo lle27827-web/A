@@ -23,8 +23,8 @@ export function monthBounds(month: string) {
   return { start, end: d.toISOString().slice(0, 10) };
 }
 
-export function sessionResponse(row: typeof serviceSessionsTable.$inferSelect, cardDeleted = false) {
-  return { ...row, cardDeleted, createdAt: row.createdAt.toISOString() };
+export function sessionResponse(row: typeof serviceSessionsTable.$inferSelect) {
+  return { ...row, createdAt: row.createdAt.toISOString() };
 }
 export function cardResponse(row: typeof treatmentCardsTable.$inferSelect, usedMinutes = 0, owner = false) {
   return {
@@ -72,8 +72,18 @@ export async function deleteCard(id: number) {
   await db.transaction(async (tx) => {
     const [card] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
     if (!card || card.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
-    // Keep the original link and snapshots for payroll and card/walk-in counts.
+    // Preserve the audit record; live lists, balances and reports exclude it.
     await tx.update(treatmentCardsTable).set({ deletedAt: new Date() }).where(eq(treatmentCardsTable.id, id));
+  });
+}
+
+export async function deleteMember(id: number) {
+  await db.transaction(async (tx) => {
+    const [member] = await tx.select({ id: membersTable.id }).from(membersTable)
+      .where(eq(membersTable.id, id)).for("update");
+    if (!member) throw new MassageError(404, "Không tìm thấy nhân viên.");
+    await tx.delete(serviceSessionsTable).where(eq(serviceSessionsTable.memberId, id));
+    await tx.delete(membersTable).where(eq(membersTable.id, id));
   });
 }
 
@@ -109,9 +119,7 @@ export async function saveSession(input: ServiceSessionInput, id?: number) {
       if (!row) throw new MassageError(404, "Không tìm thấy thẻ đã chọn.");
       if (lockId === cardId) card = row;
     }
-    if (card?.deletedAt && old?.cardId !== card.id) {
-      throw new MassageError(404, "Thẻ đã bị xóa, không thể ghi thêm lượt sử dụng.");
-    }
+    if (card?.deletedAt) throw new MassageError(404, "Thẻ đã bị xóa, không thể ghi thêm lượt sử dụng.");
     const [member] = await tx.select().from(membersTable).where(eq(membersTable.id, input.memberId));
     if (!member) throw new MassageError(404, "Không tìm thấy kỹ thuật viên.");
     const sameEmployee = old?.memberId === member.id;
@@ -139,7 +147,7 @@ export async function saveSession(input: ServiceSessionInput, id?: number) {
     const [row] = id
       ? await tx.update(serviceSessionsTable).set(values).where(eq(serviceSessionsTable.id, id)).returning()
       : await tx.insert(serviceSessionsTable).values(values).returning();
-    return sessionResponse(row, Boolean(card?.deletedAt));
+    return sessionResponse(row);
   });
 }
 export async function deleteSession(id: number) {

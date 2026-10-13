@@ -7,8 +7,6 @@
  */
 
 export interface ServiceSession {
-  /** Thẻ đã xóa khỏi danh sách, ca và lương vẫn được giữ lại. */
-  cardDeleted?: boolean;
   id: number;
   /** @nullable */
   cardId: number | null;

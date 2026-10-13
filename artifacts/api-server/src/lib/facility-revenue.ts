@@ -17,15 +17,28 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
       select sum(${serviceSessionsTable.earnings}) from ${serviceSessionsTable}
       where ${serviceSessionsTable.workDate} >= ${start}
         and ${serviceSessionsTable.workDate} < ${end}
+        and (${serviceSessionsTable.cardId} is null or exists (
+          select 1 from ${treatmentCardsTable}
+          where ${treatmentCardsTable.id} = ${serviceSessionsTable.cardId}
+            and ${treatmentCardsTable.deletedAt} is null
+        ))
     ), 0)`,
     walkInVisits: sql<number>`(select count(*) from ${serviceSessionsTable}
       where ${serviceSessionsTable.workDate} >= ${start} and ${serviceSessionsTable.workDate} < ${end}
       and ${serviceSessionsTable.cardId} is null)`,
     cardVisits: sql<number>`(select count(*) from ${serviceSessionsTable}
       where ${serviceSessionsTable.workDate} >= ${start} and ${serviceSessionsTable.workDate} < ${end}
-      and ${serviceSessionsTable.cardId} is not null)`,
+      and ${serviceSessionsTable.cardId} is not null
+      and exists (select 1 from ${treatmentCardsTable}
+        where ${treatmentCardsTable.id} = ${serviceSessionsTable.cardId}
+          and ${treatmentCardsTable.deletedAt} is null))`,
     dayServiceRevenue: sql<number>`coalesce((select sum(${serviceSessionsTable.earnings})
-      from ${serviceSessionsTable} where ${serviceSessionsTable.workDate} = ${date}), 0)`,
+      from ${serviceSessionsTable} where ${serviceSessionsTable.workDate} = ${date}
+      and (${serviceSessionsTable.cardId} is null or exists (
+        select 1 from ${treatmentCardsTable}
+        where ${treatmentCardsTable.id} = ${serviceSessionsTable.cardId}
+          and ${treatmentCardsTable.deletedAt} is null
+      ))), 0)`,
     dayCardRevenue: sql<number>`coalesce((select sum(${treatmentCardsTable.purchaseAmount})
       from ${treatmentCardsTable} where ${treatmentCardsTable.purchaseDate} = ${date}
       and ${treatmentCardsTable.deletedAt} is null), 0)`,
@@ -34,7 +47,10 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
     dayWalkInVisits: sql<number>`(select count(*) from ${serviceSessionsTable}
       where ${serviceSessionsTable.workDate} = ${date} and ${serviceSessionsTable.cardId} is null)`,
     dayCardVisits: sql<number>`(select count(*) from ${serviceSessionsTable}
-      where ${serviceSessionsTable.workDate} = ${date} and ${serviceSessionsTable.cardId} is not null)`,
+      where ${serviceSessionsTable.workDate} = ${date} and ${serviceSessionsTable.cardId} is not null
+      and exists (select 1 from ${treatmentCardsTable}
+        where ${treatmentCardsTable.id} = ${serviceSessionsTable.cardId}
+          and ${treatmentCardsTable.deletedAt} is null))`,
   }).from(treatmentCardsTable).where(and(
     gte(treatmentCardsTable.purchaseDate, start),
     lt(treatmentCardsTable.purchaseDate, end),

@@ -4,13 +4,19 @@ import { ArrowRight, CreditCard, Users } from 'lucide-react';
 import { Link } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { ErrorBanner } from '@/components/modal';
-import { localDate } from '@/lib/attendance';
+import { formatShortDate } from '@/lib/attendance';
 import { formatMonth, formatVnd, monthOf } from '@/lib/massage';
 
 export default function HomePage() {
   const { query } = useShell();
-  const month = monthOf(localDate());
-  const summaryParams = useMemo(() => ({ month }), [month]);
+  const today = useMemo(() => {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date()).map((part) => [part.type, part.value]));
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  }, []);
+  const month = monthOf(today);
+  const summaryParams = useMemo(() => ({ month, date: today }), [month, today]);
   const summary = useGetMassageSummary(summaryParams, { query: { queryKey: getGetMassageSummaryQueryKey(summaryParams), refetchOnWindowFocus: true, staleTime: 20_000, refetchInterval: 60_000 } });
 
   // While searching, the shared SearchResults (mounted in AppShell) replaces the home tiles and report.
@@ -33,16 +39,22 @@ export default function HomePage() {
         </Link>
       </div>
       <section className="revenue" aria-labelledby="rev-title" data-testid="section-revenue">
-        <p id="rev-title" className="rev-label">Tổng doanh thu cơ sở · {formatMonth(month)}</p>
+        <h1 id="rev-title" className="rev-label">Tổng doanh thu cơ sở · {formatMonth(month)}</h1>
         {summary.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải doanh thu" /> : summary.isError ? <ErrorBanner text="Không tải được doanh thu." onRetry={() => void summary.refetch()} /> : (
           <>
             <p className="rev-value mono" data-testid="text-revenue">{formatVnd(summary.data?.revenue ?? 0)}</p>
             <dl className="rev-breakdown">
-              <div><dt>Doanh thu dịch vụ</dt><dd className="mono" data-testid="text-service-revenue">{formatVnd(summary.data?.serviceRevenue ?? 0)}</dd></div>
-              <p className="hint">Tổng lương đã ghi của mọi ca phục vụ trong tháng (theo ngày làm).</p>
-              <div><dt>Tổng doanh thu bán thẻ</dt><dd className="mono" data-testid="text-card-revenue">{formatVnd(summary.data?.cardRevenue ?? 0)}</dd></div>
-              <p className="hint" data-testid="text-cards-sold">{summary.data?.cardsSold ?? 0} thẻ bán ra · theo tiền bán thẻ và ngày mua</p>
+              <div><dt>Doanh thu dịch vụ (tháng)</dt><dd className="mono" data-testid="text-service-revenue">{formatVnd(summary.data?.serviceRevenue ?? 0)}</dd></div>
+              <div><dt>Doanh thu bán thẻ (tháng)</dt><dd className="mono" data-testid="text-card-revenue">{formatVnd(summary.data?.cardRevenue ?? 0)}</dd></div>
+              <div><dt>Khách lẻ (tháng)</dt><dd className="mono" data-testid="text-walk-in-visits">{summary.data?.walkInVisits ?? 0} lượt</dd></div>
+              <div><dt>Khách thẻ (tháng)</dt><dd className="mono" data-testid="text-card-visits">{summary.data?.cardVisits ?? 0} lượt</dd></div>
+              <div className="today-heading"><dt>Doanh thu hôm nay · {formatShortDate(today)}</dt><dd className="mono" data-testid="text-today-revenue">{formatVnd(summary.data?.today.revenue ?? 0)}</dd></div>
+              <div><dt>Dịch vụ hôm nay</dt><dd className="mono" data-testid="text-today-service-revenue">{formatVnd(summary.data?.today.serviceRevenue ?? 0)}</dd></div>
+              <div><dt>Bán thẻ hôm nay</dt><dd className="mono" data-testid="text-today-card-revenue">{formatVnd(summary.data?.today.cardRevenue ?? 0)}</dd></div>
+              <div><dt>Khách lẻ hôm nay</dt><dd className="mono" data-testid="text-today-walk-in-visits">{summary.data?.today.walkInVisits ?? 0} lượt</dd></div>
+              <div><dt>Khách thẻ hôm nay</dt><dd className="mono" data-testid="text-today-card-visits">{summary.data?.today.cardVisits ?? 0} lượt</dd></div>
             </dl>
+            <p className="hint">Doanh thu dịch vụ tính theo lương ca đã chấm công. Mỗi ca là một lượt khách; tiền thẻ tính theo ngày mua.</p>
           </>
         )}
       </section>

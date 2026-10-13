@@ -64,12 +64,9 @@ export default function CardDetailPage() {
   }
   function askDeleteCard() {
     if (!card) return;
-    const used = sessions.length;
     setConfirm({
       title: `Xóa thẻ của ${card.customerName}?`,
-      body: used > 0
-        ? <p>Thẻ còn {used} lần dùng. Hãy xóa các lần dùng trước; máy chủ sẽ từ chối xóa thẻ.</p>
-        : <p>Thẻ và tiền bán {formatVnd(card.purchaseAmount)} sẽ bị gỡ khỏi doanh thu ngày {formatShortDate(card.purchaseDate)}. Không thể hoàn tác.</p>,
+      body: <p>Xóa thẻ sẽ xóa vĩnh viễn {sessions.length} ca sử dụng liên quan, tiền bán {formatVnd(card.purchaseAmount)}, lương, lượt khách và lịch sử của các ca đó khỏi báo cáo. Không thể hoàn tác.</p>,
       confirmLabel: 'Xóa thẻ',
       onConfirm: () => deleteCard.mutate({ id: card.id }, { onSuccess: () => { refresh(); setConfirm(null); notify('Đã xóa thẻ.'); navigate('/cards'); }, onError: (e) => { setConfirm(null); fail(e); } }),
     });
@@ -113,7 +110,7 @@ export default function CardDetailPage() {
         {sessionsQuery.isLoading ? <Skeleton rows={3} label="Đang tải lịch sử" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được lịch sử sử dụng." onRetry={() => void sessionsQuery.refetch()} /> : sessions.length === 0 ? (
           <div className="empty small"><CreditCard size={18} /><p>Thẻ chưa được sử dụng.</p></div>
         ) : (
-          <SessionTable sessions={sessions} caption="Các lần dùng thẻ, mới nhất trước" canEdit={canEdit} showDate showEmployee busy={deleteSession.isPending}
+          <SessionTable sessions={sessions} caption="Lịch sử dùng thẻ. Ngày là ngày phục vụ; giờ ghi là lúc lưu ca." canEdit={canEdit} showDate showTime showEmployee busy={deleteSession.isPending}
             onEdit={(s) => { setDialogError(''); setSessionDialog({ session: s }); }} onDelete={askDeleteSession} testId="card-usages" />
         )}
       </section>

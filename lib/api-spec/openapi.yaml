@@ -721,7 +721,6 @@ components:
       type: object
       required: [id, cardId, memberId, employeeName, customerName, serviceType, serviceTypeId, workDate, minutes, hourlyRate, earnings, note, createdAt]
       properties:
-        cardDeleted: { type: boolean, description: "Thẻ đã xóa khỏi danh sách, ca và lương vẫn được giữ lại." }
         id: { type: integer }
         cardId: { type: ["integer", "null"] }
         memberId: { type: ["integer", "null"] }
@@ -757,7 +756,7 @@ components:
         cardRevenue: { type: number, description: "Tổng tiền bán thẻ theo ngày mua." }
         cardsSold: { type: integer }
         walkInVisits: { type: integer, description: "Số ca không dùng thẻ; mỗi ca là một lượt khách." }
-        cardVisits: { type: integer, description: "Số ca dùng thẻ, kể cả thẻ đã xóa." }
+        cardVisits: { type: integer, description: "Số ca dùng các thẻ đang hoạt động." }
         today: { $ref: "#/components/schemas/DailyRevenue" }
     DailyRevenue:
       type: object

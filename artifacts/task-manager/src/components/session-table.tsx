@@ -4,8 +4,8 @@ import { Link } from 'wouter';
 import { formatShortDate } from '@/lib/attendance';
 import { formatMinutes, formatVnd } from '@/lib/massage';
 
-export function SessionTable({ sessions, caption, canEdit, showDate, showEmployee, linkCards, visibleActions, busy, onEdit, onDelete, testId }: {
-  sessions: ServiceSession[]; caption: string; canEdit: boolean; showDate?: boolean; showEmployee?: boolean; linkCards?: boolean; visibleActions?: boolean; busy?: boolean;
+export function SessionTable({ sessions, caption, canEdit, showDate, showTime, showEmployee, linkCards, visibleActions, busy, onEdit, onDelete, testId }: {
+  sessions: ServiceSession[]; caption: string; canEdit: boolean; showDate?: boolean; showTime?: boolean; showEmployee?: boolean; linkCards?: boolean; visibleActions?: boolean; busy?: boolean;
   onEdit: (s: ServiceSession) => void; onDelete: (s: ServiceSession) => void; testId: string;
 }) {
   return (
@@ -29,7 +29,14 @@ export function SessionTable({ sessions, caption, canEdit, showDate, showEmploye
             const orphan = s.memberId === null;
             return (
               <tr key={s.id} data-testid={`row-session-${s.id}`}>
-                {showDate && <td className="mono nowrap">{formatShortDate(s.workDate)}</td>}
+                {showDate && <td className="mono nowrap"><time dateTime={s.workDate}>{formatShortDate(s.workDate)}</time>
+                  {showTime && (() => {
+                    const recordedAt = new Date(s.createdAt);
+                    const hm = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' }).format(recordedAt);
+                    const full = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'long', timeStyle: 'short' }).format(recordedAt);
+                    return <span className="muted"><br /><time dateTime={s.createdAt} aria-label={`Giờ ghi ca: ${full}`} title={`Giờ ghi ca: ${full}`}>Ghi {hm}</time></span>;
+                  })()}
+                </td>}
                 {showEmployee && <td className="nowrap">{orphan ? <span className="orphan"><UserX size={13} />{s.employeeName} (đã xóa)</span> : s.employeeName}</td>}
                 <td>
                   <div className="cell-stack">

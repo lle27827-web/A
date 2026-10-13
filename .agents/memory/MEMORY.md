@@ -1,3 +1,4 @@
 - [React workspace compatibility](react-workspace-compatibility.md) — keep Clerk's web React peer range isolated from the Expo-pinned workspace versions.
 - [Orval parameter collisions](orval-parameter-collisions.md) — mixed path/query parameters can generate duplicate exports; fix the contract, not generated files.
 - [Scrollable table accessibility](scrollable-table-accessibility.md) — position scrollports so absolute screen-reader labels cannot escape clipping and widen the document.
+- [Archived treatment cards](archived-cards.md) — keep archived cards in storage; exclude their visits, wages, sales and balances from active views.

@@ -40,7 +40,7 @@ export default function EmployeesPage() {
     if (!canEdit) return;
     setConfirm({
       title: `Xóa nhân viên ${m.name}?`,
-      body: <p>{m.name} sẽ bị gỡ khỏi danh sách. Các ca và lương đã ghi vẫn được giữ trong lịch sử, đánh dấu "đã xóa", và vẫn tính vào doanh thu. Không thể hoàn tác.</p>,
+      body: <p>Xóa {m.name} cũng sẽ xóa toàn bộ ca, lịch sử sử dụng thẻ và lương đã ghi của nhân viên này khỏi báo cáo. Không thể hoàn tác.</p>,
       confirmLabel: 'Xóa nhân viên',
       onConfirm: () => del.mutate({ id: m.id }, { onSuccess: () => { refresh({ members: true }); setConfirm(null); notify(`Đã xóa nhân viên ${m.name}.`); }, onError: (e) => { setConfirm(null); fail(e); } }),
     });
