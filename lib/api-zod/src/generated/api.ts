@@ -641,11 +641,12 @@ export const DeleteServiceSessionResponse = zod.void()
 
 
 export const getMassageSummaryQueryMonthRegExp = new RegExp('^\\d{4}-(0[1-9]|1[0-2])$');
+export const getMassageSummaryQueryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
 
 
 export const GetMassageSummaryQueryParams = zod.object({
   "month": zod.coerce.string().regex(getMassageSummaryQueryMonthRegExp),
-  "date": zod.date().optional().describe('Ngày báo cáo, mặc định hôm nay tại Việt Nam.')
+  "date": zod.coerce.string().regex(getMassageSummaryQueryDateRegExp).optional().describe('Ngày báo cáo YYYY-MM-DD, mặc định hôm nay tại Việt Nam.')
 })
 
 export const GetMassageSummaryResponse = zod.object({
@@ -655,7 +656,7 @@ export const GetMassageSummaryResponse = zod.object({
   "cardRevenue": zod.number().describe('Tổng tiền bán thẻ theo ngày mua.'),
   "cardsSold": zod.number().int(),
   "walkInVisits": zod.number().int().describe('Số ca không dùng thẻ; mỗi ca là một lượt khách.'),
-  "cardVisits": zod.number().int().describe('Số ca dùng thẻ, kể cả thẻ đã xóa.'),
+  "cardVisits": zod.number().int().describe('Số ca dùng các thẻ đang hoạt động.'),
   "today": zod.object({
   "date": zod.coerce.date(),
   "revenue": zod.number(),

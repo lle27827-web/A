@@ -336,7 +336,7 @@ export interface MassageSummary {
   cardsSold: number;
   /** Số ca không dùng thẻ; mỗi ca là một lượt khách. */
   walkInVisits: number;
-  /** Số ca dùng thẻ, kể cả thẻ đã xóa. */
+  /** Số ca dùng các thẻ đang hoạt động. */
   cardVisits: number;
   today: DailyRevenue;
 }
@@ -390,7 +390,8 @@ export type GetMassageSummaryParams = {
  */
 month: string;
 /**
- * Ngày báo cáo, mặc định hôm nay tại Việt Nam.
+ * Ngày báo cáo YYYY-MM-DD, mặc định hôm nay tại Việt Nam.
+ * @pattern ^\d{4}-\d{2}-\d{2}$
  */
 date?: string;
 };

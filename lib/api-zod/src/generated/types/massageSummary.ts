@@ -18,7 +18,7 @@ export interface MassageSummary {
   cardsSold: number;
   /** Số ca không dùng thẻ; mỗi ca là một lượt khách. */
   walkInVisits: number;
-  /** Số ca dùng thẻ, kể cả thẻ đã xóa. */
+  /** Số ca dùng các thẻ đang hoạt động. */
   cardVisits: number;
   today: DailyRevenue;
 }

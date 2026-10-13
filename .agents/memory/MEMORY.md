@@ -2,3 +2,4 @@
 - [Orval parameter collisions](orval-parameter-collisions.md) — mixed path/query parameters can generate duplicate exports; fix the contract, not generated files.
 - [Scrollable table accessibility](scrollable-table-accessibility.md) — position scrollports so absolute screen-reader labels cannot escape clipping and widen the document.
 - [Archived treatment cards](archived-cards.md) — keep archived cards in storage; exclude their visits, wages, sales and balances from active views.
+- [OpenAPI date query strings](openapi-date-query-strings.md) — keep URL dates as validated `YYYY-MM-DD` strings; Express query values arrive as text.

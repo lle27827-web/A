@@ -45,7 +45,7 @@ router.delete("/service-sessions/:id", requireEditor, massageHandler(async (req,
 router.get("/massage-summary", massageHandler(async (req, res) => {
   const { month, date } = parseInput(GetMassageSummaryQueryParams, req.query);
   res.set("Cache-Control", "private, no-store");
-  res.json(GetMassageSummaryResponse.parse(await getFacilityRevenue(month, date instanceof Date ? date.toISOString().slice(0, 10) : date)));
+  res.json(GetMassageSummaryResponse.parse(await getFacilityRevenue(month, date)));
 }));
 router.get("/member-payroll", massageHandler(async (req, res) => {
   const { memberId, month } = parseInput(GetMemberPayrollQueryParams, req.query);
