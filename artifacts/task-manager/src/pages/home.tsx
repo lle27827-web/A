@@ -5,7 +5,7 @@ import { Link } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { ErrorBanner } from '@/components/modal';
 import { formatShortDate } from '@/lib/attendance';
-import { formatMonth, formatVnd, monthOf } from '@/lib/massage';
+import { formatMinutes, formatMonth, formatVnd, monthOf } from '@/lib/massage';
 
 export default function HomePage() {
   const { query } = useShell();
@@ -46,17 +46,17 @@ export default function HomePage() {
             <dl className="rev-breakdown">
               <div><dt>Doanh thu dịch vụ (tháng)</dt><dd className="mono" data-testid="text-service-revenue">{formatVnd(summary.data?.serviceRevenue ?? 0)}</dd></div>
               <div><dt>Doanh thu bán thẻ (tháng)</dt><dd className="mono" data-testid="text-card-revenue">{formatVnd(summary.data?.cardRevenue ?? 0)}</dd></div>
-              <div className="net-revenue-row"><dt>Tổng doanh thu tháng · không gồm lương ca dùng thẻ</dt><dd className="mono" data-testid="text-net-revenue">{formatVnd(summary.data?.revenueExcludingCardSessions ?? 0)}</dd></div>
+              <div className="net-revenue-row"><dt>Tổng doanh thu tháng · bỏ lương ca dùng thẻ</dt><dd className="net-revenue-values"><strong className="mono" data-testid="text-net-revenue">{formatVnd(summary.data?.revenueExcludingCardSessions ?? 0)}</strong><span data-testid="text-net-revenue-hours">Khách lẻ: {formatMinutes(summary.data?.walkInServiceMinutes ?? 0)}</span></dd></div>
               <div><dt>Khách lẻ (tháng)</dt><dd className="mono" data-testid="text-walk-in-visits">{summary.data?.walkInVisits ?? 0} lượt</dd></div>
               <div><dt>Khách thẻ (tháng)</dt><dd className="mono" data-testid="text-card-visits">{summary.data?.cardVisits ?? 0} lượt</dd></div>
               <div className="today-heading"><dt>Doanh thu hôm nay · {formatShortDate(today)}</dt><dd className="mono" data-testid="text-today-revenue">{formatVnd(summary.data?.today.revenue ?? 0)}</dd></div>
               <div><dt>Dịch vụ hôm nay</dt><dd className="mono" data-testid="text-today-service-revenue">{formatVnd(summary.data?.today.serviceRevenue ?? 0)}</dd></div>
               <div><dt>Bán thẻ hôm nay</dt><dd className="mono" data-testid="text-today-card-revenue">{formatVnd(summary.data?.today.cardRevenue ?? 0)}</dd></div>
-              <div className="net-revenue-row"><dt>Tổng doanh thu hôm nay · không gồm lương ca dùng thẻ</dt><dd className="mono" data-testid="text-today-net-revenue">{formatVnd(summary.data?.today.revenueExcludingCardSessions ?? 0)}</dd></div>
+              <div className="net-revenue-row"><dt>Tổng doanh thu hôm nay · bỏ lương ca dùng thẻ</dt><dd className="net-revenue-values"><strong className="mono" data-testid="text-today-net-revenue">{formatVnd(summary.data?.today.revenueExcludingCardSessions ?? 0)}</strong><span data-testid="text-today-net-revenue-hours">Khách lẻ: {formatMinutes(summary.data?.today.walkInServiceMinutes ?? 0)}</span></dd></div>
               <div><dt>Khách lẻ hôm nay</dt><dd className="mono" data-testid="text-today-walk-in-visits">{summary.data?.today.walkInVisits ?? 0} lượt</dd></div>
               <div><dt>Khách thẻ hôm nay</dt><dd className="mono" data-testid="text-today-card-visits">{summary.data?.today.cardVisits ?? 0} lượt</dd></div>
             </dl>
-            <p className="hint">Tiền bán thẻ được tính theo ngày mua. Hai dòng tổng doanh thu mới cộng tiền bán thẻ và ca khách lẻ, không gồm lương của ca dùng thẻ.</p>
+            <p className="hint">Tiền bán thẻ vẫn tính theo ngày mua. Hai dòng tổng mới cộng tiền bán thẻ và tiền ca khách lẻ; số giờ chỉ tính ca khách lẻ, không tính ca dùng thẻ.</p>
           </>
         )}
       </section>

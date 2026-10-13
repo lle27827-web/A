@@ -315,17 +315,6 @@ a.hit:hover, .emp-row:hover, .card-row:hover { border-color: hsl(var(--primary) 
 .facts dt { font-size: 11px; color: hsl(var(--muted-foreground)); }
 .facts dd { margin: 2px 0 0; font-weight: 800; font-size: 15px; }
 
-.day-list { display: grid; gap: 8px; min-width: 0; list-style: none; margin: 0; padding: 0; }
-.day-item { min-width: 0; }
-.day-row { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; text-align: left; padding: 12px 14px; border: 1px solid hsl(var(--border)); border-radius: 14px; background: hsl(var(--card)); color: hsl(var(--foreground)); }
-.day-row:hover, .day-row.today { border-color: hsl(var(--primary) / .6); }
-.day-row.active { background: hsl(var(--primary) / .12); border-color: hsl(var(--primary)); }
-.day-row-date { display: grid; gap: 3px; flex-shrink: 0; }
-.day-row-date .muted { font-size: 12px; }
-.day-row-summary { margin-left: auto; min-width: 0; text-align: right; font-size: 12px; overflow-wrap: anywhere; }
-.day-chevron { flex-shrink: 0; }
-.day-row[aria-expanded="true"] .day-chevron { transform: rotate(180deg); }
-.day-detail { padding-top: 8px; min-width: 0; }
 .dc-wd { font-size: 11px; font-weight: 700; }
 .dc-num { font-family: var(--app-font-display); font-size: 24px; font-weight: 800; letter-spacing: -.04em; line-height: 1.1; }
 .dc-meta { font-size: 11px; opacity: .8; }
@@ -469,26 +458,35 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .auth-navigation .btn { min-height: 40px; text-decoration: none; }
 .net-revenue-row { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid hsl(var(--primary) / .3); border-radius: 10px; background: hsl(var(--primary) / .06); }
 .net-revenue-row dt { color: hsl(var(--foreground)); font-weight: 700; }
-.net-revenue-row dd { flex: 0 0 auto; color: hsl(var(--primary)); }
-.session-date-pick { min-width: 0; border: 0; padding: 0; margin: 0; }
-.session-date-pick legend { padding: 0; margin-bottom: 6px; }
+.net-revenue-values { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-end; gap: 3px; margin: 0; color: hsl(var(--primary)); text-align: right; }
+.net-revenue-values span { color: hsl(var(--muted-foreground)); font-size: 11px; white-space: nowrap; }
+.session-date-control { align-items: flex-start; }
+.date-picker-trigger { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; }
+.day-salary-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.day-salary-heading .rev-label { margin: 0; }
+.date-picker-controls { display: grid; grid-template-columns: minmax(120px, 180px) minmax(0, 1fr); align-items: end; gap: 12px; margin-bottom: 12px; }
+.date-picker-controls .field { margin: 0; }
+.selected-date-preview { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0; color: hsl(var(--muted-foreground)); font-size: 13px; }
+.selected-date-preview strong { color: hsl(var(--foreground)); }
+.date-picker-list { display: grid; gap: 0; max-height: min(46vh, 340px); overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 0; list-style: none; border: 1px solid hsl(var(--border)); border-radius: 10px; }
+.date-picker-option { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 46px; padding: 9px 12px; border: 0; border-bottom: 1px solid hsl(var(--border) / .65); background: transparent; color: hsl(var(--foreground)); text-align: left; }
+.date-picker-list li:last-child .date-picker-option { border-bottom: 0; }
+.date-picker-option > span:first-child { display: flex; align-items: baseline; gap: 12px; }
+.date-picker-option .muted { font-size: 12px; }
+.date-picker-option.selected { background: hsl(var(--primary) / .11); box-shadow: inset 3px 0 hsl(var(--primary)); }
+.date-picker-option[aria-current="date"] strong, .date-picker-badge { color: hsl(var(--primary)); }
+.date-picker-badge { font-size: 11px; font-weight: 700; }
+.date-picker-actions { margin-top: 12px; }
 .session-hours-row { grid-template-columns: minmax(0, 220px); }
-.session-month { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.session-month input { width: auto; }
-.session-date-list { display: grid; gap: 0; max-height: 220px; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 0; list-style: none; border: 1px solid hsl(var(--border)); border-radius: 10px; }
-.session-date-choice { width: 100%; min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; border: 0; border-bottom: 1px solid hsl(var(--border) / .65); background: transparent; color: hsl(var(--foreground)); text-align: left; }
-.session-date-list li:last-child .session-date-choice { border-bottom: 0; }
-.session-date-choice > span:first-child { display: flex; align-items: baseline; gap: 12px; }
-.session-date-choice .muted { font-size: 12px; }
-.session-date-choice.selected { background: hsl(var(--primary) / .11); box-shadow: inset 3px 0 hsl(var(--primary)); }
-.session-date-choice[aria-current="date"] strong { color: hsl(var(--primary)); }
-.session-date-badge { color: hsl(var(--primary)); font-size: 11px; font-weight: 700; }
 .employee-management-actions { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 8px; padding-top: 12px; border-top: 1px solid hsl(var(--border)); }
 .dialog-actions { justify-content: stretch; }
 .dialog-actions .btn { flex: 1; }
-.net-revenue-row dd { overflow-wrap: anywhere; text-align: right; }
 @media (max-width: 480px) {
   .net-revenue-row { align-items: flex-start; }
-  .session-date-choice > span:first-child { gap: 8px; }
+  .net-revenue-row dt { min-width: 0; }
+  .net-revenue-values { max-width: 48%; overflow-wrap: anywhere; }
+  .net-revenue-values span { white-space: normal; }
+  .date-picker-controls { grid-template-columns: minmax(110px, 150px) minmax(0, 1fr); gap: 8px; }
+  .date-picker-option > span:first-child { gap: 8px; }
   .employee-management-actions .btn { flex: 1; }
 }

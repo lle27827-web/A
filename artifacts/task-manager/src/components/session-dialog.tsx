@@ -30,12 +30,6 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
   const [cardId, setCardId] = useState(String(session ? session.cardId ?? '' : fixedCardId ?? ''));
   const [date, setDate] = useState(session?.workDate ?? defaultDate);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const today = localDate();
-  const dateChoices = useMemo(() => {
-    const month = date.slice(0, 7);
-    const allDays = Array.from({ length: daysInMonth(month) }, (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`);
-    return month === today.slice(0, 7) ? [today, ...allDays.filter((day) => day !== today)] : allDays;
-  }, [date, today]);
   const [hours, setHours] = useState(session ? hoursValue(session.minutes) : '1');
   const [serviceId, setServiceId] = useState(session ? (session.serviceTypeId !== null ? String(session.serviceTypeId) : KEEP) : '');
   const [customerName, setCustomerName] = useState(session && session.cardId === null ? session.customerName : '');
