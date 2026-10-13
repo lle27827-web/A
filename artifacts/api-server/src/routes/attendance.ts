@@ -21,7 +21,6 @@ import {
 import { requireEditor } from "../middlewares/owner";
 
 const router: IRouter = Router();
-router.use(requireEditor);
 
 type AttendanceWrite = {
   memberId: number | null;
@@ -41,7 +40,7 @@ function toAttendanceResponse(record: typeof attendanceTable.$inferSelect) {
   };
 }
 
-router.get("/attendance", async (req, res): Promise<void> => {
+router.get("/attendance", requireEditor, async (req, res): Promise<void> => {
   const query = ListAttendanceQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -78,7 +77,7 @@ router.get("/attendance", async (req, res): Promise<void> => {
   res.json(ListAttendanceResponse.parse(records.map(toAttendanceResponse)));
 });
 
-router.get("/attendance/summary", async (req, res): Promise<void> => {
+router.get("/attendance/summary", requireEditor, async (req, res): Promise<void> => {
   const query = GetAttendanceSummaryQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });

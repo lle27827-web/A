@@ -11,8 +11,7 @@ import { addCardHours, cardResponse, createCard, deleteCard, updateCard } from "
 import { massageHandler, parseInput } from "./massage-errors";
 
 const router: IRouter = Router();
-router.use(requireEditor);
-router.get("/treatment-cards", massageHandler(async (req, res) => {
+router.get("/treatment-cards", requireEditor, massageHandler(async (req, res) => {
   const owner = (await getAccessStatus(req)).canManage;
   res.set("Cache-Control", "private, no-store");
   const rows = await db.select({ card: treatmentCardsTable, used: sql<number>`coalesce(sum(${serviceSessionsTable.minutes}), 0)` })

@@ -2,7 +2,7 @@ import { clerkClient, getAuth } from "@clerk/express";
 import type { Request, RequestHandler } from "express";
 import { inArray } from "drizzle-orm";
 import { db, managerGrantsTable } from "@workspace/db";
-import { resolvePermissions, verifiedAccountEmails } from "../lib/permissions";
+import { canViewMemberManagement, resolvePermissions, verifiedAccountEmails } from "../lib/permissions";
 
 export type AccessStatus = {
   signedIn: boolean;
@@ -76,7 +76,7 @@ export const requireSignedIn: RequestHandler = async (req, res, next): Promise<v
     return;
   }
   res.set("Cache-Control", "private, no-store");
-  if (!status.signedIn) {
+  if (!canViewMemberManagement(status.signedIn)) {
     res.status(401).json({ error: "Vui lòng đăng nhập để tiếp tục." });
     return;
   }

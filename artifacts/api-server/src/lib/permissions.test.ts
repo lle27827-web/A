@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolvePermissions, verifiedAccountEmails } from "./permissions";
+import { canViewMemberManagement, resolvePermissions, verifiedAccountEmails } from "./permissions";
+
+test("signed-in accounts can read member management; guests cannot", () => {
+  assert.equal(canViewMemberManagement(true), true);
+  assert.equal(canViewMemberManagement(false), false);
+});
 
 test("only verified owner owns administration; delegated manager only edits data", () => {
   const owner = "owner@example.com";

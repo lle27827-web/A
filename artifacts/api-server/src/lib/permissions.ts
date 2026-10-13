@@ -15,3 +15,7 @@ export function resolvePermissions(ownerEmail: string | undefined, emails: strin
   const canManage = ownerConfigured && (isOwner || grants.some((email) => verified.includes(canonicalEmail(email))));
   return { ownerConfigured, isOwner, canManage };
 }
+
+export function canViewMemberManagement(signedIn: boolean) {
+  return signedIn;
+}

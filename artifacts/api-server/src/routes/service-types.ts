@@ -10,9 +10,8 @@ import { MassageError } from "../lib/massage";
 import { massageHandler, parseInput } from "./massage-errors";
 
 const router: IRouter = Router();
-router.use(requireEditor);
 const output = (row: typeof serviceTypesTable.$inferSelect) => ({ ...row, createdAt: row.createdAt.toISOString() });
-router.get("/service-types", massageHandler(async (_req, res) => {
+router.get("/service-types", requireEditor, massageHandler(async (_req, res) => {
   res.set("Cache-Control", "private, no-store");
   res.json(ListServiceTypesResponse.parse((await db.select().from(serviceTypesTable).orderBy(asc(serviceTypesTable.name))).map(output)));
 }));

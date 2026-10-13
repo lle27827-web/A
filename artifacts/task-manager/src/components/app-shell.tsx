@@ -93,7 +93,7 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
             <><AlertCircle size={26} aria-hidden="true" /><h1 id="gate-title" className="page-title">Không xác minh được quyền</h1><p className="sub">Dữ liệu đang được khóa. Kiểm tra kết nối rồi thử lại.</p>
               <button type="button" className="btn primary" onClick={recheck} data-testid="button-recheck-access"><RefreshCw size={14} />Thử lại</button></>
           ) : !isSignedIn || access?.signedIn !== true ? (
-            <><LockKeyhole size={26} aria-hidden="true" /><h1 id="gate-title" className="page-title">Đăng nhập để tiếp tục</h1><p className="sub">SỔ CÔNG chỉ mở cho chủ sở hữu và quản lý được cấp quyền.</p>
+            <><LockKeyhole size={26} aria-hidden="true" /><h1 id="gate-title" className="page-title">Đăng nhập để tiếp tục</h1><p className="sub">Đăng nhập để xem danh sách và hồ sơ nhân viên. Chỉ chủ sở hữu hoặc quản lý được chỉnh sửa dữ liệu.</p>
               <div className="head-actions">
                 <Link href="/sign-in" className="btn primary" data-testid="link-owner-signin">Đăng nhập <ArrowUpRight size={14} /></Link>
                 {isSignedIn && <button type="button" className="btn" onClick={recheck} data-testid="button-recheck-access"><RefreshCw size={14} />Kiểm tra lại</button>}
@@ -132,12 +132,18 @@ function AuthorizedShell({ access, accessKey, email, roleLabel, recheck, recheck
   const hasManageAccess = access.canManage === true;
   const prevManage = useRef(hasManageAccess);
   useEffect(() => {
-    if (prevManage.current !== hasManageAccess) void cache.invalidateQueries({ queryKey: getListTreatmentCardsQueryKey() });
+    if (prevManage.current && !hasManageAccess) {
+      const managerOnly = (query: { queryKey: QueryKey }) => isPrivateKey(query.queryKey) && query.queryKey[0] !== getListMembersQueryKey()[0];
+      void cache.cancelQueries({ predicate: managerOnly });
+      cache.removeQueries({ predicate: managerOnly });
+    } else if (!prevManage.current && hasManageAccess) {
+      void cache.invalidateQueries({ queryKey: getListTreatmentCardsQueryKey() });
+    }
     prevManage.current = hasManageAccess;
   }, [hasManageAccess, cache]);
   const [prefs, setPrefs] = useViewPrefs();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const employeeMode = prefs.mode === 'employee';
+  const employeeMode = hasManageAccess && prefs.mode === 'employee';
   const canEdit = hasManageAccess && prefs.mode === 'owner';
   const membersQuery = useListMembers({ query: { queryKey: getListMembersQueryKey() } });
   const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
@@ -145,6 +151,14 @@ function AuthorizedShell({ access, accessKey, email, roleLabel, recheck, recheck
   const showResults = query.trim().length > 0;
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const routePath = location.split('?')[0].replace(/\/+$/, '') || '/';
+  const memberDataRoute = routePath === '/employees' || /^\/employees\/\d+$/.test(routePath);
+  const restrictedRoute = !hasManageAccess && !memberDataRoute;
+  useEffect(() => {
+    if (!restrictedRoute) return;
+    setQuery('');
+    navigate('/employees', { replace: true });
+  }, [restrictedRoute, navigate]);
   const lastLocation = useRef(location);
   const routeHistory = useRef<string[]>([location]);
   useEffect(() => {
@@ -202,18 +216,18 @@ function AuthorizedShell({ access, accessKey, email, roleLabel, recheck, recheck
               <Search size={16} aria-hidden="true" />
               <label htmlFor="global-search" className="sr-only">Tìm kiếm</label>
               <input id="global-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" data-testid="input-global-search"
-                placeholder={employeeMode ? 'Tìm khách, dịch vụ, ghi chú trong tháng...' : 'Tìm nhân viên, khách, số điện thoại, dịch vụ...'} />
+                placeholder={!hasManageAccess ? 'Tìm nhân viên...' : employeeMode ? 'Tìm khách, dịch vụ, ghi chú trong tháng...' : 'Tìm nhân viên, khách, số điện thoại, dịch vụ...'} />
               {query && <button type="button" className="icon-btn" onClick={() => setQuery('')} aria-label="Xóa tìm kiếm" data-testid="button-clear-search"><X size={15} /></button>}
             </form>
             <div className="account">
-              <RoleBadge label={roleLabel} ok loading={false} />
+              <RoleBadge label={roleLabel} ok={hasManageAccess} loading={false} />
               {employeeMode && <span className="mode-pill" data-testid="status-view-mode">Xem nhân viên</span>}
               <span className="account-email" title={email} data-testid="text-account-email">{email}</span>
               <button type="button" className="icon-btn" onClick={recheck} disabled={rechecking} aria-label="Kiểm tra lại danh tính và quyền" title="Kiểm tra lại quyền" data-testid="button-recheck-access">
                 <RefreshCw size={15} className={rechecking ? 'spin' : undefined} />
               </button>
               <SignOutButton />
-              <ViewSettings prefs={prefs} members={members} membersLoading={membersQuery.isLoading} isOwner={isOwner} canEdit={canEdit} onAuthError={ctx.fail} open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView} />
+              {hasManageAccess && <ViewSettings prefs={prefs} members={members} membersLoading={membersQuery.isLoading} isOwner={isOwner} canEdit={canEdit} onAuthError={ctx.fail} open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView} />}
             </div>
           </div>
         </header>
@@ -227,7 +241,7 @@ function AuthorizedShell({ access, accessKey, email, roleLabel, recheck, recheck
           {showResults && <SearchResults />}
           {error && <div className="banner danger" role="alert" data-testid="status-mutation-error"><AlertCircle size={15} /><span>{error}</span><button type="button" onClick={() => setError('')} aria-label="Đóng thông báo lỗi"><X size={14} /></button></div>}
           {notice && <div className="banner success" role="status" data-testid="status-success"><Check size={15} /><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Đóng thông báo"><X size={14} /></button></div>}
-          {employeeMode ? employeeView : children}
+          {restrictedRoute ? <p className="panel page" role="status">Đang mở danh sách nhân viên…</p> : employeeMode ? employeeView : children}
         </main>
         <footer className="footer"><span>SỔ CÔNG · tiệm massage</span><span>Lương = giờ phục vụ × giá dịch vụ · Doanh thu = tổng lương ca dịch vụ + tiền bán thẻ</span></footer>
       </div>
