@@ -315,12 +315,17 @@ a.hit:hover, .emp-row:hover, .card-row:hover { border-color: hsl(var(--primary) 
 .facts dt { font-size: 11px; color: hsl(var(--muted-foreground)); }
 .facts dd { margin: 2px 0 0; font-weight: 800; font-size: 15px; }
 
-.day-strip { display: flex; gap: 8px; min-width: 0; overflow-x: auto; padding: 4px 2px 10px; scroll-snap-type: x proximity; overscroll-behavior-x: contain; }
-.day-chip { flex: 0 0 auto; scroll-snap-align: start; width: 74px; display: grid; justify-items: center; gap: 2px; padding: 10px 6px; border: 1px solid hsl(var(--border)); border-radius: 14px; background: hsl(var(--card)); color: hsl(var(--foreground)); transition: transform .15s, border-color .15s; }
-.day-chip:hover { transform: translateY(-2px); border-color: hsl(var(--primary) / .5); }
-.day-chip.today { width: 92px; border-color: hsl(var(--primary) / .6); }
-.day-chip.future { opacity: .6; }
-.day-chip.active { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: hsl(var(--primary)); opacity: 1; }
+.day-list { display: grid; gap: 8px; min-width: 0; list-style: none; margin: 0; padding: 0; }
+.day-item { min-width: 0; }
+.day-row { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; text-align: left; padding: 12px 14px; border: 1px solid hsl(var(--border)); border-radius: 14px; background: hsl(var(--card)); color: hsl(var(--foreground)); }
+.day-row:hover, .day-row.today { border-color: hsl(var(--primary) / .6); }
+.day-row.active { background: hsl(var(--primary) / .12); border-color: hsl(var(--primary)); }
+.day-row-date { display: grid; gap: 3px; flex-shrink: 0; }
+.day-row-date .muted { font-size: 12px; }
+.day-row-summary { margin-left: auto; min-width: 0; text-align: right; font-size: 12px; overflow-wrap: anywhere; }
+.day-chevron { flex-shrink: 0; }
+.day-row[aria-expanded="true"] .day-chevron { transform: rotate(180deg); }
+.day-detail { padding-top: 8px; min-width: 0; }
 .dc-wd { font-size: 11px; font-weight: 700; }
 .dc-num { font-family: var(--app-font-display); font-size: 24px; font-weight: 800; letter-spacing: -.04em; line-height: 1.1; }
 .dc-meta { font-size: 11px; opacity: .8; }

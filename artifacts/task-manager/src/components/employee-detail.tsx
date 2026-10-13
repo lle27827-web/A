@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   getGetMemberPayrollQueryKey, getListAttendanceQueryKey, getListServiceSessionsQueryKey, getListTreatmentCardsQueryKey,
   useCreateServiceSession, useDeleteMember, useDeleteServiceSession, useGetMemberPayroll, useListAttendance, useListServiceSessions,
   useListTreatmentCards, useUpdateMember, useUpdateServiceSession,
 } from '@workspace/api-client-react';
 import type { ServiceSession, ServiceSessionInput } from '@workspace/api-client-react';
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, History, Pencil, Plus, Trash2, UserX } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, History, Pencil, Plus, Trash2, UserX } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { MemberDialog } from '@/components/entity-dialogs';
@@ -28,7 +28,6 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
   const [memberDialog, setMemberDialog] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [dialogError, setDialogError] = useState('');
-  const stripRef = useRef<HTMLDivElement>(null);
 
   const member = memberId !== null ? members.find((m) => m.id === memberId) ?? null : null;
   const id = member?.id ?? 0;
@@ -64,8 +63,6 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
   const daySessions = useMemo(() => sessions.filter((s) => s.workDate === day), [sessions, day]);
   const q = normalize(query);
   const searchHits = useMemo(() => (q ? sessions.filter((s) => normalize([s.customerName, s.serviceType, s.note, formatShortDate(s.workDate)].join(' ')).includes(q)) : []), [sessions, q]);
-
-  useEffect(() => { stripRef.current?.scrollTo({ left: 0 }); }, [month]);
 
   function changeMonth(next: string) {
     setMonth(next);
@@ -113,6 +110,27 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
   }
 
   const p = payroll.data;
+  const selectedDayPanel = (
+    <section className="panel" aria-labelledby="day-title" data-testid="section-day-sessions">
+      <div className="panel-head wrap">
+        <div><h2 id="day-title" className="day-title"><CalendarDays size={16} aria-hidden="true" />{formatDate(day)}</h2>
+          <p className="sub">{daySessions.length} ca · {formatMinutes(daySessions.reduce((a, s) => a + s.minutes, 0))} · {formatVnd(daySessions.reduce((a, s) => a + s.earnings, 0))}</p></div>
+        {canEdit && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setSessionDialog({ session: null }); }} data-testid="button-add-session"><Plus size={15} />Chấm công</button>}
+      </div>
+      {sessionsQuery.isLoading ? <Skeleton rows={3} label="Đang tải ca phục vụ" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được ca phục vụ." onRetry={() => void sessionsQuery.refetch()} /> : daySessions.length === 0 ? (
+        <div className="empty small"><CalendarDays size={18} /><p>Chưa có ca được ghi trong ngày này.</p></div>
+      ) : (
+        <SessionTable sessions={daySessions} caption={`Ca phục vụ ngày ${formatShortDate(day)}`} canEdit={canEdit} linkCards={!readOnly} busy={deleteSession.isPending}
+          onEdit={(s) => { setDialogError(''); setSessionDialog({ session: s }); }} onDelete={askDeleteSession} testId="day-sessions" />
+      )}
+      {(attendance.data?.length ?? 0) > 0 && (
+        <div className="legacy" data-testid="section-legacy-attendance">
+          <h3><History size={14} />Chấm công cũ — không tính vào lương phục vụ</h3>
+          <ul>{attendance.data!.map((r) => <li key={r.id} className="muted">{statusLabel(r.status)}{r.checkIn ? ` · vào ${r.checkIn}` : ''}{r.checkOut ? ` · ra ${r.checkOut}` : ''}{r.note ? ` · ${r.note}` : ''}</li>)}</ul>
+        </div>
+      )}
+    </section>
+  );
   return (
     <div className="detail">
       {back}
@@ -152,41 +170,28 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
         </section>
       )}
 
-      <div className="day-strip" ref={stripRef} role="listbox" aria-label={`Các ngày ${formatMonth(month)}`} data-testid="list-days">
+      <ul className="day-list" aria-label={`Các ngày ${formatMonth(month)}`} data-testid="list-days">
         {days.map((d) => {
           const info = perDay.get(d);
           return (
-            <button key={d} type="button" role="option" aria-selected={d === day} className={`day-chip ${d === day ? 'active' : ''} ${d === today ? 'today' : ''} ${d > today ? 'future' : ''}`} onClick={() => setDay(d)} data-testid={`button-day-${d}`}>
-              <span className="dc-wd">{d === today ? 'Hôm nay' : weekday(d)}</span>
-              <span className="dc-num">{Number(d.slice(8))}</span>
-              <span className="dc-meta">{info ? `${info.count} ca` : '—'}</span>
-            </button>
+            <li key={d} className="day-item">
+              <button id={`day-toggle-${d}`} type="button" aria-expanded={d === day} aria-controls={`day-panel-${d}`}
+                className={`day-row ${d === day ? 'active' : ''} ${d === today ? 'today' : ''}`}
+                onClick={() => setDay(d)} data-testid={`button-day-${d}`}>
+                <span className="day-row-date"><strong className="mono">{formatShortDate(d)}</strong><span className="muted">{d === today ? 'Hôm nay' : weekday(d)}</span></span>
+                <span className="day-row-summary">{sessionsQuery.isLoading ? 'Đang tải…' : sessionsQuery.isError ? 'Chưa tải được ca' : info ? `${info.count} ca · ${formatMinutes(info.minutes)}` : 'Chưa có ca'}</span>
+                <ChevronDown size={17} className="day-chevron" aria-hidden="true" />
+              </button>
+              <div id={`day-panel-${d}`} className="day-detail" hidden={d !== day}>
+                {d === day && selectedDayPanel}
+              </div>
+            </li>
           );
         })}
-      </div>
-
-      <section className="panel" aria-labelledby="day-title" data-testid="section-day-sessions">
-        <div className="panel-head wrap">
-          <div><h2 id="day-title" className="day-title"><CalendarDays size={16} aria-hidden="true" />{formatDate(day)}</h2>
-            <p className="sub">{daySessions.length} ca · {formatMinutes(daySessions.reduce((a, s) => a + s.minutes, 0))} · {formatVnd(daySessions.reduce((a, s) => a + s.earnings, 0))}</p></div>
-          {canEdit && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setSessionDialog({ session: null }); }} data-testid="button-add-session"><Plus size={15} />Thêm ca phục vụ</button>}
-        </div>
-        {sessionsQuery.isLoading ? <Skeleton rows={3} label="Đang tải ca phục vụ" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được ca phục vụ." onRetry={() => void sessionsQuery.refetch()} /> : daySessions.length === 0 ? (
-          <div className="empty small"><CalendarDays size={18} /><p>Không có ca phục vụ trong ngày này.</p></div>
-        ) : (
-          <SessionTable sessions={daySessions} caption={`Ca phục vụ ngày ${formatShortDate(day)}`} canEdit={canEdit} linkCards={!readOnly} busy={deleteSession.isPending}
-            onEdit={(s) => { setDialogError(''); setSessionDialog({ session: s }); }} onDelete={askDeleteSession} testId="day-sessions" />
-        )}
-        {(attendance.data?.length ?? 0) > 0 && (
-          <div className="legacy" data-testid="section-legacy-attendance">
-            <h3><History size={14} />Chấm công cũ — không tính vào lương phục vụ</h3>
-            <ul>{attendance.data!.map((r) => <li key={r.id} className="muted">{statusLabel(r.status)}{r.checkIn ? ` · vào ${r.checkIn}` : ''}{r.checkOut ? ` · ra ${r.checkOut}` : ''}{r.note ? ` · ${r.note}` : ''}</li>)}</ul>
-          </div>
-        )}
-      </section>
+      </ul>
 
       {sessionDialog && canEdit && (
-        <SessionDialog session={sessionDialog.session} members={members} cards={cardsQuery.data ?? []} cardsLoading={cardsQuery.isLoading} defaultDate={day} defaultMemberId={member.id}
+        <SessionDialog session={sessionDialog.session} members={members} cards={cardsQuery.data ?? []} cardsLoading={cardsQuery.isLoading} defaultDate={day} defaultMemberId={member.id} fixedMemberId={sessionDialog.session ? undefined : member.id}
           busy={createSession.isPending || updateSession.isPending} serverError={dialogError} onClose={() => setSessionDialog(null)} onSubmit={submitSession} />
       )}
       {memberDialog && canEdit && (
