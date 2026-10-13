@@ -585,7 +585,9 @@ export const GetMassageSummaryQueryParams = zod.object({
 
 export const GetMassageSummaryResponse = zod.object({
   "month": zod.string(),
-  "revenue": zod.number(),
+  "revenue": zod.number().describe('Tổng báo cáo cơ sở: tiền các ca dịch vụ đã ghi cộng tiền bán thẻ trong tháng.'),
+  "serviceRevenue": zod.number().describe('Tổng earnings lưu tại các ca theo ngày làm; đây là khoản tính theo lương ca theo yêu cầu người dùng.'),
+  "cardRevenue": zod.number().describe('Tổng tiền bán thẻ theo ngày mua.'),
   "cardsSold": zod.number().int()
 })
 

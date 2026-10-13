@@ -364,3 +364,16 @@ a.hit:hover, .emp-row:hover, .card-row:hover { border-color: hsl(var(--primary) 
 .service-option input { margin-top: 3px; accent-color: hsl(var(--primary)); }
 .extras summary { cursor: pointer; font-size: 13px; color: hsl(var(--muted-foreground)); padding: 4px 0; }
 .extras[open] summary { margin-bottom: 10px; }
+.rev-breakdown { display: grid; gap: 4px; margin: 12px 0 0; }
+.rev-breakdown > div { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.rev-breakdown dt { color: hsl(var(--muted-foreground)); }
+.rev-breakdown dd { margin: 0; font-weight: 600; }
+.rev-breakdown .hint { margin: 0 0 6px; }
+.card-search { display: grid; gap: 6px; margin: 0 0 14px; font-size: 13px; }
+.card-search label { font-weight: 600; }
+.card-search-box { display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid hsl(var(--border)); border-radius: 10px; background: hsl(var(--muted) / .35); }
+.card-search-box input { flex: 1; min-width: 0; padding: 10px 0; border: 0; background: transparent; color: inherit; font: inherit; outline: none; }
+.card-search-box:focus-within { border-color: hsl(var(--primary)); }
+.day-actions { display: grid; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid hsl(var(--border)); }
+.day-actions .btn { justify-content: flex-start; width: 100%; }
+button.back.as-button { background: none; border: 0; cursor: pointer; font: inherit; padding: 0; }

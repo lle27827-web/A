@@ -297,7 +297,12 @@ export interface ServiceSessionInput {
 
 export interface MassageSummary {
   month: string;
+  /** Tổng báo cáo cơ sở: tiền các ca dịch vụ đã ghi cộng tiền bán thẻ trong tháng. */
   revenue: number;
+  /** Tổng earnings lưu tại các ca theo ngày làm; đây là khoản tính theo lương ca theo yêu cầu người dùng. */
+  serviceRevenue: number;
+  /** Tổng tiền bán thẻ theo ngày mua. */
+  cardRevenue: number;
   cardsSold: number;
 }
 

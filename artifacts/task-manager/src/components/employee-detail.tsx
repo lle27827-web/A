@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   getGetMemberPayrollQueryKey, getListAttendanceQueryKey, getListServiceSessionsQueryKey, getListTreatmentCardsQueryKey,
   useCreateServiceSession, useDeleteMember, useDeleteServiceSession, useGetMemberPayroll, useListAttendance, useListServiceSessions,
@@ -28,6 +28,9 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
   const [memberDialog, setMemberDialog] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [dialogError, setDialogError] = useState('');
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => { setEditing(false); }, [day, month, memberId, canEdit]);
 
   const member = memberId !== null ? members.find((m) => m.id === memberId) ?? null : null;
   const id = member?.id ?? 0;
@@ -98,10 +101,12 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
     });
   }
 
-  const back = readOnly ? null : <Link href="/employees" className="back" data-testid="link-back"><ArrowLeft size={15} />Danh sách nhân viên</Link>;
+  const back = readOnly
+    ? <button type="button" className="back as-button" onClick={() => { shell.setView({ mode: 'owner', employeeId: shell.prefs.employeeId }); navigate('/employees'); }} data-testid="link-back"><ArrowLeft size={15} />Trở về</button>
+    : <Link href="/employees" className="back" data-testid="link-back"><ArrowLeft size={15} />Trở về</Link>;
 
   if (memberId === null) {
-    return <section className="panel page"><div className="empty"><UserX size={22} /><p>Chưa chọn nhân viên để xem.</p><button type="button" className="btn primary" onClick={shell.openSettings} data-testid="button-choose-employee">Chọn nhân viên</button></div></section>;
+    return <section className="panel page">{back}<div className="empty"><UserX size={22} /><p>Chưa chọn nhân viên để xem.</p><button type="button" className="btn primary" onClick={shell.openSettings} data-testid="button-choose-employee">Chọn nhân viên</button></div></section>;
   }
   if (membersLoading) return <section className="panel page">{back}<Skeleton rows={6} label="Đang tải nhân viên" /></section>;
   if (membersError) return <section className="panel page">{back}<ErrorBanner text="Không tải được thông tin nhân viên." onRetry={retryMembers} /></section>;
@@ -115,18 +120,28 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
       <div className="panel-head wrap">
         <div><h2 id="day-title" className="day-title"><CalendarDays size={16} aria-hidden="true" />{formatDate(day)}</h2>
           <p className="sub">{daySessions.length} ca · {formatMinutes(daySessions.reduce((a, s) => a + s.minutes, 0))} · {formatVnd(daySessions.reduce((a, s) => a + s.earnings, 0))}</p></div>
-        {canEdit && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setSessionDialog({ session: null }); }} data-testid="button-add-session"><Plus size={15} />Chấm công</button>}
       </div>
       {sessionsQuery.isLoading ? <Skeleton rows={3} label="Đang tải ca phục vụ" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được ca phục vụ." onRetry={() => void sessionsQuery.refetch()} /> : daySessions.length === 0 ? (
         <div className="empty small"><CalendarDays size={18} /><p>Chưa có ca được ghi trong ngày này.</p></div>
       ) : (
-        <SessionTable sessions={daySessions} caption={`Ca phục vụ ngày ${formatShortDate(day)}`} canEdit={canEdit} linkCards={!readOnly} busy={deleteSession.isPending}
+        <SessionTable sessions={daySessions} caption={`Ca phục vụ ngày ${formatShortDate(day)}`} canEdit={canEdit && editing} linkCards={!readOnly} busy={deleteSession.isPending}
           onEdit={(s) => { setDialogError(''); setSessionDialog({ session: s }); }} onDelete={askDeleteSession} testId="day-sessions" />
       )}
       {(attendance.data?.length ?? 0) > 0 && (
         <div className="legacy" data-testid="section-legacy-attendance">
           <h3><History size={14} />Chấm công cũ — không tính vào lương phục vụ</h3>
           <ul>{attendance.data!.map((r) => <li key={r.id} className="muted">{statusLabel(r.status)}{r.checkIn ? ` · vào ${r.checkIn}` : ''}{r.checkOut ? ` · ra ${r.checkOut}` : ''}{r.note ? ` · ${r.note}` : ''}</li>)}</ul>
+        </div>
+      )}
+      {canEdit && (
+        <div className="day-actions" data-testid="day-actions">
+          <button type="button" className={`btn small ${editing ? 'primary' : ''}`} aria-pressed={editing} disabled={daySessions.length === 0 || sessionsQuery.isLoading}
+            aria-describedby={daySessions.length === 0 ? 'day-edit-hint' : undefined} onClick={() => setEditing((v) => !v)} data-testid="button-toggle-edit-day">
+            <Pencil size={14} />{editing ? 'Xong chỉnh sửa' : 'Chỉnh sửa'}
+          </button>
+          {daySessions.length === 0 && <span id="day-edit-hint" className="hint">Chưa có ca để chỉnh sửa trong ngày này.</span>}
+          {editing && daySessions.length > 0 && <span className="hint">Dùng nút sửa hoặc xóa ở từng ca phía trên.</span>}
+          <button type="button" className="btn small" onClick={() => { setDialogError(''); setSessionDialog({ session: null }); }} data-testid="button-add-session"><Plus size={14} />Chấm công</button>
         </div>
       )}
     </section>

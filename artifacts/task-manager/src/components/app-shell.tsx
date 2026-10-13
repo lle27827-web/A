@@ -28,6 +28,7 @@ type ShellCtx = {
   fail: (err: unknown) => void;
   clearMessages: () => void;
   openSettings: () => void;
+  setView: (next: ViewPrefs) => void;
 };
 
 const Ctx = createContext<ShellCtx | null>(null);
@@ -68,6 +69,7 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
     },
     clearMessages: () => { setError(''); setNotice(''); },
     openSettings: () => setSettingsOpen(true),
+    setView: (next) => applyView(next),
   };
 
   function applyView(next: ViewPrefs) {
@@ -118,7 +120,7 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
           {notice && <div className="banner success" role="status" data-testid="status-success"><Check size={15} /><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Đóng thông báo"><X size={14} /></button></div>}
           {employeeMode ? employeeView : children}
         </main>
-        <footer className="footer"><span>Số công · tiệm massage</span><span>Lương = giờ phục vụ × giá dịch vụ · Doanh thu = tiền bán thẻ</span></footer>
+        <footer className="footer"><span>Số công · tiệm massage</span><span>Lương = giờ phục vụ × giá dịch vụ · Doanh thu = tổng lương ca dịch vụ + tiền bán thẻ</span></footer>
       </div>
     </Ctx.Provider>
   );

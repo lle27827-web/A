@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
-import { db, membersTable, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
+import { db, membersTable, serviceSessionsTable } from "@workspace/db";
 import {
   CreateServiceSessionBody, CreateServiceSessionResponse, DeleteServiceSessionParams,
   GetMassageSummaryQueryParams, GetMassageSummaryResponse, GetMemberPayrollQueryParams, GetMemberPayrollResponse,
@@ -10,6 +10,7 @@ import {
 import { requireOwner } from "../middlewares/owner";
 import { deleteSession, MassageError, monthBounds, saveSession, sessionResponse, validDate } from "../lib/massage";
 import { massageHandler, parseInput } from "./massage-errors";
+import { getFacilityRevenue } from "../lib/facility-revenue";
 
 const router: IRouter = Router();
 router.get("/service-sessions", massageHandler(async (req, res) => {
@@ -39,12 +40,8 @@ router.delete("/service-sessions/:id", requireOwner, massageHandler(async (req, 
 }));
 router.get("/massage-summary", massageHandler(async (req, res) => {
   const { month } = parseInput(GetMassageSummaryQueryParams, req.query);
-  const { start, end } = monthBounds(month);
-  const [row] = await db.select({
-    revenue: sql<number>`coalesce(sum(${treatmentCardsTable.purchaseAmount}), 0)`,
-    cardsSold: sql<number>`count(*)`,
-  }).from(treatmentCardsTable).where(and(gte(treatmentCardsTable.purchaseDate, start), lt(treatmentCardsTable.purchaseDate, end)));
-  res.json(GetMassageSummaryResponse.parse({ month, revenue: Number(row.revenue), cardsSold: Number(row.cardsSold) }));
+  res.set("Cache-Control", "private, no-store");
+  res.json(GetMassageSummaryResponse.parse(await getFacilityRevenue(month)));
 }));
 router.get("/member-payroll", massageHandler(async (req, res) => {
   const { memberId, month } = parseInput(GetMemberPayrollQueryParams, req.query);

@@ -8,7 +8,8 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:massage": "esbuild src/lib/massage.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/cung-lam-massage-tests.cjs && node --test /tmp/cung-lam-massage-tests.cjs"
+    "test:massage": "esbuild src/lib/massage.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/cung-lam-massage-tests.cjs && node --test /tmp/cung-lam-massage-tests.cjs",
+    "test:revenue": "esbuild src/lib/facility-revenue.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-revenue-tests.cjs && node --test /tmp/so-cong-revenue-tests.cjs"
   },
   "dependencies": {
     "@clerk/express": "^2.1.78",

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { getListTreatmentCardsQueryKey, useCreateTreatmentCard, useListTreatmentCards } from '@workspace/api-client-react';
-import { ArrowLeft, ChevronRight, CreditCard, LockKeyhole, Plus } from 'lucide-react';
+import { ArrowLeft, ChevronRight, CreditCard, LockKeyhole, Plus, Search, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { CardDialog } from '@/components/entity-dialogs';
@@ -9,7 +9,7 @@ import { formatShortDate, localDate, normalize } from '@/lib/attendance';
 import { errorText, formatMinutes, formatVnd, useRefreshMassage } from '@/lib/massage';
 
 export default function CardsPage() {
-  const { canEdit, query, notify, fail } = useShell();
+  const { canEdit, isOwner, query, setQuery, notify, fail } = useShell();
   const [, navigate] = useLocation();
   const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), refetchOnWindowFocus: true } });
   const [open, setOpen] = useState(false);
@@ -18,8 +18,10 @@ export default function CardsPage() {
   const refresh = useRefreshMassage();
   const cards = useMemo(() => cardsQuery.data ?? [], [cardsQuery.data]);
   const list = useMemo(() => {
-    const q = normalize(query);
-    return cards.filter((c) => normalize([c.customerName, c.phone, c.serviceType, c.note].join(' ')).includes(q));
+    const q = normalize(query.trim());
+    if (!q) return cards;
+    const digits = /^[\d\s.\-+]+$/.test(query.trim()) ? query.replace(/[^\d]/g, '') : '';
+    return cards.filter((c) => normalize(c.customerName).includes(q) || (digits !== '' && c.phone.replace(/[^\d]/g, '').includes(digits)));
   }, [cards, query]);
 
   return (
@@ -30,6 +32,17 @@ export default function CardsPage() {
         {canEdit ? <button type="button" className="btn primary" onClick={() => { setDialogError(''); setOpen(true); }} data-testid="button-add-card"><Plus size={15} />Bán thẻ mới</button>
           : <span className="view-only"><LockKeyhole size={13} />Chỉ xem</span>}
       </div>
+      <form role="search" className="card-search" onSubmit={(e) => e.preventDefault()}>
+        <label htmlFor="card-search">Tìm thẻ theo tên khách hoặc số điện thoại</label>
+        <div className="card-search-box">
+          <Search size={15} aria-hidden="true" />
+          <input id="card-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" placeholder="Ví dụ: Lan hoặc 0903 123" aria-describedby="card-search-hint" data-testid="input-card-search" />
+          {query && <button type="button" className="icon-btn" onClick={() => setQuery('')} aria-label="Xóa tìm kiếm thẻ" data-testid="button-clear-card-search"><X size={14} /></button>}
+        </div>
+        <span id="card-search-hint" className="hint" role="status" data-testid="text-card-count">
+          {query.trim() ? `${list.length} / ${cards.length} thẻ khớp` : `${cards.length} thẻ`}{isOwner ? '' : ' · Chế độ xem chỉ tìm theo phần số điện thoại đang hiển thị.'}
+        </span>
+      </form>
       {cardsQuery.isLoading ? <Skeleton rows={5} label="Đang tải thẻ" /> : cardsQuery.isError ? <ErrorBanner text={errorText(cardsQuery.error, 'Không tải được danh sách thẻ.')} onRetry={() => void cardsQuery.refetch()} /> : list.length === 0 ? (
         <div className="empty"><CreditCard size={22} /><p>{cards.length ? 'Không có thẻ khớp tìm kiếm.' : 'Chưa có thẻ khách hàng nào.'}</p>
           {canEdit && !cards.length && <button type="button" className="btn primary" onClick={() => setOpen(true)}><Plus size={15} />Bán thẻ đầu tiên</button>}</div>
