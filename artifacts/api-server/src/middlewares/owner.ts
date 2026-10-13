@@ -11,7 +11,16 @@ export type AccessStatus = {
   ownerConfigured: boolean;
 };
 
-export async function getAccessStatus(req: Request): Promise<AccessStatus> {
+const requestAccess = new WeakMap<Request, Promise<AccessStatus>>();
+export function getAccessStatus(req: Request): Promise<AccessStatus> {
+  const existing = requestAccess.get(req);
+  if (existing) return existing;
+  const pending = resolveRequestAccess(req);
+  requestAccess.set(req, pending);
+  return pending;
+}
+
+async function resolveRequestAccess(req: Request): Promise<AccessStatus> {
   const ownerEmail = process.env.OWNER_EMAIL?.trim().toLowerCase();
   const userId = getAuth(req).userId;
   const ownerConfigured = Boolean(ownerEmail);
@@ -31,7 +40,14 @@ export async function getAccessStatus(req: Request): Promise<AccessStatus> {
 
 function authorize(ownerOnly: boolean): RequestHandler {
   return async (req, res, next): Promise<void> => {
-    const status = await getAccessStatus(req);
+    let status: AccessStatus;
+    try {
+      status = await getAccessStatus(req);
+    } catch {
+      res.status(503).json({ error: "Không thể xác minh tài khoản. Vui lòng thử lại." });
+      return;
+    }
+    res.set("Cache-Control", "private, no-store");
     if (!status.ownerConfigured) {
       res.status(403).json({ error: "Quyền chỉnh sửa chưa được cấu hình cho chủ sở hữu." });
       return;
@@ -43,7 +59,7 @@ function authorize(ownerOnly: boolean): RequestHandler {
     if (ownerOnly ? !status.isOwner : !status.canManage) {
       res.status(403).json({
         error: ownerOnly ? "Chỉ chủ sở hữu mới được quản lý việc cấp và thu hồi quyền."
-          : "Chỉ chủ sở hữu hoặc người được cấp quyền quản lý mới được thay đổi dữ liệu.",
+          : "Chỉ chủ sở hữu hoặc người được cấp quyền quản lý mới được xem và thay đổi dữ liệu.",
       });
       return;
     }

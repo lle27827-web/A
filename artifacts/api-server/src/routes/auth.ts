@@ -5,7 +5,12 @@ import { getAccessStatus } from "../middlewares/owner";
 const router: IRouter = Router();
 
 router.get("/auth/me", async (req, res): Promise<void> => {
-  res.json(GetCurrentAccessResponse.parse(await getAccessStatus(req)));
+  res.set("Cache-Control", "private, no-store");
+  try {
+    res.json(GetCurrentAccessResponse.parse(await getAccessStatus(req)));
+  } catch {
+    res.status(503).json({ error: "Không thể xác minh quyền tài khoản. Vui lòng thử lại." });
+  }
 });
 
 export default router;

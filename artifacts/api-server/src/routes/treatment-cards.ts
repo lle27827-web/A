@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, isNull, sql } from "drizzle-orm";
 import { db, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
 import {
   CreateTreatmentCardBody, CreateTreatmentCardResponse, DeleteTreatmentCardParams,
@@ -16,6 +16,7 @@ router.get("/treatment-cards", massageHandler(async (req, res) => {
   res.set("Cache-Control", "private, no-store");
   const rows = await db.select({ card: treatmentCardsTable, used: sql<number>`coalesce(sum(${serviceSessionsTable.minutes}), 0)` })
     .from(treatmentCardsTable).leftJoin(serviceSessionsTable, eq(serviceSessionsTable.cardId, treatmentCardsTable.id))
+    .where(isNull(treatmentCardsTable.deletedAt))
     .groupBy(treatmentCardsTable.id).orderBy(desc(treatmentCardsTable.purchaseDate), desc(treatmentCardsTable.id));
   res.json(ListTreatmentCardsResponse.parse(rows.map(({ card, used }) => cardResponse(card, Number(used), owner))));
 }));

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
-import { db, membersTable, serviceSessionsTable } from "@workspace/db";
+import { db, membersTable, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
 import {
   CreateServiceSessionBody, CreateServiceSessionResponse, DeleteServiceSessionParams,
   GetMassageSummaryQueryParams, GetMassageSummaryResponse, GetMemberPayrollQueryParams, GetMemberPayrollResponse,
@@ -23,9 +23,10 @@ router.get("/service-sessions", massageHandler(async (req, res) => {
     const { start, end } = monthBounds(q.month);
     filters.push(gte(serviceSessionsTable.workDate, start), lt(serviceSessionsTable.workDate, end));
   }
-  const rows = await db.select().from(serviceSessionsTable).where(and(...filters))
+  const rows = await db.select({ session: serviceSessionsTable, deletedAt: treatmentCardsTable.deletedAt })
+    .from(serviceSessionsTable).leftJoin(treatmentCardsTable, eq(serviceSessionsTable.cardId, treatmentCardsTable.id)).where(and(...filters))
     .orderBy(desc(serviceSessionsTable.workDate), desc(serviceSessionsTable.id));
-  res.json(ListServiceSessionsResponse.parse(rows.map(sessionResponse)));
+  res.json(ListServiceSessionsResponse.parse(rows.map(({ session, deletedAt }) => sessionResponse(session, Boolean(deletedAt)))));
 }));
 router.post("/service-sessions", requireEditor, massageHandler(async (req, res) => {
   res.status(201).json(CreateServiceSessionResponse.parse(await saveSession(parseInput(CreateServiceSessionBody, req.body))));
@@ -39,9 +40,9 @@ router.delete("/service-sessions/:id", requireEditor, massageHandler(async (req,
   res.sendStatus(204);
 }));
 router.get("/massage-summary", massageHandler(async (req, res) => {
-  const { month } = parseInput(GetMassageSummaryQueryParams, req.query);
+  const { month, date } = parseInput(GetMassageSummaryQueryParams, req.query);
   res.set("Cache-Control", "private, no-store");
-  res.json(GetMassageSummaryResponse.parse(await getFacilityRevenue(month)));
+  res.json(GetMassageSummaryResponse.parse(await getFacilityRevenue(month, date)));
 }));
 router.get("/member-payroll", massageHandler(async (req, res) => {
   const { memberId, month } = parseInput(GetMemberPayrollQueryParams, req.query);

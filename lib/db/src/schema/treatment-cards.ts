@@ -12,8 +12,9 @@ export const treatmentCardsTable = pgTable("treatment_cards", {
   purchaseDate: date("purchase_date", { mode: "string" }).notNull(),
   note: text("note").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 }, (table) => [index("treatment_cards_purchase_date_idx").on(table.purchaseDate)]);
 
-export const insertTreatmentCardSchema = createInsertSchema(treatmentCardsTable).omit({ id: true, createdAt: true });
+export const insertTreatmentCardSchema = createInsertSchema(treatmentCardsTable).omit({ id: true, createdAt: true, deletedAt: true });
 export type InsertTreatmentCard = z.infer<typeof insertTreatmentCardSchema>;
 export type TreatmentCardRow = typeof treatmentCardsTable.$inferSelect;

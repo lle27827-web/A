@@ -23,8 +23,8 @@ export function monthBounds(month: string) {
   return { start, end: d.toISOString().slice(0, 10) };
 }
 
-export function sessionResponse(row: typeof serviceSessionsTable.$inferSelect) {
-  return { ...row, createdAt: row.createdAt.toISOString() };
+export function sessionResponse(row: typeof serviceSessionsTable.$inferSelect, cardDeleted = false) {
+  return { ...row, cardDeleted, createdAt: row.createdAt.toISOString() };
 }
 export function cardResponse(row: typeof treatmentCardsTable.$inferSelect, usedMinutes = 0, owner = false) {
   return {
@@ -56,7 +56,7 @@ export async function createCard(input: TreatmentCardInput) {
 export async function updateCard(id: number, input: TreatmentCardUpdate) {
   return db.transaction(async (tx) => {
     const [old] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
-    if (!old) throw new MassageError(404, "Không tìm thấy thẻ.");
+    if (!old || old.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
     const used = await usedMinutes(tx, id);
     const values = cardValues({ ...old, ...input });
     if (values.totalMinutes < used) throw new MassageError(409, "Tổng giờ của thẻ không thể thấp hơn số giờ đã sử dụng.");
@@ -71,11 +71,9 @@ export async function updateCard(id: number, input: TreatmentCardUpdate) {
 export async function deleteCard(id: number) {
   await db.transaction(async (tx) => {
     const [card] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
-    if (!card) throw new MassageError(404, "Không tìm thấy thẻ.");
-    const [usage] = await tx.select({ id: serviceSessionsTable.id }).from(serviceSessionsTable)
-      .where(eq(serviceSessionsTable.cardId, id)).limit(1);
-    if (usage) throw new MassageError(409, "Thẻ đã có lịch sử sử dụng. Không thể xóa thẻ khi còn các lượt sử dụng.");
-    await tx.delete(treatmentCardsTable).where(eq(treatmentCardsTable.id, id));
+    if (!card || card.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
+    // Keep the original link and snapshots for payroll and card/walk-in counts.
+    await tx.update(treatmentCardsTable).set({ deletedAt: new Date() }).where(eq(treatmentCardsTable.id, id));
   });
 }
 
@@ -86,7 +84,7 @@ export async function addCardHours(id: number, minutes: number) {
   }
   return db.transaction(async (tx) => {
     const [card] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
-    if (!card) throw new MassageError(404, "Không tìm thấy thẻ.");
+    if (!card || card.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
     if (card.totalMinutes + minutes > 600000) {
       throw new MassageError(400, "Tổng số giờ của thẻ không được vượt quá 10.000 giờ.");
     }
@@ -110,6 +108,9 @@ export async function saveSession(input: ServiceSessionInput, id?: number) {
       const [row] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, lockId)).for("update");
       if (!row) throw new MassageError(404, "Không tìm thấy thẻ đã chọn.");
       if (lockId === cardId) card = row;
+    }
+    if (card?.deletedAt && old?.cardId !== card.id) {
+      throw new MassageError(404, "Thẻ đã bị xóa, không thể ghi thêm lượt sử dụng.");
     }
     const [member] = await tx.select().from(membersTable).where(eq(membersTable.id, input.memberId));
     if (!member) throw new MassageError(404, "Không tìm thấy kỹ thuật viên.");
@@ -138,7 +139,7 @@ export async function saveSession(input: ServiceSessionInput, id?: number) {
     const [row] = id
       ? await tx.update(serviceSessionsTable).set(values).where(eq(serviceSessionsTable.id, id)).returning()
       : await tx.insert(serviceSessionsTable).values(values).returning();
-    return sessionResponse(row);
+    return sessionResponse(row, Boolean(card?.deletedAt));
   });
 }
 export async function deleteSession(id: number) {

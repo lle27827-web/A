@@ -3,7 +3,7 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API quản lý thành viên và chấm công; chỉ chủ sở hữu được chỉnh sửa dữ liệu
+  description: Dữ liệu cơ sở chỉ dành cho chủ sở hữu và quản lý đã xác minh; chỉ chủ sở hữu được cấp/thu hồi quyền.
 servers:
   - url: /api
     description: Base API path
@@ -479,13 +479,16 @@ paths:
       operationId: getMassageSummary
       parameters:
         - { in: query, name: month, required: true, schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' } }
+        - { in: query, name: date, required: false, schema: { type: string, format: date }, description: "Ngày báo cáo, mặc định hôm nay tại Việt Nam." }
       responses:
         "200":
-          description: Doanh thu tiền bán thẻ trong tháng, không cộng lượt sử dụng
+          description: Doanh thu cơ sở tháng/ngày và lượt khách từ các ca chấm công.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/MassageSummary" }
         "400": { description: Tháng không hợp lệ }
+        "401": { description: Chưa đăng nhập }
+        "403": { description: Chưa có quyền chủ sở hữu hoặc quản lý }
   /member-payroll:
     get:
       operationId: getMemberPayroll
@@ -718,6 +721,7 @@ components:
       type: object
       required: [id, cardId, memberId, employeeName, customerName, serviceType, serviceTypeId, workDate, minutes, hourlyRate, earnings, note, createdAt]
       properties:
+        cardDeleted: { type: boolean, description: "Thẻ đã xóa khỏi danh sách, ca và lương vẫn được giữ lại." }
         id: { type: integer }
         cardId: { type: ["integer", "null"] }
         memberId: { type: ["integer", "null"] }
@@ -745,13 +749,27 @@ components:
         note: { type: string, maxLength: 2000 }
     MassageSummary:
       type: object
-      required: [month, revenue, serviceRevenue, cardRevenue, cardsSold]
+      required: [month, revenue, serviceRevenue, cardRevenue, cardsSold, walkInVisits, cardVisits, today]
       properties:
         month: { type: string }
         revenue: { type: number, description: "Tổng báo cáo cơ sở: tiền các ca dịch vụ đã ghi cộng tiền bán thẻ trong tháng." }
         serviceRevenue: { type: number, description: "Tổng earnings lưu tại các ca theo ngày làm; đây là khoản tính theo lương ca theo yêu cầu người dùng." }
         cardRevenue: { type: number, description: "Tổng tiền bán thẻ theo ngày mua." }
         cardsSold: { type: integer }
+        walkInVisits: { type: integer, description: "Số ca không dùng thẻ; mỗi ca là một lượt khách." }
+        cardVisits: { type: integer, description: "Số ca dùng thẻ, kể cả thẻ đã xóa." }
+        today: { $ref: "#/components/schemas/DailyRevenue" }
+    DailyRevenue:
+      type: object
+      required: [date, revenue, serviceRevenue, cardRevenue, cardsSold, walkInVisits, cardVisits]
+      properties:
+        date: { type: string, format: date }
+        revenue: { type: number }
+        serviceRevenue: { type: number }
+        cardRevenue: { type: number }
+        cardsSold: { type: integer }
+        walkInVisits: { type: integer }
+        cardVisits: { type: integer }
     MemberPayroll:
       type: object
       required: [member, month, totalMinutes, totalSalary]

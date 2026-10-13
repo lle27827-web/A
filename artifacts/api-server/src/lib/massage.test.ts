@@ -82,7 +82,6 @@ test("card balance and service payroll stay consistent through edits and concurr
     await assert.rejects(record({ ...input, minutes: 600 }), fails(409));
     await assert.rejects(updateCard(a.id, { totalMinutes: 80 }), fails(409));
     await assert.rejects(record({ ...input, workDate: "2026-02-31" }), fails(400));
-    await assert.rejects(deleteCard(a.id), fails(409));
     await assert.rejects(record({ ...input, cardId: c.id, minutes: 90 }, first.id), fails(409));
     assert.equal(await balance(a.id), 90, "failed card transfer must roll back");
     assert.equal(await balance(c.id), 0);
@@ -115,6 +114,24 @@ test("card balance and service payroll stay consistent through edits and concurr
     assert.equal(legacyEdit.serviceType, "Dịch vụ cũ");
     assert.equal(legacyEdit.hourlyRate, 50000);
     assert.equal(legacyEdit.earnings, 75000);
+    const archived = await createCard({
+      customerName: marker, phone: "0000", serviceType: "test", totalMinutes: 120,
+      purchaseAmount: 50, purchaseDate: "2099-12-01", note: "",
+    });
+    cards.push(archived.id);
+    const archivedSession = await record({ ...input, cardId: archived.id, minutes: 60, workDate: "2099-12-01" });
+    await deleteCard(archived.id);
+    const [deleted] = await db.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, archived.id));
+    assert.ok(deleted.deletedAt);
+    const [saved] = await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, archivedSession.id));
+    assert.equal(saved.cardId, archived.id);
+    assert.equal(saved.earnings, archivedSession.earnings);
+    await assert.rejects(addCardHours(archived.id, 60), fails(404));
+    await assert.rejects(updateCard(archived.id, { customerName: marker }), fails(404));
+    await assert.rejects(record({ ...input, cardId: archived.id, minutes: 60, workDate: "2099-12-01" }), fails(404));
+    const editedArchive = await record({ ...input, cardId: archived.id, minutes: 90, workDate: "2099-12-01" }, archivedSession.id);
+    assert.equal(editedArchive.cardDeleted, true);
+    assert.equal(editedArchive.minutes, 90);
     await db.delete(membersTable).where(eq(membersTable.id, memberId));
     const [retained] = await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, first.id));
     assert.equal(retained.memberId, null);
