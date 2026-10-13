@@ -1,23 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  getGetMemberPayrollQueryKey, getListAttendanceQueryKey, getListServiceSessionsQueryKey, getListTreatmentCardsQueryKey,
-  useCreateServiceSession, useDeleteMember, useDeleteServiceSession, useGetMemberPayroll, useListAttendance, useListServiceSessions,
+  getGetMemberPayrollQueryKey, getListServiceSessionsQueryKey, getListTreatmentCardsQueryKey,
+  useCreateServiceSession, useDeleteMember, useDeleteServiceSession, useGetMemberPayroll, useListServiceSessions,
   useListTreatmentCards, useUpdateMember, useUpdateServiceSession,
 } from '@workspace/api-client-react';
 import type { ServiceSession, ServiceSessionInput } from '@workspace/api-client-react';
-import { ArrowLeft, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, History, Pencil, Plus, Trash2, UserX } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, UserX } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { MemberDialog } from '@/components/entity-dialogs';
 import { ConfirmDialog, ErrorBanner, Skeleton, type ConfirmState } from '@/components/modal';
 import { SessionDialog } from '@/components/session-dialog';
 import { SessionTable } from '@/components/session-table';
-import { formatDate, formatShortDate, initial, localDate, normalize, statusLabel } from '@/lib/attendance';
+import { formatDate, formatShortDate, localDate } from '@/lib/attendance';
 import { SESSION_FRESHNESS, daysInMonth, errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth, useRefreshMassage, weekday } from '@/lib/massage';
 
 export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: number | null; readOnly: boolean; initialDate?: string | null }) {
   const shell = useShell();
-  const { members, membersLoading, membersError, retryMembers, query, notify, fail } = shell;
+  const { members, membersLoading, membersError, retryMembers, notify, fail } = shell;
   const canEdit = shell.canEdit && !readOnly;
   const [, navigate] = useLocation();
   const today = localDate();
@@ -29,17 +29,17 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [dialogError, setDialogError] = useState('');
   const [editing, setEditing] = useState(false);
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
 
   useEffect(() => { setEditing(false); }, [day, month, memberId, canEdit]);
+  useEffect(() => { setExpandedDay(null); }, [month, memberId]);
 
   const member = memberId !== null ? members.find((m) => m.id === memberId) ?? null : null;
   const id = member?.id ?? 0;
   const payrollParams = useMemo(() => ({ memberId: id, month }), [id, month]);
-  const payroll = useGetMemberPayroll(payrollParams, { query: { queryKey: getGetMemberPayrollQueryKey(payrollParams), enabled: id > 0, refetchOnWindowFocus: true } });
+  const payroll = useGetMemberPayroll(payrollParams, { query: { queryKey: getGetMemberPayrollQueryKey(payrollParams), enabled: id > 0, ...SESSION_FRESHNESS } });
   const sessionParams = useMemo(() => ({ memberId: id, month }), [id, month]);
   const sessionsQuery = useListServiceSessions(sessionParams, { query: { queryKey: getListServiceSessionsQueryKey(sessionParams), enabled: id > 0, ...SESSION_FRESHNESS } });
-  const attParams = useMemo(() => ({ memberId: id, date: day }), [id, day]);
-  const attendance = useListAttendance(attParams, { query: { queryKey: getListAttendanceQueryKey(attParams), enabled: id > 0 } });
   const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), enabled: canEdit && sessionDialog !== null } });
 
   const createSession = useCreateServiceSession();
@@ -51,8 +51,8 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
 
   const sessions = useMemo(() => sessionsQuery.data ?? [], [sessionsQuery.data]);
   const perDay = useMemo(() => {
-    const map = new Map<string, { count: number; minutes: number }>();
-    for (const s of sessions) { const v = map.get(s.workDate) ?? { count: 0, minutes: 0 }; v.count += 1; v.minutes += s.minutes; map.set(s.workDate, v); }
+    const map = new Map<string, { count: number; earnings: number }>();
+    for (const s of sessions) { const v = map.get(s.workDate) ?? { count: 0, earnings: 0 }; v.count += 1; v.earnings += s.earnings; map.set(s.workDate, v); }
     return map;
   }, [sessions]);
   const days = useMemo(() => {
@@ -64,12 +64,17 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
     return [today, ...past, ...future];
   }, [month, today]);
   const daySessions = useMemo(() => sessions.filter((s) => s.workDate === day), [sessions, day]);
-  const q = normalize(query);
-  const searchHits = useMemo(() => (q ? sessions.filter((s) => normalize([s.customerName, s.serviceType, s.note, formatShortDate(s.workDate)].join(' ')).includes(q)) : []), [sessions, q]);
+  const dayTypes = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of daySessions) map.set(s.serviceType || 'Không tên', (map.get(s.serviceType || 'Không tên') ?? 0) + 1);
+    return [...map.entries()];
+  }, [daySessions]);
+  const dayEarnings = daySessions.reduce((a, s) => a + s.earnings, 0);
 
   function changeMonth(next: string) {
     setMonth(next);
     setDay(next === monthOf(today) ? today : `${next}-01`);
+    setExpandedDay(null);
   }
 
   function submitSession(input: ServiceSessionInput) {
@@ -119,19 +124,13 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
     <section className="panel" aria-labelledby="day-title" data-testid="section-day-sessions">
       <div className="panel-head wrap">
         <div><h2 id="day-title" className="day-title"><CalendarDays size={16} aria-hidden="true" />{formatDate(day)}</h2>
-          <p className="sub">{daySessions.length} ca · {formatMinutes(daySessions.reduce((a, s) => a + s.minutes, 0))} · {formatVnd(daySessions.reduce((a, s) => a + s.earnings, 0))}</p></div>
+          <p className="sub">{daySessions.length} ca · {formatMinutes(daySessions.reduce((a, s) => a + s.minutes, 0))} · {formatVnd(dayEarnings)}</p></div>
       </div>
       {sessionsQuery.isLoading ? <Skeleton rows={3} label="Đang tải ca phục vụ" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được ca phục vụ." onRetry={() => void sessionsQuery.refetch()} /> : daySessions.length === 0 ? (
         <div className="empty small"><CalendarDays size={18} /><p>Chưa có ca được ghi trong ngày này.</p></div>
       ) : (
         <SessionTable sessions={daySessions} caption={`Ca phục vụ ngày ${formatShortDate(day)}`} canEdit={canEdit && editing} linkCards={!readOnly} busy={deleteSession.isPending}
           onEdit={(s) => { setDialogError(''); setSessionDialog({ session: s }); }} onDelete={askDeleteSession} testId="day-sessions" />
-      )}
-      {(attendance.data?.length ?? 0) > 0 && (
-        <div className="legacy" data-testid="section-legacy-attendance">
-          <h3><History size={14} />Chấm công cũ — không tính vào lương phục vụ</h3>
-          <ul>{attendance.data!.map((r) => <li key={r.id} className="muted">{statusLabel(r.status)}{r.checkIn ? ` · vào ${r.checkIn}` : ''}{r.checkOut ? ` · ra ${r.checkOut}` : ''}{r.note ? ` · ${r.note}` : ''}</li>)}</ul>
-        </div>
       )}
       {canEdit && (
         <div className="day-actions" data-testid="day-actions">
@@ -148,57 +147,53 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
   );
   return (
     <div className="detail">
-      {back}
-      <section className="salary-hero" aria-labelledby="salary-title" data-testid="section-salary">
-        <div className="hero-top">
-          <span className="initials big">{initial(member.name)}</span>
-          <div className="grow"><h1 className="page-title" data-testid="text-member-name">{member.name}</h1>
-            <p className="sub">Lương tính theo dịch vụ · giờ phục vụ × giá trả công từng dịch vụ</p>
+      <div className="detail-top">
+        {back}
+        {canEdit && (
+          <div className="head-actions">
+            <button type="button" className="icon-btn" onClick={() => { setDialogError(''); setMemberDialog(true); }} aria-label={`Sửa tên ${member.name}`} data-testid="button-edit-member"><Pencil size={15} /></button>
+            <button type="button" className="icon-btn danger" onClick={askDeleteMember} aria-label={`Xóa nhân viên ${member.name}`} data-testid="button-delete-member"><Trash2 size={15} /></button>
           </div>
-          {canEdit && (
-            <div className="head-actions">
-              <button type="button" className="btn" onClick={() => { setDialogError(''); setMemberDialog(true); }} data-testid="button-edit-member"><Pencil size={14} />Sửa tên</button>
-              <button type="button" className="icon-btn danger" onClick={askDeleteMember} aria-label={`Xóa nhân viên ${member.name}`} data-testid="button-delete-member"><Trash2 size={15} /></button>
-            </div>
-          )}
-        </div>
+        )}
+      </div>
+      <section className="salary-hero compact" aria-labelledby="salary-title" data-testid="section-salary">
         <div className="month-nav">
           <button type="button" className="icon-btn" onClick={() => changeMonth(shiftMonth(month, -1))} aria-label="Tháng trước" data-testid="button-prev-month"><ChevronLeft size={16} /></button>
-          <span id="salary-title">Tổng lương {formatMonth(month).toLowerCase()}</span>
+          <h1 id="salary-title" className="salary-label">Tổng lương {formatMonth(month).toLowerCase()} · <span data-testid="text-member-name">{member.name}</span></h1>
           <button type="button" className="icon-btn" onClick={() => changeMonth(shiftMonth(month, 1))} aria-label="Tháng sau" data-testid="button-next-month"><ChevronRight size={16} /></button>
           {month !== monthOf(today) && <button type="button" className="link-soft as-button" onClick={() => changeMonth(monthOf(today))}>Tháng này</button>}
         </div>
         {payroll.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải lương" /> : payroll.isError ? <ErrorBanner text="Không tải được lương." onRetry={() => void payroll.refetch()} /> : (
+          <p className="rev-value mono" data-testid="text-total-salary">{formatVnd(p?.totalSalary ?? 0)}</p>
+        )}
+      </section>
+      <section className="day-salary" aria-labelledby="day-salary-title" data-testid="section-day-salary">
+        <h2 id="day-salary-title" className="rev-label">Tổng lương ngày · {formatShortDate(day)}</h2>
+        {sessionsQuery.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải lương ngày" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được ca phục vụ." onRetry={() => void sessionsQuery.refetch()} /> : (
           <>
-            <p className="rev-value mono" data-testid="text-total-salary">{formatVnd(p?.totalSalary ?? 0)}</p>
-            <p className="sub" data-testid="text-total-minutes">{formatMinutes(p?.totalMinutes ?? 0)} phục vụ khách · theo mức lương lưu tại từng ca</p>
+            <p className="day-salary-value mono" data-testid="text-day-salary">{formatVnd(dayEarnings)}</p>
+            {dayTypes.length > 0 ? (
+              <ul className="type-counts" aria-label="Số ca theo dịch vụ">{dayTypes.map(([name, n]) => <li key={name}>{name} <strong className="mono">{n} ca</strong></li>)}</ul>
+            ) : <p className="muted small">Chưa có ca.</p>}
           </>
         )}
       </section>
 
-      {q && (
-        <section className="panel" aria-labelledby="emp-search">
-          <div className="panel-head"><h2 id="emp-search">Kết quả “{query.trim()}” trong {formatMonth(month).toLowerCase()}</h2></div>
-          {searchHits.length === 0 ? <p className="muted small">Không có ca khớp.</p> : (
-            <SessionTable sessions={searchHits} caption="Ca phục vụ khớp tìm kiếm" canEdit={false} showDate onEdit={() => undefined} onDelete={() => undefined} testId="employee-search" />
-          )}
-        </section>
-      )}
-
       <ul className="day-list" aria-label={`Các ngày ${formatMonth(month)}`} data-testid="list-days">
         {days.map((d) => {
           const info = perDay.get(d);
+          const expanded = expandedDay === d;
           return (
             <li key={d} className="day-item">
-              <button id={`day-toggle-${d}`} type="button" aria-expanded={d === day} aria-controls={`day-panel-${d}`}
+              <button id={`day-toggle-${d}`} type="button" aria-expanded={expanded} aria-controls={`day-panel-${d}`}
                 className={`day-row ${d === day ? 'active' : ''} ${d === today ? 'today' : ''}`}
-                onClick={() => setDay(d)} data-testid={`button-day-${d}`}>
+                onClick={() => { setDay(d); setExpandedDay(expanded ? null : d); }} data-testid={`button-day-${d}`}>
                 <span className="day-row-date"><strong className="mono">{formatShortDate(d)}</strong><span className="muted">{d === today ? 'Hôm nay' : weekday(d)}</span></span>
-                <span className="day-row-summary">{sessionsQuery.isLoading ? 'Đang tải…' : sessionsQuery.isError ? 'Chưa tải được ca' : info ? `${info.count} ca · ${formatMinutes(info.minutes)}` : 'Chưa có ca'}</span>
+                <span className="day-row-summary">{sessionsQuery.isLoading ? 'Đang tải…' : sessionsQuery.isError ? 'Chưa tải được' : <><span>{info?.count ?? 0} ca</span> · <strong className="mono">{formatVnd(info?.earnings ?? 0)}</strong></>}</span>
                 <ChevronDown size={17} className="day-chevron" aria-hidden="true" />
               </button>
-              <div id={`day-panel-${d}`} className="day-detail" hidden={d !== day}>
-                {d === day && selectedDayPanel}
+              <div id={`day-panel-${d}`} className="day-detail" hidden={!expanded}>
+                {expanded && selectedDayPanel}
               </div>
             </li>
           );

@@ -19,7 +19,7 @@ export default function CardDetailPage() {
   const params = useParams<{ id: string }>();
   const n = Number(params.id);
   const id = Number.isInteger(n) && n > 0 ? n : 0;
-  const { canEdit, members, notify, fail } = useShell();
+  const { canEdit, members, notify, fail, setQuery } = useShell();
   const [, navigate] = useLocation();
   const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), refetchOnWindowFocus: true } });
   const sessionParams = useMemo(() => ({ cardId: id }), [id]);
@@ -37,7 +37,7 @@ export default function CardDetailPage() {
 
   const card = (cardsQuery.data ?? []).find((c) => c.id === id) ?? null;
   const sessions = useMemo(() => [...(sessionsQuery.data ?? [])].sort((a, b) => b.workDate.localeCompare(a.workDate) || b.id - a.id), [sessionsQuery.data]);
-  const back = <Link href="/cards" className="back" data-testid="link-back"><ArrowLeft size={15} />Danh sách thẻ</Link>;
+  const back = <Link href="/" onClick={() => setQuery('')} className="back" data-testid="link-back"><ArrowLeft size={15} />Trang chính</Link>;
 
   if (cardsQuery.isLoading) return <section className="panel page">{back}<Skeleton rows={6} label="Đang tải thẻ" /></section>;
   if (cardsQuery.isError) return <section className="panel page">{back}<ErrorBanner text="Không tải được thẻ." onRetry={() => void cardsQuery.refetch()} /></section>;

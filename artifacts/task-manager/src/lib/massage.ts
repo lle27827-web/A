@@ -36,6 +36,15 @@ export function parseMoney(text: string): number | null {
   return Number.isSafeInteger(amount) ? amount : null;
 }
 
+/** Diacritic-insensitive name match, or digit match on the (server-provided, possibly masked) phone. */
+export function cardMatches(c: { customerName: string; phone: string }, query: string, norm: (s: string) => string) {
+  const raw = query.trim();
+  if (!raw) return true;
+  if (norm(c.customerName).includes(norm(raw))) return true;
+  const digits = /^[\d\s.\-+]+$/.test(raw) ? raw.replace(/\D/g, '') : '';
+  return digits !== '' && c.phone.replace(/\D/g, '').includes(digits);
+}
+
 export function monthOf(date: string) { return date.slice(0, 7); }
 export function daysInMonth(month: string) {
   const [y, m] = month.split('-').map(Number);

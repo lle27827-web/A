@@ -5,6 +5,7 @@ import { getGetCurrentAccessQueryKey, getListMembersQueryKey, useGetCurrentAcces
 import type { AccessStatus, MemberRecord } from '@workspace/api-client-react';
 import { AlertCircle, ArrowUpRight, Check, Eye, Hand, LoaderCircle, LockKeyhole, Search, ShieldCheck, X } from 'lucide-react';
 import { Link } from 'wouter';
+import { SearchResults } from '@/components/search-results';
 import { ViewSettings, useViewPrefs, type ViewPrefs } from '@/components/view-settings';
 import { statusCode } from '@/lib/attendance';
 import { errorText } from '@/lib/massage';
@@ -50,6 +51,7 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
   const membersQuery = useListMembers({ query: { queryKey: getListMembersQueryKey() } });
   const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
   const [query, setQuery] = useState('');
+  const showResults = query.trim().length > 0;
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
 
@@ -82,7 +84,7 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
       <div className="app">
         <header className="topbar">
           <div className="topbar-inner">
-            <Link href="/" className="brand" data-testid="link-home"><span className="brand-mark"><Hand size={15} strokeWidth={2.4} /></span><span>Số công</span></Link>
+            <Link href="/" onClick={() => setQuery('')} className="brand" data-testid="link-home"><span className="brand-mark"><Hand size={15} strokeWidth={2.4} /></span><span>Số công</span></Link>
             <form role="search" className="search" onSubmit={(e) => e.preventDefault()}>
               <Search size={16} aria-hidden="true" />
               <label htmlFor="global-search" className="sr-only">Tìm kiếm</label>
@@ -107,6 +109,7 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
           </div>
         </header>
         <main className="main" id="main">
+          {showResults && <SearchResults />}
           {!accessQuery.isLoading && access?.ownerConfigured === false && (
             <div className="banner soft" role="status" data-testid="status-owner-setup"><LockKeyhole size={15} /><span>Chưa cấu hình chủ sở hữu. Mọi thay đổi đang bị khóa.</span></div>
           )}

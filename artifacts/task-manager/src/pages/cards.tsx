@@ -6,7 +6,7 @@ import { useShell } from '@/components/app-shell';
 import { CardDialog } from '@/components/entity-dialogs';
 import { ErrorBanner, Skeleton } from '@/components/modal';
 import { formatShortDate, localDate, normalize } from '@/lib/attendance';
-import { errorText, formatMinutes, formatVnd, useRefreshMassage } from '@/lib/massage';
+import { cardMatches, errorText, formatMinutes, formatVnd, useRefreshMassage } from '@/lib/massage';
 
 export default function CardsPage() {
   const { canEdit, isOwner, query, setQuery, notify, fail } = useShell();
@@ -18,10 +18,7 @@ export default function CardsPage() {
   const refresh = useRefreshMassage();
   const cards = useMemo(() => cardsQuery.data ?? [], [cardsQuery.data]);
   const list = useMemo(() => {
-    const q = normalize(query.trim());
-    if (!q) return cards;
-    const digits = /^[\d\s.\-+]+$/.test(query.trim()) ? query.replace(/[^\d]/g, '') : '';
-    return cards.filter((c) => normalize(c.customerName).includes(q) || (digits !== '' && c.phone.replace(/[^\d]/g, '').includes(digits)));
+    return cards.filter((c) => cardMatches(c, query, normalize));
   }, [cards, query]);
 
   return (
@@ -43,7 +40,7 @@ export default function CardsPage() {
           {query.trim() ? `${list.length} / ${cards.length} thẻ khớp` : `${cards.length} thẻ`}{isOwner ? '' : ' · Chế độ xem chỉ tìm theo phần số điện thoại đang hiển thị.'}
         </span>
       </form>
-      {cardsQuery.isLoading ? <Skeleton rows={5} label="Đang tải thẻ" /> : cardsQuery.isError ? <ErrorBanner text={errorText(cardsQuery.error, 'Không tải được danh sách thẻ.')} onRetry={() => void cardsQuery.refetch()} /> : list.length === 0 ? (
+      {query.trim() ? null : cardsQuery.isLoading ? <Skeleton rows={5} label="Đang tải thẻ" /> : cardsQuery.isError ? <ErrorBanner text={errorText(cardsQuery.error, 'Không tải được danh sách thẻ.')} onRetry={() => void cardsQuery.refetch()} /> : list.length === 0 ? (
         <div className="empty"><CreditCard size={22} /><p>{cards.length ? 'Không có thẻ khớp tìm kiếm.' : 'Chưa có thẻ khách hàng nào.'}</p>
           {canEdit && !cards.length && <button type="button" className="btn primary" onClick={() => setOpen(true)}><Plus size={15} />Bán thẻ đầu tiên</button>}</div>
       ) : (
@@ -52,7 +49,7 @@ export default function CardsPage() {
             const pct = c.totalMinutes ? Math.max(0, Math.min(100, (c.remainingMinutes / c.totalMinutes) * 100)) : 0;
             return (
               <li key={c.id}>
-                <Link href={`/cards/${c.id}`} className="card-row" data-testid={`link-card-${c.id}`}>
+                <Link href={`/cards/${c.id}`} onClick={() => setQuery('')} className="card-row" data-testid={`link-card-${c.id}`}>
                   <span className="grow">
                     <strong>{c.customerName}</strong>
                     <span className="muted">{c.phone} · {c.serviceType} · mua {formatShortDate(c.purchaseDate)} · {formatVnd(c.purchaseAmount)}</span>
