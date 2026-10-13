@@ -129,7 +129,7 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
       {sessionsQuery.isLoading ? <Skeleton rows={3} label="Đang tải ca phục vụ" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được ca phục vụ." onRetry={() => void sessionsQuery.refetch()} /> : daySessions.length === 0 ? (
         <div className="empty small"><CalendarDays size={18} /><p>Chưa có ca được ghi trong ngày này.</p></div>
       ) : (
-        <SessionTable sessions={daySessions} caption={`Ca phục vụ ngày ${formatShortDate(day)}`} canEdit={canEdit && editing} linkCards={!readOnly} busy={deleteSession.isPending}
+        <SessionTable sessions={daySessions} caption={`Ca phục vụ ngày ${formatShortDate(day)}`} canEdit={canEdit && editing} visibleActions linkCards={!readOnly} busy={deleteSession.isPending}
           onEdit={(s) => { setDialogError(''); setSessionDialog({ session: s }); }} onDelete={askDeleteSession} testId="day-sessions" />
       )}
       {canEdit && (
@@ -139,7 +139,7 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
             <Pencil size={14} />{editing ? 'Xong chỉnh sửa' : 'Chỉnh sửa'}
           </button>
           {daySessions.length === 0 && <span id="day-edit-hint" className="hint">Chưa có ca để chỉnh sửa trong ngày này.</span>}
-          {editing && daySessions.length > 0 && <span className="hint">Dùng nút sửa hoặc xóa ở từng ca phía trên.</span>}
+          {editing && daySessions.length > 0 && <span className="hint">Chọn Sửa giờ hoặc Xóa ca ở danh sách phía trên.</span>}
           <button type="button" className="btn small" onClick={() => { setDialogError(''); setSessionDialog({ session: null }); }} data-testid="button-add-session"><Plus size={14} />Chấm công</button>
         </div>
       )}

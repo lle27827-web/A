@@ -4,9 +4,10 @@ import { db, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
 import {
   CreateTreatmentCardBody, CreateTreatmentCardResponse, DeleteTreatmentCardParams,
   ListTreatmentCardsResponse, UpdateTreatmentCardBody, UpdateTreatmentCardParams, UpdateTreatmentCardResponse,
+  AddTreatmentCardHoursBody, AddTreatmentCardHoursParams, AddTreatmentCardHoursResponse,
 } from "@workspace/api-zod";
 import { getAccessStatus, requireOwner } from "../middlewares/owner";
-import { cardResponse, createCard, deleteCard, updateCard } from "../lib/massage";
+import { addCardHours, cardResponse, createCard, deleteCard, updateCard } from "../lib/massage";
 import { massageHandler, parseInput } from "./massage-errors";
 
 const router: IRouter = Router();
@@ -27,6 +28,11 @@ router.patch("/treatment-cards/:id", requireOwner, massageHandler(async (req, re
   const input = parseInput(UpdateTreatmentCardBody, req.body);
   if (!Object.keys(input).length) { res.status(400).json({ error: "Chưa có thông tin cần cập nhật." }); return; }
   res.json(UpdateTreatmentCardResponse.parse(await updateCard(id, input)));
+}));
+router.post("/treatment-cards/:id/hours", requireOwner, massageHandler(async (req, res) => {
+  const { id } = parseInput(AddTreatmentCardHoursParams, req.params);
+  const { minutes } = parseInput(AddTreatmentCardHoursBody, req.body);
+  res.json(AddTreatmentCardHoursResponse.parse(await addCardHours(id, minutes)));
 }));
 router.delete("/treatment-cards/:id", requireOwner, massageHandler(async (req, res) => {
   const { id } = parseInput(DeleteTreatmentCardParams, req.params);

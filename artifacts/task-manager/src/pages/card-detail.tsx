@@ -2,13 +2,15 @@ import { useMemo, useState } from 'react';
 import {
   getListServiceSessionsQueryKey, getListTreatmentCardsQueryKey,
   useCreateServiceSession, useDeleteServiceSession, useDeleteTreatmentCard, useListServiceSessions, useListTreatmentCards,
-  useUpdateServiceSession, useUpdateTreatmentCard,
+  useUpdateServiceSession, useUpdateTreatmentCard, useAddTreatmentCardHours,
 } from '@workspace/api-client-react';
 import type { ServiceSession, ServiceSessionInput } from '@workspace/api-client-react';
 import { ArrowLeft, CreditCard, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Link, useLocation, useParams } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { CardDialog } from '@/components/entity-dialogs';
+import { CardHoursDialog } from '@/components/card-hours-dialog';
+import { ServiceCatalog } from '@/pages/services';
 import { ConfirmDialog, ErrorBanner, Skeleton, type ConfirmState } from '@/components/modal';
 import { SessionDialog } from '@/components/session-dialog';
 import { SessionTable } from '@/components/session-table';
@@ -21,16 +23,18 @@ export default function CardDetailPage() {
   const id = Number.isInteger(n) && n > 0 ? n : 0;
   const { canEdit, members, notify, fail, setQuery } = useShell();
   const [, navigate] = useLocation();
-  const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), refetchOnWindowFocus: true } });
+  const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), ...SESSION_FRESHNESS } });
   const sessionParams = useMemo(() => ({ cardId: id }), [id]);
   const sessionsQuery = useListServiceSessions(sessionParams, { query: { queryKey: getListServiceSessionsQueryKey(sessionParams), enabled: id > 0, ...SESSION_FRESHNESS } });
   const updateCard = useUpdateTreatmentCard();
+  const addHours = useAddTreatmentCardHours();
   const deleteCard = useDeleteTreatmentCard();
   const createSession = useCreateServiceSession();
   const updateSession = useUpdateServiceSession();
   const deleteSession = useDeleteServiceSession();
   const refresh = useRefreshMassage();
   const [cardDialog, setCardDialog] = useState(false);
+  const [hoursDialog, setHoursDialog] = useState(false);
   const [sessionDialog, setSessionDialog] = useState<{ session: ServiceSession | null } | null>(null);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [dialogError, setDialogError] = useState('');
@@ -100,6 +104,9 @@ export default function CardDetailPage() {
         {card.note && <p className="sub">Ghi chú: {card.note}</p>}
       </section>
 
+      {canEdit && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setHoursDialog(true); }} data-testid="button-add-card-hours"><Plus size={15} />Nạp thêm giờ vào thẻ</button>}
+      <ServiceCatalog embedded />
+
       <section className="panel" aria-labelledby="usage-title">
         <div className="panel-head wrap">
           <div><h2 id="usage-title">Lịch sử sử dụng</h2><p className="sub">{sessions.length} lần · mỗi lần đồng thời trừ giờ thẻ và tính lương kỹ thuật viên</p></div>
@@ -116,6 +123,17 @@ export default function CardDetailPage() {
       {cardDialog && canEdit && (
         <CardDialog card={card} defaultDate={localDate()} busy={updateCard.isPending} serverError={dialogError} onClose={() => setCardDialog(false)}
           onSubmit={(data) => updateCard.mutate({ id: card.id, data }, { onSuccess: () => { refresh(); setCardDialog(false); notify('Đã cập nhật thẻ.'); }, onError: (e) => { setDialogError(errorText(e)); fail(e); } })} />
+      )}
+      {hoursDialog && canEdit && (
+        <CardHoursDialog card={card} busy={addHours.isPending} serverError={dialogError} onClose={() => setHoursDialog(false)}
+          onSubmit={(minutes) => {
+            if (!canEdit || addHours.isPending) return;
+            setDialogError('');
+            addHours.mutate({ id: card.id, data: { minutes } }, {
+              onSuccess: () => { refresh(); setHoursDialog(false); notify(`Đã nạp thêm ${formatMinutes(minutes)} vào thẻ.`); },
+              onError: (e) => { setDialogError(errorText(e)); fail(e); },
+            });
+          }} />
       )}
       {sessionDialog && canEdit && (
         <SessionDialog session={sessionDialog.session} members={members} cards={[card]} defaultDate={localDate()} fixedCardId={card.id}

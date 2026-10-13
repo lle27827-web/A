@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { getListServiceTypesQueryKey, useCreateServiceType, useDeleteServiceType, useListServiceTypes, useUpdateServiceType } from '@workspace/api-client-react';
 import type { ServiceTypeRecord } from '@workspace/api-client-react';
 import { AlertCircle, ArrowLeft, LoaderCircle, LockKeyhole, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react';
@@ -9,12 +10,17 @@ import { statusCode } from '@/lib/attendance';
 import { errorText, formatVnd, parseMoney, useRefreshMassage } from '@/lib/massage';
 
 export default function ServicesPage() {
+  return <ServiceCatalog />;
+}
+
+export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
   const { canEdit, notify, fail } = useShell();
   const q = useListServiceTypes({ query: { queryKey: getListServiceTypesQueryKey(), staleTime: 20_000, refetchInterval: 60_000, refetchOnWindowFocus: true } });
   const create = useCreateServiceType();
   const update = useUpdateServiceType();
   const del = useDeleteServiceType();
   const refresh = useRefreshMassage();
+  const cache = useQueryClient();
   const [dialog, setDialog] = useState<{ service: ServiceTypeRecord | null } | null>(null);
   const [dialogError, setDialogError] = useState('');
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
@@ -25,7 +31,12 @@ export default function ServicesPage() {
     setDialogError('');
     const editing = dialog.service;
     const opts = {
-      onSuccess: () => { refresh({ services: true }); setDialog(null); notify(editing ? 'Đã cập nhật dịch vụ. Ca đã ghi giữ nguyên mức trả công cũ.' : `Đã thêm dịch vụ ${data.name}.`); },
+      onSuccess: (saved: ServiceTypeRecord) => {
+        cache.setQueryData<ServiceTypeRecord[]>(getListServiceTypesQueryKey(), (old) =>
+          [...(old ?? []).filter((s) => s.id !== saved.id), saved].sort((a, b) => a.name.localeCompare(b.name, 'vi')));
+        refresh({ services: true }); setDialog(null);
+        notify(editing ? 'Đã cập nhật dịch vụ. Ca đã ghi giữ nguyên mức trả công cũ.' : `Đã thêm dịch vụ ${data.name}.`);
+      },
       onError: (e: unknown) => { setDialogError(errorText(e)); fail(e); },
     };
     if (editing) update.mutate({ id: editing.id, data }, opts);
@@ -49,10 +60,10 @@ export default function ServicesPage() {
   }
 
   return (
-    <section className="panel page" aria-labelledby="svc-title">
-      <Link href="/" className="back" data-testid="link-back"><ArrowLeft size={15} />Trang chính</Link>
+    <section className={`panel${embedded ? '' : ' page'}`} aria-labelledby="svc-title" data-testid="section-services">
+      {!embedded && <Link href="/" className="back" data-testid="link-back"><ArrowLeft size={15} />Trang chính</Link>}
       <div className="panel-head wrap">
-        <div><h1 id="svc-title" className="page-title">Dịch vụ &amp; giá trả công</h1><p className="sub">Lương ca = số giờ × giá trả công của dịch vụ. Đổi giá chỉ áp dụng cho ca mới.</p></div>
+        <div>{embedded ? <h2 id="svc-title">Dịch vụ &amp; bảng giá trả công</h2> : <h1 id="svc-title" className="page-title">Dịch vụ &amp; bảng giá trả công</h1>}<p className="sub">Giá / giờ dùng tính lương nhân viên, không phải giá bán thẻ. Đổi giá chỉ áp dụng cho ca mới.</p></div>
         {canEdit ? <button type="button" className="btn primary" onClick={() => { setDialogError(''); setDialog({ service: null }); }} data-testid="button-add-service"><Plus size={15} />Thêm dịch vụ</button>
           : <span className="view-only"><LockKeyhole size={13} />Chỉ xem</span>}
       </div>
@@ -102,7 +113,7 @@ function ServiceDialog({ service, busy, serverError, onClose, onSubmit }: {
         <label className="field" htmlFor="sv-name">Tên dịch vụ<input id="sv-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} required placeholder="Massage body đá nóng" data-testid="input-service-name" /></label>
         <label className="field" htmlFor="sv-rate">Giá trả công / giờ (VND)
           <input id="sv-rate" inputMode="numeric" value={rate} onChange={(e) => setRate(e.target.value)} required placeholder="85000" data-testid="input-service-rate" />
-          <span className="hint">{money ? `${formatVnd(money)} / giờ` : ' '}</span>
+          <span className="hint">{money ? `${formatVnd(money)} / giờ` : 'Nhập ví dụ 100000 hoặc 100.000.'}</span>
         </label>
         {shown && <p className="form-error" role="alert"><AlertCircle size={13} /> {shown}</p>}
         <div className="dialog-actions">

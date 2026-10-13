@@ -25,6 +25,7 @@ import type {
   AttendanceRecord,
   AttendanceSummary,
   AttendanceUpdate,
+  CardHoursInput,
   GetAttendanceSummaryParams,
   GetMassageSummaryParams,
   GetMemberPayrollParams,
@@ -1574,6 +1575,89 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getDeleteTreatmentCardMutationOptions(options));
+    }
+
+export const getAddTreatmentCardHoursUrl = (id: number,) => {
+
+
+
+
+  return `/api/treatment-cards/${id}/hours`
+}
+
+export const addTreatmentCardHours = async (id: number,
+    cardHoursInput: CardHoursInput, options?: Parameters<typeof customFetch>[1]): Promise<TreatmentCard> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TreatmentCard>(getAddTreatmentCardHoursUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(cardHoursInput)
+  }
+);}
+
+
+
+
+
+export const getAddTreatmentCardHoursMutationKey = () => ['addTreatmentCardHours'] as const;
+
+export const getAddTreatmentCardHoursMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addTreatmentCardHours>>, TError,AddTreatmentCardHoursMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addTreatmentCardHours>>, TError,AddTreatmentCardHoursMutationVariables, TContext> => {
+
+const mutationKey = getAddTreatmentCardHoursMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addTreatmentCardHours>>, AddTreatmentCardHoursMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  addTreatmentCardHours(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddTreatmentCardHoursMutationResult = NonNullable<Awaited<ReturnType<typeof addTreatmentCardHours>>>
+    export type AddTreatmentCardHoursMutationBody = BodyType<CardHoursInput>
+    export type AddTreatmentCardHoursMutationError = ErrorType<void>
+    export type AddTreatmentCardHoursMutationVariables = {id: number;data: BodyType<CardHoursInput>}
+
+    export const useAddTreatmentCardHours = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addTreatmentCardHours>>, TError,AddTreatmentCardHoursMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addTreatmentCardHours>>,
+        TError,
+        AddTreatmentCardHoursMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAddTreatmentCardHoursMutationOptions(options));
     }
 
 export const getListServiceSessionsUrl = (params?: ListServiceSessionsParams,) => {

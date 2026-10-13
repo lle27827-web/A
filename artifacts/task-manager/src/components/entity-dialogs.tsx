@@ -1,13 +1,15 @@
 import { useState, type FormEvent } from 'react';
 import type { MemberRecord, TreatmentCard, TreatmentCardInput } from '@workspace/api-client-react';
+import { getListServiceTypesQueryKey, useListServiceTypes } from '@workspace/api-client-react';
 import { AlertCircle, LoaderCircle } from 'lucide-react';
 import { Modal } from '@/components/modal';
-import { formatMinutes, formatVnd, hoursValue, parseHoursToMinutes, parseMoney } from '@/lib/massage';
+import { SESSION_FRESHNESS, formatMinutes, formatVnd, hoursValue, parseHoursToMinutes, parseMoney } from '@/lib/massage';
 
 export function CardDialog({ card, defaultDate, busy, serverError, onClose, onSubmit }: {
   card: TreatmentCard | null; defaultDate: string; busy: boolean; serverError: string;
   onClose: () => void; onSubmit: (input: TreatmentCardInput) => void;
 }) {
+  const servicesQuery = useListServiceTypes({ query: { queryKey: getListServiceTypesQueryKey(), ...SESSION_FRESHNESS } });
   const [customerName, setCustomerName] = useState(card?.customerName ?? '');
   const [phone, setPhone] = useState(card?.phone ?? '');
   const [serviceType, setServiceType] = useState(card?.serviceType ?? '');
@@ -39,7 +41,10 @@ export function CardDialog({ card, defaultDate, busy, serverError, onClose, onSu
           <label className="field" htmlFor="c-name">Tên khách<input id="c-name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={120} required data-testid="input-card-customer" /></label>
           <label className="field" htmlFor="c-phone">Số điện thoại<input id="c-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={32} required data-testid="input-card-phone" /></label>
         </div>
-        <label className="field" htmlFor="c-service">Loại dịch vụ<input id="c-service" value={serviceType} onChange={(e) => setServiceType(e.target.value)} maxLength={120} required placeholder="Massage body đá nóng" data-testid="input-card-service" /></label>
+        <label className="field" htmlFor="c-service">Loại dịch vụ<input id="c-service" list="card-service-names" value={serviceType} onChange={(e) => setServiceType(e.target.value)} maxLength={120} required placeholder="Chọn dịch vụ hoặc nhập tên" data-testid="input-card-service" />
+          <datalist id="card-service-names">{(servicesQuery.data ?? []).map((s) => <option key={s.id} value={s.name}>{formatVnd(s.hourlyRate)} / giờ trả công</option>)}</datalist>
+          {servicesQuery.isError && <span className="hint warn" role="alert">Không tải được danh sách dịch vụ. Bạn vẫn có thể nhập tên hoặc <button type="button" className="link-soft as-button" onClick={() => void servicesQuery.refetch()}>thử lại</button>.</span>}
+        </label>
         <div className="field-row">
           <label className="field" htmlFor="c-hours">Tổng số giờ đã mua
             <input id="c-hours" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} required data-testid="input-card-hours" />

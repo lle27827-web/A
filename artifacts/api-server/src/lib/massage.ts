@@ -79,6 +79,23 @@ export async function deleteCard(id: number) {
   });
 }
 
+/** Additive update, serialized with usage/edit operations to avoid lost hours. */
+export async function addCardHours(id: number, minutes: number) {
+  if (!Number.isSafeInteger(minutes) || minutes < 1 || minutes > 600000) {
+    throw new MassageError(400, "Số giờ nạp phải lớn hơn 0 và không quá 10.000 giờ.");
+  }
+  return db.transaction(async (tx) => {
+    const [card] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
+    if (!card) throw new MassageError(404, "Không tìm thấy thẻ.");
+    if (card.totalMinutes + minutes > 600000) {
+      throw new MassageError(400, "Tổng số giờ của thẻ không được vượt quá 10.000 giờ.");
+    }
+    const [row] = await tx.update(treatmentCardsTable)
+      .set({ totalMinutes: card.totalMinutes + minutes }).where(eq(treatmentCardsTable.id, id)).returning();
+    return cardResponse(row, await usedMinutes(tx, id), true);
+  });
+}
+
 // Lock the session and affected cards in a consistent order. Card row locks
 // serialize balance checks so simultaneous requests cannot overspend hours.
 export async function saveSession(input: ServiceSessionInput, id?: number) {

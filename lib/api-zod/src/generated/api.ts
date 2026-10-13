@@ -446,6 +446,36 @@ export const DeleteTreatmentCardResponse = zod.void()
 
 
 
+
+export const AddTreatmentCardHoursParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const addTreatmentCardHoursBodyMinutesMax = 600000;
+
+
+
+export const AddTreatmentCardHoursBody = zod.object({
+  "minutes": zod.number().int().min(1).max(addTreatmentCardHoursBodyMinutesMax)
+})
+
+export const AddTreatmentCardHoursResponse = zod.object({
+  "id": zod.number().int(),
+  "customerName": zod.string(),
+  "phone": zod.string(),
+  "serviceType": zod.string(),
+  "totalMinutes": zod.number().int(),
+  "usedMinutes": zod.number().int(),
+  "remainingMinutes": zod.number().int(),
+  "purchaseAmount": zod.number().int(),
+  "purchaseDate": zod.string(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+
+
+
+
 export const listServiceSessionsQueryMonthRegExp = new RegExp('^\\d{4}-(0[1-9]|1[0-2])$');
 export const listServiceSessionsQueryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
 

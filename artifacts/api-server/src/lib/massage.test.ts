@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { eq, inArray, sql } from "drizzle-orm";
 import { db, pool, membersTable, serviceSessionsTable, treatmentCardsTable, serviceTypesTable } from "@workspace/db";
-import { cardResponse, createCard, deleteCard, deleteSession, MassageError, saveSession, updateCard } from "./massage";
+import { addCardHours, cardResponse, createCard, deleteCard, deleteSession, MassageError, saveSession, updateCard } from "./massage";
 
 test("card balance and service payroll stay consistent through edits and concurrent use", async () => {
   const marker = `Verify-${randomUUID()}`;
@@ -31,7 +31,7 @@ test("card balance and service payroll stay consistent through edits and concurr
     const makeCard = async (minutes: number) => {
       const card = await createCard({
         customerName: marker, phone: "0000000000", serviceType: "Dịch vụ kiểm tra",
-        totalMinutes: minutes, purchaseAmount: 1000000, purchaseDate: "2026-10-13",
+        totalMinutes: minutes, purchaseAmount: 1000000, purchaseDate: "2099-10-13",
       });
       cards.push(card.id);
       return card;
@@ -39,6 +39,29 @@ test("card balance and service payroll stay consistent through edits and concurr
     const a = await makeCard(600);
     const b = await makeCard(120);
     const c = await makeCard(30);
+    const topupCard = await makeCard(120);
+    const before = await addCardHours(topupCard.id, 90);
+    assert.equal(before.totalMinutes, 210);
+    assert.equal(before.remainingMinutes, 210);
+    assert.equal(before.purchaseAmount, 1000000);
+    assert.equal(before.purchaseDate, "2099-10-13");
+    await Promise.all([addCardHours(topupCard.id, 30), addCardHours(topupCard.id, 60)]);
+    const after = await addCardHours(topupCard.id, 1);
+    assert.equal(after.totalMinutes, 301, "concurrent top-ups add, rather than overwrite");
+    await assert.rejects(addCardHours(topupCard.id, 0), fails(400));
+    await assert.rejects(addCardHours(topupCard.id, -1), fails(400));
+    await assert.rejects(addCardHours(topupCard.id, 1.5), fails(400));
+    await assert.rejects(addCardHours(topupCard.id, 600000), fails(400));
+    const topupVisit = await record({ memberId, serviceTypeId: service.id, cardId: topupCard.id, workDate: "2099-10-13", minutes: 60, note: marker });
+    const toppedWithHistory = await addCardHours(topupCard.id, 30);
+    assert.equal(toppedWithHistory.totalMinutes, 331);
+    assert.equal(toppedWithHistory.usedMinutes, 60);
+    assert.equal(toppedWithHistory.remainingMinutes, 271);
+    const changedVisit = await record({ memberId, serviceTypeId: service.id, cardId: topupCard.id, workDate: "2099-10-13", minutes: 90, note: marker }, topupVisit.id);
+    assert.equal(changedVisit.earnings, 150000);
+    assert.equal(await balance(topupCard.id), 90);
+    await deleteSession(topupVisit.id);
+    assert.equal(await balance(topupCard.id), 0, "deleting a visit refunds its hours");
     const input = { memberId, serviceTypeId: service.id, cardId: a.id, workDate: "2026-10-13", minutes: 60, note: marker };
     const first = await record(input);
     assert.equal(first.earnings, 100000);

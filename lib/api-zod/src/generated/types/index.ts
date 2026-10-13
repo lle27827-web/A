@@ -12,6 +12,7 @@ export * from './attendanceRecord';
 export * from './attendanceStatus';
 export * from './attendanceSummary';
 export * from './attendanceUpdate';
+export * from './cardHoursInput';
 export * from './getAttendanceSummaryParams';
 export * from './getMassageSummaryParams';
 export * from './getMemberPayrollParams';

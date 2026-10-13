@@ -196,6 +196,14 @@ export interface TreatmentCardInput {
   note?: string;
 }
 
+export interface CardHoursInput {
+  /**
+     * @minimum 1
+     * @maximum 600000
+     */
+  minutes: number;
+}
+
 export interface TreatmentCardUpdate {
   /**
      * @minLength 1
