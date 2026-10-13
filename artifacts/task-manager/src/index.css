@@ -425,3 +425,37 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   .account-email { display: none; }
   .gate { padding: 18px; margin-top: 8px; }
 }
+
+/* Small screens: keep content inside the viewport instead of squeezing the report rows. */
+@media (max-width: 640px) {
+  .topbar-inner { width: calc(100% - 24px); column-gap: 8px; }
+  .search { min-width: 0; }
+  .account { min-width: 0; margin-left: auto; }
+  .main, .footer { width: calc(100% - 24px); min-width: 0; }
+  .main { padding-top: 12px; }
+  .footer { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+  .layout, .content, .panel, .revenue, .home { min-width: 0; }
+  .rev-breakdown { grid-template-columns: minmax(0, 1fr); }
+  .rev-breakdown > div { min-width: 0; flex-wrap: wrap; align-items: baseline; }
+  .rev-breakdown dt, .rev-breakdown dd, .rev-value { min-width: 0; overflow-wrap: anywhere; }
+  .rev-breakdown .today-heading { padding-top: 10px; border-top: 1px solid hsl(var(--border)); }
+  .rev-breakdown .today-heading dt { color: hsl(var(--foreground)); font-weight: 700; }
+  .rev-breakdown .today-heading dd { font-size: 19px; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat { min-width: 0; }
+  .stat dd { font-size: clamp(16px, 5vw, 22px); overflow-wrap: anywhere; }
+  .reports, .tiles, .emp-item, .mgr-form { min-width: 0; }
+  .table-wrap { max-width: 100%; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+  .settings-dialog { width: calc(100vw - 24px); max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); padding: 16px; }
+  input, select, textarea { max-width: 100%; }
+}
+
+@media (max-width: 360px) {
+  .topbar-inner, .main, .footer { width: calc(100% - 20px); }
+  .topbar-inner { gap: 8px; }
+  .brand { flex-shrink: 0; }
+  .account { flex-wrap: wrap; }
+  .tiles { grid-template-columns: minmax(0, 1fr); }
+  .panel { padding: 12px; }
+  .settings-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); padding: 12px; }
+}

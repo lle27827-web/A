@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { inArray } from "drizzle-orm";
 import { db, pool, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
+import { GetMassageSummaryQueryParams } from "@workspace/api-zod";
 import { getFacilityRevenue } from "./facility-revenue";
 import { deleteCard } from "./massage";
 
@@ -11,8 +12,22 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
   const month = "2099-02";
   const date = "2099-02-01";
   try {
+    assert.equal(GetMassageSummaryQueryParams.parse({ month, date }).date, date);
     const baseline = await getFacilityRevenue(month, date);
     assert.equal(baseline.revenue, baseline.serviceRevenue + baseline.cardRevenue);
+    const noSalesMonth = "2098-03";
+    const noSalesDay = "2098-03-12";
+    const [walkIn] = await db.insert(serviceSessionsTable).values({
+      memberId: null, employeeName: "__no_sales_month_test", cardId: null, customerName: "",
+      serviceType: "test", workDate: noSalesDay, minutes: 30, hourlyRate: 10000,
+      earnings: 5000, note: "",
+    }).returning();
+    sessionIds.push(walkIn.id);
+    const serviceOnly = await getFacilityRevenue(noSalesMonth, noSalesDay);
+    assert.equal(serviceOnly.serviceRevenue, 5000);
+    assert.equal(serviceOnly.cardRevenue, 0);
+    assert.equal(serviceOnly.revenue, 5000);
+    assert.equal(serviceOnly.walkInVisits, 1);
     const cards = await db.insert(treatmentCardsTable).values([
       { customerName: "__facility_report_test", phone: "", serviceType: "test", totalMinutes: 120, purchaseAmount: 800, purchaseDate: "2099-02-01", note: "" },
       { customerName: "__facility_report_test", phone: "", serviceType: "test", totalMinutes: 60, purchaseAmount: 1200, purchaseDate: "2099-02-28", note: "" },
