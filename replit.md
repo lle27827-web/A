@@ -36,6 +36,8 @@
 
 ## Product
 
+The app is for a massage establishment. “Quản lý thẻ” means customer treatment-package cards, not work-type tags. The user wants customer name, phone number, service type, and usage history recording the date, service duration, and technician who performed each visit.
+
 The user wants two views, Chủ and Nhân viên, both with black backgrounds and white text. Keep search at the top and use “Nhân viên” rather than “Thành viên” in the interface. A settings gear selects the view and the employee displayed in the employee view, with the selection remembered on the current browser.
 
 Choosing the Chủ view is a presentation preference, never authorization. Only the verified owner account may edit in that view; the Nhân viên view is read-only even when previewed by the owner. Employee selection is a display filter, not a private employee-account access boundary: the existing public-read policy remains unchanged.
