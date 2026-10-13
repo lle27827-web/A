@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { inArray } from "drizzle-orm";
 import { db, pool, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
-import { GetMassageSummaryQueryParams } from "@workspace/api-zod";
+import { GetMassageSummaryQueryParams, GetMassageSummaryResponse } from "@workspace/api-zod";
 import { getFacilityRevenue } from "./facility-revenue";
 import { deleteCard } from "./massage";
 
@@ -24,11 +24,16 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     }).returning();
     sessionIds.push(walkIn.id);
     const serviceOnly = await getFacilityRevenue(noSalesMonth, noSalesDay);
+    const validatedServiceOnly = GetMassageSummaryResponse.parse(serviceOnly);
     assert.equal(serviceOnly.serviceRevenue, 5000);
     assert.equal(serviceOnly.walkInServiceRevenue, 5000);
+    assert.equal(serviceOnly.walkInServiceMinutes, 30);
     assert.equal(serviceOnly.cardRevenue, 0);
     assert.equal(serviceOnly.revenue, 5000);
     assert.equal(serviceOnly.revenueExcludingCardSessions, 5000);
+    assert.equal(validatedServiceOnly.revenueExcludingCardSessions, 5000);
+    assert.equal(validatedServiceOnly.today.revenueExcludingCardSessions, 5000);
+    assert.equal(validatedServiceOnly.today.walkInServiceMinutes, 30);
     assert.equal(serviceOnly.walkInVisits, 1);
     const cards = await db.insert(treatmentCardsTable).values([
       { customerName: "__facility_report_test", phone: "", serviceType: "test", totalMinutes: 120, purchaseAmount: 800, purchaseDate: "2099-02-01", note: "" },
@@ -55,6 +60,8 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     assert.equal(after.cardRevenue - baseline.cardRevenue, 2000);
     assert.equal(after.revenue - baseline.revenue, 2250);
     assert.equal(after.walkInServiceRevenue - baseline.walkInServiceRevenue, 50);
+    assert.equal(after.walkInServiceMinutes - baseline.walkInServiceMinutes, 30);
+    assert.equal(after.today.walkInServiceMinutes - baseline.today.walkInServiceMinutes, 0);
     assert.equal(after.revenueExcludingCardSessions - baseline.revenueExcludingCardSessions, 2050);
     assert.equal(after.today.revenueExcludingCardSessions - baseline.today.revenueExcludingCardSessions, 800);
     assert.equal(after.cardsSold - baseline.cardsSold, 2);

@@ -5,15 +5,16 @@ import {
   useListTreatmentCards, useUpdateMember, useUpdateServiceSession,
 } from '@workspace/api-client-react';
 import type { ServiceSession, ServiceSessionInput } from '@workspace/api-client-react';
-import { ArrowLeft, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, UserX } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, UserX } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { MemberDialog } from '@/components/entity-dialogs';
 import { ConfirmDialog, ErrorBanner, Skeleton, type ConfirmState } from '@/components/modal';
+import { DatePickerDialog } from '@/components/date-picker-dialog';
 import { SessionDialog } from '@/components/session-dialog';
 import { SessionTable } from '@/components/session-table';
 import { formatDate, formatShortDate, localDate } from '@/lib/attendance';
-import { SESSION_FRESHNESS, daysInMonth, errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth, useRefreshMassage, weekday } from '@/lib/massage';
+import { SESSION_FRESHNESS, errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth, useRefreshMassage } from '@/lib/massage';
 
 export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: number | null; readOnly: boolean; initialDate?: string | null }) {
   const shell = useShell();
@@ -25,14 +26,13 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
   const [month, setMonth] = useState(monthOf(validInitial ?? today));
   const [day, setDay] = useState(validInitial ?? today);
   const [sessionDialog, setSessionDialog] = useState<{ session: ServiceSession | null } | null>(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [memberDialog, setMemberDialog] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [dialogError, setDialogError] = useState('');
   const [editing, setEditing] = useState(false);
-  const [expandedDay, setExpandedDay] = useState<string | null>(null);
 
   useEffect(() => { setEditing(false); }, [day, month, memberId, canEdit]);
-  useEffect(() => { setExpandedDay(null); }, [month, memberId]);
 
   const member = memberId !== null ? members.find((m) => m.id === memberId) ?? null : null;
   const id = member?.id ?? 0;
@@ -50,19 +50,6 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
   const refresh = useRefreshMassage();
 
   const sessions = useMemo(() => sessionsQuery.data ?? [], [sessionsQuery.data]);
-  const perDay = useMemo(() => {
-    const map = new Map<string, { count: number; earnings: number }>();
-    for (const s of sessions) { const v = map.get(s.workDate) ?? { count: 0, earnings: 0 }; v.count += 1; v.earnings += s.earnings; map.set(s.workDate, v); }
-    return map;
-  }, [sessions]);
-  const days = useMemo(() => {
-    const n = daysInMonth(month);
-    const all = Array.from({ length: n }, (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`);
-    if (month !== monthOf(today)) return all;
-    const past = all.filter((d) => d < today).reverse();
-    const future = all.filter((d) => d > today);
-    return [today, ...past, ...future];
-  }, [month, today]);
   const daySessions = useMemo(() => sessions.filter((s) => s.workDate === day), [sessions, day]);
   const dayTypes = useMemo(() => {
     const map = new Map<string, number>();
@@ -74,7 +61,11 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
   function changeMonth(next: string) {
     setMonth(next);
     setDay(next === monthOf(today) ? today : `${next}-01`);
-    setExpandedDay(null);
+  }
+  function chooseDay(next: string) {
+    setMonth(monthOf(next));
+    setDay(next);
+    setDatePickerOpen(false);
   }
 
   function submitSession(input: ServiceSessionInput) {
@@ -147,9 +138,7 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
   );
   return (
     <div className="detail">
-      <div className="detail-top">
-        {back}
-      </div>
+      {readOnly && <div className="detail-top">{back}</div>}
       <section className="salary-hero compact" aria-labelledby="salary-title" data-testid="section-salary">
         <div className="month-nav">
           <button type="button" className="icon-btn" onClick={() => changeMonth(shiftMonth(month, -1))} aria-label="Tháng trước" data-testid="button-prev-month"><ChevronLeft size={16} /></button>
@@ -162,7 +151,12 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
         )}
       </section>
       <section className="day-salary" aria-labelledby="day-salary-title" data-testid="section-day-salary">
-        <h2 id="day-salary-title" className="rev-label">Tổng lương ngày · {formatShortDate(day)}</h2>
+        <div className="day-salary-heading">
+          <h2 id="day-salary-title" className="rev-label">Tổng lương ngày · {formatShortDate(day)}</h2>
+          <button type="button" className="btn small date-picker-trigger" onClick={() => setDatePickerOpen(true)} aria-label={`Chọn ngày xem chi tiết, hiện tại ${formatShortDate(day)}`} data-testid="button-open-detail-date-picker">
+            <CalendarDays size={14} aria-hidden="true" />{formatShortDate(day)}
+          </button>
+        </div>
         {sessionsQuery.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải lương ngày" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được ca phục vụ." onRetry={() => void sessionsQuery.refetch()} /> : (
           <>
             <p className="day-salary-value mono" data-testid="text-day-salary">{formatVnd(dayEarnings)}</p>
@@ -173,26 +167,7 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
         )}
       </section>
 
-      <ul className="day-list" aria-label={`Các ngày ${formatMonth(month)}`} data-testid="list-days">
-        {days.map((d) => {
-          const info = perDay.get(d);
-          const expanded = expandedDay === d;
-          return (
-            <li key={d} className="day-item">
-              <button id={`day-toggle-${d}`} type="button" aria-expanded={expanded} aria-controls={`day-panel-${d}`}
-                className={`day-row ${d === day ? 'active' : ''} ${d === today ? 'today' : ''}`}
-                onClick={() => { setDay(d); setExpandedDay(expanded ? null : d); }} data-testid={`button-day-${d}`}>
-                <span className="day-row-date"><strong className="mono">{formatShortDate(d)}</strong><span className="muted">{d === today ? 'Hôm nay' : weekday(d)}</span></span>
-                <span className="day-row-summary">{sessionsQuery.isLoading ? 'Đang tải…' : sessionsQuery.isError ? 'Chưa tải được' : <><span>{info?.count ?? 0} ca</span> · <strong className="mono">{formatVnd(info?.earnings ?? 0)}</strong></>}</span>
-                <ChevronDown size={17} className="day-chevron" aria-hidden="true" />
-              </button>
-              <div id={`day-panel-${d}`} className="day-detail" hidden={!expanded}>
-                {expanded && selectedDayPanel}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      {selectedDayPanel}
 
       {canEdit && (
         <div className="employee-management-actions" aria-label={`Thao tác với nhân viên ${member.name}`}>
@@ -201,6 +176,7 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
         </div>
       )}
 
+      {datePickerOpen && <DatePickerDialog value={day} title="Chọn ngày xem chi tiết" onClose={() => setDatePickerOpen(false)} onSelect={chooseDay} />}
       {sessionDialog && canEdit && (
         <SessionDialog session={sessionDialog.session} members={members} cards={cardsQuery.data ?? []} cardsLoading={cardsQuery.isLoading} defaultDate={day} defaultMemberId={member.id} fixedMemberId={sessionDialog.session ? undefined : member.id}
           busy={createSession.isPending || updateSession.isPending} serverError={dialogError} onClose={() => setSessionDialog(null)} onSubmit={submitSession} />

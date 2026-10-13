@@ -13,6 +13,12 @@ export interface MassageSummary {
   revenue: number;
   /** Tổng earnings lưu tại các ca theo ngày làm; đây là khoản tính theo lương ca theo yêu cầu người dùng. */
   serviceRevenue: number;
+  /** Tổng khoản dịch vụ khách lẻ; không gồm ca đã dùng thẻ. */
+  walkInServiceRevenue: number;
+  /** Tổng số phút phục vụ khách lẻ; không gồm ca đã dùng thẻ. */
+  walkInServiceMinutes: number;
+  /** Doanh thu bán thẻ cộng dịch vụ khách lẻ; loại khoản lương của các ca dùng thẻ. */
+  revenueExcludingCardSessions: number;
   /** Tổng tiền bán thẻ theo ngày mua. */
   cardRevenue: number;
   cardsSold: number;

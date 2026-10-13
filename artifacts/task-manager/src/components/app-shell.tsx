@@ -155,6 +155,7 @@ function AuthorizedShell({ access, accessKey, email, roleLabel, recheck, recheck
     if (existingIndex >= 0) routeHistory.current.length = existingIndex + 1;
     else routeHistory.current.push(location);
     lastLocation.current = location;
+    if (location === '/' || location === '/attendance') setQuery('');
     requestAnimationFrame(() => {
       const main = document.getElementById('main');
       const target = main?.querySelector<HTMLElement>('h1, h2') ?? main;

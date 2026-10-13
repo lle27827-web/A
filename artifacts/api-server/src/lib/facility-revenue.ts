@@ -36,6 +36,12 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
         and ${serviceSessionsTable.workDate} < ${end}
         and ${serviceSessionsTable.cardId} is null
     ), 0)`,
+    walkInServiceMinutes: sql<number>`coalesce((
+      select sum(${serviceSessionsTable.minutes}) from ${serviceSessionsTable}
+      where ${serviceSessionsTable.workDate} >= ${start}
+        and ${serviceSessionsTable.workDate} < ${end}
+        and ${serviceSessionsTable.cardId} is null
+    ), 0)`,
     walkInVisits: sql<number>`(select count(*) from ${serviceSessionsTable}
       where ${serviceSessionsTable.workDate} >= ${start} and ${serviceSessionsTable.workDate} < ${end}
       and ${serviceSessionsTable.cardId} is null)`,
@@ -55,6 +61,9 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
     dayWalkInServiceRevenue: sql<number>`coalesce((select sum(${serviceSessionsTable.earnings})
       from ${serviceSessionsTable} where ${serviceSessionsTable.workDate} = ${date}
       and ${serviceSessionsTable.cardId} is null), 0)`,
+    dayWalkInServiceMinutes: sql<number>`coalesce((select sum(${serviceSessionsTable.minutes})
+      from ${serviceSessionsTable} where ${serviceSessionsTable.workDate} = ${date}
+      and ${serviceSessionsTable.cardId} is null), 0)`,
     dayCardRevenue: sql<number>`coalesce((select sum(${treatmentCardsTable.purchaseAmount})
       from ${treatmentCardsTable} where ${treatmentCardsTable.purchaseDate} = ${date}
       and ${treatmentCardsTable.deletedAt} is null), 0)`,
@@ -67,20 +76,23 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
       and exists (select 1 from ${treatmentCardsTable}
         where ${treatmentCardsTable.id} = ${serviceSessionsTable.cardId}
           and ${treatmentCardsTable.deletedAt} is null))`,
-  }).from(sql`(select 1)`.as("summary_singleton"));
+  }).from(sql`(select 1)`);
   const serviceRevenue = Number(row.serviceRevenue);
   const walkInServiceRevenue = Number(row.walkInServiceRevenue);
+  const walkInServiceMinutes = Number(row.walkInServiceMinutes);
   const cardRevenue = Number(row.cardRevenue);
   const dayServiceRevenue = Number(row.dayServiceRevenue);
   const dayWalkInServiceRevenue = Number(row.dayWalkInServiceRevenue);
+  const dayWalkInServiceMinutes = Number(row.dayWalkInServiceMinutes);
   const dayCardRevenue = Number(row.dayCardRevenue);
   return {
-    month, revenue: serviceRevenue + cardRevenue, serviceRevenue, walkInServiceRevenue,
+    month, revenue: serviceRevenue + cardRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes,
     revenueExcludingCardSessions: walkInServiceRevenue + cardRevenue, cardRevenue, cardsSold: Number(row.cardsSold),
     walkInVisits: Number(row.walkInVisits), cardVisits: Number(row.cardVisits),
     today: {
       date, revenue: dayServiceRevenue + dayCardRevenue, serviceRevenue: dayServiceRevenue,
       walkInServiceRevenue: dayWalkInServiceRevenue,
+      walkInServiceMinutes: dayWalkInServiceMinutes,
       revenueExcludingCardSessions: dayWalkInServiceRevenue + dayCardRevenue,
       cardRevenue: dayCardRevenue, cardsSold: Number(row.dayCardsSold),
       walkInVisits: Number(row.dayWalkInVisits), cardVisits: Number(row.dayCardVisits),

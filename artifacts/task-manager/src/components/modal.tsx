@@ -1,8 +1,7 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import * as D from '@radix-ui/react-dialog';
-import { ArrowLeft, Home } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Home, LoaderCircle, X } from 'lucide-react';
 import { Link } from 'wouter';
-import { AlertTriangle, LoaderCircle, X } from 'lucide-react';
 
 export function Modal({ title, description, onClose, children, testId }: { title: string; description?: string; onClose: () => void; children: ReactNode; testId?: string }) {
   const opener = useRef<HTMLElement | null>(null);

@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { getListServiceTypesQueryKey, useListServiceTypes } from '@workspace/api-client-react';
 import type { MemberRecord, ServiceSession, ServiceSessionInput, TreatmentCard } from '@workspace/api-client-react';
-import { AlertCircle, LoaderCircle } from 'lucide-react';
+import { AlertCircle, CalendarDays, LoaderCircle } from 'lucide-react';
 import { Link } from 'wouter';
 import { Modal } from '@/components/modal';
-import { formatShortDate, localDate, normalize } from '@/lib/attendance';
-import { daysInMonth, formatMinutes, formatVnd, hoursValue, parseHoursToMinutes, weekday } from '@/lib/massage';
+import { DatePickerDialog } from '@/components/date-picker-dialog';
+import { formatShortDate, normalize } from '@/lib/attendance';
+import { formatMinutes, formatVnd, hoursValue, parseHoursToMinutes } from '@/lib/massage';
 
 const KEEP = 'keep';
 
@@ -28,6 +29,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
   const [memberId, setMemberId] = useState(String(session?.memberId ?? fixedMemberId ?? defaultMemberId ?? ''));
   const [cardId, setCardId] = useState(String(session ? session.cardId ?? '' : fixedCardId ?? ''));
   const [date, setDate] = useState(session?.workDate ?? defaultDate);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const today = localDate();
   const dateChoices = useMemo(() => {
     const month = date.slice(0, 7);
@@ -111,34 +113,19 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
               </div>
             )}
         </fieldset>
-        <div className="field-row">
+        <div className="field-row session-hours-row">
           <label className="field" htmlFor="s-hours">Số giờ
             <input id="s-hours" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} required aria-describedby="s-hours-hint" data-testid="input-session-hours" />
             <span id="s-hours-hint" className="hint">{minutes ? `${minutes} phút${rate > 0 ? ` · ước tính ${formatVnd((minutes / 60) * rate)}` : ''}` : 'Ví dụ 1,5'}</span>
           </label>
         </div>
-        <fieldset className="field session-date-pick">
-          <legend>Ngày chấm công</legend>
-          <label className="field session-month" htmlFor="s-month">Tháng
-            <input id="s-month" type="month" value={date.slice(0, 7)} onChange={(e) => {
-              const month = e.target.value;
-              if (!month) return;
-              setDate(month === today.slice(0, 7) ? today : `${month}-01`);
-            }} required data-testid="input-session-month" />
-          </label>
-          <ul className="session-date-list" aria-label={`Ngày trong tháng ${date.slice(0, 7)}`} data-testid="list-session-dates">
-            {dateChoices.map((choice) => (
-              <li key={choice}>
-                <button type="button" className={`session-date-choice ${date === choice ? 'selected' : ''}`} aria-pressed={date === choice} aria-current={choice === today ? 'date' : undefined}
-                  onClick={() => setDate(choice)} data-testid={`button-session-date-${choice}`}>
-                  <span><strong>{formatShortDate(choice)}</strong><span className="muted">{weekday(choice)}</span></span>
-                  <span className="session-date-badge">{choice === today ? 'Hôm nay' : date === choice ? 'Đã chọn' : ''}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+        <div className="field session-date-control">
+          <span>Ngày chấm công</span>
+          <button type="button" className="btn date-picker-trigger" onClick={() => setDatePickerOpen(true)} aria-label={`Chọn ngày chấm công, hiện tại ${formatShortDate(date)}`} data-testid="button-open-session-date-picker">
+            <CalendarDays size={15} aria-hidden="true" />{formatShortDate(date)}
+          </button>
           <input type="hidden" name="workDate" value={date} required />
-        </fieldset>
+        </div>
         {fixedMemberId && !session ? (
           <p className="hint" data-testid="text-session-member">Kỹ thuật viên: <strong>{fixedMember?.name ?? `#${fixedMemberId}`}</strong></p>
         ) : (
@@ -178,6 +165,8 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
           <button type="submit" className="btn primary" disabled={busy || catalogQuery.isLoading} data-testid="button-save-session">{busy && <LoaderCircle size={14} className="spin" />}Lưu ca</button>
         </div>
       </form>
+      {datePickerOpen && <DatePickerDialog value={date} title="Chọn ngày chấm công" onClose={() => setDatePickerOpen(false)}
+        onSelect={(nextDate) => { setDate(nextDate); setDatePickerOpen(false); }} />}
     </Modal>
   );
 }

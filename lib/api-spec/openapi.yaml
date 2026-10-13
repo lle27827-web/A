@@ -748,12 +748,13 @@ components:
         note: { type: string, maxLength: 2000 }
     MassageSummary:
       type: object
-      required: [month, revenue, serviceRevenue, walkInServiceRevenue, revenueExcludingCardSessions, cardRevenue, cardsSold, walkInVisits, cardVisits, today]
+      required: [month, revenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, cardsSold, walkInVisits, cardVisits, today]
       properties:
         month: { type: string }
         revenue: { type: number, description: "Tổng báo cáo cơ sở: tiền các ca dịch vụ đã ghi cộng tiền bán thẻ trong tháng." }
         serviceRevenue: { type: number, description: "Tổng earnings lưu tại các ca theo ngày làm; đây là khoản tính theo lương ca theo yêu cầu người dùng." }
         walkInServiceRevenue: { type: number, description: "Tổng khoản dịch vụ khách lẻ; không gồm ca đã dùng thẻ." }
+        walkInServiceMinutes: { type: integer, description: "Tổng số phút phục vụ khách lẻ; không gồm ca đã dùng thẻ." }
         revenueExcludingCardSessions: { type: number, description: "Doanh thu bán thẻ cộng dịch vụ khách lẻ; loại khoản lương của các ca dùng thẻ." }
         cardRevenue: { type: number, description: "Tổng tiền bán thẻ theo ngày mua." }
         cardsSold: { type: integer }
@@ -762,12 +763,13 @@ components:
         today: { $ref: "#/components/schemas/DailyRevenue" }
     DailyRevenue:
       type: object
-      required: [date, revenue, serviceRevenue, walkInServiceRevenue, revenueExcludingCardSessions, cardRevenue, cardsSold, walkInVisits, cardVisits]
+      required: [date, revenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, cardsSold, walkInVisits, cardVisits]
       properties:
         date: { type: string, format: date }
         revenue: { type: number }
         serviceRevenue: { type: number }
         walkInServiceRevenue: { type: number }
+        walkInServiceMinutes: { type: integer }
         revenueExcludingCardSessions: { type: number }
         cardRevenue: { type: number }
         cardsSold: { type: integer }
