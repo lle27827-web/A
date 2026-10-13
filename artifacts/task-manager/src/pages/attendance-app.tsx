@@ -152,7 +152,7 @@ export default function AttendanceApp() {
     <div className="app">
       <header className="topbar">
         <div className="topbar-inner">
-          <Link href="/" className="brand" data-testid="link-home"><span className="brand-mark"><CheckCheck size={16} strokeWidth={2.6} /></span><span>Cùng Làm</span></Link>
+          <Link href="/" className="brand" data-testid="link-home"><span className="brand-mark"><CheckCheck size={16} strokeWidth={2.6} /></span><span>Số công</span></Link>
           <form role="search" className="search" onSubmit={(e) => e.preventDefault()}>
             <Search size={16} aria-hidden="true" />
             <label htmlFor="global-search" className="sr-only">Tìm Nhân viên và ca làm</label>
@@ -280,7 +280,7 @@ export default function AttendanceApp() {
         )}
       </main>
 
-      <footer className="footer"><span>Cùng Làm · chấm công cho nhóm nhỏ</span><span>Chỉ chủ sở hữu được thay đổi dữ liệu</span></footer>
+      <footer className="footer"><span>Số công · chấm công cho nhóm nhỏ</span><span>Chỉ chủ sở hữu được thay đổi dữ liệu</span></footer>
 
       {dialog && canEdit && (
         <AttendanceDialog record={dialog.record} members={members} busy={createRecord.isPending || updateRecord.isPending} error={operationError} initialDate={date} initialMemberId={dialog.memberId}

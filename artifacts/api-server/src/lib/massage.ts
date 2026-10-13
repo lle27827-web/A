@@ -1,5 +1,5 @@
 import { and, eq, ne, sql } from "drizzle-orm";
-import { db, membersTable, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
+import { db, membersTable, serviceSessionsTable, treatmentCardsTable, serviceTypesTable } from "@workspace/db";
 import type { ServiceSessionInput, TreatmentCardInput, TreatmentCardUpdate } from "@workspace/api-zod";
 
 export class MassageError extends Error {
@@ -97,18 +97,25 @@ export async function saveSession(input: ServiceSessionInput, id?: number) {
     const [member] = await tx.select().from(membersTable).where(eq(membersTable.id, input.memberId));
     if (!member) throw new MassageError(404, "Không tìm thấy kỹ thuật viên.");
     const sameEmployee = old?.memberId === member.id;
-    const rate = sameEmployee ? old.hourlyRate : member.hourlyRate;
-    if (rate <= 0) throw new MassageError(400, "Hãy thiết lập mức lương mỗi giờ cho kỹ thuật viên trước khi ghi lượt phục vụ.");
+    const serviceTypeId = input.serviceTypeId ?? null;
+    const [service] = serviceTypeId !== null
+      ? await tx.select().from(serviceTypesTable).where(eq(serviceTypesTable.id, serviceTypeId)).for("share")
+      : [];
+    if (serviceTypeId !== null && !service) throw new MassageError(404, "Loại hình dịch vụ đã bị xóa. Hãy chọn dịch vụ khác.");
+    if (!old && !service) throw new MassageError(400, "Hãy chọn loại hình dịch vụ để tính lương.");
+    const sameService = old && old.serviceTypeId === serviceTypeId;
+    const rate = sameService ? old.hourlyRate : service?.hourlyRate;
+    if (!rate || rate <= 0) throw new MassageError(400, "Hãy chọn dịch vụ có mức lương mỗi giờ hợp lệ.");
     if (card && await usedMinutes(tx, card.id, id) + input.minutes > card.totalMinutes) {
       throw new MassageError(409, "Thẻ không đủ số giờ còn lại cho lượt sử dụng này.");
     }
     const sameCard = old && old.cardId === cardId && cardId !== null;
-    const serviceType = sameCard ? old.serviceType : card?.serviceType ?? input.serviceType?.trim();
-    if (!serviceType) throw new MassageError(400, "Cần nhập loại dịch vụ khi không sử dụng thẻ.");
+    const serviceType = sameService ? old.serviceType : service?.name;
+    if (!serviceType) throw new MassageError(400, "Hãy chọn loại hình dịch vụ.");
     const values = {
       memberId: member.id, employeeName: sameEmployee ? old.employeeName : member.name,
       cardId, customerName: sameCard ? old.customerName : card?.customerName ?? input.customerName?.trim() ?? "",
-      serviceType, workDate: input.workDate, minutes: input.minutes, hourlyRate: rate,
+      serviceType, serviceTypeId, workDate: input.workDate, minutes: input.minutes, hourlyRate: rate,
       earnings: Math.round(input.minutes * rate / 60), note: input.note?.trim() ?? "",
     };
     const [row] = id

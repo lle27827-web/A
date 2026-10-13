@@ -22,3 +22,4 @@ export * from "./members";
 export * from "./attendance";
 export * from "./treatment-cards";
 export * from "./service-sessions";
+export * from "./service-types";

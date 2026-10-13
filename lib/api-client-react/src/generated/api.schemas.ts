@@ -228,6 +228,26 @@ export interface TreatmentCardUpdate {
   note?: string;
 }
 
+export interface ServiceTypeRecord {
+  id: number;
+  name: string;
+  hourlyRate: number;
+  createdAt: string;
+}
+
+export interface ServiceTypeInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name: string;
+  /**
+     * @minimum 1
+     * @maximum 10000000
+     */
+  hourlyRate: number;
+}
+
 export interface ServiceSession {
   id: number;
   /** @nullable */
@@ -235,6 +255,8 @@ export interface ServiceSession {
   /** @nullable */
   memberId: number | null;
   employeeName: string;
+  /** @nullable */
+  serviceTypeId: number | null;
   customerName: string;
   serviceType: string;
   workDate: string;
@@ -248,6 +270,11 @@ export interface ServiceSession {
 export interface ServiceSessionInput {
   /** @minimum 1 */
   memberId: number;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  serviceTypeId?: number | null;
   /**
      * @minimum 1
      * @nullable

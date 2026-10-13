@@ -5,7 +5,7 @@ import {
   useListTreatmentCards, useUpdateMember, useUpdateServiceSession,
 } from '@workspace/api-client-react';
 import type { ServiceSession, ServiceSessionInput } from '@workspace/api-client-react';
-import { AlertCircle, ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, History, Pencil, Plus, Trash2, UserX } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, History, Pencil, Plus, Trash2, UserX } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { MemberDialog } from '@/components/entity-dialogs';
@@ -120,11 +120,11 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
         <div className="hero-top">
           <span className="initials big">{initial(member.name)}</span>
           <div className="grow"><h1 className="page-title" data-testid="text-member-name">{member.name}</h1>
-            <p className="sub">{member.hourlyRate > 0 ? <span className="mono">{formatVnd(member.hourlyRate)} / giờ phục vụ</span> : <span className="warn-text"><AlertCircle size={12} />Chưa cấu hình lương giờ — không thể ghi ca mới</span>}</p>
+            <p className="sub">Lương tính theo dịch vụ · giờ phục vụ × giá trả công từng dịch vụ</p>
           </div>
           {canEdit && (
             <div className="head-actions">
-              <button type="button" className="btn" onClick={() => { setDialogError(''); setMemberDialog(true); }} data-testid="button-edit-member"><Pencil size={14} />{member.hourlyRate > 0 ? 'Sửa lương giờ' : 'Đặt lương giờ'}</button>
+              <button type="button" className="btn" onClick={() => { setDialogError(''); setMemberDialog(true); }} data-testid="button-edit-member"><Pencil size={14} />Sửa tên</button>
               <button type="button" className="icon-btn danger" onClick={askDeleteMember} aria-label={`Xóa nhân viên ${member.name}`} data-testid="button-delete-member"><Trash2 size={15} /></button>
             </div>
           )}
@@ -171,7 +171,6 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
             <p className="sub">{daySessions.length} ca · {formatMinutes(daySessions.reduce((a, s) => a + s.minutes, 0))} · {formatVnd(daySessions.reduce((a, s) => a + s.earnings, 0))}</p></div>
           {canEdit && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setSessionDialog({ session: null }); }} data-testid="button-add-session"><Plus size={15} />Thêm ca phục vụ</button>}
         </div>
-        {canEdit && member.hourlyRate <= 0 && <div className="banner soft" role="status"><AlertCircle size={15} /><span>Đặt lương giờ cho {member.name} trước khi ghi ca phục vụ mới.</span></div>}
         {sessionsQuery.isLoading ? <Skeleton rows={3} label="Đang tải ca phục vụ" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được ca phục vụ." onRetry={() => void sessionsQuery.refetch()} /> : daySessions.length === 0 ? (
           <div className="empty small"><CalendarDays size={18} /><p>Không có ca phục vụ trong ngày này.</p></div>
         ) : (
@@ -192,8 +191,8 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
       )}
       {memberDialog && canEdit && (
         <MemberDialog member={member} busy={updateMember.isPending} serverError={dialogError} onClose={() => setMemberDialog(false)}
-          onSubmit={(data) => updateMember.mutate({ id: member.id, data }, {
-            onSuccess: () => { refresh({ members: true }); setMemberDialog(false); notify('Đã cập nhật nhân viên. Ca cũ giữ nguyên mức lương đã lưu.'); },
+          onSubmit={({ name }) => updateMember.mutate({ id: member.id, data: { name } }, {
+            onSuccess: () => { refresh({ members: true }); setMemberDialog(false); notify('Đã cập nhật tên nhân viên.'); },
             onError: (e) => { setDialogError(errorText(e)); fail(e); },
           })} />
       )}

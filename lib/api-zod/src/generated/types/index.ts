@@ -25,6 +25,8 @@ export * from './memberRecord';
 export * from './memberUpdate';
 export * from './serviceSession';
 export * from './serviceSessionInput';
+export * from './serviceTypeInput';
+export * from './serviceTypeRecord';
 export * from './treatmentCard';
 export * from './treatmentCardInput';
 export * from './treatmentCardUpdate';

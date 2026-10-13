@@ -13,6 +13,8 @@ export interface ServiceSession {
   /** @nullable */
   memberId: number | null;
   employeeName: string;
+  /** @nullable */
+  serviceTypeId: number | null;
   customerName: string;
   serviceType: string;
   workDate: string;

@@ -3,6 +3,7 @@ import {
   getGetMassageSummaryQueryKey,
   getGetMemberPayrollQueryKey,
   getListMembersQueryKey,
+  getListServiceTypesQueryKey,
   getListServiceSessionsQueryKey,
   getListTreatmentCardsQueryKey,
 } from '@workspace/api-client-react';
@@ -57,17 +58,17 @@ export function errorText(error: unknown, fallback = 'Chưa thể lưu thay đ�
   const data = error && typeof error === 'object' ? (error as { data?: unknown }).data : null;
   const serverMsg = data && typeof data === 'object' && typeof (data as { error?: unknown }).error === 'string' ? (data as { error: string }).error : '';
   if (status === 401 || status === 403) return serverMsg || 'Quyền thay đổi không còn hiệu lực. Hãy đăng nhập lại bằng tài khoản chủ sở hữu.';
-  if (status === 400 && /rate|lương|hourly/i.test(serverMsg)) return `${serverMsg} Hãy đặt lương theo giờ cho nhân viên trước khi ghi ca phục vụ.`;
   return serverMsg || fallback;
 }
 
 export function useRefreshMassage() {
   const cache = useQueryClient();
-  return (opts: { members?: boolean } = {}) => {
+  return (opts: { members?: boolean; services?: boolean } = {}) => {
     void cache.invalidateQueries({ queryKey: getListTreatmentCardsQueryKey() });
     void cache.invalidateQueries({ queryKey: getListServiceSessionsQueryKey() });
     void cache.invalidateQueries({ queryKey: getGetMassageSummaryQueryKey() });
     void cache.invalidateQueries({ queryKey: getGetMemberPayrollQueryKey() });
+    if (opts.services) void cache.invalidateQueries({ queryKey: getListServiceTypesQueryKey() });
     if (opts.members) void cache.invalidateQueries({ queryKey: getListMembersQueryKey() });
   };
 }

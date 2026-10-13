@@ -258,7 +258,7 @@ option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 @media (max-width: 480px) { .mode-options { grid-template-columns: 1fr; } }
 
-/* ---- Cùng Làm massage: ink-black salon ledger ---- */
+/* ---- Số công massage: ink-black salon ledger ---- */
 :root { --background: 0 0% 3%; --card: 30 6% 7%; --muted: 30 5% 11%; --secondary: 30 5% 14%; --border: 30 5% 19%; --input: 30 5% 19%; --foreground: 40 30% 98%; --muted-foreground: 35 8% 72%; }
 body { background: hsl(var(--background)); color: hsl(var(--foreground)); }
 .nf { min-height: 60dvh; }
@@ -342,3 +342,20 @@ a.hit:hover, .emp-row:hover, .card-row:hover { border-color: hsl(var(--primary) 
   .hero-top > .head-actions { flex-basis: 100%; }
 }
 @media (max-width: 380px) { .tiles { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- Số công: service catalog + employee choice ---- */
+.emp-row.as-row { width: 100%; font: inherit; text-align: left; cursor: pointer; }
+.emp-row .grow, .choice-row .grow, .service-option > span, .settings-link .grow { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.choice-list { display: grid; gap: 10px; margin-top: 12px; }
+.choice-row, .settings-link { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--muted) / .35); color: hsl(var(--foreground)); font: inherit; font-size: 14px; text-align: left; text-decoration: none; cursor: pointer; transition: border-color .15s, background .15s; }
+.choice-row:hover:not(:disabled), .settings-link:hover { border-color: hsl(var(--primary) / .55); background: hsl(var(--primary) / .06); }
+.choice-row:disabled { opacity: .5; cursor: not-allowed; }
+.settings-link { margin: 12px 0 4px; font-size: 13px; }
+.service-pick { border: 0; padding: 0; margin: 0; min-width: 0; }
+.service-pick legend { padding: 0; margin-bottom: 6px; }
+.service-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; max-height: 260px; overflow-y: auto; }
+.service-option { position: relative; display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border: 1px solid hsl(var(--border)); border-radius: 10px; cursor: pointer; font-size: 13px; transition: border-color .15s, background .15s; }
+.service-option.on { border-color: hsl(var(--primary)); background: hsl(var(--primary) / .1); }
+.service-option input { margin-top: 3px; accent-color: hsl(var(--primary)); }
+.extras summary { cursor: pointer; font-size: 13px; color: hsl(var(--muted-foreground)); padding: 4px 0; }
+.extras[open] summary { margin-bottom: 10px; }

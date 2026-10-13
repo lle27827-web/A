@@ -80,7 +80,7 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
       <div className="app">
         <header className="topbar">
           <div className="topbar-inner">
-            <Link href="/" className="brand" data-testid="link-home"><span className="brand-mark"><Hand size={15} strokeWidth={2.4} /></span><span>Cùng Làm</span></Link>
+            <Link href="/" className="brand" data-testid="link-home"><span className="brand-mark"><Hand size={15} strokeWidth={2.4} /></span><span>Số công</span></Link>
             <form role="search" className="search" onSubmit={(e) => e.preventDefault()}>
               <Search size={16} aria-hidden="true" />
               <label htmlFor="global-search" className="sr-only">Tìm kiếm</label>
@@ -118,7 +118,7 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
           {notice && <div className="banner success" role="status" data-testid="status-success"><Check size={15} /><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Đóng thông báo"><X size={14} /></button></div>}
           {employeeMode ? employeeView : children}
         </main>
-        <footer className="footer"><span>Cùng Làm · tiệm massage</span><span>Lương = giờ phục vụ × lương giờ · Doanh thu = tiền bán thẻ</span></footer>
+        <footer className="footer"><span>Số công · tiệm massage</span><span>Lương = giờ phục vụ × giá dịch vụ · Doanh thu = tiền bán thẻ</span></footer>
       </div>
     </Ctx.Provider>
   );

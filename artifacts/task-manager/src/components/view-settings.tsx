@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { MemberRecord } from '@workspace/api-client-react';
-import { AlertCircle, Settings, X } from 'lucide-react';
+import { AlertCircle, ChevronRight, Settings, Sparkles, X } from 'lucide-react';
+import { Link } from 'wouter';
 
 export type ViewMode = 'owner' | 'employee';
 export type ViewPrefs = { mode: ViewMode; employeeId: number | null };
@@ -77,6 +78,7 @@ export function ViewSettings({ prefs, members, membersLoading, open, onOpenChang
             <DialogPrimitive.Close asChild><button type="button" className="icon-btn" aria-label="Đóng cài đặt"><X size={18} /></button></DialogPrimitive.Close>
           </div>
           <DialogPrimitive.Description className="sub">Đổi chế độ xem không thay đổi quyền. Chỉ chủ sở hữu đã đăng nhập, ở chế độ Chủ, mới chỉnh sửa được.</DialogPrimitive.Description>
+          <Link href="/services" className="settings-link" onClick={() => onOpenChange(false)} data-testid="link-services"><Sparkles size={15} /><span className="grow"><strong>Dịch vụ &amp; giá trả công</strong><span className="muted">Thêm, sửa, xóa loại massage và giá theo giờ</span></span><ChevronRight size={16} /></Link>
           <form onSubmit={(e) => { e.preventDefault(); apply(); }}>
             <fieldset>
               <legend>Bố cục</legend>

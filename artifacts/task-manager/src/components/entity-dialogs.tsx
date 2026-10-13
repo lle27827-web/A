@@ -64,29 +64,21 @@ export function CardDialog({ card, defaultDate, busy, serverError, onClose, onSu
 
 export function MemberDialog({ member, busy, serverError, onClose, onSubmit }: {
   member: MemberRecord | null; busy: boolean; serverError: string;
-  onClose: () => void; onSubmit: (input: { name: string; hourlyRate: number }) => void;
+  onClose: () => void; onSubmit: (input: { name: string }) => void;
 }) {
   const [name, setName] = useState(member?.name ?? '');
-  const [rate, setRate] = useState(member && member.hourlyRate > 0 ? String(member.hourlyRate) : '');
   const [error, setError] = useState('');
-  const money = parseMoney(rate);
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return setError('Hãy nhập tên nhân viên.');
-    if (money === null || money <= 0) return setError('Lương theo giờ phải lớn hơn 0.');
-    if (money > 10_000_000) return setError('Lương theo giờ tối đa 10.000.000 ₫.');
     setError('');
-    onSubmit({ name: name.trim(), hourlyRate: money });
+    onSubmit({ name: name.trim() });
   }
   const shown = error || serverError;
   return (
-    <Modal title={member ? 'Sửa nhân viên' : 'Thêm nhân viên'} description={member ? 'Lương giờ mới chỉ áp dụng cho ca ghi sau này. Ca cũ giữ nguyên mức lương đã lưu.' : 'Lương = phút phục vụ khách × lương giờ.'} onClose={onClose} testId="dialog-member">
+    <Modal title={member ? 'Sửa nhân viên' : 'Thêm nhân viên'} description="Lương tính theo giá trả công của từng dịch vụ, không theo nhân viên." onClose={onClose} testId="dialog-member">
       <form className="form-grid" onSubmit={submit} noValidate>
         <label className="field" htmlFor="m-name">Tên nhân viên<input id="m-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} required data-testid="input-member-name" /></label>
-        <label className="field" htmlFor="m-rate">Lương theo giờ (VND)
-          <input id="m-rate" inputMode="numeric" value={rate} onChange={(e) => setRate(e.target.value)} required placeholder="80000" data-testid="input-member-rate" />
-          <span className="hint">{money ? `${formatVnd(money)} / giờ` : ' '}</span>
-        </label>
         {shown && <p className="form-error" role="alert"><AlertCircle size={13} /> {shown}</p>}
         <div className="dialog-actions">
           <button type="button" className="btn ghost" onClick={onClose}>Hủy</button>

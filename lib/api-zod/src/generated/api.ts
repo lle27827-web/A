@@ -8,6 +8,70 @@
 import * as zod from 'zod';
 
 
+export const ListServiceTypesResponseItem = zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "hourlyRate": zod.number().int(),
+  "createdAt": zod.coerce.date()
+})
+export const ListServiceTypesResponse = zod.array(ListServiceTypesResponseItem)
+
+
+export const createServiceTypeBodyNameMax = 120;
+
+export const createServiceTypeBodyHourlyRateMax = 10000000;
+
+
+
+export const CreateServiceTypeBody = zod.object({
+  "name": zod.string().min(1).max(createServiceTypeBodyNameMax),
+  "hourlyRate": zod.number().int().min(1).max(createServiceTypeBodyHourlyRateMax)
+})
+
+export const CreateServiceTypeResponse = zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "hourlyRate": zod.number().int(),
+  "createdAt": zod.coerce.date()
+})
+
+
+
+
+
+export const UpdateServiceTypeParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const updateServiceTypeBodyNameMax = 120;
+
+export const updateServiceTypeBodyHourlyRateMax = 10000000;
+
+
+
+export const UpdateServiceTypeBody = zod.object({
+  "name": zod.string().min(1).max(updateServiceTypeBodyNameMax),
+  "hourlyRate": zod.number().int().min(1).max(updateServiceTypeBodyHourlyRateMax)
+})
+
+export const UpdateServiceTypeResponse = zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "hourlyRate": zod.number().int(),
+  "createdAt": zod.coerce.date()
+})
+
+
+
+
+
+export const DeleteServiceTypeParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const DeleteServiceTypeResponse = zod.void()
+
+
 /**
  * Returns server health status
  * @summary Health check
@@ -398,6 +462,7 @@ export const ListServiceSessionsResponseItem = zod.object({
   "cardId": zod.number().int().nullable(),
   "memberId": zod.number().int().nullable(),
   "employeeName": zod.string(),
+  "serviceTypeId": zod.number().int().nullable(),
   "customerName": zod.string(),
   "serviceType": zod.string(),
   "workDate": zod.string(),
@@ -408,6 +473,7 @@ export const ListServiceSessionsResponseItem = zod.object({
   "createdAt": zod.coerce.date()
 })
 export const ListServiceSessionsResponse = zod.array(ListServiceSessionsResponseItem)
+
 
 
 
@@ -425,6 +491,7 @@ export const createServiceSessionBodyNoteMax = 2000;
 
 export const CreateServiceSessionBody = zod.object({
   "memberId": zod.number().int().min(1),
+  "serviceTypeId": zod.number().int().min(1).nullish(),
   "cardId": zod.number().int().min(1).nullish(),
   "customerName": zod.string().max(createServiceSessionBodyCustomerNameMax).optional(),
   "serviceType": zod.string().max(createServiceSessionBodyServiceTypeMax).optional(),
@@ -438,6 +505,7 @@ export const CreateServiceSessionResponse = zod.object({
   "cardId": zod.number().int().nullable(),
   "memberId": zod.number().int().nullable(),
   "employeeName": zod.string(),
+  "serviceTypeId": zod.number().int().nullable(),
   "customerName": zod.string(),
   "serviceType": zod.string(),
   "workDate": zod.string(),
@@ -458,6 +526,7 @@ export const UpdateServiceSessionParams = zod.object({
 
 
 
+
 export const updateServiceSessionBodyCustomerNameMax = 120;
 
 export const updateServiceSessionBodyServiceTypeMax = 120;
@@ -471,6 +540,7 @@ export const updateServiceSessionBodyNoteMax = 2000;
 
 export const UpdateServiceSessionBody = zod.object({
   "memberId": zod.number().int().min(1),
+  "serviceTypeId": zod.number().int().min(1).nullish(),
   "cardId": zod.number().int().min(1).nullish(),
   "customerName": zod.string().max(updateServiceSessionBodyCustomerNameMax).optional(),
   "serviceType": zod.string().max(updateServiceSessionBodyServiceTypeMax).optional(),
@@ -484,6 +554,7 @@ export const UpdateServiceSessionResponse = zod.object({
   "cardId": zod.number().int().nullable(),
   "memberId": zod.number().int().nullable(),
   "employeeName": zod.string(),
+  "serviceTypeId": zod.number().int().nullable(),
   "customerName": zod.string(),
   "serviceType": zod.string(),
   "workDate": zod.string(),

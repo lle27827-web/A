@@ -14,6 +14,7 @@ import EmployeesPage from '@/pages/employees';
 import EmployeePage from '@/pages/employee-page';
 import CardsPage from '@/pages/cards';
 import CardDetailPage from '@/pages/card-detail';
+import ServicesPage from '@/pages/services';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -150,8 +151,8 @@ function ClerkRoutes() {
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
       localization={{
-        signIn: { start: { title: 'Chào mừng trở lại', subtitle: 'Đăng nhập để quản lý Nhân viên và ca làm.' } },
-        signUp: { start: { title: 'Tạo tài khoản chủ sở hữu', subtitle: 'Quản lý chấm công cho cả nhóm.' } },
+        signIn: { start: { title: 'Số công · Chào mừng trở lại', subtitle: 'Đăng nhập Số công để chấm công theo dịch vụ.' } },
+        signUp: { start: { title: 'Tạo tài khoản chủ Số công', subtitle: 'Quản lý chấm công cho cả nhóm.' } },
       }}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
@@ -170,6 +171,7 @@ function ClerkRoutes() {
                 <Route path="/employees/:id" component={EmployeePage} />
                 <Route path="/cards" component={CardsPage} />
                 <Route path="/cards/:id" component={CardDetailPage} />
+                <Route path="/services" component={ServicesPage} />
                 <Route component={NotFound} />
               </Switch>
             </AppShell>

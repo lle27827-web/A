@@ -13,6 +13,11 @@ export interface ServiceSessionInput {
      * @minimum 1
      * @nullable
      */
+  serviceTypeId?: number | null;
+  /**
+     * @minimum 1
+     * @nullable
+     */
   cardId?: number | null;
   /** @maxLength 120 */
   customerName?: string;
