@@ -11,12 +11,12 @@ import {
 } from "@workspace/api-zod";
 import { db, membersTable } from "@workspace/db";
 import { deleteMember } from "../lib/massage";
-import { requireEditor } from "../middlewares/owner";
+import { requireEditor, requireSignedIn } from "../middlewares/owner";
 import { massageHandler, parseInput } from "./massage-errors";
 
 const router: IRouter = Router();
 
-router.get("/members", async (_req, res): Promise<void> => {
+router.get("/members", requireSignedIn, async (_req, res): Promise<void> => {
   const members = await db.select().from(membersTable).orderBy(asc(membersTable.name));
   res.json(ListMembersResponse.parse(members.map((member) => ({
     ...member,

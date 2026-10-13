@@ -14,9 +14,9 @@ export function SearchResults() {
   const raw = query.trim();
   const searching = raw.length > 0;
   const month = monthOf(localDate());
-  const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), enabled: searching, refetchOnWindowFocus: true } });
+  const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), enabled: searching && hasManageAccess, refetchOnWindowFocus: true } });
   const sessionParams = useMemo(() => ({ month }), [month]);
-  const sessionsQuery = useListServiceSessions(sessionParams, { query: { queryKey: getListServiceSessionsQueryKey(sessionParams), enabled: searching, ...SESSION_FRESHNESS } });
+  const sessionsQuery = useListServiceSessions(sessionParams, { query: { queryKey: getListServiceSessionsQueryKey(sessionParams), enabled: searching && hasManageAccess, ...SESSION_FRESHNESS } });
 
   const q = normalize(raw);
   const memberHits = useMemo(() => (searching ? members.filter((m) => normalize(m.name).includes(q)) : []), [members, q, searching]);
@@ -31,7 +31,7 @@ export function SearchResults() {
     else setQuery('');
   }
 
-  const groups = [
+  const allGroups = [
     { key: 'cards', hits: cardHits.length, loading: cardsQuery.isLoading, error: cardsQuery.isError, node: (
       <div key="cards">
         <h3 className="group-title">Thẻ khách hàng</h3>
@@ -63,6 +63,7 @@ export function SearchResults() {
       </div>
     ) },
   ];
+  const groups = hasManageAccess ? allGroups : allGroups.filter((group) => group.key === 'members');
   // Groups with hits first (customer cards prioritised), then loading/error, then empty ones.
   const ordered = [...groups].sort((a, b) => Number(b.hits > 0) - Number(a.hits > 0) || Number(b.loading) - Number(a.loading));
   const anyLoading = groups.some((g) => g.loading);
@@ -73,7 +74,7 @@ export function SearchResults() {
     <section className="panel search-results" aria-labelledby="search-title" data-testid="section-search-results">
       <div className="panel-head wrap">
         <div><h2 id="search-title">Kết quả cho “{raw}”</h2>
-          <p className="sub" aria-live="polite">{anyLoading ? 'Đang tìm…' : `${cardHits.length} thẻ · ${memberHits.length} nhân viên · ${sessionHits.length} ca`}{hasManageAccess ? '' : ' · Chế độ xem chỉ tìm theo phần số điện thoại đang hiển thị.'}</p></div>
+          <p className="sub" aria-live="polite">{anyLoading ? 'Đang tìm…' : hasManageAccess ? `${cardHits.length} thẻ · ${memberHits.length} nhân viên · ${sessionHits.length} ca` : `${memberHits.length} nhân viên · Chỉ xem`}</p></div>
         <button type="button" className="btn small ghost" onClick={() => setQuery('')} data-testid="button-clear-results"><X size={14} />Xóa tìm kiếm</button>
       </div>
       {!anyLoading && !anyError && total === 0 ? (

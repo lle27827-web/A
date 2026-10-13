@@ -21,6 +21,7 @@ import {
 import { requireEditor } from "../middlewares/owner";
 
 const router: IRouter = Router();
+router.use(requireEditor);
 
 type AttendanceWrite = {
   memberId: number | null;

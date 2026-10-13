@@ -51,11 +51,10 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
   const accessKey = useMemo<QueryKey>(() => [...getGetCurrentAccessQueryKey(), userId ?? 'anon', sessionId ?? 'none'], [userId, sessionId]);
   const accessQuery = useGetCurrentAccess({ query: { queryKey: accessKey, enabled: isLoaded, retry: false, staleTime: 15_000, refetchOnWindowFocus: true, refetchInterval: 30_000 } });
   const access = accessQuery.data;
-  const ok = isLoaded && !!isSignedIn && !accessQuery.isError && access?.signedIn === true && access.canManage === true;
+  const canViewMemberData = isLoaded && !!isSignedIn && !accessQuery.isError && access?.signedIn === true;
 
   // Clear private data on identity switch or once a resolved check shows loss of access.
   const prevScope = useRef<string | null>(null);
-  const prevOk = useRef<boolean | null>(null);
   useEffect(() => {
     if (!isLoaded) return;
     const scope = userId ?? 'anon';
@@ -65,17 +64,16 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
   const resolved = isLoaded && (accessQuery.isError || access !== undefined) && !accessQuery.isLoading;
   useEffect(() => {
     if (!resolved) return;
-    if (!ok) { void cache.cancelQueries({ predicate: (q) => isPrivateKey(q.queryKey) }); cache.removeQueries({ predicate: (q) => isPrivateKey(q.queryKey) }); }
+    if (!canViewMemberData) { void cache.cancelQueries({ predicate: (q) => isPrivateKey(q.queryKey) }); cache.removeQueries({ predicate: (q) => isPrivateKey(q.queryKey) }); }
     else if (!access?.isOwner) cache.removeQueries({ queryKey: getListManagersQueryKey() });
-    prevOk.current = ok;
-  }, [resolved, ok, access?.isOwner, cache]);
+  }, [resolved, canViewMemberData, access?.isOwner, cache]);
 
   const email = user?.primaryEmailAddress?.emailAddress ?? user?.username ?? '';
   const checking = !isLoaded || accessQuery.isLoading || (!resolved && accessQuery.isFetching);
-  const roleLabel = checking ? 'Đang kiểm tra' : !ok ? (isSignedIn ? 'Không có quyền' : 'Chưa đăng nhập') : access?.isOwner ? 'Chủ sở hữu' : 'Quản lý';
+  const roleLabel = checking ? 'Đang kiểm tra' : canViewMemberData ? access?.isOwner ? 'Chủ sở hữu' : access?.canManage ? 'Quản lý' : 'Chỉ xem nhân viên' : isSignedIn ? 'Không xác minh được quyền' : 'Chưa đăng nhập';
   const recheck = () => { void user?.reload().catch(() => undefined); void accessQuery.refetch(); };
 
-  if (ok && access) return <AuthorizedShell access={access} accessKey={accessKey} email={email} roleLabel={roleLabel} recheck={recheck} rechecking={accessQuery.isFetching} employeeView={employeeView}>{children}</AuthorizedShell>;
+  if (canViewMemberData && access) return <AuthorizedShell access={access} accessKey={accessKey} email={email} roleLabel={roleLabel} recheck={recheck} rechecking={accessQuery.isFetching} employeeView={employeeView}>{children}</AuthorizedShell>;
 
   const status = accessQuery.isError ? statusCode(accessQuery.error) : 0;
   return (

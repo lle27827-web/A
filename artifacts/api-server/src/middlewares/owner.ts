@@ -67,5 +67,21 @@ function authorize(ownerOnly: boolean): RequestHandler {
   };
 }
 
+export const requireSignedIn: RequestHandler = async (req, res, next): Promise<void> => {
+  let status: AccessStatus;
+  try {
+    status = await getAccessStatus(req);
+  } catch {
+    res.status(503).json({ error: "Không thể xác minh tài khoản. Vui lòng thử lại." });
+    return;
+  }
+  res.set("Cache-Control", "private, no-store");
+  if (!status.signedIn) {
+    res.status(401).json({ error: "Vui lòng đăng nhập để tiếp tục." });
+    return;
+  }
+  next();
+};
+
 export const requireOwner = authorize(true);
 export const requireEditor = authorize(false);

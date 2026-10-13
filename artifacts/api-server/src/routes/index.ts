@@ -7,13 +7,11 @@ import membersRouter from "./members";
 import treatmentCardsRouter from "./treatment-cards";
 import serviceSessionsRouter from "./service-sessions";
 import managersRouter from "./managers";
-import { requireEditor } from "../middlewares/owner";
 
 const router: IRouter = Router();
 router.use(healthRouter);
 router.use(authRouter);
-// Every business-data read and write is private. Auth/health remain accessible.
-router.use(requireEditor);
+// Each router applies its own access rule. Auth/health and authenticated member reads stay available.
 router.use(serviceTypesRouter);
 router.use(attendanceRouter);
 router.use(membersRouter);
