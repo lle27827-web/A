@@ -25,8 +25,10 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     sessionIds.push(walkIn.id);
     const serviceOnly = await getFacilityRevenue(noSalesMonth, noSalesDay);
     assert.equal(serviceOnly.serviceRevenue, 5000);
+    assert.equal(serviceOnly.walkInServiceRevenue, 5000);
     assert.equal(serviceOnly.cardRevenue, 0);
     assert.equal(serviceOnly.revenue, 5000);
+    assert.equal(serviceOnly.revenueExcludingCardSessions, 5000);
     assert.equal(serviceOnly.walkInVisits, 1);
     const cards = await db.insert(treatmentCardsTable).values([
       { customerName: "__facility_report_test", phone: "", serviceType: "test", totalMinutes: 120, purchaseAmount: 800, purchaseDate: "2099-02-01", note: "" },
@@ -52,17 +54,22 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     assert.equal(after.serviceRevenue - baseline.serviceRevenue, 250);
     assert.equal(after.cardRevenue - baseline.cardRevenue, 2000);
     assert.equal(after.revenue - baseline.revenue, 2250);
+    assert.equal(after.walkInServiceRevenue - baseline.walkInServiceRevenue, 50);
+    assert.equal(after.revenueExcludingCardSessions - baseline.revenueExcludingCardSessions, 2050);
+    assert.equal(after.today.revenueExcludingCardSessions - baseline.today.revenueExcludingCardSessions, 800);
     assert.equal(after.cardsSold - baseline.cardsSold, 2);
     await db.delete(treatmentCardsTable).where(inArray(treatmentCardsTable.id, [cards[1].id]));
     cardIds.splice(cardIds.indexOf(cards[1].id), 1);
     const updated = await getFacilityRevenue(month, date);
     assert.equal(updated.serviceRevenue, after.serviceRevenue);
     assert.equal(updated.cardRevenue, after.cardRevenue - 1200);
+    assert.equal(updated.revenueExcludingCardSessions, after.revenueExcludingCardSessions - 1200);
     assert.equal(updated.revenue, after.revenue - 1200);
     await deleteCard(cards[0].id);
     const removedReport = await getFacilityRevenue(month, date);
     assert.equal(removedReport.cardRevenue, updated.cardRevenue - 800);
     assert.equal(removedReport.serviceRevenue, updated.serviceRevenue - 200);
+    assert.equal(removedReport.revenueExcludingCardSessions, updated.revenueExcludingCardSessions - 800);
     assert.equal(removedReport.revenue, updated.revenue - 1000);
     assert.equal(removedReport.cardVisits, updated.cardVisits - 2);
     assert.equal(removedReport.walkInVisits, updated.walkInVisits);

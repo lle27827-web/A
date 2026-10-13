@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { MemberRecord } from '@workspace/api-client-react';
-import { AlertCircle, ChevronRight, Settings, Sparkles, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ChevronRight, Home, Settings, Sparkles, X } from 'lucide-react';
 import { Link } from 'wouter';
 import { ManagerSettings } from '@/components/manager-settings';
 
@@ -82,6 +82,10 @@ export function ViewSettings({ prefs, members, membersLoading, isOwner, canEdit,
             <DialogPrimitive.Close asChild><button type="button" className="icon-btn" aria-label="Đóng cài đặt"><X size={18} /></button></DialogPrimitive.Close>
           </div>
           <DialogPrimitive.Description className="sub">Đổi chế độ xem không thay đổi quyền. Chỉ chủ sở hữu hoặc quản lý đã đăng nhập, ở chế độ Chủ, mới chỉnh sửa được.</DialogPrimitive.Description>
+          <nav className="window-nav" aria-label="Điều hướng cửa sổ">
+            <Link href="/" onClick={() => onOpenChange(false)} className="btn ghost" data-testid="link-settings-home"><Home size={14} aria-hidden="true" />Trang chính</Link>
+            <button type="button" className="btn ghost" onClick={() => onOpenChange(false)} data-testid="button-settings-back"><ArrowLeft size={14} aria-hidden="true" />Trở về</button>
+          </nav>
           <Link href="/services" className="settings-link" onClick={() => { onApply({ mode: 'owner', employeeId: prefs.employeeId }); onOpenChange(false); }} data-testid="link-services"><Sparkles size={15} /><span className="grow"><strong>Dịch vụ &amp; giá trả công</strong><span className="muted">Thêm, sửa, xóa loại massage và giá theo giờ</span></span><ChevronRight size={16} /></Link>
           <form onSubmit={(e) => { e.preventDefault(); apply(); }}>
             <fieldset>

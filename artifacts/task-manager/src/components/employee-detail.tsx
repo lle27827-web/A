@@ -108,7 +108,7 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
 
   const back = readOnly
     ? <button type="button" className="back as-button" onClick={() => { shell.setView({ mode: 'owner', employeeId: shell.prefs.employeeId }); navigate('/employees'); }} data-testid="link-back"><ArrowLeft size={15} />Trở về</button>
-    : <Link href="/employees" className="back" data-testid="link-back"><ArrowLeft size={15} />Trở về</Link>;
+    : null;
 
   if (memberId === null) {
     return <section className="panel page">{back}<div className="empty"><UserX size={22} /><p>Chưa chọn nhân viên để xem.</p><button type="button" className="btn primary" onClick={shell.openSettings} data-testid="button-choose-employee">Chọn nhân viên</button></div></section>;
@@ -149,12 +149,6 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
     <div className="detail">
       <div className="detail-top">
         {back}
-        {canEdit && (
-          <div className="head-actions">
-            <button type="button" className="icon-btn" onClick={() => { setDialogError(''); setMemberDialog(true); }} aria-label={`Sửa tên ${member.name}`} data-testid="button-edit-member"><Pencil size={15} /></button>
-            <button type="button" className="icon-btn danger" onClick={askDeleteMember} aria-label={`Xóa nhân viên ${member.name}`} data-testid="button-delete-member"><Trash2 size={15} /></button>
-          </div>
-        )}
       </div>
       <section className="salary-hero compact" aria-labelledby="salary-title" data-testid="section-salary">
         <div className="month-nav">
@@ -199,6 +193,13 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
           );
         })}
       </ul>
+
+      {canEdit && (
+        <div className="employee-management-actions" aria-label={`Thao tác với nhân viên ${member.name}`}>
+          <button type="button" className="btn" onClick={() => { setDialogError(''); setMemberDialog(true); }} data-testid="button-edit-member"><Pencil size={14} />Sửa tên nhân viên</button>
+          <button type="button" className="btn danger" onClick={askDeleteMember} data-testid="button-delete-member"><Trash2 size={14} />Xóa nhân viên</button>
+        </div>
+      )}
 
       {sessionDialog && canEdit && (
         <SessionDialog session={sessionDialog.session} members={members} cards={cardsQuery.data ?? []} cardsLoading={cardsQuery.isLoading} defaultDate={day} defaultMemberId={member.id} fixedMemberId={sessionDialog.session ? undefined : member.id}

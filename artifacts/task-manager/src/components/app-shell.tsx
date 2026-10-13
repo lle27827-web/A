@@ -3,7 +3,7 @@ import { useAuth, useClerk, useUser } from '@clerk/react';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { getGetCurrentAccessQueryKey, getListManagersQueryKey, getListMembersQueryKey, getListTreatmentCardsQueryKey, useGetCurrentAccess, useListMembers } from '@workspace/api-client-react';
 import type { AccessStatus, MemberRecord } from '@workspace/api-client-react';
-import { AlertCircle, ArrowUpRight, Check, Eye, Hand, LoaderCircle, LockKeyhole, RefreshCw, Search, ShieldCheck, ShieldX, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowUpRight, Check, Eye, Hand, Home, LoaderCircle, LockKeyhole, RefreshCw, Search, ShieldCheck, ShieldX, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { SearchResults } from '@/components/search-results';
 import { ViewSettings, useViewPrefs, type ViewPrefs } from '@/components/view-settings';
@@ -128,7 +128,7 @@ function RoleBadge({ label, ok, loading }: { label: string; ok: boolean; loading
 function AuthorizedShell({ access, accessKey, email, roleLabel, recheck, rechecking, children, employeeView }: {
   access: AccessStatus; accessKey: QueryKey; email: string; roleLabel: string; recheck: () => void; rechecking: boolean; children: ReactNode; employeeView: ReactNode;
 }) {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const cache = useQueryClient();
   const isOwner = access.isOwner === true;
   const hasManageAccess = access.canManage === true;
@@ -148,8 +148,12 @@ function AuthorizedShell({ access, accessKey, email, roleLabel, recheck, recheck
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const lastLocation = useRef(location);
+  const routeHistory = useRef<string[]>([location]);
   useEffect(() => {
     if (lastLocation.current === location) return;
+    const existingIndex = routeHistory.current.lastIndexOf(location);
+    if (existingIndex >= 0) routeHistory.current.length = existingIndex + 1;
+    else routeHistory.current.push(location);
     lastLocation.current = location;
     requestAnimationFrame(() => {
       const main = document.getElementById('main');
@@ -157,6 +161,13 @@ function AuthorizedShell({ access, accessKey, email, roleLabel, recheck, recheck
       target?.focus({ preventScroll: false });
     });
   }, [location]);
+  function goBack() {
+    setQuery('');
+    if (routeHistory.current.length > 1) {
+      routeHistory.current.pop();
+      navigate(routeHistory.current[routeHistory.current.length - 1], { replace: true });
+    } else navigate('/', { replace: true });
+  }
 
   const ctx: ShellCtx = {
     access, accessKey, accessLoading: false, isOwner, hasManageAccess, canEdit, employeeMode, prefs, members,
@@ -208,6 +219,12 @@ function AuthorizedShell({ access, accessKey, email, roleLabel, recheck, recheck
           </div>
         </header>
         <main className="main" id="main">
+          {location !== '/' && location !== '/attendance' && !showResults && (
+            <nav className="screen-nav" aria-label="Điều hướng trang">
+              <Link href="/" onClick={() => setQuery('')} className="btn ghost" data-testid="link-return-home"><Home size={15} aria-hidden="true" />Trở về trang chính</Link>
+              <button type="button" className="btn ghost" onClick={goBack} data-testid="button-return-previous"><ArrowLeft size={15} aria-hidden="true" />Trở về</button>
+            </nav>
+          )}
           {showResults && <SearchResults />}
           {error && <div className="banner danger" role="alert" data-testid="status-mutation-error"><AlertCircle size={15} /><span>{error}</span><button type="button" onClick={() => setError('')} aria-label="Đóng thông báo lỗi"><X size={14} /></button></div>}
           {notice && <div className="banner success" role="status" data-testid="status-success"><Check size={15} /><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Đóng thông báo"><X size={14} /></button></div>}

@@ -459,3 +459,36 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   .panel { padding: 12px; }
   .settings-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); padding: 12px; }
 }
+
+/* Navigation and attendance controls stay in-flow and usable in dialogs on phones. */
+.screen-nav, .window-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.screen-nav { margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid hsl(var(--border)); }
+.window-nav { margin: 12px 0 16px; padding: 8px 0; border-block: 1px solid hsl(var(--border)); }
+.screen-nav .btn, .window-nav .btn { flex: 1; min-width: 0; text-decoration: none; }
+.auth-navigation { position: fixed; top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); display: flex; justify-content: space-between; gap: 8px; }
+.auth-navigation .btn { min-height: 40px; text-decoration: none; }
+.net-revenue-row { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid hsl(var(--primary) / .3); border-radius: 10px; background: hsl(var(--primary) / .06); }
+.net-revenue-row dt { color: hsl(var(--foreground)); font-weight: 700; }
+.net-revenue-row dd { flex: 0 0 auto; color: hsl(var(--primary)); }
+.session-date-pick { min-width: 0; border: 0; padding: 0; margin: 0; }
+.session-date-pick legend { padding: 0; margin-bottom: 6px; }
+.session-hours-row { grid-template-columns: minmax(0, 220px); }
+.session-month { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.session-month input { width: auto; }
+.session-date-list { display: grid; gap: 0; max-height: 220px; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 0; list-style: none; border: 1px solid hsl(var(--border)); border-radius: 10px; }
+.session-date-choice { width: 100%; min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; border: 0; border-bottom: 1px solid hsl(var(--border) / .65); background: transparent; color: hsl(var(--foreground)); text-align: left; }
+.session-date-list li:last-child .session-date-choice { border-bottom: 0; }
+.session-date-choice > span:first-child { display: flex; align-items: baseline; gap: 12px; }
+.session-date-choice .muted { font-size: 12px; }
+.session-date-choice.selected { background: hsl(var(--primary) / .11); box-shadow: inset 3px 0 hsl(var(--primary)); }
+.session-date-choice[aria-current="date"] strong { color: hsl(var(--primary)); }
+.session-date-badge { color: hsl(var(--primary)); font-size: 11px; font-weight: 700; }
+.employee-management-actions { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 8px; padding-top: 12px; border-top: 1px solid hsl(var(--border)); }
+.dialog-actions { justify-content: stretch; }
+.dialog-actions .btn { flex: 1; }
+.net-revenue-row dd { overflow-wrap: anywhere; text-align: right; }
+@media (max-width: 480px) {
+  .net-revenue-row { align-items: flex-start; }
+  .session-date-choice > span:first-child { gap: 8px; }
+  .employee-management-actions .btn { flex: 1; }
+}

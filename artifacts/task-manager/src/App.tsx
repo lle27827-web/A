@@ -4,7 +4,7 @@ import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { getGetCurrentAccessQueryKey, useGetCurrentAccess } from '@workspace/api-client-react';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight } from 'lucide-react';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 import NotFound from '@/pages/not-found';
 import { AppShell, useShell } from '@/components/app-shell';
@@ -128,9 +128,13 @@ function SignUpPage() {
 }
 
 function AuthFrame({ children }: { children: ReactNode }) {
+  const [, navigate] = useLocation();
   return (
     <main className="auth-frame">
-      <Link href="/" className="auth-back" data-testid="link-back-home"><ArrowUpRight size={16} /> Về trang chính</Link>
+      <nav className="auth-navigation" aria-label="Điều hướng đăng nhập">
+        <Link href="/" className="btn ghost" data-testid="link-back-home"><ArrowUpRight size={16} /> Về trang chính</Link>
+        <button type="button" className="btn ghost" onClick={() => window.history.length > 1 ? window.history.back() : navigate('/')} data-testid="button-auth-back"><ArrowLeft size={15} />Trở về</button>
+      </nav>
       {children}
     </main>
   );
