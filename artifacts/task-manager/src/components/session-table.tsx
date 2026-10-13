@@ -55,13 +55,13 @@ export function SessionTable({ sessions, caption, canEdit, showDate, showEmploye
       </table>
     </div>
     {canEdit && visibleActions && (
-      <ul className="emp-list" aria-label="Sửa giờ hoặc xóa từng ca" data-testid={`actions-${testId}`}>
+      <ul className="emp-list" aria-label="Sửa hoặc xóa từng ca" data-testid={`actions-${testId}`}>
         {sessions.map((s) => (
           <li key={s.id} className="emp-row wrap">
-            <span className="grow"><strong>Ca #{s.id} · {s.serviceType}</strong><span className="muted">{formatMinutes(s.minutes)} · {formatVnd(s.earnings)}</span></span>
+            <span className="grow"><strong>{s.customerName || 'Khách lẻ'} · {s.serviceType}</strong><span className="muted mono">{formatMinutes(s.minutes)} · {formatShortDate(s.workDate)} · Ca #{s.id}{s.cardId !== null ? ` · Thẻ #${s.cardId}` : ''} · {formatVnd(s.earnings)}</span></span>
             <span className="head-actions">
-              {s.memberId !== null && <button type="button" className="btn small" disabled={busy} onClick={() => onEdit(s)} aria-label={`Sửa giờ ca ${s.id}`} data-testid={`button-edit-session-${s.id}`}><Pencil size={14} />Sửa giờ</button>}
-              <button type="button" className="btn small danger" disabled={busy} onClick={() => onDelete(s)} aria-label={`Xóa ca ${s.id}`} data-testid={`button-delete-session-${s.id}`}><Trash2 size={14} />Xóa ca</button>
+              {s.memberId !== null && <button type="button" className="btn small" disabled={busy} onClick={() => onEdit(s)} aria-label={`Sửa ca ${s.id}: ${s.customerName || 'Khách lẻ'}, ${s.serviceType}, ${formatMinutes(s.minutes)}`} data-testid={`button-edit-session-${s.id}`}><Pencil size={14} />Sửa ca</button>}
+              <button type="button" className="btn small danger" disabled={busy} onClick={() => onDelete(s)} aria-label={`Xóa ca ${s.id}: ${s.customerName || 'Khách lẻ'}, ${s.serviceType}, ${formatMinutes(s.minutes)}`} data-testid={`button-delete-session-${s.id}`}><Trash2 size={14} />Xóa ca</button>
             </span>
           </li>
         ))}

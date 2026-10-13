@@ -10,7 +10,7 @@ import { SESSION_FRESHNESS, cardMatches, formatMinutes, formatMonth, monthOf } f
 /** Shared global search results, rendered first in AppShell main whenever the shared query is non-empty. */
 export function SearchResults() {
   const shell = useShell();
-  const { query, setQuery, members, membersLoading, membersError, retryMembers, isOwner, employeeMode } = shell;
+  const { query, setQuery, members, membersLoading, membersError, retryMembers, hasManageAccess, employeeMode } = shell;
   const raw = query.trim();
   const searching = raw.length > 0;
   const month = monthOf(localDate());
@@ -73,7 +73,7 @@ export function SearchResults() {
     <section className="panel search-results" aria-labelledby="search-title" data-testid="section-search-results">
       <div className="panel-head wrap">
         <div><h2 id="search-title">Kết quả cho “{raw}”</h2>
-          <p className="sub" aria-live="polite">{anyLoading ? 'Đang tìm…' : `${cardHits.length} thẻ · ${memberHits.length} nhân viên · ${sessionHits.length} ca`}{isOwner ? '' : ' · Chế độ xem chỉ tìm theo phần số điện thoại đang hiển thị.'}</p></div>
+          <p className="sub" aria-live="polite">{anyLoading ? 'Đang tìm…' : `${cardHits.length} thẻ · ${memberHits.length} nhân viên · ${sessionHits.length} ca`}{hasManageAccess ? '' : ' · Chế độ xem chỉ tìm theo phần số điện thoại đang hiển thị.'}</p></div>
         <button type="button" className="btn small ghost" onClick={() => setQuery('')} data-testid="button-clear-results"><X size={14} />Xóa tìm kiếm</button>
       </div>
       {!anyLoading && !anyError && total === 0 ? (

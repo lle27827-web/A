@@ -18,7 +18,7 @@ import {
   membersTable,
   type AttendanceStatus,
 } from "@workspace/db";
-import { requireOwner } from "../middlewares/owner";
+import { requireEditor } from "../middlewares/owner";
 
 const router: IRouter = Router();
 
@@ -110,7 +110,7 @@ router.get("/attendance/summary", async (req, res): Promise<void> => {
   }));
 });
 
-router.post("/attendance", requireOwner, async (req, res): Promise<void> => {
+router.post("/attendance", requireEditor, async (req, res): Promise<void> => {
   const parsed = CreateAttendanceBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -142,7 +142,7 @@ router.post("/attendance", requireOwner, async (req, res): Promise<void> => {
   res.status(201).json(CreateAttendanceResponse.parse(toAttendanceResponse(record)));
 });
 
-router.patch("/attendance/:id", requireOwner, async (req, res): Promise<void> => {
+router.patch("/attendance/:id", requireEditor, async (req, res): Promise<void> => {
   const params = UpdateAttendanceParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -192,7 +192,7 @@ router.patch("/attendance/:id", requireOwner, async (req, res): Promise<void> =>
   res.json(UpdateAttendanceResponse.parse(toAttendanceResponse(record)));
 });
 
-router.delete("/attendance/:id", requireOwner, async (req, res): Promise<void> => {
+router.delete("/attendance/:id", requireEditor, async (req, res): Promise<void> => {
   const params = DeleteAttendanceParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { getListTreatmentCardsQueryKey, useCreateMember, useCreateServiceSession, useListTreatmentCards } from '@workspace/api-client-react';
+import { getListTreatmentCardsQueryKey, useCreateMember, useCreateServiceSession, useDeleteMember, useListTreatmentCards } from '@workspace/api-client-react';
 import type { MemberRecord, ServiceSessionInput } from '@workspace/api-client-react';
-import { ArrowLeft, ChevronRight, ClipboardCheck, Eye, LockKeyhole, Plus, Users } from 'lucide-react';
+import { ArrowLeft, ChevronRight, ClipboardCheck, Eye, LockKeyhole, Plus, Trash2, Users } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { MemberDialog } from '@/components/entity-dialogs';
-import { ErrorBanner, Modal, Skeleton } from '@/components/modal';
+import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
 import { SessionDialog } from '@/components/session-dialog';
 import { initial, localDate, normalize } from '@/lib/attendance';
 import { errorText, useRefreshMassage } from '@/lib/massage';
@@ -19,6 +19,8 @@ export default function EmployeesPage() {
   const [quick, setQuick] = useState<MemberRecord | null>(null);
   const [quickDate, setQuickDate] = useState(localDate());
   const create = useCreateMember();
+  const del = useDeleteMember();
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const createSession = useCreateServiceSession();
   const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), enabled: canEdit && quick !== null } });
   const refresh = useRefreshMassage();
@@ -34,11 +36,21 @@ export default function EmployeesPage() {
     });
   }
 
+  function askDelete(m: MemberRecord) {
+    if (!canEdit) return;
+    setConfirm({
+      title: `Xóa nhân viên ${m.name}?`,
+      body: <p>{m.name} sẽ bị gỡ khỏi danh sách. Các ca và lương đã ghi vẫn được giữ trong lịch sử, đánh dấu "đã xóa", và vẫn tính vào doanh thu. Không thể hoàn tác.</p>,
+      confirmLabel: 'Xóa nhân viên',
+      onConfirm: () => del.mutate({ id: m.id }, { onSuccess: () => { refresh({ members: true }); setConfirm(null); notify(`Đã xóa nhân viên ${m.name}.`); }, onError: (e) => { setConfirm(null); fail(e); } }),
+    });
+  }
+
   return (
     <section className="panel page" aria-labelledby="emp-title">
       <Link href="/" className="back" data-testid="link-back"><ArrowLeft size={15} />Trang chính</Link>
       <div className="panel-head wrap">
-        <div><h1 id="emp-title" className="page-title">Quản lý nhân viên</h1><p className="sub">{members.length} nhân viên · chạm tên để chấm công hoặc xem chi tiết</p></div>
+        <div><h1 id="emp-title" className="page-title">Quản lý nhân viên</h1><p className="sub">{members.length} nhân viên</p></div>
         {canEdit ? <button type="button" className="btn primary" onClick={() => { setDialogError(''); setOpen(true); }} data-testid="button-add-member"><Plus size={15} />Thêm nhân viên</button>
           : <span className="view-only"><LockKeyhole size={13} />Chỉ xem</span>}
       </div>
@@ -48,26 +60,27 @@ export default function EmployeesPage() {
       ) : (
         <ul className="emp-list">
           {list.map((m) => (
-            <li key={m.id}>
+            <li key={m.id} className="emp-item">
               <button type="button" className="emp-row as-row" onClick={() => setChoice(m)} aria-haspopup="dialog" data-testid={`button-employee-${m.id}`}>
                 <span className="initials big">{initial(m.name)}</span>
-                <span className="grow"><strong>{m.name}</strong><span className="muted">Chấm công · Xem chi tiết</span></span>
+                <span className="grow"><strong>{m.name}</strong><span className="muted">Chấm công · Chi tiết</span></span>
                 <ChevronRight size={18} />
               </button>
+              {canEdit && <button type="button" className="icon-btn danger" disabled={del.isPending} onClick={() => askDelete(m)} aria-label={`Xóa nhân viên ${m.name}`} data-testid={`button-delete-member-${m.id}`}><Trash2 size={15} /></button>}
             </li>
           ))}
         </ul>
       )}
       {choice && (
-        <Modal title={choice.name} description="Chọn việc cần làm với nhân viên này." onClose={() => setChoice(null)} testId="dialog-employee-choice">
+        <Modal title={choice.name} onClose={() => setChoice(null)} testId="dialog-employee-choice">
           <div className="choice-list">
             <button type="button" className="choice-row" disabled={!canEdit} aria-describedby={canEdit ? undefined : 'choice-lock'}
               onClick={() => { if (!canEdit) return; setDialogError(''); setQuickDate(localDate()); setQuick(choice); setChoice(null); }} data-testid="button-choice-attendance">
-              <ClipboardCheck size={18} /><span className="grow"><strong>Chấm công</strong><span className="muted">Chọn dịch vụ và số giờ cho hôm nay</span></span><ChevronRight size={16} />
+              <ClipboardCheck size={18} /><span className="grow"><strong>Chấm công</strong><span className="muted">Hôm nay</span></span><ChevronRight size={16} />
             </button>
-            {!canEdit && <p id="choice-lock" className="hint warn"><LockKeyhole size={12} /> Chỉ chủ sở hữu đã đăng nhập, ở chế độ Chủ, mới chấm công được.</p>}
+            {!canEdit && <p id="choice-lock" className="hint warn"><LockKeyhole size={12} /> Cần quyền chủ sở hữu hoặc quản lý, ở chế độ Chủ.</p>}
             <button type="button" className="choice-row" onClick={() => { const id = choice.id; setChoice(null); navigate(`/employees/${id}`); }} data-testid="button-choice-detail">
-              <Eye size={18} /><span className="grow"><strong>Xem chi tiết</strong><span className="muted">Lương, lịch theo ngày, lịch sử ca</span></span><ChevronRight size={16} />
+              <Eye size={18} /><span className="grow"><strong>Xem chi tiết</strong><span className="muted">Lương, lịch sử ca</span></span><ChevronRight size={16} />
             </button>
           </div>
         </Modal>
@@ -83,6 +96,7 @@ export default function EmployeesPage() {
             onError: (e) => { setDialogError(errorText(e)); fail(e); },
           })} />
       )}
+      {confirm && <ConfirmDialog state={confirm} busy={del.isPending} onClose={() => setConfirm(null)} />}
     </section>
   );
 }

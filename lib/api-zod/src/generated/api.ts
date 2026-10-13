@@ -8,6 +8,39 @@
 import * as zod from 'zod';
 
 
+export const ListManagersResponseItem = zod.object({
+  "id": zod.number().int(),
+  "email": zod.string().email(),
+  "createdAt": zod.coerce.date()
+})
+export const ListManagersResponse = zod.array(ListManagersResponseItem)
+
+
+export const createManagerBodyEmailMax = 320;
+
+
+
+export const CreateManagerBody = zod.object({
+  "email": zod.string().email().max(createManagerBodyEmailMax)
+})
+
+export const CreateManagerResponse = zod.object({
+  "id": zod.number().int(),
+  "email": zod.string().email(),
+  "createdAt": zod.coerce.date()
+})
+
+
+
+
+
+export const DeleteManagerParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const DeleteManagerResponse = zod.void()
+
+
 export const ListServiceTypesResponseItem = zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
@@ -87,6 +120,7 @@ export const HealthCheckResponse = zod.object({
 export const GetCurrentAccessResponse = zod.object({
   "signedIn": zod.boolean(),
   "isOwner": zod.boolean(),
+  "canManage": zod.boolean(),
   "ownerConfigured": zod.boolean()
 })
 

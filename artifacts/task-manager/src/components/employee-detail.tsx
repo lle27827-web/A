@@ -139,7 +139,7 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
             <Pencil size={14} />{editing ? 'Xong chỉnh sửa' : 'Chỉnh sửa'}
           </button>
           {daySessions.length === 0 && <span id="day-edit-hint" className="hint">Chưa có ca để chỉnh sửa trong ngày này.</span>}
-          {editing && daySessions.length > 0 && <span className="hint">Chọn Sửa giờ hoặc Xóa ca ở danh sách phía trên.</span>}
+          {editing && daySessions.length > 0 && <span className="hint">Chọn Sửa ca hoặc Xóa ca ở danh sách.</span>}
           <button type="button" className="btn small" onClick={() => { setDialogError(''); setSessionDialog({ session: null }); }} data-testid="button-add-session"><Plus size={14} />Chấm công</button>
         </div>
       )}

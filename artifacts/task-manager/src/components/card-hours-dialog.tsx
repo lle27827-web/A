@@ -20,12 +20,12 @@ export function CardHoursDialog({ card, busy, serverError, onClose, onSubmit }: 
   }
   const shown = error || serverError;
   return (
-    <Modal title="Nạp thêm giờ vào thẻ" description="Chỉ cộng giờ vào số dư thẻ. Tiền bán thẻ, ngày mua, lương và các lần sử dụng đã ghi không thay đổi." onClose={onClose} testId="dialog-card-hours">
+    <Modal title="Nạp thêm giờ vào thẻ" description="Chỉ cộng giờ. Tiền bán thẻ và lương không đổi." onClose={onClose} testId="dialog-card-hours">
       <form className="form-grid" onSubmit={submit} noValidate>
         <p className="hint">Thẻ của <strong>{card.customerName}</strong> · còn {formatMinutes(card.remainingMinutes)}</p>
         <label className="field" htmlFor="card-add-hours">Số giờ nạp thêm
           <input id="card-add-hours" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} required aria-describedby="card-hours-preview" data-testid="input-card-add-hours" />
-          <span id="card-hours-preview" className="hint" role="status">{minutes ? `Nạp ${formatMinutes(minutes)} · số dư dự kiến ${formatMinutes(card.remainingMinutes + minutes)}` : 'Ví dụ 1,5 giờ.'}</span>
+          <span id="card-hours-preview" className="hint" role="status">{minutes ? `Nạp ${formatMinutes(minutes)} · số dư dự kiến ${formatMinutes(card.remainingMinutes + minutes)}` : ' '}</span>
         </label>
         {shown && <p className="form-error" role="alert"><AlertCircle size={13} />{shown}</p>}
         <div className="dialog-actions">

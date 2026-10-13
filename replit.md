@@ -1,6 +1,6 @@
-# Số công
+# SỔ CÔNG
 
-Ứng dụng quản lý nhân viên và chấm công: mọi người có thể xem, chỉ chủ sở hữu được phép thay đổi dữ liệu.
+Ứng dụng quản lý nhân viên và chấm công: mọi người có thể xem; chủ sở hữu và người được chủ sở hữu cấp quyền quản lý được phép thay đổi dữ liệu.
 
 ## Run & Operate
 
@@ -31,13 +31,19 @@
 
 ## Architecture decisions
 
-- Member and attendance reads are public; every create, update, and delete is protected by server-side owner authorization.
+- Business-data reads are public; every create, update, and delete requires server-side authorization as the owner or a delegated manager. The manager grant list and grant/revoke operations are private to the owner.
 - Owner authorization matches a verified Clerk email to `OWNER_EMAIL`; it is never claimed by the first visitor.
 - Attendance work dates are stored as date-only strings to avoid timezone shifts.
+
+Only the primary owner may grant or revoke management access. Managers may add/edit/delete business data, but may not grant access to others or change the owner. Matching uses verified Clerk email addresses; revocation is checked on every new write request. Employee-view preview remains read-only regardless of account rights. **Why:** the user explicitly chose “Chỉ chủ sở hữu được cấp hoặc thu hồi quyền quản lý.”
 
 ## Product
 
 The app is for a massage establishment. “Quản lý thẻ” means customer treatment-package cards, not work-type tags. The user wants customer name, phone number, service type, and usage history recording the date, service duration, and technician who performed each visit.
+
+“Nạp thêm giờ” means adding to the card's available hours, not recording a service visit. It does not change the purchase amount/date or existing payroll. **Why:** the user chose “Nạp thêm giờ vào số dư thẻ”; no implicit paid sale or employee session should be inferred.
+
+The user wants the app named **SỔ CÔNG**, optimized for phone screens. Customer card details must not contain the service wage-price list or unnecessary explanatory prose. New card sales select a type from the configured services, while the card-sale amount remains manually entered and independent of service wage rates. Employee shift-edit actions show customer, service and hours so the correct record can be identified; employee deletion is also available in the employee list. **Why:** these are the user's explicit interface requirements.
 
 The user confirmed: card balances are in hours; the card-sales component is recognized when a customer buys a card; technician wages are hours serving customers × hourly wage, not attendance clock hours. One service visit is shared by card usage history and employee payroll; never create a second wage record for the same visit. The user later requested “Tổng doanh thu cơ sở” = all stored service-session earnings in the work-date month + card-sale amounts in the purchase-date month, with separate “Doanh thu dịch vụ” and “Tổng doanh thu bán thẻ” rows. **Why:** this is the user's chosen report formula; service amounts are based on recorded employee pay, not a separate customer receipt or net profit. Include each session once, including card-linked sessions and retained records of deleted employees; do not silently exclude them or reinterpret the formula as card sales only.
 
@@ -49,7 +55,7 @@ The user wants the app named “Số công” and two views, Chủ and Nhân vi�
 
 Clicking an employee first offers “Chấm công” and “Xem chi tiết”: quick attendance selects a service and hours. Employee details are compact: monthly salary first, selected-day salary second with small service-count notes, then full-width day rows stacked vertically, Vietnam today first. Each day row shows date, total session count and total saved earnings only, including zero for empty days; do not show service names, hours or session records outside a clicked day's detail panel. All day panels start collapsed, even today. Tapping a day selects it for daily salary and opens/closes its recorded service types, hours and notes directly below that row. Put smaller owner-only “Chỉnh sửa” and “Chấm công” actions below those records, not above the dates. Avoid extra explanatory employee-content blocks, avatars or legacy-attendance sections; retain historical data in the database. Employee details include a top-left return action even in employee-view preview. **Why:** the user requested only salary summaries and day totals until they explicitly tap to inspect or edit recorded sessions. Service catalog management is accessible from settings. The gear also selects the view and employee displayed in the employee view, with the selection remembered in the current browser.
 
-Choosing the Chủ view is a presentation preference, never authorization. Only the verified owner account may edit in that view; the Nhân viên view is read-only even when previewed by the owner. Employee selection is a display filter, not a private employee-account access boundary: the existing public-read policy remains unchanged.
+Choosing the Chủ view is a presentation preference, never authorization. Only a verified owner or delegated manager may edit in that view; the Nhân viên view is read-only even when previewed by either. Employee selection is a display filter, not a private employee-account access boundary: the existing public-read policy remains unchanged.
 
 Selecting an employee shows shift history. The owner can add/delete employees and add/edit/delete attendance after signing in with the configured Clerk account. The current app has no active AI endpoints, voice features, or Công việc feature. Historical task data remains in the database; do not drop it without explicit permission.
 

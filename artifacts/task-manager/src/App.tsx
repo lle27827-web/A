@@ -151,8 +151,8 @@ function ClerkRoutes() {
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
       localization={{
-        signIn: { start: { title: 'Số công · Chào mừng trở lại', subtitle: 'Đăng nhập Số công để chấm công theo dịch vụ.' } },
-        signUp: { start: { title: 'Tạo tài khoản chủ Số công', subtitle: 'Quản lý chấm công cho cả nhóm.' } },
+        signIn: { start: { title: 'SỔ CÔNG · Chào mừng trở lại', subtitle: 'Đăng nhập SỔ CÔNG để chấm công theo dịch vụ.' } },
+        signUp: { start: { title: 'Tạo tài khoản chủ SỔ CÔNG', subtitle: 'Quản lý chấm công cho cả nhóm.' } },
       }}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}

@@ -5,7 +5,7 @@ import {
   CreateServiceTypeBody, CreateServiceTypeResponse, ListServiceTypesResponse,
   UpdateServiceTypeBody, UpdateServiceTypeParams, UpdateServiceTypeResponse, DeleteServiceTypeParams,
 } from "@workspace/api-zod";
-import { requireOwner } from "../middlewares/owner";
+import { requireEditor } from "../middlewares/owner";
 import { MassageError } from "../lib/massage";
 import { massageHandler, parseInput } from "./massage-errors";
 
@@ -15,14 +15,14 @@ router.get("/service-types", massageHandler(async (_req, res) => {
   res.set("Cache-Control", "private, no-store");
   res.json(ListServiceTypesResponse.parse((await db.select().from(serviceTypesTable).orderBy(asc(serviceTypesTable.name))).map(output)));
 }));
-router.post("/service-types", requireOwner, massageHandler(async (req, res) => {
+router.post("/service-types", requireEditor, massageHandler(async (req, res) => {
   const input = parseInput(CreateServiceTypeBody, req.body);
   const name = input.name.trim();
   if (!name) throw new MassageError(400, "Cần nhập tên dịch vụ.");
   const [row] = await db.insert(serviceTypesTable).values({ ...input, name }).returning();
   res.status(201).json(CreateServiceTypeResponse.parse(output(row)));
 }));
-router.patch("/service-types/:id", requireOwner, massageHandler(async (req, res) => {
+router.patch("/service-types/:id", requireEditor, massageHandler(async (req, res) => {
   const { id } = parseInput(UpdateServiceTypeParams, req.params);
   const input = parseInput(UpdateServiceTypeBody, req.body);
   const name = input.name.trim();
@@ -31,7 +31,7 @@ router.patch("/service-types/:id", requireOwner, massageHandler(async (req, res)
   if (!row) throw new MassageError(404, "Không tìm thấy dịch vụ.");
   res.json(UpdateServiceTypeResponse.parse(output(row)));
 }));
-router.delete("/service-types/:id", requireOwner, massageHandler(async (req, res) => {
+router.delete("/service-types/:id", requireEditor, massageHandler(async (req, res) => {
   const { id } = parseInput(DeleteServiceTypeParams, req.params);
   await db.transaction(async (tx) => {
     const [row] = await tx.select().from(serviceTypesTable).where(eq(serviceTypesTable.id, id)).for("update");

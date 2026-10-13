@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import type { MemberRecord, TreatmentCard, TreatmentCardInput } from '@workspace/api-client-react';
 import { getListServiceTypesQueryKey, useListServiceTypes } from '@workspace/api-client-react';
 import { AlertCircle, LoaderCircle } from 'lucide-react';
+import { Link } from 'wouter';
 import { Modal } from '@/components/modal';
 import { SESSION_FRESHNESS, formatMinutes, formatVnd, hoursValue, parseHoursToMinutes, parseMoney } from '@/lib/massage';
 
@@ -18,6 +19,8 @@ export function CardDialog({ card, defaultDate, busy, serverError, onClose, onSu
   const [purchaseDate, setPurchaseDate] = useState(card?.purchaseDate ?? defaultDate);
   const [note, setNote] = useState(card?.note ?? '');
   const [error, setError] = useState('');
+  const catalog = servicesQuery.data ?? [];
+  const legacy = card && card.serviceType && !catalog.some((s) => s.name === card.serviceType) ? card.serviceType : null;
   const totalMinutes = parseHoursToMinutes(hours);
   const money = parseMoney(amount);
 
@@ -25,7 +28,8 @@ export function CardDialog({ card, defaultDate, busy, serverError, onClose, onSu
     e.preventDefault();
     if (!customerName.trim()) return setError('Hãy nhập tên khách.');
     if (!phone.trim()) return setError('Hãy nhập số điện thoại.');
-    if (!serviceType.trim()) return setError('Hãy nhập loại dịch vụ.');
+    if (!serviceType.trim()) return setError('Hãy chọn dịch vụ.');
+    if (!catalog.some((s) => s.name === serviceType) && !(card && serviceType === card.serviceType)) return setError('Hãy chọn dịch vụ có trong danh sách.');
     if (!totalMinutes) return setError('Tổng số giờ phải lớn hơn 0.');
     if (card && totalMinutes < card.usedMinutes) return setError(`Tổng giờ không được nhỏ hơn số đã dùng (${formatMinutes(card.usedMinutes)}).`);
     if (money === null) return setError('Hãy nhập số tiền đã trả.');
@@ -35,20 +39,25 @@ export function CardDialog({ card, defaultDate, busy, serverError, onClose, onSu
   }
   const shown = error || serverError;
   return (
-    <Modal title={card ? 'Sửa thẻ liệu trình' : 'Bán thẻ liệu trình mới'} description="Doanh thu tính theo tiền bán thẻ, vào ngày mua." onClose={onClose} testId="dialog-card">
+    <Modal title={card ? 'Sửa thẻ liệu trình' : 'Bán thẻ liệu trình mới'} onClose={onClose} testId="dialog-card">
       <form className="form-grid" onSubmit={submit} noValidate>
         <div className="field-row">
           <label className="field" htmlFor="c-name">Tên khách<input id="c-name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={120} required data-testid="input-card-customer" /></label>
           <label className="field" htmlFor="c-phone">Số điện thoại<input id="c-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={32} required data-testid="input-card-phone" /></label>
         </div>
-        <label className="field" htmlFor="c-service">Loại dịch vụ<input id="c-service" list="card-service-names" value={serviceType} onChange={(e) => setServiceType(e.target.value)} maxLength={120} required placeholder="Chọn dịch vụ hoặc nhập tên" data-testid="input-card-service" />
-          <datalist id="card-service-names">{(servicesQuery.data ?? []).map((s) => <option key={s.id} value={s.name}>{formatVnd(s.hourlyRate)} / giờ trả công</option>)}</datalist>
-          {servicesQuery.isError && <span className="hint warn" role="alert">Không tải được danh sách dịch vụ. Bạn vẫn có thể nhập tên hoặc <button type="button" className="link-soft as-button" onClick={() => void servicesQuery.refetch()}>thử lại</button>.</span>}
+        <label className="field" htmlFor="c-service">Loại dịch vụ
+          <select id="c-service" value={serviceType} onChange={(e) => setServiceType(e.target.value)} required disabled={servicesQuery.isLoading || (servicesQuery.isError && !legacy)} aria-busy={servicesQuery.isLoading} data-testid="select-card-service">
+            <option value="">{servicesQuery.isLoading ? 'Đang tải dịch vụ…' : servicesQuery.isError ? 'Không tải được dịch vụ' : catalog.length ? 'Chọn dịch vụ' : 'Chưa có dịch vụ'}</option>
+            {legacy && <option value={legacy}>{legacy} (không còn trong danh sách)</option>}
+            {catalog.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+          </select>
+          {servicesQuery.isError && <span className="hint warn" role="alert">Không tải được danh sách dịch vụ. <button type="button" className="link-soft as-button" onClick={() => void servicesQuery.refetch()}>Thử lại</button></span>}
+          {!servicesQuery.isLoading && !servicesQuery.isError && catalog.length === 0 && <span className="hint warn" role="status">Chưa có dịch vụ nào. <Link href="/services" className="link-strong" onClick={onClose}>Thêm dịch vụ</Link></span>}
         </label>
         <div className="field-row">
           <label className="field" htmlFor="c-hours">Tổng số giờ đã mua
             <input id="c-hours" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} required data-testid="input-card-hours" />
-            <span className="hint">{totalMinutes ? `${totalMinutes} phút` : 'Ví dụ 10'}</span>
+            <span className="hint">{totalMinutes ? `${totalMinutes} phút` : ' '}</span>
           </label>
           <label className="field" htmlFor="c-amount">Tiền đã trả (VND)
             <input id="c-amount" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} required data-testid="input-card-amount" />
@@ -81,7 +90,7 @@ export function MemberDialog({ member, busy, serverError, onClose, onSubmit }: {
   }
   const shown = error || serverError;
   return (
-    <Modal title={member ? 'Sửa nhân viên' : 'Thêm nhân viên'} description="Lương tính theo giá trả công của từng dịch vụ, không theo nhân viên." onClose={onClose} testId="dialog-member">
+    <Modal title={member ? 'Sửa nhân viên' : 'Thêm nhân viên'} onClose={onClose} testId="dialog-member">
       <form className="form-grid" onSubmit={submit} noValidate>
         <label className="field" htmlFor="m-name">Tên nhân viên<input id="m-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} required data-testid="input-member-name" /></label>
         {shown && <p className="form-error" role="alert"><AlertCircle size={13} /> {shown}</p>}

@@ -258,7 +258,7 @@ option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 @media (max-width: 480px) { .mode-options { grid-template-columns: 1fr; } }
 
-/* ---- Số công massage: ink-black salon ledger ---- */
+/* ---- SỔ CÔNG massage: ink-black salon ledger ---- */
 :root { --background: 0 0% 3%; --card: 30 6% 7%; --muted: 30 5% 11%; --secondary: 30 5% 14%; --border: 30 5% 19%; --input: 30 5% 19%; --foreground: 40 30% 98%; --muted-foreground: 35 8% 72%; }
 body { background: hsl(var(--background)); color: hsl(var(--foreground)); }
 .nf { min-height: 60dvh; }
@@ -348,7 +348,7 @@ a.hit:hover, .emp-row:hover, .card-row:hover { border-color: hsl(var(--primary) 
 }
 @media (max-width: 380px) { .tiles { grid-template-columns: minmax(0, 1fr); } }
 
-/* ---- Số công: service catalog + employee choice ---- */
+/* ---- SỔ CÔNG: service catalog + employee choice ---- */
 .emp-row.as-row { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 .emp-row .grow, .choice-row .grow, .service-option > span, .settings-link .grow { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .choice-list { display: grid; gap: 10px; margin-top: 12px; }
@@ -389,3 +389,19 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .type-counts li { padding: 3px 10px; border: 1px solid hsl(var(--border)); border-radius: 999px; font-size: 12px; color: hsl(var(--muted-foreground)); }
 .type-counts strong { color: hsl(var(--foreground)); margin-left: 4px; }
 .search-results { margin-bottom: 14px; }
+
+/* ---- SỔ CÔNG: manager grants ---- */
+.mgr { margin-top: 20px; padding-top: 16px; border-top: 1px solid hsl(var(--border)); display: grid; gap: 10px; min-width: 0; }
+.mgr h3 { margin: 0; font-family: var(--app-font-display); font-size: 15px; display: flex; align-items: center; gap: 6px; }
+.mgr-form { display: flex; gap: 8px; min-width: 0; }
+.mgr-form input { flex: 1; min-width: 0; min-height: 36px; padding: 0 10px; border: 1px solid hsl(var(--border)); border-radius: 8px; background: hsl(var(--muted)); color: hsl(var(--foreground)); }
+.mgr-list { display: grid; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.mgr-list li { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 10px; border: 1px solid hsl(var(--border)); border-radius: 10px; }
+.mgr-list .grow strong { overflow-wrap: anywhere; font-size: 13px; }
+.mgr-confirm { display: grid; gap: 8px; padding: 10px; border: 1px solid hsl(var(--destructive) / .5); border-radius: 10px; background: hsl(var(--destructive) / .08); font-size: 13px; }
+.mgr-confirm p { margin: 0; overflow-wrap: anywhere; }
+.emp-item { display: flex; gap: 6px; align-items: stretch; min-width: 0; }
+.emp-item > .emp-row { flex: 1; min-width: 0; }
+.emp-item > .icon-btn { height: auto; width: 40px; border: 1px solid hsl(var(--border)); border-radius: 12px; }
+.emp-row.wrap { flex-wrap: wrap; }
+@media (max-width: 420px) { .mgr-form { flex-direction: column; } .settings-dialog { padding: 16px; } }

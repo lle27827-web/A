@@ -12,7 +12,19 @@ export interface HealthStatus {
 export interface AccessStatus {
   signedIn: boolean;
   isOwner: boolean;
+  canManage: boolean;
   ownerConfigured: boolean;
+}
+
+export interface ManagerGrant {
+  id: number;
+  email: string;
+  createdAt: string;
+}
+
+export interface ManagerInput {
+  /** @maxLength 320 */
+  email: string;
 }
 
 export type AttendanceStatus = typeof AttendanceStatus[keyof typeof AttendanceStatus];

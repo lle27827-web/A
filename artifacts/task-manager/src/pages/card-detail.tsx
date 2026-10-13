@@ -10,7 +10,6 @@ import { Link, useLocation, useParams } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { CardDialog } from '@/components/entity-dialogs';
 import { CardHoursDialog } from '@/components/card-hours-dialog';
-import { ServiceCatalog } from '@/pages/services';
 import { ConfirmDialog, ErrorBanner, Skeleton, type ConfirmState } from '@/components/modal';
 import { SessionDialog } from '@/components/session-dialog';
 import { SessionTable } from '@/components/session-table';
@@ -43,7 +42,7 @@ export default function CardDetailPage() {
   const sessions = useMemo(() => [...(sessionsQuery.data ?? [])].sort((a, b) => b.workDate.localeCompare(a.workDate) || b.id - a.id), [sessionsQuery.data]);
   const back = <Link href="/" onClick={() => setQuery('')} className="back" data-testid="link-back"><ArrowLeft size={15} />Trang chính</Link>;
 
-  if (cardsQuery.isLoading) return <section className="panel page">{back}<Skeleton rows={6} label="Đang tải thẻ" /></section>;
+  if (cardsQuery.isLoading || (!card && cardsQuery.isFetching)) return <section className="panel page">{back}<Skeleton rows={6} label="Đang tải thẻ" /></section>;
   if (cardsQuery.isError) return <section className="panel page">{back}<ErrorBanner text="Không tải được thẻ." onRetry={() => void cardsQuery.refetch()} /></section>;
   if (!card) return <section className="panel page">{back}<div className="empty"><CreditCard size={22} /><p>Thẻ không tồn tại hoặc đã bị xóa.</p><Link href="/cards" className="btn">Về danh sách thẻ</Link></div></section>;
 
@@ -69,7 +68,7 @@ export default function CardDetailPage() {
     setConfirm({
       title: `Xóa thẻ của ${card.customerName}?`,
       body: used > 0
-        ? <p>Thẻ này còn {used} lần dùng trong lịch sử. Máy chủ sẽ từ chối xóa cho đến khi bạn chủ động xóa từng lần dùng bên dưới. Lịch sử không bị xóa tự động.</p>
+        ? <p>Thẻ còn {used} lần dùng. Hãy xóa các lần dùng trước; máy chủ sẽ từ chối xóa thẻ.</p>
         : <p>Thẻ và tiền bán {formatVnd(card.purchaseAmount)} sẽ bị gỡ khỏi doanh thu ngày {formatShortDate(card.purchaseDate)}. Không thể hoàn tác.</p>,
       confirmLabel: 'Xóa thẻ',
       onConfirm: () => deleteCard.mutate({ id: card.id }, { onSuccess: () => { refresh(); setConfirm(null); notify('Đã xóa thẻ.'); navigate('/cards'); }, onError: (e) => { setConfirm(null); fail(e); } }),
@@ -105,11 +104,10 @@ export default function CardDetailPage() {
       </section>
 
       {canEdit && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setHoursDialog(true); }} data-testid="button-add-card-hours"><Plus size={15} />Nạp thêm giờ vào thẻ</button>}
-      <ServiceCatalog embedded />
 
       <section className="panel" aria-labelledby="usage-title">
         <div className="panel-head wrap">
-          <div><h2 id="usage-title">Lịch sử sử dụng</h2><p className="sub">{sessions.length} lần · mỗi lần đồng thời trừ giờ thẻ và tính lương kỹ thuật viên</p></div>
+          <div><h2 id="usage-title">Lịch sử sử dụng</h2><p className="sub">{sessions.length} lần</p></div>
           {canEdit && <button type="button" className="btn primary" disabled={card.remainingMinutes <= 0} onClick={() => { setDialogError(''); setSessionDialog({ session: null }); }} data-testid="button-add-usage"><Plus size={15} />Ghi lần dùng</button>}
         </div>
         {sessionsQuery.isLoading ? <Skeleton rows={3} label="Đang tải lịch sử" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được lịch sử sử dụng." onRetry={() => void sessionsQuery.refetch()} /> : sessions.length === 0 ? (

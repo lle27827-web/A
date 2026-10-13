@@ -32,6 +32,8 @@ import type {
   HealthStatus,
   ListAttendanceParams,
   ListServiceSessionsParams,
+  ManagerGrant,
+  ManagerInput,
   MassageSummary,
   MemberInput,
   MemberPayroll,
@@ -72,6 +74,227 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getListManagersUrl = () => {
+
+
+
+
+  return `/api/managers`
+}
+
+export const listManagers = async ( options?: Parameters<typeof customFetch>[1]): Promise<ManagerGrant[]> => {
+
+  return customFetch<ManagerGrant[]>(getListManagersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListManagersQueryKey = () => {
+    return [
+    `/api/managers`
+    ] as const;
+    }
+
+
+export const getListManagersQueryOptions = <TData = Awaited<ReturnType<typeof listManagers>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listManagers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListManagersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listManagers>>> = ({ signal }) => listManagers({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listManagers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListManagersQueryResult = NonNullable<Awaited<ReturnType<typeof listManagers>>>
+export type ListManagersQueryError = ErrorType<void>
+
+
+
+export function useListManagers<TData = Awaited<ReturnType<typeof listManagers>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listManagers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListManagersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateManagerUrl = () => {
+
+
+
+
+  return `/api/managers`
+}
+
+export const createManager = async (managerInput: ManagerInput, options?: Parameters<typeof customFetch>[1]): Promise<ManagerGrant> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ManagerGrant>(getCreateManagerUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(managerInput)
+  }
+);}
+
+
+
+
+
+export const getCreateManagerMutationKey = () => ['createManager'] as const;
+
+export const getCreateManagerMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createManager>>, TError,CreateManagerMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createManager>>, TError,CreateManagerMutationVariables, TContext> => {
+
+const mutationKey = getCreateManagerMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createManager>>, CreateManagerMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createManager(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateManagerMutationResult = NonNullable<Awaited<ReturnType<typeof createManager>>>
+    export type CreateManagerMutationBody = BodyType<ManagerInput>
+    export type CreateManagerMutationError = ErrorType<void>
+    export type CreateManagerMutationVariables = {data: BodyType<ManagerInput>}
+
+    export const useCreateManager = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createManager>>, TError,CreateManagerMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createManager>>,
+        TError,
+        CreateManagerMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateManagerMutationOptions(options));
+    }
+
+export const getDeleteManagerUrl = (id: number,) => {
+
+
+
+
+  return `/api/managers/${id}`
+}
+
+export const deleteManager = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteManagerUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteManagerMutationKey = () => ['deleteManager'] as const;
+
+export const getDeleteManagerMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteManager>>, TError,DeleteManagerMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteManager>>, TError,DeleteManagerMutationVariables, TContext> => {
+
+const mutationKey = getDeleteManagerMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteManager>>, DeleteManagerMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteManager(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteManagerMutationResult = NonNullable<Awaited<ReturnType<typeof deleteManager>>>
+
+    export type DeleteManagerMutationError = ErrorType<void>
+    export type DeleteManagerMutationVariables = {id: number}
+
+    export const useDeleteManager = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteManager>>, TError,DeleteManagerMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteManager>>,
+        TError,
+        DeleteManagerMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteManagerMutationOptions(options));
+    }
 
 export const getListServiceTypesUrl = () => {
 

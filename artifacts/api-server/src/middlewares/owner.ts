@@ -1,9 +1,13 @@
 import { clerkClient, getAuth } from "@clerk/express";
 import type { Request, RequestHandler } from "express";
+import { inArray } from "drizzle-orm";
+import { db, managerGrantsTable } from "@workspace/db";
+import { resolvePermissions, verifiedAccountEmails } from "../lib/permissions";
 
 export type AccessStatus = {
   signedIn: boolean;
   isOwner: boolean;
+  canManage: boolean;
   ownerConfigured: boolean;
 };
 
@@ -13,38 +17,39 @@ export async function getAccessStatus(req: Request): Promise<AccessStatus> {
   const ownerConfigured = Boolean(ownerEmail);
 
   if (!userId || !ownerEmail) {
-    return { signedIn: Boolean(userId), isOwner: false, ownerConfigured };
+    return { signedIn: Boolean(userId), isOwner: false, canManage: false, ownerConfigured };
   }
 
   const user = await clerkClient.users.getUser(userId);
-  const isOwner = user.emailAddresses.some(
-    (email) =>
-      email.verification?.status === "verified" &&
-      email.emailAddress.trim().toLowerCase() === ownerEmail,
-  );
-
-  return { signedIn: true, isOwner, ownerConfigured: true };
+  const emails = verifiedAccountEmails(user.emailAddresses);
+  const primary = resolvePermissions(ownerEmail, emails, []);
+  if (primary.isOwner || emails.length === 0) return { signedIn: true, ...primary };
+  const grants = await db.select({ email: managerGrantsTable.email }).from(managerGrantsTable)
+    .where(inArray(managerGrantsTable.email, emails)).limit(1);
+  return { signedIn: true, ...resolvePermissions(ownerEmail, emails, grants.map((g) => g.email)) };
 }
 
-export const requireOwner: RequestHandler = async (req, res, next): Promise<void> => {
-  const status = await getAccessStatus(req);
+function authorize(ownerOnly: boolean): RequestHandler {
+  return async (req, res, next): Promise<void> => {
+    const status = await getAccessStatus(req);
+    if (!status.ownerConfigured) {
+      res.status(403).json({ error: "Quyền chỉnh sửa chưa được cấu hình cho chủ sở hữu." });
+      return;
+    }
+    if (!status.signedIn) {
+      res.status(401).json({ error: "Vui lòng đăng nhập để tiếp tục." });
+      return;
+    }
+    if (ownerOnly ? !status.isOwner : !status.canManage) {
+      res.status(403).json({
+        error: ownerOnly ? "Chỉ chủ sở hữu mới được quản lý việc cấp và thu hồi quyền."
+          : "Chỉ chủ sở hữu hoặc người được cấp quyền quản lý mới được thay đổi dữ liệu.",
+      });
+      return;
+    }
+    next();
+  };
+}
 
-  if (!status.ownerConfigured) {
-    res.status(403).json({
-      error: "Quyền chỉnh sửa chưa được cấu hình cho chủ sở hữu.",
-    });
-    return;
-  }
-
-  if (!status.signedIn) {
-    res.status(401).json({ error: "Vui lòng đăng nhập để tiếp tục." });
-    return;
-  }
-
-  if (!status.isOwner) {
-    res.status(403).json({ error: "Chỉ chủ sở hữu mới được thay đổi dữ liệu." });
-    return;
-  }
-
-  next();
-};
+export const requireOwner = authorize(true);
+export const requireEditor = authorize(false);

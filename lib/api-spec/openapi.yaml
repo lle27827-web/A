@@ -17,6 +17,44 @@ tags:
   - name: auth
     description: Quyền truy cập
 paths:
+  /managers:
+    get:
+      operationId: listManagers
+      responses:
+        "200":
+          description: Danh sách người quản lý, chỉ chủ sở hữu được xem
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/ManagerGrant" } }
+        "401": { description: Cần đăng nhập }
+        "403": { description: Chỉ chủ sở hữu }
+    post:
+      operationId: createManager
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ManagerInput" }
+      responses:
+        "201":
+          description: Quyền quản lý đã cấp cho email đã chỉ định
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ManagerGrant" }
+        "400": { description: Email không hợp lệ }
+        "401": { description: Cần đăng nhập }
+        "403": { description: Chỉ chủ sở hữu }
+        "409": { description: Email đã được cấp quyền hoặc là chủ sở hữu }
+  /managers/{id}:
+    delete:
+      operationId: deleteManager
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "204": { description: Đã thu hồi quyền quản lý }
+        "401": { description: Cần đăng nhập }
+        "403": { description: Chỉ chủ sở hữu }
+        "404": { description: Không tìm thấy quyền quản lý }
   /service-types:
     get:
       operationId: listServiceTypes
@@ -478,9 +516,23 @@ components:
           type: boolean
         isOwner:
           type: boolean
+        canManage:
+          type: boolean
         ownerConfigured:
           type: boolean
-      required: [signedIn, isOwner, ownerConfigured]
+      required: [signedIn, isOwner, canManage, ownerConfigured]
+    ManagerGrant:
+      type: object
+      required: [id, email, createdAt]
+      properties:
+        id: { type: integer }
+        email: { type: string, format: email }
+        createdAt: { type: string, format: date-time }
+    ManagerInput:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email, maxLength: 320 }
     AttendanceStatus:
       type: string
       enum: [present, late, absent, leave]

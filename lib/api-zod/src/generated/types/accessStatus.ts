@@ -9,5 +9,6 @@
 export interface AccessStatus {
   signedIn: boolean;
   isOwner: boolean;
+  canManage: boolean;
   ownerConfigured: boolean;
 }

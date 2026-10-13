@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import type { TreatmentCard } from '@workspace/api-client-react';
 import { getListTreatmentCardsQueryKey, useCreateTreatmentCard, useListTreatmentCards } from '@workspace/api-client-react';
 import { ArrowLeft, ChevronRight, CreditCard, LockKeyhole, Plus, Search, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
@@ -9,12 +11,13 @@ import { formatShortDate, localDate, normalize } from '@/lib/attendance';
 import { cardMatches, errorText, formatMinutes, formatVnd, useRefreshMassage } from '@/lib/massage';
 
 export default function CardsPage() {
-  const { canEdit, isOwner, query, setQuery, notify, fail } = useShell();
+  const { canEdit, hasManageAccess, query, setQuery, notify, fail } = useShell();
   const [, navigate] = useLocation();
   const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), refetchOnWindowFocus: true } });
   const [open, setOpen] = useState(false);
   const [dialogError, setDialogError] = useState('');
   const create = useCreateTreatmentCard();
+  const cache = useQueryClient();
   const refresh = useRefreshMassage();
   const cards = useMemo(() => cardsQuery.data ?? [], [cardsQuery.data]);
   const list = useMemo(() => {
@@ -37,7 +40,7 @@ export default function CardsPage() {
           {query && <button type="button" className="icon-btn" onClick={() => setQuery('')} aria-label="Xóa tìm kiếm thẻ" data-testid="button-clear-card-search"><X size={14} /></button>}
         </div>
         <span id="card-search-hint" className="hint" role="status" data-testid="text-card-count">
-          {query.trim() ? `${list.length} / ${cards.length} thẻ khớp` : `${cards.length} thẻ`}{isOwner ? '' : ' · Chế độ xem chỉ tìm theo phần số điện thoại đang hiển thị.'}
+          {query.trim() ? `${list.length} / ${cards.length} thẻ khớp` : `${cards.length} thẻ`}{hasManageAccess ? '' : ' · Chế độ xem chỉ tìm theo phần số điện thoại đang hiển thị.'}
         </span>
       </form>
       {query.trim() ? null : cardsQuery.isLoading ? <Skeleton rows={5} label="Đang tải thẻ" /> : cardsQuery.isError ? <ErrorBanner text={errorText(cardsQuery.error, 'Không tải được danh sách thẻ.')} onRetry={() => void cardsQuery.refetch()} /> : list.length === 0 ? (
@@ -66,7 +69,11 @@ export default function CardsPage() {
       {open && canEdit && (
         <CardDialog card={null} defaultDate={localDate()} busy={create.isPending} serverError={dialogError} onClose={() => setOpen(false)}
           onSubmit={(data) => create.mutate({ data }, {
-            onSuccess: (card) => { refresh(); setOpen(false); notify(`Đã bán thẻ cho ${card.customerName}.`); navigate(`/cards/${card.id}`); },
+            onSuccess: (card) => {
+              cache.setQueryData<TreatmentCard[]>(getListTreatmentCardsQueryKey(), (old) =>
+                [card, ...(old ?? []).filter((c) => c.id !== card.id)].sort((a, b) => b.purchaseDate.localeCompare(a.purchaseDate) || b.id - a.id));
+              refresh(); setOpen(false); notify(`Đã bán thẻ cho ${card.customerName}.`); navigate(`/cards/${card.id}`);
+            },
             onError: (e) => { setDialogError(errorText(e)); fail(e); },
           })} />
       )}

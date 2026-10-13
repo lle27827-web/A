@@ -3,6 +3,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { MemberRecord } from '@workspace/api-client-react';
 import { AlertCircle, ChevronRight, Settings, Sparkles, X } from 'lucide-react';
 import { Link } from 'wouter';
+import { ManagerSettings } from '@/components/manager-settings';
 
 export type ViewMode = 'owner' | 'employee';
 export type ViewPrefs = { mode: ViewMode; employeeId: number | null };
@@ -34,10 +35,13 @@ export function useViewPrefs() {
   return [prefs, update] as const;
 }
 
-export function ViewSettings({ prefs, members, membersLoading, open, onOpenChange, onApply }: {
+export function ViewSettings({ prefs, members, membersLoading, isOwner, canEdit, onAuthError, open, onOpenChange, onApply }: {
   prefs: ViewPrefs;
   members: MemberRecord[];
   membersLoading: boolean;
+  isOwner: boolean;
+  canEdit: boolean;
+  onAuthError: (err: unknown) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onApply: (prefs: ViewPrefs) => void;
@@ -77,8 +81,8 @@ export function ViewSettings({ prefs, members, membersLoading, open, onOpenChang
             <DialogPrimitive.Title asChild><h2>Chế độ xem</h2></DialogPrimitive.Title>
             <DialogPrimitive.Close asChild><button type="button" className="icon-btn" aria-label="Đóng cài đặt"><X size={18} /></button></DialogPrimitive.Close>
           </div>
-          <DialogPrimitive.Description className="sub">Đổi chế độ xem không thay đổi quyền. Chỉ chủ sở hữu đã đăng nhập, ở chế độ Chủ, mới chỉnh sửa được.</DialogPrimitive.Description>
-          <Link href="/services" className="settings-link" onClick={() => onOpenChange(false)} data-testid="link-services"><Sparkles size={15} /><span className="grow"><strong>Dịch vụ &amp; giá trả công</strong><span className="muted">Thêm, sửa, xóa loại massage và giá theo giờ</span></span><ChevronRight size={16} /></Link>
+          <DialogPrimitive.Description className="sub">Đổi chế độ xem không thay đổi quyền. Chỉ chủ sở hữu hoặc quản lý đã đăng nhập, ở chế độ Chủ, mới chỉnh sửa được.</DialogPrimitive.Description>
+          <Link href="/services" className="settings-link" onClick={() => { onApply({ mode: 'owner', employeeId: prefs.employeeId }); onOpenChange(false); }} data-testid="link-services"><Sparkles size={15} /><span className="grow"><strong>Dịch vụ &amp; giá trả công</strong><span className="muted">Thêm, sửa, xóa loại massage và giá theo giờ</span></span><ChevronRight size={16} /></Link>
           <form onSubmit={(e) => { e.preventDefault(); apply(); }}>
             <fieldset>
               <legend>Bố cục</legend>
@@ -107,6 +111,7 @@ export function ViewSettings({ prefs, members, membersLoading, open, onOpenChang
               <button type="submit" className="btn primary" data-testid="button-apply-view">Áp dụng</button>
             </div>
           </form>
+          {isOwner && <ManagerSettings canEdit={canEdit} onAuthError={onAuthError} />}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

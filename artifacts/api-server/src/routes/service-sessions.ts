@@ -7,7 +7,7 @@ import {
   ListServiceSessionsQueryParams, ListServiceSessionsResponse,
   UpdateServiceSessionBody, UpdateServiceSessionParams, UpdateServiceSessionResponse,
 } from "@workspace/api-zod";
-import { requireOwner } from "../middlewares/owner";
+import { requireEditor } from "../middlewares/owner";
 import { deleteSession, MassageError, monthBounds, saveSession, sessionResponse, validDate } from "../lib/massage";
 import { massageHandler, parseInput } from "./massage-errors";
 import { getFacilityRevenue } from "../lib/facility-revenue";
@@ -27,14 +27,14 @@ router.get("/service-sessions", massageHandler(async (req, res) => {
     .orderBy(desc(serviceSessionsTable.workDate), desc(serviceSessionsTable.id));
   res.json(ListServiceSessionsResponse.parse(rows.map(sessionResponse)));
 }));
-router.post("/service-sessions", requireOwner, massageHandler(async (req, res) => {
+router.post("/service-sessions", requireEditor, massageHandler(async (req, res) => {
   res.status(201).json(CreateServiceSessionResponse.parse(await saveSession(parseInput(CreateServiceSessionBody, req.body))));
 }));
-router.patch("/service-sessions/:id", requireOwner, massageHandler(async (req, res) => {
+router.patch("/service-sessions/:id", requireEditor, massageHandler(async (req, res) => {
   const { id } = parseInput(UpdateServiceSessionParams, req.params);
   res.json(UpdateServiceSessionResponse.parse(await saveSession(parseInput(UpdateServiceSessionBody, req.body), id)));
 }));
-router.delete("/service-sessions/:id", requireOwner, massageHandler(async (req, res) => {
+router.delete("/service-sessions/:id", requireEditor, massageHandler(async (req, res) => {
   await deleteSession(parseInput(DeleteServiceSessionParams, req.params).id);
   res.sendStatus(204);
 }));

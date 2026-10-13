@@ -19,6 +19,8 @@ export * from './getMemberPayrollParams';
 export * from './healthStatus';
 export * from './listAttendanceParams';
 export * from './listServiceSessionsParams';
+export * from './managerGrant';
+export * from './managerInput';
 export * from './massageSummary';
 export * from './memberInput';
 export * from './memberPayroll';

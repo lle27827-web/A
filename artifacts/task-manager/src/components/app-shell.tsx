@@ -1,7 +1,7 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useClerk } from '@clerk/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { getGetCurrentAccessQueryKey, getListMembersQueryKey, useGetCurrentAccess, useListMembers } from '@workspace/api-client-react';
+import { getGetCurrentAccessQueryKey, getListManagersQueryKey, getListMembersQueryKey, getListTreatmentCardsQueryKey, useGetCurrentAccess, useListMembers } from '@workspace/api-client-react';
 import type { AccessStatus, MemberRecord } from '@workspace/api-client-react';
 import { AlertCircle, ArrowUpRight, Check, Eye, Hand, LoaderCircle, LockKeyhole, Search, ShieldCheck, X } from 'lucide-react';
 import { Link } from 'wouter';
@@ -16,6 +16,7 @@ type ShellCtx = {
   access: AccessStatus | undefined;
   accessLoading: boolean;
   isOwner: boolean;
+  hasManageAccess: boolean;
   canEdit: boolean;
   employeeMode: boolean;
   prefs: ViewPrefs;
@@ -41,13 +42,23 @@ export function useShell() {
 
 export function AppShell({ children, employeeView }: { children: ReactNode; employeeView: ReactNode }) {
   const cache = useQueryClient();
-  const accessQuery = useGetCurrentAccess({ query: { queryKey: getGetCurrentAccessQueryKey(), retry: false } });
+  const accessQuery = useGetCurrentAccess({ query: { queryKey: getGetCurrentAccessQueryKey(), retry: false, staleTime: 15_000, refetchOnWindowFocus: true, refetchInterval: 30_000 } });
   const access = accessQuery.data;
   const isOwner = access?.isOwner === true;
+  const hasManageAccess = access?.canManage === true;
+  const prevAccess = useRef<{ canManage: boolean; isOwner: boolean } | null>(null);
+  useEffect(() => {
+    if (!access) return;
+    const next = { canManage: access.canManage === true, isOwner: access.isOwner === true };
+    const prev = prevAccess.current;
+    prevAccess.current = next;
+    if (!next.isOwner) cache.removeQueries({ queryKey: getListManagersQueryKey() });
+    if (prev && prev.canManage !== next.canManage) void cache.invalidateQueries({ queryKey: getListTreatmentCardsQueryKey() });
+  }, [access, cache]);
   const [prefs, setPrefs] = useViewPrefs();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const employeeMode = prefs.mode === 'employee';
-  const canEdit = isOwner && prefs.mode === 'owner';
+  const canEdit = hasManageAccess && prefs.mode === 'owner';
   const membersQuery = useListMembers({ query: { queryKey: getListMembersQueryKey() } });
   const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
   const [query, setQuery] = useState('');
@@ -56,7 +67,7 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
   const [error, setError] = useState('');
 
   const ctx: ShellCtx = {
-    access, accessLoading: accessQuery.isLoading, isOwner, canEdit, employeeMode, prefs, members,
+    access, accessLoading: accessQuery.isLoading, isOwner, hasManageAccess, canEdit, employeeMode, prefs, members,
     membersLoading: membersQuery.isLoading, membersError: membersQuery.isError, retryMembers: () => void membersQuery.refetch(),
     query, setQuery,
     notify: (m) => { setError(''); setNotice(m); },
@@ -65,7 +76,7 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
       setError(errorText(err));
       const s = statusCode(err);
       if (s === 401 || s === 403) {
-        cache.setQueryData(getGetCurrentAccessQueryKey(), { signedIn: access?.signedIn ?? false, isOwner: false, ownerConfigured: access?.ownerConfigured ?? false });
+        cache.setQueryData(getGetCurrentAccessQueryKey(), { signedIn: access?.signedIn ?? false, isOwner: false, canManage: false, ownerConfigured: access?.ownerConfigured ?? false });
         void cache.invalidateQueries({ queryKey: getGetCurrentAccessQueryKey() });
       }
     },
@@ -84,7 +95,7 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
       <div className="app">
         <header className="topbar">
           <div className="topbar-inner">
-            <Link href="/" onClick={() => setQuery('')} className="brand" data-testid="link-home"><span className="brand-mark"><Hand size={15} strokeWidth={2.4} /></span><span>Số công</span></Link>
+            <Link href="/" onClick={() => setQuery('')} className="brand" data-testid="link-home"><span className="brand-mark"><Hand size={15} strokeWidth={2.4} /></span><span>SỔ CÔNG</span></Link>
             <form role="search" className="search" onSubmit={(e) => e.preventDefault()}>
               <Search size={16} aria-hidden="true" />
               <label htmlFor="global-search" className="sr-only">Tìm kiếm</label>
@@ -94,9 +105,9 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
             </form>
             <div className="account">
               <span className="mode-pill" data-testid="status-view-mode">{employeeMode ? 'Nhân viên' : 'Chủ'}</span>
-              <span className={`access ${isOwner ? 'owner' : ''}`} data-testid="status-access">
-                {accessQuery.isLoading ? <LoaderCircle className="spin" size={13} /> : isOwner ? <ShieldCheck size={14} /> : <Eye size={14} />}
-                <span className="access-text">{accessQuery.isLoading ? 'Đang kiểm tra' : isOwner ? 'Chủ sở hữu' : 'Chỉ xem'}</span>
+              <span className={`access ${hasManageAccess ? 'owner' : ''}`} data-testid="status-access">
+                {accessQuery.isLoading ? <LoaderCircle className="spin" size={13} /> : hasManageAccess ? <ShieldCheck size={14} /> : <Eye size={14} />}
+                <span className="access-text">{accessQuery.isLoading ? 'Đang kiểm tra' : isOwner ? 'Chủ sở hữu' : hasManageAccess ? 'Quản lý' : 'Chỉ xem'}</span>
               </span>
               {access?.signedIn ? <SignOutButton /> : !accessQuery.isLoading && (
                 <>
@@ -104,7 +115,7 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
                   {access?.ownerConfigured && <Link href="/sign-up" className="link-soft" data-testid="link-owner-signup">Tạo tài khoản</Link>}
                 </>
               )}
-              <ViewSettings prefs={prefs} members={members} membersLoading={membersQuery.isLoading} open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView} />
+              <ViewSettings prefs={prefs} members={members} membersLoading={membersQuery.isLoading} isOwner={isOwner} canEdit={canEdit} onAuthError={ctx.fail} open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView} />
             </div>
           </div>
         </header>
@@ -117,13 +128,13 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
             <div className="banner danger" role="alert" data-testid="status-access-error"><AlertCircle size={15} /><span>Không thể xác minh quyền. Thao tác chỉnh sửa đang được khóa.</span><button type="button" onClick={() => void accessQuery.refetch()}>Thử lại</button></div>
           )}
           {!employeeMode && !canEdit && !accessQuery.isLoading && (
-            <div className="banner soft" role="status" data-testid="status-readonly-owner"><Eye size={15} /><span>Đang ở chế độ chỉ xem. Chỉ chủ sở hữu đã đăng nhập mới chỉnh sửa được.</span></div>
+            <div className="banner soft" role="status" data-testid="status-readonly-owner"><Eye size={15} /><span>Đang ở chế độ chỉ xem. Chỉ chủ sở hữu hoặc quản lý được cấp quyền, đã đăng nhập, mới chỉnh sửa được.</span></div>
           )}
           {error && <div className="banner danger" role="alert" data-testid="status-mutation-error"><AlertCircle size={15} /><span>{error}</span><button type="button" onClick={() => setError('')} aria-label="Đóng thông báo lỗi"><X size={14} /></button></div>}
           {notice && <div className="banner success" role="status" data-testid="status-success"><Check size={15} /><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Đóng thông báo"><X size={14} /></button></div>}
           {employeeMode ? employeeView : children}
         </main>
-        <footer className="footer"><span>Số công · tiệm massage</span><span>Lương = giờ phục vụ × giá dịch vụ · Doanh thu = tổng lương ca dịch vụ + tiền bán thẻ</span></footer>
+        <footer className="footer"><span>SỔ CÔNG · tiệm massage</span><span>Lương = giờ phục vụ × giá dịch vụ · Doanh thu = tổng lương ca dịch vụ + tiền bán thẻ</span></footer>
       </div>
     </Ctx.Provider>
   );
