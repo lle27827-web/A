@@ -80,6 +80,26 @@ paths:
         "403":
           description: Chỉ chủ sở hữu được phép thao tác
   /members/{id}:
+    patch:
+      operationId: updateMember
+      tags: [members]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer, minimum: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MemberUpdate" }
+      responses:
+        "200":
+          description: Nhân viên đã cập nhật
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MemberRecord" }
+        "400": { description: Dữ liệu không hợp lệ }
+        "401": { description: Cần đăng nhập }
+        "403": { description: Chỉ chủ sở hữu }
+        "404": { description: Không tìm thấy nhân viên }
     delete:
       operationId: deleteMember
       tags: [members]
@@ -228,6 +248,151 @@ paths:
           description: Chỉ chủ sở hữu được phép thao tác
         "404":
           description: Không tìm thấy bản ghi
+  /treatment-cards:
+    get:
+      operationId: listTreatmentCards
+      responses:
+        "200":
+          description: Thẻ và số giờ còn lại; điện thoại được che với người chỉ xem
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/TreatmentCard" } }
+    post:
+      operationId: createTreatmentCard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TreatmentCardInput" }
+      responses:
+        "201":
+          description: Thẻ đã lưu
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TreatmentCard" }
+        "400": { description: Dữ liệu không hợp lệ }
+        "401": { description: Cần đăng nhập }
+        "403": { description: Chỉ chủ sở hữu }
+  /treatment-cards/{id}:
+    patch:
+      operationId: updateTreatmentCard
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer, minimum: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TreatmentCardUpdate" }
+      responses:
+        "200":
+          description: Thẻ đã cập nhật
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TreatmentCard" }
+        "400": { description: Dữ liệu không hợp lệ }
+        "401": { description: Cần đăng nhập }
+        "403": { description: Chỉ chủ sở hữu }
+        "404": { description: Không tìm thấy thẻ }
+        "409": { description: Tổng giờ không thể thấp hơn số giờ đã dùng }
+    delete:
+      operationId: deleteTreatmentCard
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "204": { description: Đã xóa thẻ chưa có lượt sử dụng }
+        "401": { description: Cần đăng nhập }
+        "403": { description: Chỉ chủ sở hữu }
+        "404": { description: Không tìm thấy thẻ }
+        "409": { description: Cần xóa các lượt sử dụng trước khi xóa thẻ }
+  /service-sessions:
+    get:
+      operationId: listServiceSessions
+      parameters:
+        - { in: query, name: memberId, schema: { type: integer, minimum: 1 } }
+        - { in: query, name: cardId, schema: { type: integer, minimum: 1 } }
+        - { in: query, name: month, schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' } }
+        - { in: query, name: date, schema: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' } }
+      responses:
+        "200":
+          description: Các lượt phục vụ; một lượt chỉ được tính lương một lần
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/ServiceSession" } }
+        "400": { description: Bộ lọc không hợp lệ }
+    post:
+      operationId: createServiceSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ServiceSessionInput" }
+      responses:
+        "201":
+          description: Đã lưu lượt phục vụ, trừ giờ thẻ và cộng lương
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServiceSession" }
+        "400": { description: Dữ liệu không hợp lệ hoặc chưa đặt mức lương }
+        "401": { description: Cần đăng nhập }
+        "403": { description: Chỉ chủ sở hữu }
+        "404": { description: Không tìm thấy thẻ hoặc nhân viên }
+        "409": { description: Thẻ không đủ giờ còn lại }
+  /service-sessions/{id}:
+    patch:
+      operationId: updateServiceSession
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer, minimum: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ServiceSessionInput" }
+      responses:
+        "200":
+          description: Đã cập nhật lượt phục vụ và số dư, lương tương ứng
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServiceSession" }
+        "400": { description: Dữ liệu không hợp lệ }
+        "401": { description: Cần đăng nhập }
+        "403": { description: Chỉ chủ sở hữu }
+        "404": { description: Không tìm thấy }
+        "409": { description: Thẻ không đủ giờ }
+    delete:
+      operationId: deleteServiceSession
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "204": { description: "Đã xóa lượt, hoàn giờ thẻ và trừ lương" }
+        "401": { description: Cần đăng nhập }
+        "403": { description: Chỉ chủ sở hữu }
+        "404": { description: Không tìm thấy lượt }
+  /massage-summary:
+    get:
+      operationId: getMassageSummary
+      parameters:
+        - { in: query, name: month, required: true, schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' } }
+      responses:
+        "200":
+          description: Doanh thu tiền bán thẻ trong tháng, không cộng lượt sử dụng
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MassageSummary" }
+        "400": { description: Tháng không hợp lệ }
+  /member-payroll:
+    get:
+      operationId: getMemberPayroll
+      parameters:
+        - { in: query, name: memberId, required: true, schema: { type: integer, minimum: 1 } }
+        - { in: query, name: month, required: true, schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' } }
+      responses:
+        "200":
+          description: Lương từ giờ phục vụ khách, không cộng chấm công cũ
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MemberPayroll" }
+        "400": { description: Tháng không hợp lệ }
+        "404": { description: Không tìm thấy nhân viên }
 components:
   schemas:
     HealthStatus:
@@ -354,10 +519,11 @@ components:
           type: integer
         name:
           type: string
+        hourlyRate: { type: integer, minimum: 0 }
         createdAt:
           type: string
           format: date-time
-      required: [id, name, createdAt]
+      required: [id, name, hourlyRate, createdAt]
     MemberInput:
       type: object
       properties:
@@ -365,5 +531,89 @@ components:
           type: string
           minLength: 1
           maxLength: 120
+        hourlyRate: { type: integer, minimum: 0, maximum: 10000000 }
       required: [name]
+    MemberUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        hourlyRate: { type: integer, minimum: 0, maximum: 10000000 }
+    TreatmentCard:
+      type: object
+      required: [id, customerName, phone, serviceType, totalMinutes, usedMinutes, remainingMinutes, purchaseAmount, purchaseDate, note, createdAt]
+      properties:
+        id: { type: integer }
+        customerName: { type: string }
+        phone: { type: string }
+        serviceType: { type: string }
+        totalMinutes: { type: integer }
+        usedMinutes: { type: integer }
+        remainingMinutes: { type: integer }
+        purchaseAmount: { type: integer }
+        purchaseDate: { type: string }
+        note: { type: string }
+        createdAt: { type: string, format: date-time }
+    TreatmentCardInput:
+      type: object
+      required: [customerName, phone, serviceType, totalMinutes, purchaseAmount, purchaseDate]
+      properties:
+        customerName: { type: string, minLength: 1, maxLength: 120 }
+        phone: { type: string, minLength: 1, maxLength: 32 }
+        serviceType: { type: string, minLength: 1, maxLength: 120 }
+        totalMinutes: { type: integer, minimum: 1, maximum: 600000 }
+        purchaseAmount: { type: integer, minimum: 0, maximum: 1000000000 }
+        purchaseDate: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        note: { type: string, maxLength: 2000 }
+    TreatmentCardUpdate:
+      type: object
+      properties:
+        customerName: { type: string, minLength: 1, maxLength: 120 }
+        phone: { type: string, minLength: 1, maxLength: 32 }
+        serviceType: { type: string, minLength: 1, maxLength: 120 }
+        totalMinutes: { type: integer, minimum: 1, maximum: 600000 }
+        purchaseAmount: { type: integer, minimum: 0, maximum: 1000000000 }
+        purchaseDate: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        note: { type: string, maxLength: 2000 }
+    ServiceSession:
+      type: object
+      required: [id, cardId, memberId, employeeName, customerName, serviceType, workDate, minutes, hourlyRate, earnings, note, createdAt]
+      properties:
+        id: { type: integer }
+        cardId: { type: ["integer", "null"] }
+        memberId: { type: ["integer", "null"] }
+        employeeName: { type: string }
+        customerName: { type: string }
+        serviceType: { type: string }
+        workDate: { type: string }
+        minutes: { type: integer }
+        hourlyRate: { type: integer }
+        earnings: { type: integer }
+        note: { type: string }
+        createdAt: { type: string, format: date-time }
+    ServiceSessionInput:
+      type: object
+      required: [memberId, workDate, minutes]
+      properties:
+        memberId: { type: integer, minimum: 1 }
+        cardId: { type: ["integer", "null"], minimum: 1 }
+        customerName: { type: string, maxLength: 120 }
+        serviceType: { type: string, maxLength: 120 }
+        workDate: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        minutes: { type: integer, minimum: 1, maximum: 1440 }
+        note: { type: string, maxLength: 2000 }
+    MassageSummary:
+      type: object
+      required: [month, revenue, cardsSold]
+      properties:
+        month: { type: string }
+        revenue: { type: number }
+        cardsSold: { type: integer }
+    MemberPayroll:
+      type: object
+      required: [member, month, totalMinutes, totalSalary]
+      properties:
+        member: { $ref: "#/components/schemas/MemberRecord" }
+        month: { type: string }
+        totalMinutes: { type: number }
+        totalSalary: { type: number }
 

@@ -7,7 +7,13 @@ import { getGetCurrentAccessQueryKey, useGetCurrentAccess } from '@workspace/api
 import { ArrowUpRight } from 'lucide-react';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 import NotFound from '@/pages/not-found';
-import AttendanceApp from '@/pages/attendance-app';
+import { AppShell, useShell } from '@/components/app-shell';
+import { EmployeeDetail } from '@/components/employee-detail';
+import HomePage from '@/pages/home';
+import EmployeesPage from '@/pages/employees';
+import EmployeePage from '@/pages/employee-page';
+import CardsPage from '@/pages/cards';
+import CardDetailPage from '@/pages/card-detail';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -123,10 +129,15 @@ function SignUpPage() {
 function AuthFrame({ children }: { children: ReactNode }) {
   return (
     <main className="auth-frame">
-      <Link href="/" className="auth-back" data-testid="link-back-home"><ArrowUpRight size={16} /> Về trang chấm công</Link>
+      <Link href="/" className="auth-back" data-testid="link-back-home"><ArrowUpRight size={16} /> Về trang chính</Link>
       {children}
     </main>
   );
+}
+
+function EmployeeModeView() {
+  const { prefs } = useShell();
+  return <EmployeeDetail key={prefs.employeeId ?? 0} memberId={prefs.employeeId} readOnly />;
 }
 
 function ClerkRoutes() {
@@ -148,11 +159,21 @@ function ClerkRoutes() {
       <QueryClientProvider client={queryClient}>
         <ClerkCacheInvalidator />
         <Switch>
-          <Route path="/" component={AttendanceApp} />
-          <Route path="/attendance" component={AttendanceApp} />
           <Route path="/sign-in/*?" component={SignInPage} />
           <Route path="/sign-up/*?" component={SignUpPage} />
-          <Route component={NotFound} />
+          <Route>
+            <AppShell employeeView={<EmployeeModeView />}>
+              <Switch>
+                <Route path="/" component={HomePage} />
+                <Route path="/attendance" component={HomePage} />
+                <Route path="/employees" component={EmployeesPage} />
+                <Route path="/employees/:id" component={EmployeePage} />
+                <Route path="/cards" component={CardsPage} />
+                <Route path="/cards/:id" component={CardDetailPage} />
+                <Route component={NotFound} />
+              </Switch>
+            </AppShell>
+          </Route>
         </Switch>
       </QueryClientProvider>
     </ClerkProvider>

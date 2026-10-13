@@ -1,10 +1,11 @@
 import { createInsertSchema } from "drizzle-zod";
-import { pgTable, serial, timestamp, varchar } from "drizzle-orm/pg-core";
+import { integer, pgTable, serial, timestamp, varchar } from "drizzle-orm/pg-core";
 import { z } from "zod/v4";
 
 export const membersTable = pgTable("members", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 120 }).notNull(),
+  hourlyRate: integer("hourly_rate").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -9,5 +9,7 @@
 export interface MemberRecord {
   id: number;
   name: string;
+  /** @minimum 0 */
+  hourlyRate: number;
   createdAt: Date;
 }

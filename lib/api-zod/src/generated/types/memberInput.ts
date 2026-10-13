@@ -12,4 +12,9 @@ export interface MemberInput {
      * @maxLength 120
      */
   name: string;
+  /**
+     * @minimum 0
+     * @maximum 10000000
+     */
+  hourlyRate?: number;
 }

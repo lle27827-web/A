@@ -30,9 +30,14 @@ export const GetCurrentAccessResponse = zod.object({
 /**
  * @summary Xem danh sách thành viên
  */
+export const listMembersResponseHourlyRateMin = 0;
+
+
+
 export const ListMembersResponseItem = zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
+  "hourlyRate": zod.number().int().min(listMembersResponseHourlyRateMin),
   "createdAt": zod.coerce.date()
 })
 export const ListMembersResponse = zod.array(ListMembersResponseItem)
@@ -43,15 +48,55 @@ export const ListMembersResponse = zod.array(ListMembersResponseItem)
  */
 export const createMemberBodyNameMax = 120;
 
+export const createMemberBodyHourlyRateMin = 0;
+export const createMemberBodyHourlyRateMax = 10000000;
+
 
 
 export const CreateMemberBody = zod.object({
-  "name": zod.string().min(1).max(createMemberBodyNameMax)
+  "name": zod.string().min(1).max(createMemberBodyNameMax),
+  "hourlyRate": zod.number().int().min(createMemberBodyHourlyRateMin).max(createMemberBodyHourlyRateMax).optional()
 })
+
+export const createMemberResponseHourlyRateMin = 0;
+
+
 
 export const CreateMemberResponse = zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
+  "hourlyRate": zod.number().int().min(createMemberResponseHourlyRateMin),
+  "createdAt": zod.coerce.date()
+})
+
+
+
+
+
+export const UpdateMemberParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const updateMemberBodyNameMax = 120;
+
+export const updateMemberBodyHourlyRateMin = 0;
+export const updateMemberBodyHourlyRateMax = 10000000;
+
+
+
+export const UpdateMemberBody = zod.object({
+  "name": zod.string().min(1).max(updateMemberBodyNameMax).optional(),
+  "hourlyRate": zod.number().int().min(updateMemberBodyHourlyRateMin).max(updateMemberBodyHourlyRateMax).optional()
+})
+
+export const updateMemberResponseHourlyRateMin = 0;
+
+
+
+export const UpdateMemberResponse = zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "hourlyRate": zod.number().int().min(updateMemberResponseHourlyRateMin),
   "createdAt": zod.coerce.date()
 })
 
@@ -218,5 +263,285 @@ export const DeleteAttendanceParams = zod.object({
 })
 
 export const DeleteAttendanceResponse = zod.void()
+
+
+export const ListTreatmentCardsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "customerName": zod.string(),
+  "phone": zod.string(),
+  "serviceType": zod.string(),
+  "totalMinutes": zod.number().int(),
+  "usedMinutes": zod.number().int(),
+  "remainingMinutes": zod.number().int(),
+  "purchaseAmount": zod.number().int(),
+  "purchaseDate": zod.string(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const ListTreatmentCardsResponse = zod.array(ListTreatmentCardsResponseItem)
+
+
+export const createTreatmentCardBodyCustomerNameMax = 120;
+
+export const createTreatmentCardBodyPhoneMax = 32;
+
+export const createTreatmentCardBodyServiceTypeMax = 120;
+
+export const createTreatmentCardBodyTotalMinutesMax = 600000;
+
+export const createTreatmentCardBodyPurchaseAmountMin = 0;
+export const createTreatmentCardBodyPurchaseAmountMax = 1000000000;
+
+export const createTreatmentCardBodyPurchaseDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const createTreatmentCardBodyNoteMax = 2000;
+
+
+
+export const CreateTreatmentCardBody = zod.object({
+  "customerName": zod.string().min(1).max(createTreatmentCardBodyCustomerNameMax),
+  "phone": zod.string().min(1).max(createTreatmentCardBodyPhoneMax),
+  "serviceType": zod.string().min(1).max(createTreatmentCardBodyServiceTypeMax),
+  "totalMinutes": zod.number().int().min(1).max(createTreatmentCardBodyTotalMinutesMax),
+  "purchaseAmount": zod.number().int().min(createTreatmentCardBodyPurchaseAmountMin).max(createTreatmentCardBodyPurchaseAmountMax),
+  "purchaseDate": zod.string().regex(createTreatmentCardBodyPurchaseDateRegExp),
+  "note": zod.string().max(createTreatmentCardBodyNoteMax).optional()
+})
+
+export const CreateTreatmentCardResponse = zod.object({
+  "id": zod.number().int(),
+  "customerName": zod.string(),
+  "phone": zod.string(),
+  "serviceType": zod.string(),
+  "totalMinutes": zod.number().int(),
+  "usedMinutes": zod.number().int(),
+  "remainingMinutes": zod.number().int(),
+  "purchaseAmount": zod.number().int(),
+  "purchaseDate": zod.string(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+
+
+
+
+
+export const UpdateTreatmentCardParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const updateTreatmentCardBodyCustomerNameMax = 120;
+
+export const updateTreatmentCardBodyPhoneMax = 32;
+
+export const updateTreatmentCardBodyServiceTypeMax = 120;
+
+export const updateTreatmentCardBodyTotalMinutesMax = 600000;
+
+export const updateTreatmentCardBodyPurchaseAmountMin = 0;
+export const updateTreatmentCardBodyPurchaseAmountMax = 1000000000;
+
+export const updateTreatmentCardBodyPurchaseDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const updateTreatmentCardBodyNoteMax = 2000;
+
+
+
+export const UpdateTreatmentCardBody = zod.object({
+  "customerName": zod.string().min(1).max(updateTreatmentCardBodyCustomerNameMax).optional(),
+  "phone": zod.string().min(1).max(updateTreatmentCardBodyPhoneMax).optional(),
+  "serviceType": zod.string().min(1).max(updateTreatmentCardBodyServiceTypeMax).optional(),
+  "totalMinutes": zod.number().int().min(1).max(updateTreatmentCardBodyTotalMinutesMax).optional(),
+  "purchaseAmount": zod.number().int().min(updateTreatmentCardBodyPurchaseAmountMin).max(updateTreatmentCardBodyPurchaseAmountMax).optional(),
+  "purchaseDate": zod.string().regex(updateTreatmentCardBodyPurchaseDateRegExp).optional(),
+  "note": zod.string().max(updateTreatmentCardBodyNoteMax).optional()
+})
+
+export const UpdateTreatmentCardResponse = zod.object({
+  "id": zod.number().int(),
+  "customerName": zod.string(),
+  "phone": zod.string(),
+  "serviceType": zod.string(),
+  "totalMinutes": zod.number().int(),
+  "usedMinutes": zod.number().int(),
+  "remainingMinutes": zod.number().int(),
+  "purchaseAmount": zod.number().int(),
+  "purchaseDate": zod.string(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+
+
+
+
+
+export const DeleteTreatmentCardParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const DeleteTreatmentCardResponse = zod.void()
+
+
+
+
+export const listServiceSessionsQueryMonthRegExp = new RegExp('^\\d{4}-(0[1-9]|1[0-2])$');
+export const listServiceSessionsQueryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const ListServiceSessionsQueryParams = zod.object({
+  "memberId": zod.coerce.number().int().min(1).optional(),
+  "cardId": zod.coerce.number().int().min(1).optional(),
+  "month": zod.coerce.string().regex(listServiceSessionsQueryMonthRegExp).optional(),
+  "date": zod.coerce.string().regex(listServiceSessionsQueryDateRegExp).optional()
+})
+
+export const ListServiceSessionsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "cardId": zod.number().int().nullable(),
+  "memberId": zod.number().int().nullable(),
+  "employeeName": zod.string(),
+  "customerName": zod.string(),
+  "serviceType": zod.string(),
+  "workDate": zod.string(),
+  "minutes": zod.number().int(),
+  "hourlyRate": zod.number().int(),
+  "earnings": zod.number().int(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const ListServiceSessionsResponse = zod.array(ListServiceSessionsResponseItem)
+
+
+
+
+export const createServiceSessionBodyCustomerNameMax = 120;
+
+export const createServiceSessionBodyServiceTypeMax = 120;
+
+export const createServiceSessionBodyWorkDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const createServiceSessionBodyMinutesMax = 1440;
+
+export const createServiceSessionBodyNoteMax = 2000;
+
+
+
+export const CreateServiceSessionBody = zod.object({
+  "memberId": zod.number().int().min(1),
+  "cardId": zod.number().int().min(1).nullish(),
+  "customerName": zod.string().max(createServiceSessionBodyCustomerNameMax).optional(),
+  "serviceType": zod.string().max(createServiceSessionBodyServiceTypeMax).optional(),
+  "workDate": zod.string().regex(createServiceSessionBodyWorkDateRegExp),
+  "minutes": zod.number().int().min(1).max(createServiceSessionBodyMinutesMax),
+  "note": zod.string().max(createServiceSessionBodyNoteMax).optional()
+})
+
+export const CreateServiceSessionResponse = zod.object({
+  "id": zod.number().int(),
+  "cardId": zod.number().int().nullable(),
+  "memberId": zod.number().int().nullable(),
+  "employeeName": zod.string(),
+  "customerName": zod.string(),
+  "serviceType": zod.string(),
+  "workDate": zod.string(),
+  "minutes": zod.number().int(),
+  "hourlyRate": zod.number().int(),
+  "earnings": zod.number().int(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+
+
+
+
+
+export const UpdateServiceSessionParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+
+
+export const updateServiceSessionBodyCustomerNameMax = 120;
+
+export const updateServiceSessionBodyServiceTypeMax = 120;
+
+export const updateServiceSessionBodyWorkDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const updateServiceSessionBodyMinutesMax = 1440;
+
+export const updateServiceSessionBodyNoteMax = 2000;
+
+
+
+export const UpdateServiceSessionBody = zod.object({
+  "memberId": zod.number().int().min(1),
+  "cardId": zod.number().int().min(1).nullish(),
+  "customerName": zod.string().max(updateServiceSessionBodyCustomerNameMax).optional(),
+  "serviceType": zod.string().max(updateServiceSessionBodyServiceTypeMax).optional(),
+  "workDate": zod.string().regex(updateServiceSessionBodyWorkDateRegExp),
+  "minutes": zod.number().int().min(1).max(updateServiceSessionBodyMinutesMax),
+  "note": zod.string().max(updateServiceSessionBodyNoteMax).optional()
+})
+
+export const UpdateServiceSessionResponse = zod.object({
+  "id": zod.number().int(),
+  "cardId": zod.number().int().nullable(),
+  "memberId": zod.number().int().nullable(),
+  "employeeName": zod.string(),
+  "customerName": zod.string(),
+  "serviceType": zod.string(),
+  "workDate": zod.string(),
+  "minutes": zod.number().int(),
+  "hourlyRate": zod.number().int(),
+  "earnings": zod.number().int(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+
+
+
+
+
+export const DeleteServiceSessionParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const DeleteServiceSessionResponse = zod.void()
+
+
+export const getMassageSummaryQueryMonthRegExp = new RegExp('^\\d{4}-(0[1-9]|1[0-2])$');
+
+
+export const GetMassageSummaryQueryParams = zod.object({
+  "month": zod.coerce.string().regex(getMassageSummaryQueryMonthRegExp)
+})
+
+export const GetMassageSummaryResponse = zod.object({
+  "month": zod.string(),
+  "revenue": zod.number(),
+  "cardsSold": zod.number().int()
+})
+
+
+
+export const getMemberPayrollQueryMonthRegExp = new RegExp('^\\d{4}-(0[1-9]|1[0-2])$');
+
+
+export const GetMemberPayrollQueryParams = zod.object({
+  "memberId": zod.coerce.number().int().min(1),
+  "month": zod.coerce.string().regex(getMemberPayrollQueryMonthRegExp)
+})
+
+export const getMemberPayrollResponseMemberHourlyRateMin = 0;
+
+
+
+export const GetMemberPayrollResponse = zod.object({
+  "member": zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "hourlyRate": zod.number().int().min(getMemberPayrollResponseMemberHourlyRateMin),
+  "createdAt": zod.coerce.date()
+}),
+  "month": zod.string(),
+  "totalMinutes": zod.number(),
+  "totalSalary": zod.number()
+})
 
 

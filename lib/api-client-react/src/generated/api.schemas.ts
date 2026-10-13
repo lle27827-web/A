@@ -119,6 +119,8 @@ export interface AttendanceSummary {
 export interface MemberRecord {
   id: number;
   name: string;
+  /** @minimum 0 */
+  hourlyRate: number;
   createdAt: string;
 }
 
@@ -128,6 +130,155 @@ export interface MemberInput {
      * @maxLength 120
      */
   name: string;
+  /**
+     * @minimum 0
+     * @maximum 10000000
+     */
+  hourlyRate?: number;
+}
+
+export interface MemberUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name?: string;
+  /**
+     * @minimum 0
+     * @maximum 10000000
+     */
+  hourlyRate?: number;
+}
+
+export interface TreatmentCard {
+  id: number;
+  customerName: string;
+  phone: string;
+  serviceType: string;
+  totalMinutes: number;
+  usedMinutes: number;
+  remainingMinutes: number;
+  purchaseAmount: number;
+  purchaseDate: string;
+  note: string;
+  createdAt: string;
+}
+
+export interface TreatmentCardInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  customerName: string;
+  /**
+     * @minLength 1
+     * @maxLength 32
+     */
+  phone: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  serviceType: string;
+  /**
+     * @minimum 1
+     * @maximum 600000
+     */
+  totalMinutes: number;
+  /**
+     * @minimum 0
+     * @maximum 1000000000
+     */
+  purchaseAmount: number;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  purchaseDate: string;
+  /** @maxLength 2000 */
+  note?: string;
+}
+
+export interface TreatmentCardUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  customerName?: string;
+  /**
+     * @minLength 1
+     * @maxLength 32
+     */
+  phone?: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  serviceType?: string;
+  /**
+     * @minimum 1
+     * @maximum 600000
+     */
+  totalMinutes?: number;
+  /**
+     * @minimum 0
+     * @maximum 1000000000
+     */
+  purchaseAmount?: number;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  purchaseDate?: string;
+  /** @maxLength 2000 */
+  note?: string;
+}
+
+export interface ServiceSession {
+  id: number;
+  /** @nullable */
+  cardId: number | null;
+  /** @nullable */
+  memberId: number | null;
+  employeeName: string;
+  customerName: string;
+  serviceType: string;
+  workDate: string;
+  minutes: number;
+  hourlyRate: number;
+  earnings: number;
+  note: string;
+  createdAt: string;
+}
+
+export interface ServiceSessionInput {
+  /** @minimum 1 */
+  memberId: number;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  cardId?: number | null;
+  /** @maxLength 120 */
+  customerName?: string;
+  /** @maxLength 120 */
+  serviceType?: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  workDate: string;
+  /**
+     * @minimum 1
+     * @maximum 1440
+     */
+  minutes: number;
+  /** @maxLength 2000 */
+  note?: string;
+}
+
+export interface MassageSummary {
+  month: string;
+  revenue: number;
+  cardsSold: number;
+}
+
+export interface MemberPayroll {
+  member: MemberRecord;
+  month: string;
+  totalMinutes: number;
+  totalSalary: number;
 }
 
 export type ListAttendanceParams = {
@@ -145,5 +296,42 @@ export type GetAttendanceSummaryParams = {
  * @pattern ^\d{4}-\d{2}-\d{2}$
  */
 date: string;
+};
+
+export type ListServiceSessionsParams = {
+/**
+ * @minimum 1
+ */
+memberId?: number;
+/**
+ * @minimum 1
+ */
+cardId?: number;
+/**
+ * @pattern ^\d{4}-(0[1-9]|1[0-2])$
+ */
+month?: string;
+/**
+ * @pattern ^\d{4}-\d{2}-\d{2}$
+ */
+date?: string;
+};
+
+export type GetMassageSummaryParams = {
+/**
+ * @pattern ^\d{4}-(0[1-9]|1[0-2])$
+ */
+month: string;
+};
+
+export type GetMemberPayrollParams = {
+/**
+ * @minimum 1
+ */
+memberId: number;
+/**
+ * @pattern ^\d{4}-(0[1-9]|1[0-2])$
+ */
+month: string;
 };
 
