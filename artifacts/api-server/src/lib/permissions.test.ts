@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canViewMemberManagement, resolvePermissions, verifiedAccountEmails } from "./permissions";
+import { canViewMemberManagement, configuredAdminEmail, resolvePermissions, verifiedAccountEmails } from "./permissions";
 
 test("signed-in accounts can read member management; guests cannot", () => {
   assert.equal(canViewMemberManagement(true), true);
   assert.equal(canViewMemberManagement(false), false);
+});
+
+test("ADMIN_EMAIL takes precedence over the legacy owner variable during migration", () => {
+  assert.equal(configuredAdminEmail(" Admin@Example.com ", "old@example.com"), "admin@example.com");
+  assert.equal(configuredAdminEmail(undefined, " Old@Example.com "), "old@example.com");
+  assert.equal(configuredAdminEmail("  "), undefined);
 });
 
 test("only verified owner owns administration; delegated manager only edits data", () => {

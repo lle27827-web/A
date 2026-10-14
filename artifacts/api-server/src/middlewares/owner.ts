@@ -2,7 +2,7 @@ import { clerkClient, getAuth } from "@clerk/express";
 import type { Request, RequestHandler } from "express";
 import { inArray } from "drizzle-orm";
 import { db, managerGrantsTable } from "@workspace/db";
-import { canViewMemberManagement, resolvePermissions, verifiedAccountEmails } from "../lib/permissions";
+import { canViewMemberManagement, configuredAdminEmail, resolvePermissions, verifiedAccountEmails } from "../lib/permissions";
 
 export type AccessStatus = {
   signedIn: boolean;
@@ -21,7 +21,7 @@ export function getAccessStatus(req: Request): Promise<AccessStatus> {
 }
 
 async function resolveRequestAccess(req: Request): Promise<AccessStatus> {
-  const ownerEmail = process.env.OWNER_EMAIL?.trim().toLowerCase();
+  const ownerEmail = configuredAdminEmail(process.env.ADMIN_EMAIL, process.env.OWNER_EMAIL);
   const userId = getAuth(req).userId;
   const ownerConfigured = Boolean(ownerEmail);
 

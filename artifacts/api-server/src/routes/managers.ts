@@ -3,7 +3,7 @@ import { asc, eq } from "drizzle-orm";
 import { db, managerGrantsTable } from "@workspace/db";
 import { CreateManagerBody, CreateManagerResponse, DeleteManagerParams, ListManagersResponse } from "@workspace/api-zod";
 import { requireOwner } from "../middlewares/owner";
-import { canonicalEmail } from "../lib/permissions";
+import { canonicalEmail, configuredAdminEmail } from "../lib/permissions";
 import { MassageError } from "../lib/massage";
 import { massageHandler, parseInput } from "./massage-errors";
 
@@ -18,7 +18,7 @@ router.get("/managers", requireOwner, massageHandler(async (_req, res) => {
 router.post("/managers", requireOwner, massageHandler(async (req, res) => {
   const input = parseInput(CreateManagerBody, req.body);
   const email = canonicalEmail(input.email);
-  if (email === canonicalEmail(process.env.OWNER_EMAIL ?? "")) {
+  if (email === canonicalEmail(configuredAdminEmail(process.env.ADMIN_EMAIL, process.env.OWNER_EMAIL) ?? "")) {
     throw new MassageError(409, "Đây là chủ sở hữu, không cần cấp thêm quyền quản lý.");
   }
   const [row] = await db.insert(managerGrantsTable).values({ email })

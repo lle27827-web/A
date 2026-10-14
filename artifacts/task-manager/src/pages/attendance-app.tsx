@@ -178,7 +178,7 @@ export default function AttendanceApp() {
 
       <main className="main" id="main">
         {!accessQuery.isLoading && access?.ownerConfigured === false && (
-          <div className="banner soft" role="status" data-testid="status-owner-setup"><LockKeyhole size={15} /><span>Chưa cấu hình chủ sở hữu. Đặt OWNER_EMAIL bằng email đã xác minh trên Clerk; mọi thay đổi đang bị khóa.</span></div>
+          <div className="banner soft" role="status" data-testid="status-owner-setup"><LockKeyhole size={15} /><span>Chưa cấu hình chủ sở hữu. Đặt ADMIN_EMAIL bằng email đã xác minh trên Clerk; mọi thay đổi đang bị khóa.</span></div>
         )}
         {!accessQuery.isLoading && accessQuery.isError && statusCode(accessQuery.error) !== 401 && statusCode(accessQuery.error) !== 403 && (
           <div className="banner danger" role="alert"><AlertCircle size={15} /><span>Không thể xác minh quyền. Thao tác chỉnh sửa đang được khóa.</span><button type="button" onClick={() => void accessQuery.refetch()}>Thử lại</button></div>

@@ -11,7 +11,7 @@
 - `pnpm --filter @workspace/db run push` — apply development schema changes
 - `pnpm --filter @workspace/api-server run test:massage` — check card balance/payroll transactions with disposable development fixtures
 - Managed environment: Replit Database (`DATABASE_URL`) and Clerk Auth
-- Required owner configuration: `OWNER_EMAIL` — the owner's verified Clerk email. Until configured, all write operations remain disabled.
+- Required owner configuration: `ADMIN_EMAIL` — the owner's verified Clerk email. Until configured, all write operations remain disabled.
 
 ## Stack
 
@@ -32,7 +32,7 @@
 ## Architecture decisions
 
 - Business-data reads are public; every create, update, and delete requires server-side authorization as the owner or a delegated manager. The manager grant list and grant/revoke operations are private to the owner.
-- Owner authorization matches a verified Clerk email to `OWNER_EMAIL`; it is never claimed by the first visitor.
+- Owner authorization matches a verified Clerk email to `ADMIN_EMAIL`; it is never claimed by the first visitor.
 - Attendance work dates are stored as date-only strings to avoid timezone shifts.
 
 Only the primary owner may grant or revoke management access. Managers may add/edit/delete business data, but may not grant access to others or change the owner. Matching uses verified Clerk email addresses; revocation is checked on every new write request. Employee-view preview remains read-only regardless of account rights. **Why:** the user explicitly chose “Chỉ chủ sở hữu được cấp hoặc thu hồi quyền quản lý.”
@@ -61,7 +61,7 @@ Selecting an employee shows shift history. The owner can add/delete employees an
 
 ## Gotchas
 
-- Keep `OWNER_EMAIL` unset until the intended owner email is known; the app fails closed and stays read-only.
+- Keep `ADMIN_EMAIL` unset until the intended owner email is known; the app fails closed and stays read-only.
 - Preserve the API proxy route `/api/__clerk` when changing API service routing; Clerk needs it in production.
 
 ## Pointers

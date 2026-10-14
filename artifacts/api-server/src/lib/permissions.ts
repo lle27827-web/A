@@ -2,6 +2,11 @@ type EmailAddress = { emailAddress: string; verification?: { status: string } | 
 
 export const canonicalEmail = (email: string) => email.trim().toLowerCase();
 
+export function configuredAdminEmail(adminEmail?: string, legacyOwnerEmail?: string) {
+  const configured = adminEmail?.trim() || legacyOwnerEmail?.trim();
+  return configured ? canonicalEmail(configured) : undefined;
+}
+
 export function verifiedAccountEmails(addresses: EmailAddress[]) {
   return addresses.filter((address) => address.verification?.status === "verified")
     .map((address) => canonicalEmail(address.emailAddress));
