@@ -711,7 +711,7 @@ export const getGetCurrentAccessQueryKey = () => {
     }
 
 
-export const getGetCurrentAccessQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentAccess>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentAccess>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetCurrentAccessQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentAccess>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentAccess>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -730,14 +730,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetCurrentAccessQueryResult = NonNullable<Awaited<ReturnType<typeof getCurrentAccess>>>
-export type GetCurrentAccessQueryError = ErrorType<unknown>
+export type GetCurrentAccessQueryError = ErrorType<void>
 
 
 /**
  * @summary Kiểm tra trạng thái đăng nhập và quyền chủ sở hữu
  */
 
-export function useGetCurrentAccess<TData = Awaited<ReturnType<typeof getCurrentAccess>>, TError = ErrorType<unknown>>(
+export function useGetCurrentAccess<TData = Awaited<ReturnType<typeof getCurrentAccess>>, TError = ErrorType<void>>(
   options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentAccess>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {

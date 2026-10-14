@@ -129,6 +129,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AccessStatus"
+        "401":
+          description: Cần đăng nhập trước khi kiểm tra quyền
   /members:
     get:
       operationId: listMembers

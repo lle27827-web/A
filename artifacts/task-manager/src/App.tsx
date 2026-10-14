@@ -1,10 +1,9 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { ClerkProvider, SignIn, SignUp, useClerk } from '@clerk/react';
+import { ClerkProvider, SignIn, SignUp, useAuth, useClerk } from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { getGetCurrentAccessQueryKey, useGetCurrentAccess } from '@workspace/api-client-react';
-import { ArrowLeft, ArrowUpRight } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Hand, LoaderCircle, LockKeyhole } from 'lucide-react';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 import NotFound from '@/pages/not-found';
 import { AppShell, useShell } from '@/components/app-shell';
@@ -102,18 +101,13 @@ function ClerkCacheInvalidator() {
 }
 
 function SignInPage() {
-  const accessQuery = useGetCurrentAccess({ query: { queryKey: getGetCurrentAccessQueryKey(), retry: false } });
-  const ownerConfigured = accessQuery.data?.ownerConfigured === true;
   return (
     <AuthFrame>
       <SignIn
         routing="path"
         path={`${basePath}/sign-in`}
-        signUpUrl={ownerConfigured ? `${basePath}/sign-up` : undefined}
-        appearance={{
-          ...clerkAppearance,
-          elements: { ...clerkAppearance.elements, footerAction: ownerConfigured ? clerkAppearance.elements.footerAction : 'hidden' },
-        }}
+        signUpUrl={`${basePath}/sign-up`}
+        appearance={clerkAppearance}
       />
     </AuthFrame>
   );
@@ -145,6 +139,47 @@ function EmployeeModeView() {
   return <EmployeeDetail key={prefs.employeeId ?? 0} memberId={prefs.employeeId} readOnly />;
 }
 
+function LoginLanding() {
+  return (
+    <AuthFrame>
+      <section className="auth-landing" aria-labelledby="auth-welcome-title">
+        <span className="auth-brand-mark" aria-hidden="true"><Hand size={22} strokeWidth={2.4} /></span>
+        <p className="auth-brand-name">SỔ CÔNG</p>
+        <h1 id="auth-welcome-title">Đăng nhập để tiếp tục</h1>
+        <p className="auth-landing-copy">
+          Đăng nhập để xem dữ liệu nhân viên. Sau khi xác thực, hệ thống sẽ kiểm tra quyền truy cập và chỉ cho phép chủ sở hữu hoặc quản lý chỉnh sửa.
+        </p>
+        <Link href="/sign-in" className="btn primary auth-landing-action" data-testid="link-login-to-continue">
+          Đăng nhập <ArrowUpRight size={16} aria-hidden="true" />
+        </Link>
+        <Link href="/sign-up" className="auth-landing-secondary" data-testid="link-create-account">
+          Tạo tài khoản
+        </Link>
+        <p className="auth-landing-note"><LockKeyhole size={14} aria-hidden="true" /> Dữ liệu chỉ tải sau khi đăng nhập.</p>
+      </section>
+    </AuthFrame>
+  );
+}
+
+function AuthenticationLoading() {
+  return (
+    <AuthFrame>
+      <section className="auth-landing" aria-busy="true" aria-live="polite">
+        <LoaderCircle className="spin" size={24} aria-hidden="true" />
+        <h1>Đang xác nhận đăng nhập</h1>
+        <p className="auth-landing-copy">Vui lòng đợi trong giây lát.</p>
+      </section>
+    </AuthFrame>
+  );
+}
+
+function AuthenticatedApp({ children, employeeView }: { children: ReactNode; employeeView: ReactNode }) {
+  const { isLoaded, isSignedIn } = useAuth();
+  if (!isLoaded) return <AuthenticationLoading />;
+  if (!isSignedIn) return <LoginLanding />;
+  return <AppShell employeeView={employeeView}>{children}</AppShell>;
+}
+
 function ClerkRoutes() {
   const [, setLocation] = useLocation();
   return (
@@ -167,7 +202,7 @@ function ClerkRoutes() {
           <Route path="/sign-in/*?" component={SignInPage} />
           <Route path="/sign-up/*?" component={SignUpPage} />
           <Route>
-            <AppShell employeeView={<EmployeeModeView />}>
+            <AuthenticatedApp employeeView={<EmployeeModeView />}>
               <Switch>
                 <Route path="/" component={HomePage} />
                 <Route path="/attendance" component={HomePage} />
@@ -178,7 +213,7 @@ function ClerkRoutes() {
                 <Route path="/services" component={ServicesPage} />
                 <Route component={NotFound} />
               </Switch>
-            </AppShell>
+            </AuthenticatedApp>
           </Route>
         </Switch>
       </QueryClientProvider>
