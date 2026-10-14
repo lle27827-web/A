@@ -2,8 +2,8 @@ type EmailAddress = { emailAddress: string; verification?: { status: string } | 
 
 export const canonicalEmail = (email: string) => email.trim().toLowerCase();
 
-export function configuredAdminEmail(adminEmail?: string, legacyOwnerEmail?: string) {
-  const configured = adminEmail?.trim() || legacyOwnerEmail?.trim();
+export function configuredAdminEmail(adminEmail?: string) {
+  const configured = adminEmail?.trim();
   return configured ? canonicalEmail(configured) : undefined;
 }
 

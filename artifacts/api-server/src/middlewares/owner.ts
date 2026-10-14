@@ -21,7 +21,7 @@ export function getAccessStatus(req: Request): Promise<AccessStatus> {
 }
 
 async function resolveRequestAccess(req: Request): Promise<AccessStatus> {
-  const ownerEmail = configuredAdminEmail(process.env.ADMIN_EMAIL, process.env.OWNER_EMAIL);
+  const ownerEmail = configuredAdminEmail(process.env.ADMIN_EMAIL);
   const userId = getAuth(req).userId;
   const ownerConfigured = Boolean(ownerEmail);
 

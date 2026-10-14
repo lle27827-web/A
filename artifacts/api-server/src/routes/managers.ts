@@ -18,7 +18,7 @@ router.get("/managers", requireOwner, massageHandler(async (_req, res) => {
 router.post("/managers", requireOwner, massageHandler(async (req, res) => {
   const input = parseInput(CreateManagerBody, req.body);
   const email = canonicalEmail(input.email);
-  if (email === canonicalEmail(configuredAdminEmail(process.env.ADMIN_EMAIL, process.env.OWNER_EMAIL) ?? "")) {
+  if (email === canonicalEmail(configuredAdminEmail(process.env.ADMIN_EMAIL) ?? "")) {
     throw new MassageError(409, "Đây là chủ sở hữu, không cần cấp thêm quyền quản lý.");
   }
   const [row] = await db.insert(managerGrantsTable).values({ email })

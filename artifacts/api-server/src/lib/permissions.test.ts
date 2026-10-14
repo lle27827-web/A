@@ -7,9 +7,9 @@ test("signed-in accounts can read member management; guests cannot", () => {
   assert.equal(canViewMemberManagement(false), false);
 });
 
-test("ADMIN_EMAIL takes precedence over the legacy owner variable during migration", () => {
-  assert.equal(configuredAdminEmail(" Admin@Example.com ", "old@example.com"), "admin@example.com");
-  assert.equal(configuredAdminEmail(undefined, " Old@Example.com "), "old@example.com");
+test("owner authorization reads and normalizes ADMIN_EMAIL", () => {
+  assert.equal(configuredAdminEmail(" Admin@Example.com "), "admin@example.com");
+  assert.equal(configuredAdminEmail(undefined), undefined);
   assert.equal(configuredAdminEmail("  "), undefined);
 });
 
