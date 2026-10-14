@@ -23,7 +23,11 @@ const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
   import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
 );
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+// Replit can provide an absolute proxy URL. On Vercel, use the same-origin
+// API route so preview and custom domains work without a baked-in hostname.
+const clerkProxyUrl =
+  import.meta.env.VITE_CLERK_PROXY_URL ||
+  (import.meta.env.PROD ? '/api/__clerk' : undefined);
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 function stripBase(path: string) {

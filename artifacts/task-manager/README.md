@@ -1,15 +1,15 @@
-# Cùng Làm — hướng dẫn cấu hình
+# SỔ CÔNG — hướng dẫn cấu hình
 
-Ứng dụng lưu công việc trong Replit Database. Danh sách được phép xem công khai; chỉ tài khoản chủ sở hữu mới được thêm, sửa, hoàn tất hoặc xóa công việc.
+Ứng dụng quản lý nhân viên, ca làm, dịch vụ và thẻ liệu trình bằng Replit Database. Tài khoản đã đăng nhập có thể xem dữ liệu; quyền chỉnh sửa phụ thuộc vào vai trò chủ sở hữu hoặc quản lý.
 
-## Cấp quyền chủ sở hữu
+## Cấu hình chủ sở hữu
 
-1. Trong phần biến môi trường của dự án, đặt `ADMIN_EMAIL` thành email đã xác minh mà chủ sở hữu sẽ dùng với Clerk.
+1. Trong biến môi trường, đặt `ADMIN_EMAIL` thành email đã xác minh mà chủ sở hữu dùng với Clerk.
 2. Khởi động lại API Server sau khi đổi biến.
 3. Chủ sở hữu đăng ký hoặc đăng nhập trong ứng dụng bằng đúng email đó.
 
-Email được so khớp ở máy chủ với địa chỉ đã xác minh trong Clerk. Nếu `ADMIN_EMAIL` chưa được cấu hình, tất cả khách truy cập vẫn chỉ xem được và các yêu cầu ghi bị từ chối ở API.
+Máy chủ so khớp email đã xác minh trong Clerk. Nếu chưa cấu hình `ADMIN_EMAIL`, không tài khoản nào được cấp quyền chủ sở hữu và các yêu cầu thay đổi dữ liệu sẽ bị từ chối.
 
-## Lưu ý dữ liệu
+## Triển khai Vercel
 
-Lần đầu khởi tạo có một công việc mẫu được gắn nhãn “Mẫu”. Có thể xóa công việc này sau khi đăng nhập bằng tài khoản chủ sở hữu.
+Xem [hướng dẫn cấu hình Vercel](../../VERCEL_DEPLOYMENT.md). Biến môi trường trong Replit không tự chuyển sang Vercel.

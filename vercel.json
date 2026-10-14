@@ -3,16 +3,22 @@
   "services": {
     "api-server": {
       "root": "artifacts/api-server",
-      "framework": "express"
+      "framework": "express",
+      "installCommand": "pnpm install --frozen-lockfile --filter @workspace/api-server...",
+      "buildCommand": "pnpm -r --filter @workspace/api-server... --if-present run build"
     },
     "mockup-sandbox": {
       "root": "artifacts/mockup-sandbox",
       "framework": "vite",
+      "installCommand": "pnpm install --frozen-lockfile --filter @workspace/mockup-sandbox...",
+      "buildCommand": "pnpm -r --filter @workspace/mockup-sandbox... --if-present run build",
       "outputDirectory": "dist"
     },
     "task-manager": {
       "root": "artifacts/task-manager",
       "framework": "vite",
+      "installCommand": "pnpm install --frozen-lockfile --filter @workspace/task-manager...",
+      "buildCommand": "pnpm -r --filter @workspace/task-manager... --if-present run build",
       "outputDirectory": "dist/public"
     }
   },
