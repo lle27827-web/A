@@ -1,4 +1,4 @@
-import { SignIn } from "@clerk/react";
+import { SignIn, SignUp } from "@clerk/react";
 import { Link } from "wouter";
 import { shadcn } from "@clerk/themes";
 
@@ -37,6 +37,8 @@ export function SignInPage({ available }: { available: boolean }) {
       <div className="auth-heading">
         <Link href="/employees" className="link-soft">← Tiếp tục xem nhân viên không cần đăng nhập</Link>
         <p>Đăng nhập chỉ dành cho chủ sở hữu.</p>
+        <p>Chưa có tài khoản? <Link href="/sign-up" className="link-strong">Tạo tài khoản</Link></p>
+        <p className="muted small">Quên mật khẩu? Nhập email, nhấn Tiếp tục rồi chọn “Forgot password?” để nhận hướng dẫn đặt lại qua email.</p>
       </div>
       <SignIn
         routing="path"
@@ -47,14 +49,21 @@ export function SignInPage({ available }: { available: boolean }) {
   );
 }
 
-export function SignUpDisabledPage() {
+export function SignUpPage({ available }: { available: boolean }) {
+  if (!available) return <AuthSetupPage />;
+
   return (
     <main className="auth-page">
-      <section className="panel auth-notice">
-        <h1>Tài khoản khách không cần đăng nhập</h1>
-        <p>Chỉ chủ sở hữu được cấp tài khoản Clerk mới có thể đăng nhập. Khách có thể xem phần quản lý nhân viên mà không cần tài khoản.</p>
-        <Link href="/employees" className="btn primary">Tiếp tục xem nhân viên</Link>
-      </section>
+      <div className="auth-heading">
+        <Link href="/employees" className="link-soft">← Tiếp tục xem nhân viên không cần đăng nhập</Link>
+        <p>Tạo tài khoản để đăng nhập. Chỉ email chủ sở hữu đã xác minh mới có quyền chỉnh sửa dữ liệu.</p>
+        <p>Đã có tài khoản? <Link href="/sign-in" className="link-strong">Đăng nhập</Link></p>
+      </div>
+      <SignUp
+        routing="path"
+        path={`${basePath}/sign-up`}
+        signInUrl={`${basePath}/sign-in`}
+      />
     </main>
   );
 }

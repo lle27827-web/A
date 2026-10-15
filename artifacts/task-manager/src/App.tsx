@@ -12,7 +12,7 @@ import EmployeePage from '@/pages/employee-page';
 import CardsPage from '@/pages/cards';
 import CardDetailPage from '@/pages/card-detail';
 import ServicesPage from '@/pages/services';
-import { AuthLoadingPage, AuthSetupPage, clerkAppearance, SignInPage, SignUpDisabledPage } from '@/components/auth-pages';
+import { AuthLoadingPage, AuthSetupPage, clerkAppearance, SignInPage, SignUpPage } from '@/components/auth-pages';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -72,7 +72,7 @@ function RoleApplication({
         <SignInPage available={authConfigured} />
       </Route>
       <Route path="/sign-up/*?">
-        <SignUpDisabledPage />
+        <SignUpPage available={authConfigured} />
       </Route>
       <Route>
         <AppShell
@@ -154,6 +154,7 @@ function ClerkApplication() {
       signUpUrl={signUpPath}
       localization={{
         signIn: { start: { title: 'Đăng nhập chủ sở hữu', subtitle: 'Đăng nhập để quản lý toàn bộ dữ liệu cơ sở.' } },
+        signUp: { start: { title: 'Tạo tài khoản', subtitle: 'Đăng ký bằng email để tiếp tục.' } },
       }}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
@@ -181,7 +182,7 @@ function App() {
         {clerkPublishableKey ? <ClerkApplication /> : (
           <Switch>
             <Route path="/sign-in/*?"><AuthSetupPage /></Route>
-            <Route path="/sign-up/*?"><SignUpDisabledPage /></Route>
+            <Route path="/sign-up/*?"><SignUpPage available={false} /></Route>
             <Route><GuestApplication /></Route>
           </Switch>
         )}
