@@ -9,6 +9,7 @@
 export interface ServiceTypeRecord {
   id: number;
   name: string;
+  customerHourlyRate: number;
   hourlyRate: number;
   createdAt: Date;
 }

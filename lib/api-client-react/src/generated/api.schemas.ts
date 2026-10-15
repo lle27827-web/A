@@ -239,6 +239,7 @@ export interface TreatmentCardUpdate {
 export interface ServiceTypeRecord {
   id: number;
   name: string;
+  customerHourlyRate: number;
   hourlyRate: number;
   createdAt: string;
 }
@@ -249,6 +250,11 @@ export interface ServiceTypeInput {
      * @maxLength 120
      */
   name: string;
+  /**
+     * @minimum 1
+     * @maximum 10000000
+     */
+  customerHourlyRate: number;
   /**
      * @minimum 1
      * @maximum 10000000
@@ -269,6 +275,8 @@ export interface ServiceSession {
   serviceType: string;
   workDate: string;
   minutes: number;
+  customerHourlyRate: number;
+  customerCharge: number;
   hourlyRate: number;
   earnings: number;
   note: string;
@@ -311,6 +319,7 @@ export interface DailyRevenue {
   walkInServiceMinutes: number;
   revenueExcludingCardSessions: number;
   cardRevenue: number;
+  payroll: number;
   cardsSold: number;
   walkInVisits: number;
   cardVisits: number;
@@ -318,18 +327,20 @@ export interface DailyRevenue {
 
 export interface MassageSummary {
   month: string;
-  /** Tổng báo cáo cơ sở: tiền các ca dịch vụ đã ghi cộng tiền bán thẻ trong tháng. */
+  /** Tổng doanh thu gộp: tiền dịch vụ khách lẻ cộng tiền bán thẻ trong tháng; không cộng lại khi dùng thẻ. */
   revenue: number;
-  /** Tổng earnings lưu tại các ca theo ngày làm; đây là khoản tính theo lương ca theo yêu cầu người dùng. */
+  /** Tiền khách lẻ trả theo giá dịch vụ đã lưu ở từng ca; không gồm ca thanh toán bằng thẻ. */
   serviceRevenue: number;
-  /** Tổng khoản dịch vụ khách lẻ; không gồm ca đã dùng thẻ. */
+  /** Bí danh tương thích của serviceRevenue; không gồm ca đã dùng thẻ. */
   walkInServiceRevenue: number;
   /** Tổng số phút phục vụ khách lẻ; không gồm ca đã dùng thẻ. */
   walkInServiceMinutes: number;
-  /** Doanh thu bán thẻ cộng dịch vụ khách lẻ; loại khoản lương của các ca dùng thẻ. */
+  /** Tổng doanh thu gộp, không tính lại dịch vụ đã thanh toán qua thẻ. */
   revenueExcludingCardSessions: number;
   /** Tổng tiền bán thẻ theo ngày mua. */
   cardRevenue: number;
+  /** Tổng tiền công nhân viên theo ca trong tháng, gồm ca khách lẻ và thẻ còn hoạt động. */
+  payroll: number;
   cardsSold: number;
   /** Số ca không dùng thẻ; mỗi ca là một lượt khách. */
   walkInVisits: number;

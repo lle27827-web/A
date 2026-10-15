@@ -19,6 +19,8 @@ export interface ServiceSession {
   serviceType: string;
   workDate: string;
   minutes: number;
+  customerHourlyRate: number;
+  customerCharge: number;
   hourlyRate: number;
   earnings: number;
   note: string;

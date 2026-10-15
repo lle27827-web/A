@@ -14,6 +14,7 @@ export interface DailyRevenue {
   walkInServiceMinutes: number;
   revenueExcludingCardSessions: number;
   cardRevenue: number;
+  payroll: number;
   cardsSold: number;
   walkInVisits: number;
   cardVisits: number;

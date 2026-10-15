@@ -16,5 +16,10 @@ export interface ServiceTypeInput {
      * @minimum 1
      * @maximum 10000000
      */
+  customerHourlyRate: number;
+  /**
+     * @minimum 1
+     * @maximum 10000000
+     */
   hourlyRate: number;
 }

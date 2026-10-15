@@ -83,7 +83,7 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     assert.equal(removedReport.serviceRevenue, updated.serviceRevenue);
     assert.equal(removedReport.payroll, updated.payroll - 200);
     assert.equal(removedReport.revenueExcludingCardSessions, updated.revenueExcludingCardSessions - 800);
-    assert.equal(removedReport.revenue, updated.revenue - 1000);
+    assert.equal(removedReport.revenue, updated.revenue - 800);
     assert.equal(removedReport.cardVisits, updated.cardVisits - 2);
     assert.equal(removedReport.walkInVisits, updated.walkInVisits);
     assert.equal(removedReport.cardsSold, updated.cardsSold - 1);
