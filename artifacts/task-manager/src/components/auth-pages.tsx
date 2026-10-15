@@ -12,6 +12,9 @@ export const clerkAppearance = {
     logoLinkUrl: basePath || "/",
     logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
   },
+  elements: {
+    footerAction: { display: "none" },
+  },
   variables: {
     colorPrimary: "#f6c84f",
     colorForeground: "#fbf8ef",
