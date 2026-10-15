@@ -22,7 +22,9 @@
       "outputDirectory": "dist/public",
       "routes": [
         {
-          "src": "/:path((?!assets/|favicon\\.svg$|logo\\.svg$|robots\\.txt$|index\\.html$).*)",
+          "src": "^/(?!api(?:/|$)|assets(?:/|$)|favicon\\.svg$|logo\\.svg$|robots\\.txt$|index\\.html$).*$",
+          "methods": ["GET", "HEAD"],
+          "dest": "/index.html",
           "transforms": [
             {
               "type": "request.path",

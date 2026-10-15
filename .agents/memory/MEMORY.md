@@ -6,4 +6,4 @@
 - [OpenAPI date query strings](openapi-date-query-strings.md) — keep URL dates as validated `YYYY-MM-DD` strings; Express query values arrive as text.
 - [Vercel database access](vercel-database-access.md) — Replit's internal `DATABASE_URL` is scoped to Replit; external deployments need a remote database URL.
 - [Owner and guest access](owner-guest-access.md) — guests may read employee management only; verified owner login is required for all edits, revenue, and card management.
-- [Vercel SPA routing](vercel-spa-routing.md) — preserve static asset paths and rewrite app routes to the task-manager service's index document.
+- [Vercel SPA routing](vercel-spa-routing.md) — use raw route regex and an index destination; path transforms alone cannot resolve static SPA pages.

@@ -3,8 +3,10 @@ name: Vercel SPA routing
 description: Deep-link fallback behavior for the task-manager Vite service in the Vercel multi-service deployment.
 ---
 
-At the project level, a service-targeted rewrite chooses which service handles a request but the service still receives the original URL path. Setting only the destination's `path` does not rewrite the path seen by the service. Use a service-local `request.path` transform to `/index.html` for SPA routes, while excluding static assets.
+At the project level, a service-targeted rewrite chooses which service handles a request but the service still receives the original URL path. A destination's `path` selects a route; it does not change the runtime-observed path.
 
-**Why:** The live deployment still returned 404 for `/employees` and `/sign-in` after a top-level destination-path fallback. Vercel's service-routing documentation states that the service receives the original path and needs its own path transform.
+For a static SPA, the service-local fallback must select the actual index document with `dest: "/index.html"`. A `request.path` transform alone does not change route selection or resolve a static file. Low-level `routes[].src` uses a raw PCRE-compatible regex, not the `:path(...)` parameter syntax used by higher-level rewrites.
 
-**How to apply:** When modifying `vercel.json`, keep `/api/*` routed to the API first; use a service-local route transform for frontend paths, preserve `/assets/*` and root public files, then retest direct routes after a Vercel redeploy.
+**Why:** The deployed homepage worked while direct employee and sign-in URLs returned Vercel NOT_FOUND. The previous fallback never matched because it mixed route syntaxes, and its path transform also lacked a static-file destination. Vercel documents route lookup and runtime path overrides as separate operations.
+
+**How to apply:** Keep API rewrites first. Use a service-local raw-regex SPA route with an index destination and, where needed, a runtime path transform; exclude API and static assets. Verify positive and negative route cases, then retest direct URLs after a Vercel redeploy. Local Vite fallback is not proof that production routing works.
