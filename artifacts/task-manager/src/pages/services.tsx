@@ -23,12 +23,14 @@ export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
   const cache = useQueryClient();
   const [dialog, setDialog] = useState<{ service: ServiceTypeRecord | null } | null>(null);
   const [dialogError, setDialogError] = useState('');
+  const [loginPrompt, setLoginPrompt] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const list = q.data ?? [];
 
   function save(data: { name: string; customerHourlyRate: number; hourlyRate: number }) {
     if (!canEdit || !dialog) return;
     setDialogError('');
+    setLoginPrompt(false);
     const editing = dialog.service;
     const opts = {
       onSuccess: (saved: ServiceTypeRecord) => {
@@ -37,7 +39,17 @@ export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
         refresh({ services: true }); setDialog(null);
         notify(editing ? 'Đã cập nhật dịch vụ. Các ca đã ghi giữ nguyên giá khách và tiền công cũ.' : `Đã thêm dịch vụ ${data.name}.`);
       },
-      onError: (e: unknown) => { setDialogError(errorText(e)); fail(e); },
+      onError: (e: unknown) => {
+        const code = statusCode(e);
+        const message = code === 401
+          ? 'Phiên đăng nhập chủ sở hữu không còn hiệu lực. Hãy đăng nhập lại để lưu dịch vụ.'
+          : code === 403
+            ? 'Tài khoản hiện tại không có quyền chỉnh sửa. Hãy dùng tài khoản chủ sở hữu.'
+            : errorText(e);
+        setLoginPrompt(code === 401 || code === 403);
+        setDialogError(message);
+        fail({ data: { error: message } });
+      },
     };
     if (editing) update.mutate({ id: editing.id, data }, opts);
     else create.mutate({ data }, opts);
@@ -66,7 +78,11 @@ export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
         <div>{embedded ? <h2 id="svc-title">Dịch vụ &amp; bảng giá</h2> : <h1 id="svc-title" className="page-title">Dịch vụ &amp; bảng giá</h1>}<p className="sub">Mỗi dịch vụ có giá khách trả và tiền công nhân viên riêng theo giờ. Giá mới áp dụng cho ca mới.</p></div>
         {canEdit && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setDialog({ service: null }); }} data-testid="button-add-service"><Plus size={15} />Thêm dịch vụ</button>}
       </div>
-      {q.isLoading ? <Skeleton rows={4} label="Đang tải dịch vụ" /> : q.isError ? <ErrorBanner text="Không tải được danh mục dịch vụ." onRetry={() => void q.refetch()} /> : list.length === 0 ? (
+      {q.isLoading ? <Skeleton rows={4} label="Đang tải dịch vụ" /> : q.isError
+        ? statusCode(q.error) === 401 || statusCode(q.error) === 403
+          ? <div className="banner danger" role="alert">Chỉ chủ sở hữu mới được quản lý loại hình dịch vụ. <Link href="/sign-in" className="link-strong">Đăng nhập chủ sở hữu</Link></div>
+          : <ErrorBanner text="Không tải được danh mục dịch vụ. Hãy thử tải lại." onRetry={() => void q.refetch()} />
+        : list.length === 0 ? (
         <div className="empty"><Sparkles size={22} /><p>Chưa có dịch vụ nào. Thêm dịch vụ để bắt đầu chấm công theo giờ.</p>
           {canEdit && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setDialog({ service: null }); }}><Plus size={15} />Thêm dịch vụ đầu tiên</button>}</div>
       ) : (
@@ -84,14 +100,14 @@ export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
           ))}
         </ul>
       )}
-      {dialog && canEdit && <ServiceDialog service={dialog.service} busy={create.isPending || update.isPending} serverError={dialogError} onClose={() => setDialog(null)} onSubmit={save} />}
+      {dialog && canEdit && <ServiceDialog service={dialog.service} busy={create.isPending || update.isPending} serverError={dialogError} authError={loginPrompt} onClose={() => setDialog(null)} onSubmit={save} />}
       {confirm && <ConfirmDialog state={confirm} busy={del.isPending} onClose={() => setConfirm(null)} />}
     </section>
   );
 }
 
-function ServiceDialog({ service, busy, serverError, onClose, onSubmit }: {
-  service: ServiceTypeRecord | null; busy: boolean; serverError: string; onClose: () => void; onSubmit: (d: { name: string; customerHourlyRate: number; hourlyRate: number }) => void;
+function ServiceDialog({ service, busy, serverError, authError, onClose, onSubmit }: {
+  service: ServiceTypeRecord | null; busy: boolean; serverError: string; authError: boolean; onClose: () => void; onSubmit: (d: { name: string; customerHourlyRate: number; hourlyRate: number }) => void;
 }) {
   const [name, setName] = useState(service?.name ?? '');
   const [customerRate, setCustomerRate] = useState(service ? String(service.customerHourlyRate) : '');
@@ -121,7 +137,7 @@ function ServiceDialog({ service, busy, serverError, onClose, onSubmit }: {
           <input id="sv-employee-rate" inputMode="numeric" value={employeeRate} onChange={(e) => setEmployeeRate(e.target.value)} required placeholder="85000" data-testid="input-service-employee-rate" />
           <span className="hint">{employeeMoney ? `${formatVnd(employeeMoney)} / giờ` : 'Dùng để tính lương cho từng ca phục vụ.'}</span>
         </label>
-        {shown && <p className="form-error" role="alert"><AlertCircle size={13} /> {shown}</p>}
+        {shown && <p className="form-error" role="alert"><AlertCircle size={13} /> {shown} {authError && <Link href="/sign-in" className="link-strong">Đăng nhập chủ sở hữu</Link>}</p>}
         <div className="dialog-actions">
           <button type="button" className="btn ghost" onClick={onClose}>Hủy</button>
           <button type="submit" className="btn primary" disabled={busy} data-testid="button-save-service">{busy && <LoaderCircle size={14} className="spin" />}Lưu</button>

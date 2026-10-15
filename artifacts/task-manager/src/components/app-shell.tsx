@@ -179,7 +179,7 @@ export function AppShell({
         </main>
         <footer className="footer">
           <span>SỔ CÔNG · tiệm massage</span>
-          {isOwner && <span>Lương = giờ phục vụ × giá dịch vụ · Doanh thu = tổng lương ca dịch vụ + tiền bán thẻ</span>}
+          {isOwner && <span>Lương tính theo tiền công nhân viên · Doanh thu gồm dịch vụ khách lẻ và tiền bán thẻ; dùng thẻ không cộng doanh thu lần nữa.</span>}
           {!isOwner && <span>Khách chỉ xem được phần quản lý nhân viên.</span>}
         </footer>
       </div>

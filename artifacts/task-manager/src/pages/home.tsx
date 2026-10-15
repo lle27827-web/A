@@ -4,7 +4,7 @@ import { ArrowRight, CreditCard, Users } from 'lucide-react';
 import { Link } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { ErrorBanner } from '@/components/modal';
-import { formatShortDate } from '@/lib/attendance';
+import { formatShortDate, statusCode } from '@/lib/attendance';
 import { formatMinutes, formatMonth, formatVnd, monthOf } from '@/lib/massage';
 
 export default function HomePage() {
@@ -40,7 +40,11 @@ export default function HomePage() {
       </div>
       <section className="revenue" aria-labelledby="rev-title" data-testid="section-revenue">
         <h1 id="rev-title" className="rev-label">Tổng doanh thu cơ sở · {formatMonth(month)}</h1>
-        {summary.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải doanh thu" /> : summary.isError ? <ErrorBanner text="Không tải được doanh thu." onRetry={() => void summary.refetch()} /> : (
+        {summary.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải doanh thu" /> : summary.isError
+          ? statusCode(summary.error) === 401 || statusCode(summary.error) === 403
+            ? <div className="banner danger" role="alert">Chỉ chủ sở hữu mới xem được doanh thu. <Link href="/sign-in" className="link-strong">Đăng nhập chủ sở hữu</Link></div>
+            : <ErrorBanner text="Không tải được doanh thu. Hãy thử tải lại; nếu vẫn lỗi, kiểm tra kết nối database của máy chủ." onRetry={() => void summary.refetch()} />
+          : (
           <>
             <p className="rev-value mono" data-testid="text-revenue">{formatVnd(summary.data?.revenue ?? 0)}</p>
             <dl className="rev-breakdown">
