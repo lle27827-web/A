@@ -3,7 +3,6 @@ import { ClerkProvider, useAuth, useClerk } from '@clerk/react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { Route, Switch, Router as WouterRouter, Redirect, useLocation } from 'wouter';
 import { getGetAuthStatusQueryKey, useGetAuthStatus } from '@workspace/api-client-react';
-import NotFound from '@/pages/not-found';
 import { AppShell, useShell } from '@/components/app-shell';
 import { EmployeeDetail } from '@/components/employee-detail';
 import HomePage from '@/pages/home';
@@ -92,7 +91,9 @@ function RoleApplication({
               <Route path="/cards" component={CardsPage} />
               <Route path="/cards/:id" component={CardDetailPage} />
               <Route path="/services" component={ServicesPage} />
-              <Route component={NotFound} />
+              <Route>
+                <Redirect to="/" replace />
+              </Route>
             </Switch>
           ) : (
             <Switch>

@@ -10,3 +10,9 @@ For a static SPA, the service-local fallback must select the actual index docume
 **Why:** The deployed homepage worked while direct employee and sign-in URLs returned Vercel NOT_FOUND. The previous fallback never matched because it mixed route syntaxes, and its path transform also lacked a static-file destination. Vercel documents route lookup and runtime path overrides as separate operations.
 
 **How to apply:** Keep API rewrites first. Use a service-local raw-regex SPA route with an index destination and, where needed, a runtime path transform; exclude API and static assets. Verify positive and negative route cases, then retest direct URLs after a Vercel redeploy. Local Vite fallback is not proof that production routing works.
+
+The user requires reloading anywhere in the application to return to the application, not a standalone 404 page. Unrecognized client-side paths should recover to the main interface while retaining owner/guest access restrictions.
+
+**Why:** the user repeatedly requested this recovery behavior when reporting refresh failures.
+
+**How to apply:** check both server-side SPA delivery and client-side unknown-route handling. A client redirect cannot repair Vercel's server-generated NOT_FOUND response, and workspace changes do not modify an already-built deployment.
