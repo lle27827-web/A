@@ -115,6 +115,7 @@ function RoleApplication({
 function AuthenticatedApplication() {
   const { isLoaded, userId } = useAuth();
   const { signOut } = useClerk();
+  const [location] = useLocation();
   const status = useGetAuthStatus({
     query: {
       queryKey: [...getGetAuthStatusQueryKey(), userId ?? 'anonymous'],
@@ -124,7 +125,10 @@ function AuthenticatedApplication() {
     },
   });
 
-  if (!isLoaded || status.isLoading) return <AuthLoadingPage />;
+  const guestCanViewPath = location === '/' || /^\/employees(?:\/|$)/.test(location);
+  if (!isLoaded || (status.isLoading && (userId !== null || !guestCanViewPath))) {
+    return <AuthLoadingPage />;
+  }
 
   const data = status.data;
   const authConfigured = Boolean(clerkPublishableKey && data?.authConfigured);

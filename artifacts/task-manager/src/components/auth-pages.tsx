@@ -35,7 +35,7 @@ export function SignInPage({ available }: { available: boolean }) {
   return (
     <main className="auth-page">
       <div className="auth-heading">
-        <Link href="/employees" className="link-soft">← Quay lại phần quản lý nhân viên</Link>
+        <Link href="/employees" className="link-soft">← Tiếp tục xem nhân viên không cần đăng nhập</Link>
         <p>Đăng nhập chỉ dành cho chủ sở hữu.</p>
       </div>
       <SignIn
