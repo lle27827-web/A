@@ -3,8 +3,8 @@ name: Vercel database access
 description: Replit PostgreSQL connectivity from deployments outside Replit
 ---
 
-Replit's injected `DATABASE_URL` is scoped to the Replit runtime and cannot be used directly by a Vercel deployment. To reuse the same Replit database externally, obtain the remote connection URL through the Replit Database settings and configure it as Vercel's `DATABASE_URL`. If no remote URL is available, use a database endpoint accessible to Vercel instead.
+Replit-managed PostgreSQL is not externally accessible from Vercel; its injected `DATABASE_URL` only works inside Replit. A Vercel deployment must use a separate externally reachable PostgreSQL database, such as Neon, configured as Vercel's `DATABASE_URL`.
 
-**Why:** Replit's official documentation distinguishes the internal runtime connection string from the remote connection details used by external services.
+**Why:** Replit's official database documentation confirms that Replit-managed PostgreSQL does not provide an external connection URL for Vercel or other non-Replit apps.
 
-**How to apply:** Before claiming an external deployment is connected to Replit data, verify its Vercel environment uses the remote URL. Never put the database URL in source control or chat.
+**How to apply:** For Vercel, provision an external PostgreSQL database, apply the app schema, and configure its URL in Vercel's environment settings. Copy existing data separately if needed. Never put the database URL in source control or chat.
