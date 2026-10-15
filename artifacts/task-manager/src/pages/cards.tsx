@@ -11,7 +11,7 @@ import { formatShortDate, localDate, normalize } from '@/lib/attendance';
 import { cardMatches, errorText, formatMinutes, formatVnd, useRefreshMassage } from '@/lib/massage';
 
 export default function CardsPage() {
-  const { canEdit, hasManageAccess, query, setQuery, notify, fail } = useShell();
+  const { canEdit, query, setQuery, notify, fail } = useShell();
   const [, navigate] = useLocation();
   const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), refetchOnWindowFocus: true } });
   const [open, setOpen] = useState(false);
@@ -40,7 +40,7 @@ export default function CardsPage() {
           {query && <button type="button" className="icon-btn" onClick={() => setQuery('')} aria-label="Xóa tìm kiếm thẻ" data-testid="button-clear-card-search"><X size={14} /></button>}
         </div>
         <span id="card-search-hint" className="hint" role="status" data-testid="text-card-count">
-          {query.trim() ? `${list.length} / ${cards.length} thẻ khớp` : `${cards.length} thẻ`}{hasManageAccess ? '' : ' · Chế độ xem chỉ tìm theo phần số điện thoại đang hiển thị.'}
+          {query.trim() ? `${list.length} / ${cards.length} thẻ khớp` : `${cards.length} thẻ`}
         </span>
       </form>
       {query.trim() ? null : cardsQuery.isLoading ? <Skeleton rows={5} label="Đang tải thẻ" /> : cardsQuery.isError ? <ErrorBanner text={errorText(cardsQuery.error, 'Không tải được danh sách thẻ.')} onRetry={() => void cardsQuery.refetch()} /> : list.length === 0 ? (

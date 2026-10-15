@@ -11,12 +11,11 @@ import {
 } from "@workspace/api-zod";
 import { db, membersTable } from "@workspace/db";
 import { deleteMember } from "../lib/massage";
-import { requireEditor, requireSignedIn } from "../middlewares/owner";
 import { massageHandler, parseInput } from "./massage-errors";
 
 const router: IRouter = Router();
 
-router.get("/members", requireSignedIn, async (_req, res): Promise<void> => {
+router.get("/members", async (_req, res): Promise<void> => {
   const members = await db.select().from(membersTable).orderBy(asc(membersTable.name));
   res.json(ListMembersResponse.parse(members.map((member) => ({
     ...member,
@@ -24,7 +23,7 @@ router.get("/members", requireSignedIn, async (_req, res): Promise<void> => {
   }))));
 });
 
-router.post("/members", requireEditor, async (req, res): Promise<void> => {
+router.post("/members", async (req, res): Promise<void> => {
   const parsed = CreateMemberBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -39,7 +38,7 @@ router.post("/members", requireEditor, async (req, res): Promise<void> => {
   }));
 });
 
-router.patch("/members/:id", requireEditor, massageHandler(async (req, res) => {
+router.patch("/members/:id", massageHandler(async (req, res) => {
   const { id } = parseInput(UpdateMemberParams, req.params);
   const input = parseInput(UpdateMemberBody, req.body);
   if (!Object.keys(input).length || (input.name !== undefined && !input.name.trim())) {
@@ -51,7 +50,7 @@ router.patch("/members/:id", requireEditor, massageHandler(async (req, res) => {
   res.json(UpdateMemberResponse.parse({ ...member, createdAt: member.createdAt.toISOString() }));
 }));
 
-router.delete("/members/:id", requireEditor, massageHandler(async (req, res): Promise<void> => {
+router.delete("/members/:id", massageHandler(async (req, res): Promise<void> => {
   const params = DeleteMemberParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

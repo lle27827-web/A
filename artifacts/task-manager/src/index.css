@@ -1,5 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
-@layer theme, base, clerk, components, utilities;
+@layer theme, base, components, utilities;
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
@@ -201,18 +201,6 @@
 
 .footer { width: min(1200px, 100% - 32px); margin: 0 auto; display: flex; justify-content: space-between; gap: 12px; padding: 14px 0; border-top: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground)); font-size: 11px; }
 
-.auth-frame { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 50px 16px; background: hsl(var(--background)); }
-.auth-back { position: fixed; top: 20px; left: 20px; display: inline-flex; align-items: center; gap: 6px; color: hsl(var(--muted-foreground)); font-size: 13px; font-weight: 700; text-decoration: none; }
-.auth-back:hover { color: hsl(var(--primary)); }
-.auth-landing { width: min(100%, 440px); display: grid; justify-items: center; gap: 14px; padding: 32px 24px; border: 1px solid hsl(var(--border)); border-radius: 18px; background: hsl(var(--card)); text-align: center; box-shadow: var(--shadow); }
-.auth-brand-mark { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 15px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
-.auth-brand-name { margin: 0; color: hsl(var(--primary)); font-size: 12px; font-weight: 800; letter-spacing: .14em; }
-.auth-landing h1 { margin: 0; font-family: var(--app-font-display); font-size: clamp(23px, 6vw, 30px); letter-spacing: -.04em; }
-.auth-landing-copy { max-width: 350px; margin: 0; color: hsl(var(--muted-foreground)); font-size: 14px; line-height: 1.6; }
-.auth-landing-action { width: min(100%, 320px); min-height: 46px; justify-content: center; text-decoration: none; }
-.auth-landing-secondary { color: hsl(var(--primary)); font-size: 13px; font-weight: 700; text-decoration: none; }
-.auth-landing-secondary:hover { text-decoration: underline; }
-.auth-landing-note { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 4px 0 0; color: hsl(var(--muted-foreground)); font-size: 11px; }
 
 @media (max-width: 900px) {
   .layout { grid-template-columns: minmax(0, 1fr); }
@@ -388,7 +376,6 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .type-counts strong { color: hsl(var(--foreground)); margin-left: 4px; }
 .search-results { margin-bottom: 14px; }
 
-/* ---- SỔ CÔNG: manager grants ---- */
 .mgr { margin-top: 20px; padding-top: 16px; border-top: 1px solid hsl(var(--border)); display: grid; gap: 10px; min-width: 0; }
 .mgr h3 { margin: 0; font-family: var(--app-font-display); font-size: 15px; display: flex; align-items: center; gap: 6px; }
 .mgr-form { display: flex; gap: 8px; min-width: 0; }
@@ -463,8 +450,6 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .screen-nav { margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid hsl(var(--border)); }
 .window-nav { margin: 12px 0 16px; padding: 8px 0; border-block: 1px solid hsl(var(--border)); }
 .screen-nav .btn, .window-nav .btn { flex: 1; min-width: 0; text-decoration: none; }
-.auth-navigation { position: fixed; top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); display: flex; justify-content: space-between; gap: 8px; }
-.auth-navigation .btn { min-height: 40px; text-decoration: none; }
 .net-revenue-row { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid hsl(var(--primary) / .3); border-radius: 10px; background: hsl(var(--primary) / .06); }
 .net-revenue-row dt { color: hsl(var(--foreground)); font-weight: 700; }
 .net-revenue-values { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-end; gap: 3px; margin: 0; color: hsl(var(--primary)); text-align: right; }

@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react';
-import { useClerk } from '@clerk/react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetAttendanceSummaryQueryKey,
-  getGetCurrentAccessQueryKey,
   getListAttendanceQueryKey,
   getListMembersQueryKey,
   useCreateAttendance,
@@ -11,22 +9,19 @@ import {
   useDeleteAttendance,
   useDeleteMember,
   useGetAttendanceSummary,
-  useGetCurrentAccess,
   useListAttendance,
   useListMembers,
   useUpdateAttendance,
 } from '@workspace/api-client-react';
 import type { AttendanceInput, AttendanceRecord, AttendanceStatus, ListAttendanceParams, MemberInput, MemberRecord } from '@workspace/api-client-react';
-import { AlertCircle, ArrowUpRight, CalendarDays, Check, CheckCheck, ChevronLeft, ChevronRight, Eye, LoaderCircle, LockKeyhole, Plus, Search, ShieldCheck, X } from 'lucide-react';
+import { AlertCircle, CalendarDays, Check, CheckCheck, ChevronLeft, ChevronRight, LockKeyhole, Plus, Search, X } from 'lucide-react';
 import { Link } from 'wouter';
 import { AttendanceTable, TableSkeleton } from '@/components/attendance-table';
 import { AttendanceDialog } from '@/components/attendance-dialog';
 import { MemberHistory, MemberList } from '@/components/member-panel';
 import { ViewSettings, useViewPrefs, type ViewPrefs } from '@/components/view-settings';
 import { EmployeeView } from '@/components/employee-view';
-import { STATUS_OPTIONS, formatDate, formatShortDate, initial, localDate, messageFromError, normalize, recordMatches, statusCode } from '@/lib/attendance';
-
-const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+import { STATUS_OPTIONS, formatDate, formatShortDate, initial, localDate, messageFromError, normalize, recordMatches } from '@/lib/attendance';
 
 function shiftDate(date: string, days: number) {
   const d = new Date(`${date}T00:00:00`);
@@ -45,14 +40,10 @@ export default function AttendanceApp() {
   const [operationError, setOperationError] = useState('');
 
   const searching = query.trim().length > 0;
-  const accessQuery = useGetCurrentAccess({ query: { queryKey: getGetCurrentAccessQueryKey(), retry: false } });
-  const access = accessQuery.data;
-  const isOwner = access?.isOwner === true;
   const [prefs, setPrefs] = useViewPrefs();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const employeeMode = prefs.mode === 'employee';
-  // Effective permission: display mode can only remove rights, never grant them.
-  const canEdit = isOwner && prefs.mode === 'owner';
+  const canEdit = prefs.mode === 'owner';
 
   const membersQuery = useListMembers({ query: { queryKey: getListMembersQueryKey() } });
   const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
@@ -100,10 +91,6 @@ export default function AttendanceApp() {
   function handleError(error: unknown) {
     setNotice('');
     setOperationError(messageFromError(error));
-    if (statusCode(error) === 401 || statusCode(error) === 403) {
-      cache.setQueryData(getGetCurrentAccessQueryKey(), { signedIn: access?.signedIn ?? false, isOwner: false, canManage: false, ownerConfigured: access?.ownerConfigured ?? false });
-      void cache.invalidateQueries({ queryKey: getGetCurrentAccessQueryKey() });
-    }
   }
   function success(message: string) { setOperationError(''); setNotice(message); }
 
@@ -161,34 +148,15 @@ export default function AttendanceApp() {
           </form>
           <div className="account">
             <span className="mode-pill" data-testid="status-view-mode">{employeeMode ? 'Nhân viên' : 'Chủ'}</span>
-            <span className={`access ${isOwner ? 'owner' : ''}`} data-testid="status-access">
-              {accessQuery.isLoading ? <LoaderCircle className="spin" size={13} /> : isOwner ? <ShieldCheck size={14} /> : <Eye size={14} />}
-              <span className="access-text">{accessQuery.isLoading ? 'Đang kiểm tra' : isOwner ? 'Chủ sở hữu' : 'Chỉ xem'}</span>
-            </span>
-            {access?.signedIn ? <SignOutButton /> : (
-              <>
-                <Link href="/sign-in" className="link-strong" data-testid="link-owner-signin">Đăng nhập <ArrowUpRight size={13} /></Link>
-                {access?.ownerConfigured && <Link href="/sign-up" className="link-soft" data-testid="link-owner-signup">Tạo tài khoản</Link>}
-              </>
-            )}
-            <ViewSettings isOwner={false} canEdit={false} onAuthError={() => undefined} prefs={prefs} members={members} membersLoading={membersQuery.isLoading} open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView} />
+            <ViewSettings prefs={prefs} members={members} membersLoading={membersQuery.isLoading} open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView} />
           </div>
         </div>
       </header>
 
       <main className="main" id="main">
-        {!accessQuery.isLoading && access?.ownerConfigured === false && (
-          <div className="banner soft" role="status" data-testid="status-owner-setup"><LockKeyhole size={15} /><span>Chưa cấu hình chủ sở hữu. Đặt ADMIN_EMAIL bằng email đã xác minh trên Clerk; mọi thay đổi đang bị khóa.</span></div>
-        )}
-        {!accessQuery.isLoading && accessQuery.isError && statusCode(accessQuery.error) !== 401 && statusCode(accessQuery.error) !== 403 && (
-          <div className="banner danger" role="alert"><AlertCircle size={15} /><span>Không thể xác minh quyền. Thao tác chỉnh sửa đang được khóa.</span><button type="button" onClick={() => void accessQuery.refetch()}>Thử lại</button></div>
-        )}
         {operationError && <div className="banner danger" role="alert" data-testid="status-mutation-error"><AlertCircle size={15} /><span>{operationError}</span><button type="button" onClick={() => setOperationError('')} aria-label="Đóng thông báo lỗi"><X size={14} /></button></div>}
         {notice && <div className="banner success" role="status" data-testid="status-success"><Check size={15} /><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Đóng thông báo"><X size={14} /></button></div>}
 
-        {!employeeMode && !canEdit && !accessQuery.isLoading && (
-          <div className="banner soft" role="status" data-testid="status-readonly-owner"><Eye size={15} /><span>{isOwner ? 'Đang xem.' : 'Chế độ Chủ ở dạng chỉ xem. Đăng nhập bằng tài khoản chủ sở hữu để chỉnh sửa.'}</span>{!access?.signedIn && <Link href="/sign-in" className="link-strong">Đăng nhập <ArrowUpRight size={13} /></Link>}</div>
-        )}
         {employeeMode ? (
           <EmployeeView employeeId={prefs.employeeId} employee={viewedEmployee} membersLoading={membersQuery.isLoading} membersError={membersQuery.isError} membersReady={membersReady}
             records={employeeQuery.data ?? []} loading={employeeQuery.isLoading} error={employeeQuery.isError} query={query}
@@ -280,7 +248,7 @@ export default function AttendanceApp() {
         )}
       </main>
 
-      <footer className="footer"><span>SỔ CÔNG · chấm công cho nhóm nhỏ</span><span>Chỉ chủ sở hữu được thay đổi dữ liệu</span></footer>
+      <footer className="footer"><span>SỔ CÔNG · chấm công cho nhóm nhỏ</span><span>Chủ quản lý dữ liệu · Nhân viên chỉ xem lịch sử đã chọn</span></footer>
 
       {dialog && canEdit && (
         <AttendanceDialog record={dialog.record} members={members} busy={createRecord.isPending || updateRecord.isPending} error={operationError} initialDate={date} initialMemberId={dialog.memberId}
@@ -303,7 +271,3 @@ function Stat({ label, value, tone }: { label: string; value: number; tone: stri
   return <div className={`stat ${tone}`} data-testid={`stat-attendance-${tone}`}><dt>{label}</dt><dd>{value}</dd></div>;
 }
 
-function SignOutButton() {
-  const { signOut } = useClerk();
-  return <button type="button" className="btn small ghost" onClick={() => signOut({ redirectUrl: basePath || '/' })} data-testid="button-sign-out">Đăng xuất</button>;
-}

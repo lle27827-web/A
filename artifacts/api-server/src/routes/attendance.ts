@@ -18,7 +18,6 @@ import {
   membersTable,
   type AttendanceStatus,
 } from "@workspace/db";
-import { requireEditor } from "../middlewares/owner";
 
 const router: IRouter = Router();
 
@@ -40,7 +39,7 @@ function toAttendanceResponse(record: typeof attendanceTable.$inferSelect) {
   };
 }
 
-router.get("/attendance", requireEditor, async (req, res): Promise<void> => {
+router.get("/attendance", async (req, res): Promise<void> => {
   const query = ListAttendanceQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -77,7 +76,7 @@ router.get("/attendance", requireEditor, async (req, res): Promise<void> => {
   res.json(ListAttendanceResponse.parse(records.map(toAttendanceResponse)));
 });
 
-router.get("/attendance/summary", requireEditor, async (req, res): Promise<void> => {
+router.get("/attendance/summary", async (req, res): Promise<void> => {
   const query = GetAttendanceSummaryQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -110,7 +109,7 @@ router.get("/attendance/summary", requireEditor, async (req, res): Promise<void>
   }));
 });
 
-router.post("/attendance", requireEditor, async (req, res): Promise<void> => {
+router.post("/attendance", async (req, res): Promise<void> => {
   const parsed = CreateAttendanceBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -142,7 +141,7 @@ router.post("/attendance", requireEditor, async (req, res): Promise<void> => {
   res.status(201).json(CreateAttendanceResponse.parse(toAttendanceResponse(record)));
 });
 
-router.patch("/attendance/:id", requireEditor, async (req, res): Promise<void> => {
+router.patch("/attendance/:id", async (req, res): Promise<void> => {
   const params = UpdateAttendanceParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -192,7 +191,7 @@ router.patch("/attendance/:id", requireEditor, async (req, res): Promise<void> =
   res.json(UpdateAttendanceResponse.parse(toAttendanceResponse(record)));
 });
 
-router.delete("/attendance/:id", requireEditor, async (req, res): Promise<void> => {
+router.delete("/attendance/:id", async (req, res): Promise<void> => {
   const params = DeleteAttendanceParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

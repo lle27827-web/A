@@ -1,4 +1,4 @@
-import { Router, type IRouter, type RequestHandler } from "express";
+import { Router, type IRouter } from "express";
 import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { db, membersTable, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
 import {
@@ -7,20 +7,12 @@ import {
   ListServiceSessionsQueryParams, ListServiceSessionsResponse,
   UpdateServiceSessionBody, UpdateServiceSessionParams, UpdateServiceSessionResponse,
 } from "@workspace/api-zod";
-import { requireEditor, requireSignedIn } from "../middlewares/owner";
 import { deleteSession, MassageError, monthBounds, saveSession, sessionResponse, validDate } from "../lib/massage";
 import { massageHandler, parseInput } from "./massage-errors";
 import { getFacilityRevenue } from "../lib/facility-revenue";
 
 const router: IRouter = Router();
-const requireMemberHistoryAccess: RequestHandler = (req, res, next) => {
-  if (req.query.memberId !== undefined && req.query.cardId === undefined) {
-    return requireSignedIn(req, res, next);
-  }
-  return requireEditor(req, res, next);
-};
-
-router.get("/service-sessions", requireMemberHistoryAccess, massageHandler(async (req, res) => {
+router.get("/service-sessions", massageHandler(async (req, res) => {
   const q = parseInput(ListServiceSessionsQueryParams, req.query);
   const filters = [];
   if (q.memberId) filters.push(eq(serviceSessionsTable.memberId, q.memberId));
@@ -38,23 +30,23 @@ router.get("/service-sessions", requireMemberHistoryAccess, massageHandler(async
     .orderBy(desc(serviceSessionsTable.workDate), desc(serviceSessionsTable.id));
   res.json(ListServiceSessionsResponse.parse(rows.map(sessionResponse)));
 }));
-router.post("/service-sessions", requireEditor, massageHandler(async (req, res) => {
+router.post("/service-sessions", massageHandler(async (req, res) => {
   res.status(201).json(CreateServiceSessionResponse.parse(await saveSession(parseInput(CreateServiceSessionBody, req.body))));
 }));
-router.patch("/service-sessions/:id", requireEditor, massageHandler(async (req, res) => {
+router.patch("/service-sessions/:id", massageHandler(async (req, res) => {
   const { id } = parseInput(UpdateServiceSessionParams, req.params);
   res.json(UpdateServiceSessionResponse.parse(await saveSession(parseInput(UpdateServiceSessionBody, req.body), id)));
 }));
-router.delete("/service-sessions/:id", requireEditor, massageHandler(async (req, res) => {
+router.delete("/service-sessions/:id", massageHandler(async (req, res) => {
   await deleteSession(parseInput(DeleteServiceSessionParams, req.params).id);
   res.sendStatus(204);
 }));
-router.get("/massage-summary", requireEditor, massageHandler(async (req, res) => {
+router.get("/massage-summary", massageHandler(async (req, res) => {
   const { month, date } = parseInput(GetMassageSummaryQueryParams, req.query);
   res.set("Cache-Control", "private, no-store");
   res.json(GetMassageSummaryResponse.parse(await getFacilityRevenue(month, date)));
 }));
-router.get("/member-payroll", requireSignedIn, massageHandler(async (req, res) => {
+router.get("/member-payroll", massageHandler(async (req, res) => {
   const { memberId, month } = parseInput(GetMemberPayrollQueryParams, req.query);
   const { start, end } = monthBounds(month);
   const [member] = await db.select().from(membersTable).where(eq(membersTable.id, memberId));

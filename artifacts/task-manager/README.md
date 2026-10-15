@@ -1,14 +1,8 @@
 # SỔ CÔNG — hướng dẫn cấu hình
 
-Ứng dụng quản lý nhân viên, ca làm, dịch vụ và thẻ liệu trình bằng Replit Database. Tài khoản đã đăng nhập có thể xem dữ liệu; quyền chỉnh sửa phụ thuộc vào vai trò chủ sở hữu hoặc quản lý.
+Ứng dụng quản lý nhân viên, ca làm, dịch vụ và thẻ liệu trình bằng Replit Database. Không cần đăng nhập; mọi người truy cập được đều có thể xem và thay đổi dữ liệu.
 
-## Cấu hình chủ sở hữu
-
-1. Trong biến môi trường, đặt `ADMIN_EMAIL` thành email đã xác minh mà chủ sở hữu dùng với Clerk.
-2. Khởi động lại API Server sau khi đổi biến.
-3. Chủ sở hữu đăng ký hoặc đăng nhập trong ứng dụng bằng đúng email đó.
-
-Máy chủ so khớp email đã xác minh trong Clerk. Nếu chưa cấu hình `ADMIN_EMAIL`, không tài khoản nào được cấp quyền chủ sở hữu và các yêu cầu thay đổi dữ liệu sẽ bị từ chối.
+Lưu ý: danh sách nhân viên, số điện thoại khách hàng, ca làm, bảng lương và các thao tác thêm/sửa/xóa đều được mở công khai. Chỉ nên dùng ứng dụng trong môi trường mà bạn tin cậy.
 
 ## Triển khai Vercel
 

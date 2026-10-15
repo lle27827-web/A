@@ -52,6 +52,6 @@ export function statusCode(error: unknown): number | null {
 
 export function messageFromError(error: unknown) {
   const status = statusCode(error);
-  if (status === 401 || status === 403) return 'Quyền thay đổi không còn hiệu lực. Hãy đăng nhập lại bằng tài khoản chủ sở hữu.';
+  if (status === 401 || status === 403) return 'Yêu cầu không được phép thực hiện.';
   return 'Chưa thể lưu thay đổi. Vui lòng thử lại.';
 }

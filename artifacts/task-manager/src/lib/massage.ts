@@ -66,7 +66,7 @@ export function errorText(error: unknown, fallback = 'Chưa thể lưu thay đ�
   const status = statusCode(error);
   const data = error && typeof error === 'object' ? (error as { data?: unknown }).data : null;
   const serverMsg = data && typeof data === 'object' && typeof (data as { error?: unknown }).error === 'string' ? (data as { error: string }).error : '';
-  if (status === 401 || status === 403) return serverMsg || 'Quyền thay đổi không còn hiệu lực. Hãy đăng nhập lại bằng tài khoản chủ sở hữu.';
+  if (status === 401 || status === 403) return serverMsg || 'Yêu cầu không được phép thực hiện.';
   return serverMsg || fallback;
 }
 

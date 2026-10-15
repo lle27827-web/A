@@ -3,7 +3,7 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: Dữ liệu cơ sở chỉ dành cho chủ sở hữu và quản lý đã xác minh; chỉ chủ sở hữu được cấp/thu hồi quyền.
+  description: API công khai để quản lý dữ liệu nhân viên, chấm công, dịch vụ và thẻ liệu trình.
 servers:
   - url: /api
     description: Base API path
@@ -14,47 +14,7 @@ tags:
     description: Chấm công
   - name: members
     description: Thành viên
-  - name: auth
-    description: Quyền truy cập
 paths:
-  /managers:
-    get:
-      operationId: listManagers
-      responses:
-        "200":
-          description: Danh sách người quản lý, chỉ chủ sở hữu được xem
-          content:
-            application/json:
-              schema: { type: array, items: { $ref: "#/components/schemas/ManagerGrant" } }
-        "401": { description: Cần đăng nhập }
-        "403": { description: Chỉ chủ sở hữu }
-    post:
-      operationId: createManager
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/ManagerInput" }
-      responses:
-        "201":
-          description: Quyền quản lý đã cấp cho email đã chỉ định
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ManagerGrant" }
-        "400": { description: Email không hợp lệ }
-        "401": { description: Cần đăng nhập }
-        "403": { description: Chỉ chủ sở hữu }
-        "409": { description: Email đã được cấp quyền hoặc là chủ sở hữu }
-  /managers/{id}:
-    delete:
-      operationId: deleteManager
-      parameters:
-        - { in: path, name: id, required: true, schema: { type: integer, minimum: 1 } }
-      responses:
-        "204": { description: Đã thu hồi quyền quản lý }
-        "401": { description: Cần đăng nhập }
-        "403": { description: Chỉ chủ sở hữu }
-        "404": { description: Không tìm thấy quyền quản lý }
   /service-types:
     get:
       operationId: listServiceTypes
@@ -117,20 +77,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
-  /auth/me:
-    get:
-      operationId: getCurrentAccess
-      tags: [auth]
-      summary: Kiểm tra trạng thái đăng nhập và quyền chủ sở hữu
-      responses:
-        "200":
-          description: Quyền hiện tại của người truy cập
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AccessStatus"
-        "401":
-          description: Cần đăng nhập trước khi kiểm tra quyền
   /members:
     get:
       operationId: listMembers
@@ -148,7 +94,7 @@ paths:
     post:
       operationId: createMember
       tags: [members]
-      summary: Thêm thành viên (chỉ chủ sở hữu)
+      summary: Thêm nhân viên
       requestBody:
         required: true
         content:
@@ -164,10 +110,6 @@ paths:
                 $ref: "#/components/schemas/MemberRecord"
         "400":
           description: Dữ liệu không hợp lệ
-        "401":
-          description: Cần đăng nhập
-        "403":
-          description: Chỉ chủ sở hữu được phép thao tác
   /members/{id}:
     patch:
       operationId: updateMember
@@ -186,13 +128,11 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/MemberRecord" }
         "400": { description: Dữ liệu không hợp lệ }
-        "401": { description: Cần đăng nhập }
-        "403": { description: Chỉ chủ sở hữu }
         "404": { description: Không tìm thấy nhân viên }
     delete:
       operationId: deleteMember
       tags: [members]
-      summary: Xóa thành viên (chỉ chủ sở hữu, giữ lịch sử chấm công)
+      summary: Xóa nhân viên và giữ lịch sử chấm công
       parameters:
         - in: path
           name: id
@@ -202,10 +142,6 @@ paths:
       responses:
         "204":
           description: Thành viên đã được xóa; lịch sử ca làm được giữ lại
-        "401":
-          description: Cần đăng nhập
-        "403":
-          description: Chỉ chủ sở hữu được phép thao tác
         "404":
           description: Không tìm thấy thành viên
   /attendance:
@@ -245,7 +181,7 @@ paths:
     post:
       operationId: createAttendance
       tags: [attendance]
-      summary: Tạo bản ghi chấm công (chỉ chủ sở hữu)
+      summary: Tạo bản ghi chấm công
       requestBody:
         required: true
         content:
@@ -261,10 +197,6 @@ paths:
                 $ref: "#/components/schemas/AttendanceRecord"
         "400":
           description: Dữ liệu không hợp lệ
-        "401":
-          description: Cần đăng nhập
-        "403":
-          description: Chỉ chủ sở hữu được phép thao tác
   /attendance/summary:
     get:
       operationId: getAttendanceSummary
@@ -290,7 +222,7 @@ paths:
     patch:
       operationId: updateAttendance
       tags: [attendance]
-      summary: Cập nhật bản ghi chấm công (chỉ chủ sở hữu)
+      summary: Cập nhật bản ghi chấm công
       parameters:
         - in: path
           name: id
@@ -312,16 +244,12 @@ paths:
                 $ref: "#/components/schemas/AttendanceRecord"
         "400":
           description: Dữ liệu không hợp lệ
-        "401":
-          description: Cần đăng nhập
-        "403":
-          description: Chỉ chủ sở hữu được phép thao tác
         "404":
           description: Không tìm thấy bản ghi
     delete:
       operationId: deleteAttendance
       tags: [attendance]
-      summary: Xóa bản ghi chấm công (chỉ chủ sở hữu)
+      summary: Xóa bản ghi chấm công
       parameters:
         - in: path
           name: id
@@ -331,10 +259,6 @@ paths:
       responses:
         "204":
           description: Bản ghi chấm công đã được xóa
-        "401":
-          description: Cần đăng nhập
-        "403":
-          description: Chỉ chủ sở hữu được phép thao tác
         "404":
           description: Không tìm thấy bản ghi
   /treatment-cards:
@@ -360,8 +284,6 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/TreatmentCard" }
         "400": { description: Dữ liệu không hợp lệ }
-        "401": { description: Cần đăng nhập }
-        "403": { description: Chỉ chủ sở hữu }
   /treatment-cards/{id}:
     patch:
       operationId: updateTreatmentCard
@@ -379,8 +301,6 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/TreatmentCard" }
         "400": { description: Dữ liệu không hợp lệ }
-        "401": { description: Cần đăng nhập }
-        "403": { description: Chỉ chủ sở hữu }
         "404": { description: Không tìm thấy thẻ }
         "409": { description: Tổng giờ không thể thấp hơn số giờ đã dùng }
     delete:
@@ -389,8 +309,6 @@ paths:
         - { in: path, name: id, required: true, schema: { type: integer, minimum: 1 } }
       responses:
         "204": { description: Đã xóa thẻ chưa có lượt sử dụng }
-        "401": { description: Cần đăng nhập }
-        "403": { description: Chỉ chủ sở hữu }
         "404": { description: Không tìm thấy thẻ }
         "409": { description: Cần xóa các lượt sử dụng trước khi xóa thẻ }
   /treatment-cards/{id}/hours:
@@ -410,8 +328,6 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/TreatmentCard" }
         "400": { description: Số giờ không hợp lệ hoặc vượt giới hạn }
-        "401": { description: Cần đăng nhập }
-        "403": { description: Chỉ chủ sở hữu }
         "404": { description: Không tìm thấy thẻ }
   /service-sessions:
     get:
@@ -442,8 +358,6 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ServiceSession" }
         "400": { description: Dữ liệu không hợp lệ hoặc chưa đặt mức lương }
-        "401": { description: Cần đăng nhập }
-        "403": { description: Chỉ chủ sở hữu }
         "404": { description: Không tìm thấy thẻ hoặc nhân viên }
         "409": { description: Thẻ không đủ giờ còn lại }
   /service-sessions/{id}:
@@ -463,8 +377,6 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ServiceSession" }
         "400": { description: Dữ liệu không hợp lệ }
-        "401": { description: Cần đăng nhập }
-        "403": { description: Chỉ chủ sở hữu }
         "404": { description: Không tìm thấy }
         "409": { description: Thẻ không đủ giờ }
     delete:
@@ -473,8 +385,6 @@ paths:
         - { in: path, name: id, required: true, schema: { type: integer, minimum: 1 } }
       responses:
         "204": { description: "Đã xóa lượt, hoàn giờ thẻ và trừ lương" }
-        "401": { description: Cần đăng nhập }
-        "403": { description: Chỉ chủ sở hữu }
         "404": { description: Không tìm thấy lượt }
   /massage-summary:
     get:
@@ -489,8 +399,6 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/MassageSummary" }
         "400": { description: Tháng hoặc ngày không hợp lệ }
-        "401": { description: Chưa đăng nhập }
-        "403": { description: Chưa có quyền chủ sở hữu hoặc quản lý }
   /member-payroll:
     get:
       operationId: getMemberPayroll
@@ -514,30 +422,6 @@ components:
           type: string
       required:
         - status
-    AccessStatus:
-      type: object
-      properties:
-        signedIn:
-          type: boolean
-        isOwner:
-          type: boolean
-        canManage:
-          type: boolean
-        ownerConfigured:
-          type: boolean
-      required: [signedIn, isOwner, canManage, ownerConfigured]
-    ManagerGrant:
-      type: object
-      required: [id, email, createdAt]
-      properties:
-        id: { type: integer }
-        email: { type: string, format: email }
-        createdAt: { type: string, format: date-time }
-    ManagerInput:
-      type: object
-      required: [email]
-      properties:
-        email: { type: string, format: email, maxLength: 320 }
     AttendanceStatus:
       type: string
       enum: [present, late, absent, leave]

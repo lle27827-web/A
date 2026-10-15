@@ -3,7 +3,6 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { MemberRecord } from '@workspace/api-client-react';
 import { AlertCircle, ArrowLeft, ChevronRight, Home, Settings, Sparkles, X } from 'lucide-react';
 import { Link } from 'wouter';
-import { ManagerSettings } from '@/components/manager-settings';
 
 export type ViewMode = 'owner' | 'employee';
 export type ViewPrefs = { mode: ViewMode; employeeId: number | null };
@@ -35,13 +34,10 @@ export function useViewPrefs() {
   return [prefs, update] as const;
 }
 
-export function ViewSettings({ prefs, members, membersLoading, isOwner, canEdit, onAuthError, open, onOpenChange, onApply }: {
+export function ViewSettings({ prefs, members, membersLoading, open, onOpenChange, onApply }: {
   prefs: ViewPrefs;
   members: MemberRecord[];
   membersLoading: boolean;
-  isOwner: boolean;
-  canEdit: boolean;
-  onAuthError: (err: unknown) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onApply: (prefs: ViewPrefs) => void;
@@ -81,7 +77,7 @@ export function ViewSettings({ prefs, members, membersLoading, isOwner, canEdit,
             <DialogPrimitive.Title asChild><h2>Chế độ xem</h2></DialogPrimitive.Title>
             <DialogPrimitive.Close asChild><button type="button" className="icon-btn" aria-label="Đóng cài đặt"><X size={18} /></button></DialogPrimitive.Close>
           </div>
-          <DialogPrimitive.Description className="sub">Đổi chế độ xem không thay đổi quyền. Chỉ chủ sở hữu hoặc quản lý đã đăng nhập, ở chế độ Chủ, mới chỉnh sửa được.</DialogPrimitive.Description>
+          <DialogPrimitive.Description className="sub">Chọn giao diện hiển thị; chế độ Nhân viên chỉ xem lịch sử của nhân viên đã chọn.</DialogPrimitive.Description>
           <nav className="window-nav" aria-label="Điều hướng cửa sổ">
             <Link href="/" onClick={() => onOpenChange(false)} className="btn ghost" data-testid="link-settings-home"><Home size={14} aria-hidden="true" />Trang chính</Link>
             <button type="button" className="btn ghost" onClick={() => onOpenChange(false)} data-testid="button-settings-back"><ArrowLeft size={14} aria-hidden="true" />Trở về</button>
@@ -115,7 +111,6 @@ export function ViewSettings({ prefs, members, membersLoading, isOwner, canEdit,
               <button type="submit" className="btn primary" data-testid="button-apply-view">Áp dụng</button>
             </div>
           </form>
-          {isOwner && <ManagerSettings canEdit={canEdit} onAuthError={onAuthError} />}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

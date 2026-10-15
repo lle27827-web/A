@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getListServiceTypesQueryKey, useCreateServiceType, useDeleteServiceType, useListServiceTypes, useUpdateServiceType } from '@workspace/api-client-react';
 import type { ServiceTypeRecord } from '@workspace/api-client-react';
-import { AlertCircle, ArrowLeft, LoaderCircle, LockKeyhole, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, LoaderCircle, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { Link } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
@@ -65,7 +65,6 @@ export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
       <div className="panel-head wrap">
         <div>{embedded ? <h2 id="svc-title">Dịch vụ &amp; bảng giá trả công</h2> : <h1 id="svc-title" className="page-title">Dịch vụ &amp; bảng giá trả công</h1>}<p className="sub">Giá / giờ dùng tính lương nhân viên, không phải giá bán thẻ. Đổi giá chỉ áp dụng cho ca mới.</p></div>
         {canEdit ? <button type="button" className="btn primary" onClick={() => { setDialogError(''); setDialog({ service: null }); }} data-testid="button-add-service"><Plus size={15} />Thêm dịch vụ</button>
-          : <span className="view-only"><LockKeyhole size={13} />Chỉ xem</span>}
       </div>
       {q.isLoading ? <Skeleton rows={4} label="Đang tải dịch vụ" /> : q.isError ? <ErrorBanner text="Không tải được danh mục dịch vụ." onRetry={() => void q.refetch()} /> : list.length === 0 ? (
         <div className="empty"><Sparkles size={22} /><p>Chưa có dịch vụ nào. Thêm dịch vụ để bắt đầu chấm công theo giờ.</p>
