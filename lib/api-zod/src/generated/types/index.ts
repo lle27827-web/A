@@ -11,6 +11,7 @@ export * from './attendanceRecord';
 export * from './attendanceStatus';
 export * from './attendanceSummary';
 export * from './attendanceUpdate';
+export * from './authStatus';
 export * from './cardHoursInput';
 export * from './dailyRevenue';
 export * from './getAttendanceSummaryParams';

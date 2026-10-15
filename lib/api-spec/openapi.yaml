@@ -77,6 +77,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/status:
+    get:
+      operationId: getAuthStatus
+      tags: [health]
+      summary: Trạng thái đăng nhập và quyền chủ sở hữu
+      responses:
+        "200":
+          description: Trạng thái xác thực hiện tại
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthStatus"
+        "503":
+          description: Không thể xác minh tài khoản với Clerk
   /members:
     get:
       operationId: listMembers
@@ -422,6 +436,16 @@ components:
           type: string
       required:
         - status
+    AuthStatus:
+      type: object
+      properties:
+        authConfigured:
+          type: boolean
+        authenticated:
+          type: boolean
+        isOwner:
+          type: boolean
+      required: [authConfigured, authenticated, isOwner]
     AttendanceStatus:
       type: string
       enum: [present, late, absent, leave]

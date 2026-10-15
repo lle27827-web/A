@@ -82,6 +82,16 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Trạng thái đăng nhập và quyền chủ sở hữu
+ */
+export const GetAuthStatusResponse = zod.object({
+  "authConfigured": zod.boolean(),
+  "authenticated": zod.boolean(),
+  "isOwner": zod.boolean()
+})
+
+
+/**
  * @summary Xem danh sách thành viên
  */
 export const listMembersResponseHourlyRateMin = 0;

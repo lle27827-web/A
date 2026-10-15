@@ -8,10 +8,13 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:auth": "esbuild src/lib/owner-auth.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-auth-tests.cjs && node --test /tmp/so-cong-auth-tests.cjs",
     "test:massage": "esbuild src/lib/massage.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/cung-lam-massage-tests.cjs && node --test /tmp/cung-lam-massage-tests.cjs",
     "test:revenue": "esbuild src/lib/facility-revenue.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-revenue-tests.cjs && node --test /tmp/so-cong-revenue-tests.cjs"
   },
   "dependencies": {
+    "@clerk/backend": "^3.23.2",
+    "@clerk/express": "^2.1.78",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "cors": "^2.8.6",

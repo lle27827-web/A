@@ -32,7 +32,23 @@ export function useShell() {
   return value;
 }
 
-export function AppShell({ children, employeeView }: { children: ReactNode; employeeView: ReactNode }) {
+export function AppShell({
+  children,
+  employeeView,
+  isOwner,
+  authenticated,
+  authConfigured,
+  authStatusMessage,
+  onSignOut,
+}: {
+  children: ReactNode;
+  employeeView: ReactNode;
+  isOwner: boolean;
+  authenticated: boolean;
+  authConfigured: boolean;
+  authStatusMessage?: string;
+  onSignOut?: () => void;
+}) {
   const [location, navigate] = useLocation();
   const [prefs, setPrefs] = useViewPrefs();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -42,7 +58,7 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const showResults = query.trim().length > 0;
-  const employeeMode = prefs.mode === 'employee';
+  const employeeMode = isOwner && prefs.mode === 'employee';
 
   const lastLocation = useRef(location);
   const routeHistory = useRef<string[]>([location]);
@@ -75,8 +91,8 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
   }
 
   const ctx: ShellCtx = {
-    canEdit: true,
-    hasManageAccess: true,
+    canEdit: isOwner,
+    hasManageAccess: isOwner,
     employeeMode,
     prefs,
     members,
@@ -106,18 +122,40 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
               <input id="global-search" type="search" value={query}
                 onChange={(event) => setQuery(event.target.value)} autoComplete="off"
                 data-testid="input-global-search"
-                placeholder={employeeMode ? 'Tìm khách, dịch vụ, ghi chú trong tháng...' : 'Tìm nhân viên, khách, số điện thoại, dịch vụ...'} />
+                placeholder={employeeMode ? 'Tìm khách, dịch vụ, ghi chú trong tháng...' : isOwner ? 'Tìm nhân viên, khách, số điện thoại, dịch vụ...' : 'Tìm nhân viên...'} />
               {query && <button type="button" className="icon-btn" onClick={() => setQuery('')}
                 aria-label="Xóa tìm kiếm" data-testid="button-clear-search"><X size={15} /></button>}
             </form>
             <div className="account">
-              {employeeMode && <span className="mode-pill" data-testid="status-view-mode">Xem nhân viên</span>}
-              <ViewSettings prefs={prefs} members={members} membersLoading={membersQuery.isLoading}
-                open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView} />
+              {isOwner ? (
+                <>
+                  {employeeMode && <span className="mode-pill" data-testid="status-view-mode">Xem nhân viên</span>}
+                  <span className="mode-pill" data-testid="status-owner-role">Chủ sở hữu</span>
+                  <button type="button" className="link-soft as-button" onClick={onSignOut}>Đăng xuất</button>
+                  <ViewSettings prefs={prefs} members={members} membersLoading={membersQuery.isLoading}
+                    open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView} />
+                </>
+              ) : (
+                <>
+                  <span className="mode-pill guest-pill" data-testid="status-guest-role">
+                    {authenticated ? 'Chỉ xem' : 'Khách · chỉ xem'}
+                  </span>
+                  {authenticated ? (
+                    <button type="button" className="link-soft as-button" onClick={onSignOut}>Đăng xuất</button>
+                  ) : authConfigured ? (
+                    <Link href="/sign-in" className="link-strong" data-testid="link-owner-sign-in">Đăng nhập chủ</Link>
+                  ) : (
+                    <span className="link-soft" title="Cần cấu hình Clerk bên ngoài trong Replit và Vercel.">
+                      Đăng nhập chưa cấu hình
+                    </span>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </header>
         <main className="main" id="main">
+          {authStatusMessage && <div className="banner danger" role="status">{authStatusMessage}</div>}
           {location !== '/' && location !== '/attendance' && !showResults && (
             <nav className="screen-nav" aria-label="Điều hướng trang">
               <Link href="/" onClick={() => setQuery('')} className="btn ghost" data-testid="link-return-home">
@@ -141,7 +179,8 @@ export function AppShell({ children, employeeView }: { children: ReactNode; empl
         </main>
         <footer className="footer">
           <span>SỔ CÔNG · tiệm massage</span>
-          <span>Lương = giờ phục vụ × giá dịch vụ · Doanh thu = tổng lương ca dịch vụ + tiền bán thẻ</span>
+          {isOwner && <span>Lương = giờ phục vụ × giá dịch vụ · Doanh thu = tổng lương ca dịch vụ + tiền bán thẻ</span>}
+          {!isOwner && <span>Khách chỉ xem được phần quản lý nhân viên.</span>}
         </footer>
       </div>
     </Ctx.Provider>

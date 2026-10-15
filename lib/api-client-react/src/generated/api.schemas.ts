@@ -9,6 +9,12 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface AuthStatus {
+  authConfigured: boolean;
+  authenticated: boolean;
+  isOwner: boolean;
+}
+
 export type AttendanceStatus = typeof AttendanceStatus[keyof typeof AttendanceStatus];
 
 

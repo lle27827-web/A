@@ -24,6 +24,7 @@ import type {
   AttendanceRecord,
   AttendanceSummary,
   AttendanceUpdate,
+  AuthStatus,
   CardHoursInput,
   GetAttendanceSummaryParams,
   GetMassageSummaryParams,
@@ -442,6 +443,83 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getHealthCheckQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAuthStatusUrl = () => {
+
+
+
+
+  return `/api/auth/status`
+}
+
+/**
+ * @summary Trạng thái đăng nhập và quyền chủ sở hữu
+ */
+export const getAuthStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<AuthStatus> => {
+
+  return customFetch<AuthStatus>(getGetAuthStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAuthStatusQueryKey = () => {
+    return [
+    `/api/auth/status`
+    ] as const;
+    }
+
+
+export const getGetAuthStatusQueryOptions = <TData = Awaited<ReturnType<typeof getAuthStatus>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAuthStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAuthStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAuthStatus>>> = ({ signal }) => getAuthStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAuthStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAuthStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getAuthStatus>>>
+export type GetAuthStatusQueryError = ErrorType<void>
+
+
+/**
+ * @summary Trạng thái đăng nhập và quyền chủ sở hữu
+ */
+
+export function useGetAuthStatus<TData = Awaited<ReturnType<typeof getAuthStatus>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAuthStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAuthStatusQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

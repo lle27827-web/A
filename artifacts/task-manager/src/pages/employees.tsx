@@ -51,7 +51,7 @@ export default function EmployeesPage() {
       <Link href="/" className="back" data-testid="link-back"><ArrowLeft size={15} />Trang chính</Link>
       <div className="panel-head wrap">
         <div><h1 id="emp-title" className="page-title">Quản lý nhân viên</h1><p className="sub">{members.length} nhân viên</p></div>
-        <button type="button" className="btn primary" onClick={() => { setDialogError(''); setOpen(true); }} data-testid="button-add-member"><Plus size={15} />Thêm nhân viên</button>
+        {canEdit && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setOpen(true); }} data-testid="button-add-member"><Plus size={15} />Thêm nhân viên</button>}
       </div>
       {membersLoading ? <Skeleton rows={5} label="Đang tải nhân viên" /> : membersError ? <ErrorBanner text="Không tải được danh sách nhân viên." onRetry={retryMembers} /> : list.length === 0 ? (
         <div className="empty"><Users size={22} /><p>{members.length ? 'Không có nhân viên khớp tìm kiếm.' : 'Chưa có nhân viên nào.'}</p>
