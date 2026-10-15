@@ -19,20 +19,22 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     const noSalesDay = "2098-03-12";
     const [walkIn] = await db.insert(serviceSessionsTable).values({
       memberId: null, employeeName: "__no_sales_month_test", cardId: null, customerName: "",
-      serviceType: "test", workDate: noSalesDay, minutes: 30, hourlyRate: 10000,
+      serviceType: "test", workDate: noSalesDay, minutes: 30, customerHourlyRate: 20000, customerCharge: 10000, hourlyRate: 10000,
       earnings: 5000, note: "",
     }).returning();
     sessionIds.push(walkIn.id);
     const serviceOnly = await getFacilityRevenue(noSalesMonth, noSalesDay);
     const validatedServiceOnly = GetMassageSummaryResponse.parse(serviceOnly);
-    assert.equal(serviceOnly.serviceRevenue, 5000);
-    assert.equal(serviceOnly.walkInServiceRevenue, 5000);
+    assert.equal(serviceOnly.serviceRevenue, 10000);
+    assert.equal(serviceOnly.walkInServiceRevenue, 10000);
     assert.equal(serviceOnly.walkInServiceMinutes, 30);
     assert.equal(serviceOnly.cardRevenue, 0);
-    assert.equal(serviceOnly.revenue, 5000);
-    assert.equal(serviceOnly.revenueExcludingCardSessions, 5000);
-    assert.equal(validatedServiceOnly.revenueExcludingCardSessions, 5000);
-    assert.equal(validatedServiceOnly.today.revenueExcludingCardSessions, 5000);
+    assert.equal(serviceOnly.payroll, 5000);
+    assert.equal(serviceOnly.revenue, 10000);
+    assert.equal(serviceOnly.revenueExcludingCardSessions, 10000);
+    assert.equal(validatedServiceOnly.revenueExcludingCardSessions, 10000);
+    assert.equal(validatedServiceOnly.today.revenueExcludingCardSessions, 10000);
+    assert.equal(validatedServiceOnly.today.payroll, 5000);
     assert.equal(validatedServiceOnly.today.walkInServiceMinutes, 30);
     assert.equal(serviceOnly.walkInVisits, 1);
     const cards = await db.insert(treatmentCardsTable).values([
@@ -42,10 +44,10 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     ]).returning();
     cardIds.push(...cards.map((c) => c.id));
     const rows = await db.insert(serviceSessionsTable).values([
-      { memberId: null, employeeName: "__facility_report_test", cardId: cards[0].id, customerName: "", serviceType: "test", workDate: "2099-02-01", minutes: 60, hourlyRate: 150, earnings: 150, note: "" },
-      { memberId: null, employeeName: "__facility_report_test", cardId: cards[0].id, customerName: "", serviceType: "test", workDate: "2099-02-02", minutes: 30, hourlyRate: 100, earnings: 50, note: "" },
-      { memberId: null, employeeName: "__facility_report_test", cardId: null, customerName: "", serviceType: "test", workDate: "2099-02-28", minutes: 30, hourlyRate: 100, earnings: 50, note: "" },
-      { memberId: null, employeeName: "__facility_report_test", cardId: null, customerName: "", serviceType: "test", workDate: "2099-01-31", minutes: 60, hourlyRate: 10000, earnings: 10000, note: "" },
+      { memberId: null, employeeName: "__facility_report_test", cardId: cards[0].id, customerName: "", serviceType: "test", workDate: "2099-02-01", minutes: 60, customerHourlyRate: 200, customerCharge: 200, hourlyRate: 150, earnings: 150, note: "" },
+      { memberId: null, employeeName: "__facility_report_test", cardId: cards[0].id, customerName: "", serviceType: "test", workDate: "2099-02-02", minutes: 30, customerHourlyRate: 200, customerCharge: 100, hourlyRate: 100, earnings: 50, note: "" },
+      { memberId: null, employeeName: "__facility_report_test", cardId: null, customerName: "", serviceType: "test", workDate: "2099-02-28", minutes: 30, customerHourlyRate: 200, customerCharge: 100, hourlyRate: 100, earnings: 50, note: "" },
+      { memberId: null, employeeName: "__facility_report_test", cardId: null, customerName: "", serviceType: "test", workDate: "2099-01-31", minutes: 60, customerHourlyRate: 20000, customerCharge: 20000, hourlyRate: 10000, earnings: 10000, note: "" },
     ]).returning();
     sessionIds.push(...rows.map((s) => s.id));
     const after = await getFacilityRevenue(month, date);
@@ -53,16 +55,18 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     assert.equal(after.cardVisits, baseline.cardVisits + 2);
     assert.equal(after.today.walkInVisits, baseline.today.walkInVisits);
     assert.equal(after.today.cardVisits, baseline.today.cardVisits + 1);
-    assert.equal(after.today.serviceRevenue, baseline.today.serviceRevenue + 150);
+    assert.equal(after.today.serviceRevenue, baseline.today.serviceRevenue);
     assert.equal(after.today.cardRevenue, baseline.today.cardRevenue + 800);
-    assert.equal(after.today.revenue, baseline.today.revenue + 950);
-    assert.equal(after.serviceRevenue - baseline.serviceRevenue, 250);
+    assert.equal(after.today.revenue, baseline.today.revenue + 800);
+    assert.equal(after.today.payroll, baseline.today.payroll + 150);
+    assert.equal(after.serviceRevenue - baseline.serviceRevenue, 100);
+    assert.equal(after.payroll - baseline.payroll, 250);
     assert.equal(after.cardRevenue - baseline.cardRevenue, 2000);
-    assert.equal(after.revenue - baseline.revenue, 2250);
-    assert.equal(after.walkInServiceRevenue - baseline.walkInServiceRevenue, 50);
+    assert.equal(after.revenue - baseline.revenue, 2100);
+    assert.equal(after.walkInServiceRevenue - baseline.walkInServiceRevenue, 100);
     assert.equal(after.walkInServiceMinutes - baseline.walkInServiceMinutes, 30);
     assert.equal(after.today.walkInServiceMinutes - baseline.today.walkInServiceMinutes, 0);
-    assert.equal(after.revenueExcludingCardSessions - baseline.revenueExcludingCardSessions, 2050);
+    assert.equal(after.revenueExcludingCardSessions - baseline.revenueExcludingCardSessions, 2100);
     assert.equal(after.today.revenueExcludingCardSessions - baseline.today.revenueExcludingCardSessions, 800);
     assert.equal(after.cardsSold - baseline.cardsSold, 2);
     await db.delete(treatmentCardsTable).where(inArray(treatmentCardsTable.id, [cards[1].id]));
@@ -70,12 +74,14 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     const updated = await getFacilityRevenue(month, date);
     assert.equal(updated.serviceRevenue, after.serviceRevenue);
     assert.equal(updated.cardRevenue, after.cardRevenue - 1200);
+    assert.equal(updated.payroll, after.payroll);
     assert.equal(updated.revenueExcludingCardSessions, after.revenueExcludingCardSessions - 1200);
     assert.equal(updated.revenue, after.revenue - 1200);
     await deleteCard(cards[0].id);
     const removedReport = await getFacilityRevenue(month, date);
     assert.equal(removedReport.cardRevenue, updated.cardRevenue - 800);
-    assert.equal(removedReport.serviceRevenue, updated.serviceRevenue - 200);
+    assert.equal(removedReport.serviceRevenue, updated.serviceRevenue);
+    assert.equal(removedReport.payroll, updated.payroll - 200);
     assert.equal(removedReport.revenueExcludingCardSessions, updated.revenueExcludingCardSessions - 800);
     assert.equal(removedReport.revenue, updated.revenue - 1000);
     assert.equal(removedReport.cardVisits, updated.cardVisits - 2);

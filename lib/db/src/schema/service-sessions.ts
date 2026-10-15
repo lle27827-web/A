@@ -16,6 +16,8 @@ export const serviceSessionsTable = pgTable("service_sessions", {
   serviceTypeId: integer("service_type_id").references(() => serviceTypesTable.id, { onDelete: "set null" }),
   workDate: date("work_date", { mode: "string" }).notNull(),
   minutes: integer("minutes").notNull(),
+  customerHourlyRate: integer("customer_hourly_rate").notNull().default(0),
+  customerCharge: integer("customer_charge").notNull().default(0),
   hourlyRate: integer("hourly_rate").notNull(),
   earnings: integer("earnings").notNull(),
   note: text("note").notNull().default(""),

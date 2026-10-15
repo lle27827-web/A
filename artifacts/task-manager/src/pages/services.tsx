@@ -26,7 +26,7 @@ export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const list = q.data ?? [];
 
-  function save(data: { name: string; hourlyRate: number }) {
+  function save(data: { name: string; customerHourlyRate: number; hourlyRate: number }) {
     if (!canEdit || !dialog) return;
     setDialogError('');
     const editing = dialog.service;
@@ -35,7 +35,7 @@ export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
         cache.setQueryData<ServiceTypeRecord[]>(getListServiceTypesQueryKey(), (old) =>
           [...(old ?? []).filter((s) => s.id !== saved.id), saved].sort((a, b) => a.name.localeCompare(b.name, 'vi')));
         refresh({ services: true }); setDialog(null);
-        notify(editing ? 'Đã cập nhật dịch vụ. Ca đã ghi giữ nguyên mức trả công cũ.' : `Đã thêm dịch vụ ${data.name}.`);
+        notify(editing ? 'Đã cập nhật dịch vụ. Các ca đã ghi giữ nguyên giá khách và tiền công cũ.' : `Đã thêm dịch vụ ${data.name}.`);
       },
       onError: (e: unknown) => { setDialogError(errorText(e)); fail(e); },
     };
@@ -63,7 +63,7 @@ export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
     <section className={`panel${embedded ? '' : ' page'}`} aria-labelledby="svc-title" data-testid="section-services">
       {!embedded && <Link href="/" className="back" data-testid="link-back"><ArrowLeft size={15} />Trang chính</Link>}
       <div className="panel-head wrap">
-        <div>{embedded ? <h2 id="svc-title">Dịch vụ &amp; bảng giá trả công</h2> : <h1 id="svc-title" className="page-title">Dịch vụ &amp; bảng giá trả công</h1>}<p className="sub">Giá / giờ dùng tính lương nhân viên, không phải giá bán thẻ. Đổi giá chỉ áp dụng cho ca mới.</p></div>
+        <div>{embedded ? <h2 id="svc-title">Dịch vụ &amp; bảng giá</h2> : <h1 id="svc-title" className="page-title">Dịch vụ &amp; bảng giá</h1>}<p className="sub">Mỗi dịch vụ có giá khách trả và tiền công nhân viên riêng theo giờ. Giá mới áp dụng cho ca mới.</p></div>
         {canEdit && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setDialog({ service: null }); }} data-testid="button-add-service"><Plus size={15} />Thêm dịch vụ</button>}
       </div>
       {q.isLoading ? <Skeleton rows={4} label="Đang tải dịch vụ" /> : q.isError ? <ErrorBanner text="Không tải được danh mục dịch vụ." onRetry={() => void q.refetch()} /> : list.length === 0 ? (
@@ -73,7 +73,7 @@ export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
         <ul className="emp-list" data-testid="list-services">
           {list.map((s) => (
             <li key={s.id} className="emp-row" data-testid={`row-service-${s.id}`}>
-              <span className="grow"><strong>{s.name}</strong><span className="muted mono">{formatVnd(s.hourlyRate)} / giờ</span></span>
+              <span className="grow"><strong>{s.name}</strong><span className="muted mono">Khách: {s.customerHourlyRate > 0 ? `${formatVnd(s.customerHourlyRate)} / giờ` : 'chưa cài giá'} · Nhân viên: {formatVnd(s.hourlyRate)} / giờ</span></span>
               {canEdit && (
                 <span className="head-actions">
                   <button type="button" className="icon-btn" onClick={() => { setDialogError(''); setDialog({ service: s }); }} aria-label={`Sửa dịch vụ ${s.name}`} data-testid={`button-edit-service-${s.id}`}><Pencil size={15} /></button>
@@ -91,28 +91,35 @@ export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
 }
 
 function ServiceDialog({ service, busy, serverError, onClose, onSubmit }: {
-  service: ServiceTypeRecord | null; busy: boolean; serverError: string; onClose: () => void; onSubmit: (d: { name: string; hourlyRate: number }) => void;
+  service: ServiceTypeRecord | null; busy: boolean; serverError: string; onClose: () => void; onSubmit: (d: { name: string; customerHourlyRate: number; hourlyRate: number }) => void;
 }) {
   const [name, setName] = useState(service?.name ?? '');
-  const [rate, setRate] = useState(service ? String(service.hourlyRate) : '');
+  const [customerRate, setCustomerRate] = useState(service ? String(service.customerHourlyRate) : '');
+  const [employeeRate, setEmployeeRate] = useState(service ? String(service.hourlyRate) : '');
   const [error, setError] = useState('');
-  const money = parseMoney(rate);
+  const customerMoney = parseMoney(customerRate);
+  const employeeMoney = parseMoney(employeeRate);
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return setError('Hãy nhập tên dịch vụ.');
-    if (money === null || money < 1) return setError('Giá trả công theo giờ phải lớn hơn 0.');
-    if (money > 10_000_000) return setError('Giá trả công tối đa 10.000.000 ₫ / giờ.');
+    if (customerMoney === null || customerMoney < 1) return setError('Giá khách trả theo giờ phải lớn hơn 0.');
+    if (employeeMoney === null || employeeMoney < 1) return setError('Tiền công nhân viên theo giờ phải lớn hơn 0.');
+    if (customerMoney > 10_000_000 || employeeMoney > 10_000_000) return setError('Mỗi mức tiền tối đa 10.000.000 ₫ / giờ.');
     setError('');
-    onSubmit({ name: name.trim(), hourlyRate: money });
+    onSubmit({ name: name.trim(), customerHourlyRate: customerMoney, hourlyRate: employeeMoney });
   }
   const shown = error || serverError;
   return (
-    <Modal title={service ? 'Sửa dịch vụ' : 'Thêm dịch vụ'} description={service ? 'Ca đã ghi giữ nguyên tên và mức trả công cũ.' : 'Giá trả công cho kỹ thuật viên mỗi giờ phục vụ.'} onClose={onClose} testId="dialog-service">
+    <Modal title={service ? 'Sửa dịch vụ' : 'Thêm dịch vụ'} description={service ? 'Các ca đã ghi giữ nguyên giá khách và tiền công đã lưu.' : 'Nhập giá khách trả và tiền công nhân viên cho mỗi giờ phục vụ.'} onClose={onClose} testId="dialog-service">
       <form className="form-grid" onSubmit={submit} noValidate>
         <label className="field" htmlFor="sv-name">Tên dịch vụ<input id="sv-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} required placeholder="Massage body đá nóng" data-testid="input-service-name" /></label>
-        <label className="field" htmlFor="sv-rate">Giá trả công / giờ (VND)
-          <input id="sv-rate" inputMode="numeric" value={rate} onChange={(e) => setRate(e.target.value)} required placeholder="85000" data-testid="input-service-rate" />
-          <span className="hint">{money ? `${formatVnd(money)} / giờ` : 'Nhập ví dụ 100000 hoặc 100.000.'}</span>
+        <label className="field" htmlFor="sv-customer-rate">Giá khách trả / giờ (VND)
+          <input id="sv-customer-rate" inputMode="numeric" value={customerRate} onChange={(e) => setCustomerRate(e.target.value)} required placeholder="150000" data-testid="input-service-customer-rate" />
+          <span className="hint">{customerMoney ? `${formatVnd(customerMoney)} / giờ` : 'Giá dịch vụ khách lẻ; không cộng lần nữa khi dùng thẻ.'}</span>
+        </label>
+        <label className="field" htmlFor="sv-employee-rate">Tiền công nhân viên / giờ (VND)
+          <input id="sv-employee-rate" inputMode="numeric" value={employeeRate} onChange={(e) => setEmployeeRate(e.target.value)} required placeholder="85000" data-testid="input-service-employee-rate" />
+          <span className="hint">{employeeMoney ? `${formatVnd(employeeMoney)} / giờ` : 'Dùng để tính lương cho từng ca phục vụ.'}</span>
         </label>
         {shown && <p className="form-error" role="alert"><AlertCircle size={13} /> {shown}</p>}
         <div className="dialog-actions">

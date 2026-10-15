@@ -45,6 +45,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
   const selected = catalog.find((s) => String(s.id) === serviceId) ?? null;
   const keepsSnapshot = !!session && (serviceId === KEEP || (session.serviceTypeId !== null && String(session.serviceTypeId) === serviceId));
   const rate = keepsSnapshot ? session!.hourlyRate : selected?.hourlyRate ?? 0;
+  const customerRate = keepsSnapshot ? session!.customerHourlyRate : selected?.customerHourlyRate ?? 0;
   const orphanId = session && session.serviceTypeId !== null && !catalog.some((s) => s.id === session.serviceTypeId) ? session.serviceTypeId : null;
 
   // Preselect catalog service only when the card label exactly matches a catalog name (new sessions only).
@@ -63,6 +64,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
     if (serviceId === KEEP && !session) return setError('Ca mới phải chọn dịch vụ trong danh mục.');
     if (!date) return setError('Hãy chọn ngày.');
     if (minutes === null || minutes < 1 || minutes > 1440) return setError('Số giờ phải lớn hơn 0 và không quá 24 giờ.');
+    if (!cardId && customerRate <= 0 && !keepsSnapshot) return setError('Hãy cài giá khách trả cho dịch vụ trước khi ghi ca khách lẻ.');
     setError('');
     const input: ServiceSessionInput = { memberId: member.id, workDate: date, minutes, note: note.trim(), serviceTypeId: serviceId === KEEP ? null : Number(serviceId) };
     if (cardId) input.cardId = Number(cardId);
@@ -74,7 +76,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
   const quick = !!fixedMemberId && !session;
   return (
     <Modal title={session ? 'Sửa ca phục vụ' : quick ? `Chấm công${fixedMember ? ` · ${fixedMember.name}` : ''}` : 'Thêm ca phục vụ'}
-      description="Chọn dịch vụ và số giờ. Lương tính theo giá trả công của dịch vụ." onClose={onClose} testId="dialog-session">
+      description="Chọn dịch vụ và số giờ. Tiền công tính theo mức của nhân viên; doanh thu khách lẻ tính theo giá khách trả. Ca dùng thẻ không ghi doanh thu lần nữa." onClose={onClose} testId="dialog-session">
       <form className="form-grid" onSubmit={submit} noValidate>
         <fieldset className="field service-pick">
           <legend>Dịch vụ</legend>
@@ -86,21 +88,23 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
                 {session && session.serviceTypeId === null && (
                   <label className={`service-option ${serviceId === KEEP ? 'on' : ''}`}>
                     <input type="radio" name="s-service" value={KEEP} checked={serviceId === KEEP} onChange={() => setServiceId(KEEP)} data-testid="radio-service-keep" />
-                    <span><strong>Giữ dịch vụ cũ: {session.serviceType || 'không tên'}</strong><span className="muted mono">{formatVnd(session.hourlyRate)}/giờ · mức đã lưu</span></span>
+                    <span><strong>Giữ dịch vụ cũ: {session.serviceType || 'không tên'}</strong><span className="muted mono">{session.customerHourlyRate > 0 ? `Khách ${formatVnd(session.customerHourlyRate)}/giờ · ` : 'Chưa lưu giá khách · '}Lương ${formatVnd(session.hourlyRate)}/giờ · mức đã lưu</span></span>
                   </label>
                 )}
                 {orphanId !== null && session && (
                   <label className={`service-option ${serviceId === String(orphanId) ? 'on' : ''}`}>
                     <input type="radio" name="s-service" value={orphanId} checked={serviceId === String(orphanId)} onChange={() => setServiceId(String(orphanId))} />
-                    <span><strong>{session.serviceType}</strong><span className="muted mono">{formatVnd(session.hourlyRate)}/giờ · mức đã lưu</span></span>
+                    <span><strong>{session.serviceType}</strong><span className="muted mono">{session.customerHourlyRate > 0 ? `Khách ${formatVnd(session.customerHourlyRate)}/giờ · ` : 'Chưa lưu giá khách · '}Lương ${formatVnd(session.hourlyRate)}/giờ · mức đã lưu</span></span>
                   </label>
                 )}
                 {catalog.map((s) => {
                   const same = session?.serviceTypeId === s.id;
+                  const shownCustomerRate = same ? session!.customerHourlyRate : s.customerHourlyRate;
+                  const shownEmployeeRate = same ? session!.hourlyRate : s.hourlyRate;
                   return (
                     <label key={s.id} className={`service-option ${serviceId === String(s.id) ? 'on' : ''}`}>
                       <input type="radio" name="s-service" value={s.id} checked={serviceId === String(s.id)} onChange={() => setServiceId(String(s.id))} data-testid={`radio-service-${s.id}`} />
-                      <span><strong>{same ? session!.serviceType : s.name}</strong><span className="muted mono">{formatVnd(same ? session!.hourlyRate : s.hourlyRate)}/giờ{same ? ' · mức đã lưu' : ''}</span></span>
+                      <span><strong>{same ? session!.serviceType : s.name}</strong><span className="muted mono">{shownCustomerRate > 0 ? `Khách ${formatVnd(shownCustomerRate)}/giờ · ` : 'Chưa cài giá khách · '}Lương {formatVnd(shownEmployeeRate)}/giờ{same ? ' · mức đã lưu' : ''}</span></span>
                     </label>
                   );
                 })}
@@ -110,7 +114,9 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
         <div className="field-row session-hours-row">
           <label className="field" htmlFor="s-hours">Số giờ
             <input id="s-hours" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} required aria-describedby="s-hours-hint" data-testid="input-session-hours" />
-            <span id="s-hours-hint" className="hint">{minutes ? `${minutes} phút${rate > 0 ? ` · ước tính ${formatVnd((minutes / 60) * rate)}` : ''}` : 'Ví dụ 1,5'}</span>
+            <span id="s-hours-hint" className="hint">{minutes
+              ? `${minutes} phút · Lương ${formatVnd(Math.round(minutes * rate / 60))}${cardId ? ' · doanh thu thẻ đã tính khi bán' : customerRate > 0 ? ` · Khách trả ${formatVnd(Math.round(minutes * customerRate / 60))}` : ' · chưa cài giá khách'}`
+              : 'Ví dụ 1,5'}</span>
           </label>
         </div>
         <div className="field session-date-control">

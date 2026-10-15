@@ -25,9 +25,10 @@ test("card balance and service payroll stay consistent through edits and concurr
   try {
     const [member] = await db.insert(membersTable).values({ name: marker, hourlyRate: 0 }).returning();
     memberId = member.id;
-    const [service] = await db.insert(serviceTypesTable).values({ name: marker, hourlyRate: 100000 }).returning();
-    const [otherService] = await db.insert(serviceTypesTable).values({ name: `${marker}-other`, hourlyRate: 150000 }).returning();
-    services.push(service.id, otherService.id);
+    const [service] = await db.insert(serviceTypesTable).values({ name: marker, customerHourlyRate: 200000, hourlyRate: 100000 }).returning();
+    const [otherService] = await db.insert(serviceTypesTable).values({ name: `${marker}-other`, customerHourlyRate: 300000, hourlyRate: 150000 }).returning();
+    const [unpricedService] = await db.insert(serviceTypesTable).values({ name: `${marker}-unpriced`, hourlyRate: 50000 }).returning();
+    services.push(service.id, otherService.id, unpricedService.id);
     const makeCard = async (minutes: number) => {
       const card = await createCard({
         customerName: marker, phone: "0000000000", serviceType: "Dịch vụ kiểm tra",
@@ -65,16 +66,22 @@ test("card balance and service payroll stay consistent through edits and concurr
     const input = { memberId, serviceTypeId: service.id, cardId: a.id, workDate: "2026-10-13", minutes: 60, note: marker };
     const first = await record(input);
     assert.equal(first.earnings, 100000);
+    assert.equal(first.customerHourlyRate, 200000);
+    assert.equal(first.customerCharge, 200000);
     assert.equal(await balance(a.id), 60);
     await db.update(membersTable).set({ hourlyRate: 9000000 }).where(eq(membersTable.id, memberId));
-    await db.update(serviceTypesTable).set({ name: `${marker}-new`, hourlyRate: 200000 }).where(eq(serviceTypesTable.id, service.id));
+    await db.update(serviceTypesTable).set({ name: `${marker}-new`, customerHourlyRate: 250000, hourlyRate: 200000 }).where(eq(serviceTypesTable.id, service.id));
     const edited = await record({ ...input, minutes: 90 }, first.id);
     assert.equal(edited.hourlyRate, 100000, "historical hourly rate must not change");
     assert.equal(edited.earnings, 150000);
+    assert.equal(edited.customerHourlyRate, 200000, "historical customer rate must not change");
+    assert.equal(edited.customerCharge, 300000);
     assert.equal(edited.serviceType, marker, "historical service name must not change");
     const second = await record({ ...input, minutes: 30 });
     assert.equal(second.hourlyRate, 200000);
     assert.equal(second.earnings, 100000);
+    assert.equal(second.customerHourlyRate, 250000);
+    assert.equal(second.customerCharge, 125000);
     assert.equal(second.serviceType, `${marker}-new`);
     assert.equal(await balance(a.id), 120);
     await deleteSession(second.id);
@@ -104,6 +111,9 @@ test("card balance and service payroll stay consistent through edits and concurr
     const switched = await record({ ...input, cardId: null, serviceTypeId: otherService.id, workDate: "2026-09-30" }, standalone.id);
     assert.equal(switched.hourlyRate, 150000, "changing service uses that service's current rate");
     assert.equal(switched.earnings, 150000);
+    assert.equal(switched.customerHourlyRate, 300000);
+    assert.equal(switched.customerCharge, 300000);
+    await assert.rejects(record({ ...input, cardId: null, serviceTypeId: unpricedService.id, workDate: "2026-09-30" }), fails(400));
     const [legacy] = await db.insert(serviceSessionsTable).values({
       memberId, employeeName: marker, serviceType: "Dịch vụ cũ",
       workDate: "2026-09-29", minutes: 60, hourlyRate: 50000, earnings: 50000,

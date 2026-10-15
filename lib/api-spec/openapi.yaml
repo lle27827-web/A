@@ -615,21 +615,23 @@ components:
         note: { type: string, maxLength: 2000 }
     ServiceTypeRecord:
       type: object
-      required: [id, name, hourlyRate, createdAt]
+      required: [id, name, hourlyRate, customerHourlyRate, createdAt]
       properties:
         id: { type: integer }
         name: { type: string }
+        customerHourlyRate: { type: integer }
         hourlyRate: { type: integer }
         createdAt: { type: string, format: date-time }
     ServiceTypeInput:
       type: object
-      required: [name, hourlyRate]
+      required: [name, hourlyRate, customerHourlyRate]
       properties:
         name: { type: string, minLength: 1, maxLength: 120 }
+        customerHourlyRate: { type: integer, minimum: 1, maximum: 10000000 }
         hourlyRate: { type: integer, minimum: 1, maximum: 10000000 }
     ServiceSession:
       type: object
-      required: [id, cardId, memberId, employeeName, customerName, serviceType, serviceTypeId, workDate, minutes, hourlyRate, earnings, note, createdAt]
+      required: [id, cardId, memberId, employeeName, customerName, serviceType, serviceTypeId, workDate, minutes, customerHourlyRate, customerCharge, hourlyRate, earnings, note, createdAt]
       properties:
         id: { type: integer }
         cardId: { type: ["integer", "null"] }
@@ -640,6 +642,8 @@ components:
         serviceType: { type: string }
         workDate: { type: string }
         minutes: { type: integer }
+        customerHourlyRate: { type: integer }
+        customerCharge: { type: integer }
         hourlyRate: { type: integer }
         earnings: { type: integer }
         note: { type: string }
@@ -658,22 +662,23 @@ components:
         note: { type: string, maxLength: 2000 }
     MassageSummary:
       type: object
-      required: [month, revenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, cardsSold, walkInVisits, cardVisits, today]
+      required: [month, revenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits, today]
       properties:
         month: { type: string }
-        revenue: { type: number, description: "Tổng báo cáo cơ sở: tiền các ca dịch vụ đã ghi cộng tiền bán thẻ trong tháng." }
-        serviceRevenue: { type: number, description: "Tổng earnings lưu tại các ca theo ngày làm; đây là khoản tính theo lương ca theo yêu cầu người dùng." }
-        walkInServiceRevenue: { type: number, description: "Tổng khoản dịch vụ khách lẻ; không gồm ca đã dùng thẻ." }
+        revenue: { type: number, description: "Tổng doanh thu gộp: tiền dịch vụ khách lẻ cộng tiền bán thẻ trong tháng; không cộng lại khi dùng thẻ." }
+        serviceRevenue: { type: number, description: "Tiền khách lẻ trả theo giá dịch vụ đã lưu ở từng ca; không gồm ca thanh toán bằng thẻ." }
+        walkInServiceRevenue: { type: number, description: "Bí danh tương thích của serviceRevenue; không gồm ca đã dùng thẻ." }
         walkInServiceMinutes: { type: integer, description: "Tổng số phút phục vụ khách lẻ; không gồm ca đã dùng thẻ." }
-        revenueExcludingCardSessions: { type: number, description: "Doanh thu bán thẻ cộng dịch vụ khách lẻ; loại khoản lương của các ca dùng thẻ." }
+        revenueExcludingCardSessions: { type: number, description: "Tổng doanh thu gộp, không tính lại dịch vụ đã thanh toán qua thẻ." }
         cardRevenue: { type: number, description: "Tổng tiền bán thẻ theo ngày mua." }
+        payroll: { type: number, description: "Tổng tiền công nhân viên theo ca trong tháng, gồm ca khách lẻ và thẻ còn hoạt động." }
         cardsSold: { type: integer }
         walkInVisits: { type: integer, description: "Số ca không dùng thẻ; mỗi ca là một lượt khách." }
         cardVisits: { type: integer, description: "Số ca dùng các thẻ đang hoạt động." }
         today: { $ref: "#/components/schemas/DailyRevenue" }
     DailyRevenue:
       type: object
-      required: [date, revenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, cardsSold, walkInVisits, cardVisits]
+      required: [date, revenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits]
       properties:
         date: { type: string, format: date }
         revenue: { type: number }
@@ -682,6 +687,7 @@ components:
         walkInServiceMinutes: { type: integer }
         revenueExcludingCardSessions: { type: number }
         cardRevenue: { type: number }
+        payroll: { type: number }
         cardsSold: { type: integer }
         walkInVisits: { type: integer }
         cardVisits: { type: integer }

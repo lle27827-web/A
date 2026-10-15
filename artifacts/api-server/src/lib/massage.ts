@@ -131,7 +131,11 @@ export async function saveSession(input: ServiceSessionInput, id?: number) {
     if (!old && !service) throw new MassageError(400, "Hãy chọn loại hình dịch vụ để tính lương.");
     const sameService = old && old.serviceTypeId === serviceTypeId;
     const rate = sameService ? old.hourlyRate : service?.hourlyRate;
+    const customerRate = sameService ? old.customerHourlyRate : service?.customerHourlyRate;
     if (!rate || rate <= 0) throw new MassageError(400, "Hãy chọn dịch vụ có mức lương mỗi giờ hợp lệ.");
+    if (cardId === null && (!customerRate || customerRate <= 0) && (!old || !sameService)) {
+      throw new MassageError(400, "Hãy cài giá khách trả mỗi giờ cho dịch vụ trước khi ghi ca khách lẻ.");
+    }
     if (card && await usedMinutes(tx, card.id, id) + input.minutes > card.totalMinutes) {
       throw new MassageError(409, "Thẻ không đủ số giờ còn lại cho lượt sử dụng này.");
     }
@@ -141,7 +145,10 @@ export async function saveSession(input: ServiceSessionInput, id?: number) {
     const values = {
       memberId: member.id, employeeName: sameEmployee ? old.employeeName : member.name,
       cardId, customerName: sameCard ? old.customerName : card?.customerName ?? input.customerName?.trim() ?? "",
-      serviceType, serviceTypeId, workDate: input.workDate, minutes: input.minutes, hourlyRate: rate,
+      serviceType, serviceTypeId, workDate: input.workDate, minutes: input.minutes,
+      customerHourlyRate: customerRate ?? 0,
+      customerCharge: Math.round(input.minutes * (customerRate ?? 0) / 60),
+      hourlyRate: rate,
       earnings: Math.round(input.minutes * rate / 60), note: input.note?.trim() ?? "",
     };
     const [row] = id
