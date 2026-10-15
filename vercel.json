@@ -19,7 +19,19 @@
       "framework": "vite",
       "installCommand": "pnpm install --frozen-lockfile --filter @workspace/task-manager...",
       "buildCommand": "pnpm -r --filter @workspace/task-manager... --if-present run build",
-      "outputDirectory": "dist/public"
+      "outputDirectory": "dist/public",
+      "routes": [
+        {
+          "src": "/:path((?!assets/|favicon\\.svg$|logo\\.svg$|robots\\.txt$|index\\.html$).*)",
+          "transforms": [
+            {
+              "type": "request.path",
+              "op": "set",
+              "args": "/index.html"
+            }
+          ]
+        }
+      ]
     }
   },
   "rewrites": [
@@ -56,8 +68,7 @@
     {
       "source": "/(.*)",
       "destination": {
-        "service": "task-manager",
-        "path": "/index.html"
+        "service": "task-manager"
       }
     }
   ]

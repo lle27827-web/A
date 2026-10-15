@@ -8,7 +8,7 @@
 - `api-server`: API tại `/api/*`.
 - `mockup-sandbox`: service nội bộ, không có rewrite public.
 
-Các đường dẫn SPA như `/employees`, `/employees/:id` và `/sign-in` được rewrite nội bộ tới `index.html` để tải ứng dụng React khi mở trực tiếp hoặc refresh. `/assets/*` và các tệp `favicon.svg`, `logo.svg`, `robots.txt` vẫn được phục vụ nguyên đường dẫn; `/api/*` luôn được định tuyến tới API trước rule fallback.
+Các đường dẫn SPA như `/employees`, `/employees/:id` và `/sign-in` được chuyển tới `index.html` bằng request-path transform bên trong service `task-manager`; chỉ đổi `destination.path` ở rewrite cấp gốc là không đủ vì service vẫn nhận pathname ban đầu. `/assets/*`, `favicon.svg`, `logo.svg` và `robots.txt` được giữ nguyên; `/api/*` luôn được định tuyến tới API trước service frontend.
 
 Mỗi service cài đúng workspace dependencies bằng pnpm, dùng lockfile cố định và build riêng. `package.json` ghim pnpm `10.26.1` và Node.js `24.x`. Vercel tự quản lý `NODE_ENV`; API chạy dưới dạng Function nên không cần `PORT`. Workflow Replit vẫn dùng `PORT` do artifact cung cấp.
 
