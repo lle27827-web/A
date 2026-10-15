@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { getListServiceTypesQueryKey, useListServiceTypes } from '@workspace/api-client-react';
 import type { MemberRecord, ServiceSession, ServiceSessionInput, TreatmentCard } from '@workspace/api-client-react';
-import { AlertCircle, CalendarDays, LoaderCircle } from 'lucide-react';
+import { AlertCircle, CalendarDays, Check, ChevronRight, LoaderCircle, Sparkles } from 'lucide-react';
 import { Link } from 'wouter';
 import { Modal } from '@/components/modal';
 import { DatePickerDialog } from '@/components/date-picker-dialog';
@@ -9,6 +9,14 @@ import { formatShortDate, normalize } from '@/lib/attendance';
 import { formatMinutes, formatVnd, hoursValue, parseHoursToMinutes } from '@/lib/massage';
 
 const KEEP = 'keep';
+
+type ServiceChoice = {
+  id: string;
+  name: string;
+  customerRate: number;
+  hourlyRate: number;
+  saved: boolean;
+};
 
 export function SessionDialog({ session, members, cards, cardsLoading, defaultDate, defaultMemberId, fixedMemberId, fixedCardId, busy, serverError, onClose, onSubmit }: {
   session: ServiceSession | null;
@@ -30,6 +38,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
   const [cardId, setCardId] = useState(String(session ? session.cardId ?? '' : fixedCardId ?? ''));
   const [date, setDate] = useState(session?.workDate ?? defaultDate);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [servicePickerOpen, setServicePickerOpen] = useState(false);
   const [hours, setHours] = useState(session ? hoursValue(session.minutes) : '1');
   const [serviceId, setServiceId] = useState(session ? (session.serviceTypeId !== null ? String(session.serviceTypeId) : KEEP) : '');
   const [customerName, setCustomerName] = useState(session && session.cardId === null ? session.customerName : '');
@@ -47,6 +56,33 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
   const rate = keepsSnapshot ? session!.hourlyRate : selected?.hourlyRate ?? 0;
   const customerRate = keepsSnapshot ? session!.customerHourlyRate : selected?.customerHourlyRate ?? 0;
   const orphanId = session && session.serviceTypeId !== null && !catalog.some((s) => s.id === session.serviceTypeId) ? session.serviceTypeId : null;
+  const serviceChoices: ServiceChoice[] = [
+    ...(session && session.serviceTypeId === null ? [{
+      id: KEEP,
+      name: `Giữ dịch vụ cũ: ${session.serviceType || 'không tên'}`,
+      customerRate: session.customerHourlyRate,
+      hourlyRate: session.hourlyRate,
+      saved: true,
+    }] : []),
+    ...(orphanId !== null && session ? [{
+      id: String(orphanId),
+      name: session.serviceType || 'Dịch vụ đã lưu',
+      customerRate: session.customerHourlyRate,
+      hourlyRate: session.hourlyRate,
+      saved: true,
+    }] : []),
+    ...catalog.map((service) => {
+      const same = session?.serviceTypeId === service.id;
+      return {
+        id: String(service.id),
+        name: same ? session!.serviceType : service.name,
+        customerRate: same ? session!.customerHourlyRate : service.customerHourlyRate,
+        hourlyRate: same ? session!.hourlyRate : service.hourlyRate,
+        saved: same,
+      };
+    }),
+  ];
+  const selectedChoice = serviceChoices.find((service) => service.id === serviceId) ?? null;
 
   // Preselect catalog service only when the card label exactly matches a catalog name (new sessions only).
   useEffect(() => {
@@ -74,49 +110,39 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
 
   const shown = error || serverError;
   const quick = !!fixedMemberId && !session;
+  const serviceSummary = (service: ServiceChoice) =>
+    `${service.customerRate > 0 ? `Tiền dịch vụ ${formatVnd(service.customerRate)}/giờ` : 'Chưa cài tiền dịch vụ'} · Tiền công ${formatVnd(service.hourlyRate)}/giờ${service.saved ? ' · đã lưu' : ''}`;
   return (
     <Modal title={session ? 'Sửa ca phục vụ' : quick ? `Chấm công${fixedMember ? ` · ${fixedMember.name}` : ''}` : 'Thêm ca phục vụ'}
-      description="Chọn dịch vụ và số giờ. Tiền công tính theo mức của nhân viên; doanh thu khách lẻ tính theo giá khách trả. Ca dùng thẻ không ghi doanh thu lần nữa." onClose={onClose} testId="dialog-session">
+      onClose={onClose} testId="dialog-session">
       <form className="form-grid" onSubmit={submit} noValidate>
         <fieldset className="field service-pick">
-          <legend>Dịch vụ</legend>
+          <legend>Loại hình dịch vụ</legend>
           {catalogQuery.isLoading ? <span className="hint" role="status">Đang tải danh mục dịch vụ…</span>
             : catalogQuery.isError ? <span className="hint warn" role="alert">Không tải được danh mục. <button type="button" className="link-soft as-button" onClick={() => void catalogQuery.refetch()}>Thử lại</button></span>
             : catalog.length === 0 && !session ? <span className="hint warn" role="alert">Chưa có dịch vụ nào. <Link href="/services" className="link-soft">Thêm dịch vụ</Link> trước khi chấm công.</span>
             : (
-              <div className="service-options" role="radiogroup" aria-label="Chọn dịch vụ">
-                {session && session.serviceTypeId === null && (
-                  <label className={`service-option ${serviceId === KEEP ? 'on' : ''}`}>
-                    <input type="radio" name="s-service" value={KEEP} checked={serviceId === KEEP} onChange={() => setServiceId(KEEP)} data-testid="radio-service-keep" />
-                    <span><strong>Giữ dịch vụ cũ: {session.serviceType || 'không tên'}</strong><span className="muted mono">{session.customerHourlyRate > 0 ? `Khách ${formatVnd(session.customerHourlyRate)}/giờ · ` : 'Chưa lưu giá khách · '}Lương ${formatVnd(session.hourlyRate)}/giờ · mức đã lưu</span></span>
-                  </label>
-                )}
-                {orphanId !== null && session && (
-                  <label className={`service-option ${serviceId === String(orphanId) ? 'on' : ''}`}>
-                    <input type="radio" name="s-service" value={orphanId} checked={serviceId === String(orphanId)} onChange={() => setServiceId(String(orphanId))} />
-                    <span><strong>{session.serviceType}</strong><span className="muted mono">{session.customerHourlyRate > 0 ? `Khách ${formatVnd(session.customerHourlyRate)}/giờ · ` : 'Chưa lưu giá khách · '}Lương ${formatVnd(session.hourlyRate)}/giờ · mức đã lưu</span></span>
-                  </label>
-                )}
-                {catalog.map((s) => {
-                  const same = session?.serviceTypeId === s.id;
-                  const shownCustomerRate = same ? session!.customerHourlyRate : s.customerHourlyRate;
-                  const shownEmployeeRate = same ? session!.hourlyRate : s.hourlyRate;
-                  return (
-                    <label key={s.id} className={`service-option ${serviceId === String(s.id) ? 'on' : ''}`}>
-                      <input type="radio" name="s-service" value={s.id} checked={serviceId === String(s.id)} onChange={() => setServiceId(String(s.id))} data-testid={`radio-service-${s.id}`} />
-                      <span><strong>{same ? session!.serviceType : s.name}</strong><span className="muted mono">{shownCustomerRate > 0 ? `Khách ${formatVnd(shownCustomerRate)}/giờ · ` : 'Chưa cài giá khách · '}Lương {formatVnd(shownEmployeeRate)}/giờ{same ? ' · mức đã lưu' : ''}</span></span>
-                    </label>
-                  );
-                })}
-              </div>
+              <button
+                type="button"
+                className="choice-row service-picker-trigger"
+                onClick={() => setServicePickerOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={servicePickerOpen}
+                data-testid="button-open-service-picker"
+              >
+                <Sparkles size={18} aria-hidden="true" />
+                <span className="grow">
+                  <strong>{selectedChoice?.name ?? 'Chọn dịch vụ'}</strong>
+                  {selectedChoice && <span className="muted mono">{serviceSummary(selectedChoice)}</span>}
+                </span>
+                <ChevronRight size={16} aria-hidden="true" />
+              </button>
             )}
         </fieldset>
         <div className="field-row session-hours-row">
           <label className="field" htmlFor="s-hours">Số giờ
-            <input id="s-hours" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} required aria-describedby="s-hours-hint" data-testid="input-session-hours" />
-            <span id="s-hours-hint" className="hint">{minutes
-              ? `${minutes} phút · Lương ${formatVnd(Math.round(minutes * rate / 60))}${cardId ? ' · doanh thu thẻ đã tính khi bán' : customerRate > 0 ? ` · Khách trả ${formatVnd(Math.round(minutes * customerRate / 60))}` : ' · chưa cài giá khách'}`
-              : 'Ví dụ 1,5'}</span>
+            <input id="s-hours" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} required aria-describedby={minutes ? 's-hours-hint' : undefined} data-testid="input-session-hours" />
+            {minutes && <span id="s-hours-hint" className="hint">{minutes} phút · Tiền công {formatVnd(Math.round(minutes * rate / 60))}{!cardId && customerRate > 0 ? ` · Tiền dịch vụ ${formatVnd(Math.round(minutes * customerRate / 60))}` : ''}</span>}
           </label>
         </div>
         <div className="field session-date-control">
@@ -126,9 +152,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
           </button>
           <input type="hidden" name="workDate" value={date} required />
         </div>
-        {fixedMemberId && !session ? (
-          <p className="hint" data-testid="text-session-member">Kỹ thuật viên: <strong>{fixedMember?.name ?? `#${fixedMemberId}`}</strong></p>
-        ) : (
+        {!(fixedMemberId && !session) && (
           <label className="field" htmlFor="s-member">Kỹ thuật viên
             <select id="s-member" value={memberId} onChange={(e) => setMemberId(e.target.value)} required data-testid="select-session-member">
               <option value="">Chọn nhân viên</option>
@@ -165,6 +189,32 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
           <button type="submit" className="btn primary" disabled={busy || catalogQuery.isLoading} data-testid="button-save-session">{busy && <LoaderCircle size={14} className="spin" />}Lưu ca</button>
         </div>
       </form>
+      {servicePickerOpen && (
+        <Modal title="Chọn loại hình dịch vụ" onClose={() => setServicePickerOpen(false)} testId="dialog-service-picker">
+          <div className="choice-list service-choice-list" aria-label="Danh sách loại hình dịch vụ">
+            {serviceChoices.map((service) => {
+              const isSelected = service.id === serviceId;
+              return (
+                <button
+                  key={service.id}
+                  type="button"
+                  className="choice-row service-choice-row"
+                  aria-pressed={isSelected}
+                  onClick={() => { setServiceId(service.id); setError(''); setServicePickerOpen(false); }}
+                  data-testid={`button-service-choice-${service.id}`}
+                >
+                  <Sparkles size={17} aria-hidden="true" />
+                  <span className="grow">
+                    <strong>{service.name}</strong>
+                    <span className="muted mono">{serviceSummary(service)}</span>
+                  </span>
+                  {isSelected ? <Check size={17} aria-label="Đã chọn" /> : <ChevronRight size={17} aria-hidden="true" />}
+                </button>
+              );
+            })}
+          </div>
+        </Modal>
+      )}
       {datePickerOpen && <DatePickerDialog value={date} title="Chọn ngày chấm công" onClose={() => setDatePickerOpen(false)}
         onSelect={(nextDate) => { setDate(nextDate); setDatePickerOpen(false); }} />}
     </Modal>

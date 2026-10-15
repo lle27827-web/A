@@ -2,7 +2,7 @@
 - [Orval parameter collisions](orval-parameter-collisions.md) — mixed path/query parameters can generate duplicate exports; fix the contract, not generated files.
 - [Scrollable table accessibility](scrollable-table-accessibility.md) — position scrollports so absolute screen-reader labels cannot escape clipping and widen the document.
 - [Archived treatment cards](archived-cards.md) — keep archived cards in storage; exclude their visits, wages, sales and balances from active views.
-- [Card-use revenue reporting](card-use-revenue-reporting.md) — separate customer charges from payroll; count card sales on purchase dates and never revenue on redemption.
+- [Card-use revenue reporting](card-use-revenue-reporting.md) — separate service price/pay, label customer charges “Tiền dịch vụ,” and count card revenue only on purchase.
 - [OpenAPI date query strings](openapi-date-query-strings.md) — keep URL dates as validated `YYYY-MM-DD` strings; Express query values arrive as text.
 - [Vercel database access](vercel-database-access.md) — Replit's internal `DATABASE_URL` is scoped to Replit; external deployments need a remote database URL.
 - [Owner and guest access](owner-guest-access.md) — guests may read employee management only; verified owner login is required for all edits, revenue, and card management.
