@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { getListTreatmentCardsQueryKey, useCreateMember, useCreateServiceSession, useDeleteMember, useListTreatmentCards } from '@workspace/api-client-react';
 import type { MemberRecord, ServiceSessionInput } from '@workspace/api-client-react';
-import { ArrowLeft, ChevronRight, ClipboardCheck, Eye, LockKeyhole, Plus, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, ChevronRight, ClipboardCheck, Eye, Plus, Trash2, Users } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { MemberDialog } from '@/components/entity-dialogs';
@@ -51,8 +51,7 @@ export default function EmployeesPage() {
       <Link href="/" className="back" data-testid="link-back"><ArrowLeft size={15} />Trang chính</Link>
       <div className="panel-head wrap">
         <div><h1 id="emp-title" className="page-title">Quản lý nhân viên</h1><p className="sub">{members.length} nhân viên</p></div>
-        {canEdit ? <button type="button" className="btn primary" onClick={() => { setDialogError(''); setOpen(true); }} data-testid="button-add-member"><Plus size={15} />Thêm nhân viên</button>
-          : <span className="view-only"><LockKeyhole size={13} />Chỉ xem</span>}
+        <button type="button" className="btn primary" onClick={() => { setDialogError(''); setOpen(true); }} data-testid="button-add-member"><Plus size={15} />Thêm nhân viên</button>
       </div>
       {membersLoading ? <Skeleton rows={5} label="Đang tải nhân viên" /> : membersError ? <ErrorBanner text="Không tải được danh sách nhân viên." onRetry={retryMembers} /> : list.length === 0 ? (
         <div className="empty"><Users size={22} /><p>{members.length ? 'Không có nhân viên khớp tìm kiếm.' : 'Chưa có nhân viên nào.'}</p>
@@ -78,7 +77,6 @@ export default function EmployeesPage() {
               onClick={() => { if (!canEdit) return; setDialogError(''); setQuickDate(localDate()); setQuick(choice); setChoice(null); }} data-testid="button-choice-attendance">
               <ClipboardCheck size={18} /><span className="grow"><strong>Chấm công</strong><span className="muted">Hôm nay</span></span><ChevronRight size={16} />
             </button>
-            {!canEdit && <p id="choice-lock" className="hint warn"><LockKeyhole size={12} /> Cần quyền chủ sở hữu hoặc quản lý, ở chế độ Chủ.</p>}
             <button type="button" className="choice-row" onClick={() => { const id = choice.id; setChoice(null); navigate(`/employees/${id}`); }} data-testid="button-choice-detail">
               <Eye size={18} /><span className="grow"><strong>Xem chi tiết</strong><span className="muted">Lương, lịch sử ca</span></span><ChevronRight size={16} />
             </button>

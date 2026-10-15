@@ -4,5 +4,4 @@
 - [Archived treatment cards](archived-cards.md) — keep archived cards in storage; exclude their visits, wages, sales and balances from active views.
 - [Card-use revenue reporting](card-use-revenue-reporting.md) — keep card-sale totals, but exclude wages from card-paid shifts in the net-revenue lines.
 - [OpenAPI date query strings](openapi-date-query-strings.md) — keep URL dates as validated `YYYY-MM-DD` strings; Express query values arrive as text.
-- [Employee read-only access](member-view-access.md) — all signed-in accounts may view employee records, shifts, and payroll; only managers can change data.
 - [Vercel database access](vercel-database-access.md) — Replit's internal `DATABASE_URL` is scoped to Replit; external deployments need a remote database URL.

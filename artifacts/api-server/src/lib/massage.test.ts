@@ -97,8 +97,7 @@ test("card balance and service payroll stay consistent through edits and concurr
     assert.ok(rejected?.status === "rejected" && fails(409)(rejected.reason));
     assert.equal(await balance(b.id), 120, "concurrent uses cannot overdraw the card");
     const [row] = await db.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, b.id));
-    assert.equal(cardResponse(row, 120).phone, "•••• 0000");
-    assert.equal(cardResponse(row, 120, true).phone, "0000000000");
+    assert.equal(cardResponse(row, 120).phone, "0000000000");
     await assert.rejects(record({ ...input, cardId: null, serviceTypeId: null }), fails(400));
     await assert.rejects(record({ ...input, cardId: null, serviceTypeId: 999999999 }), fails(404));
     const standalone = await record({ ...input, cardId: null, workDate: "2026-09-30" });

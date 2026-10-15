@@ -18,15 +18,9 @@ Thêm các biến này trong Vercel Project Settings → Environment Variables. 
 
 | Biến | Dùng ở đâu | Lưu ý |
 | --- | --- | --- |
-| `ADMIN_EMAIL` | API | Email đã xác minh trong Clerk, dùng để xác định chủ sở hữu. |
 | `DATABASE_URL` | API | Chuỗi kết nối Neon PostgreSQL dành cho deployment Vercel. Dùng connection string dạng pooled của Neon và giữ giá trị này bí mật. |
-| `CLERK_SECRET_KEY` | API | Khóa bí mật của cùng Clerk instance với ứng dụng. |
-| `CLERK_PUBLISHABLE_KEY` | API | Publishable key của Clerk, dùng bởi Clerk middleware phía máy chủ. |
-| `VITE_CLERK_PUBLISHABLE_KEY` | Build frontend | Publishable key của cùng Clerk instance; biến `VITE_` được nhúng vào bundle trình duyệt. |
 
-Không cần đặt `VITE_CLERK_PROXY_URL` trên Vercel: bản build production tự dùng đường dẫn cùng nguồn `/api/__clerk`. Nếu đặt biến này, hãy dùng đường dẫn tương đối đó để hoạt động trên cả preview và custom domain.
-
-Chỉ thêm biến cần thiết cho từng môi trường. Với Preview, ưu tiên cơ sở dữ liệu thử nghiệm riêng thay vì cho bản preview quyền ghi vào dữ liệu production. Sau khi đổi `VITE_CLERK_PUBLISHABLE_KEY`, cần build/deploy lại frontend.
+Không cần cấu hình đăng nhập. Cảnh báo: API công khai cho phép bất kỳ ai truy cập website đọc và thay đổi dữ liệu, bao gồm số điện thoại khách hàng và thông tin lương. Với Preview, hãy dùng cơ sở dữ liệu thử nghiệm riêng thay vì cho bản preview quyền ghi vào dữ liệu production.
 
 ## Neon PostgreSQL cho Vercel
 

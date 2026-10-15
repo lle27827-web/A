@@ -26,10 +26,10 @@ export function monthBounds(month: string) {
 export function sessionResponse(row: typeof serviceSessionsTable.$inferSelect) {
   return { ...row, createdAt: row.createdAt.toISOString() };
 }
-export function cardResponse(row: typeof treatmentCardsTable.$inferSelect, usedMinutes = 0, owner = false) {
+export function cardResponse(row: typeof treatmentCardsTable.$inferSelect, usedMinutes = 0) {
   return {
     ...row,
-    phone: owner ? row.phone : `•••• ${row.phone.slice(-4)}`,
+    phone: row.phone,
     usedMinutes,
     remainingMinutes: row.totalMinutes - usedMinutes,
     createdAt: row.createdAt.toISOString(),
@@ -51,7 +51,7 @@ function cardValues(input: TreatmentCardInput) {
 }
 export async function createCard(input: TreatmentCardInput) {
   const [row] = await db.insert(treatmentCardsTable).values(cardValues(input)).returning();
-  return cardResponse(row, 0, true);
+  return cardResponse(row);
 }
 export async function updateCard(id: number, input: TreatmentCardUpdate) {
   return db.transaction(async (tx) => {
@@ -65,7 +65,7 @@ export async function updateCard(id: number, input: TreatmentCardUpdate) {
       totalMinutes: values.totalMinutes, purchaseAmount: values.purchaseAmount,
       purchaseDate: values.purchaseDate, note: values.note,
     }).where(eq(treatmentCardsTable.id, id)).returning();
-    return cardResponse(row, used, true);
+    return cardResponse(row, used);
   });
 }
 export async function deleteCard(id: number) {
@@ -100,7 +100,7 @@ export async function addCardHours(id: number, minutes: number) {
     }
     const [row] = await tx.update(treatmentCardsTable)
       .set({ totalMinutes: card.totalMinutes + minutes }).where(eq(treatmentCardsTable.id, id)).returning();
-    return cardResponse(row, await usedMinutes(tx, id), true);
+    return cardResponse(row, await usedMinutes(tx, id));
   });
 }
 

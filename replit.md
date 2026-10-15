@@ -1,6 +1,6 @@
 # SỔ CÔNG
 
-Ứng dụng quản lý nhân viên và chấm công: mọi người có thể xem; chủ sở hữu và người được chủ sở hữu cấp quyền quản lý được phép thay đổi dữ liệu.
+Ứng dụng quản lý nhân viên, chấm công, dịch vụ và thẻ liệu trình. Không có đăng nhập hay phân quyền chủ sở hữu; mọi người truy cập được đều có thể xem và thay đổi dữ liệu.
 
 ## Run & Operate
 
@@ -10,8 +10,8 @@
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas after changing OpenAPI
 - `pnpm --filter @workspace/db run push` — apply development schema changes
 - `pnpm --filter @workspace/api-server run test:massage` — check card balance/payroll transactions with disposable development fixtures
-- Managed environment: Replit Database (`DATABASE_URL`) and Clerk Auth
-- Required owner configuration: `ADMIN_EMAIL` — the owner's verified Clerk email. Until configured, all write operations remain disabled.
+- Managed environment: Replit Database (`DATABASE_URL`)
+- No authentication or owner configuration is required. All app data and write operations are public.
 
 ## Stack
 
@@ -31,11 +31,10 @@
 
 ## Architecture decisions
 
-- Business-data reads are public; every create, update, and delete requires server-side authorization as the owner or a delegated manager. The manager grant list and grant/revoke operations are private to the owner.
-- Owner authorization matches a verified Clerk email to `ADMIN_EMAIL`; it is never claimed by the first visitor.
+- The app has no sign-in or owner authorization. Every visitor can read and write business data, including customer phone numbers and payroll.
 - Attendance work dates are stored as date-only strings to avoid timezone shifts.
 
-Only the primary owner may grant or revoke management access. Managers may add/edit/delete business data, but may not grant access to others or change the owner. Matching uses verified Clerk email addresses; revocation is checked on every new write request. Employee-view preview remains read-only regardless of account rights. **Why:** the user explicitly chose “Chỉ chủ sở hữu được cấp hoặc thu hồi quyền quản lý.”
+The “Chủ” and “Nhân viên” labels are presentation modes only; there is no account-based access boundary. The employee preview remains read-only as a viewing layout.
 
 ## Product
 
@@ -55,14 +54,13 @@ The user wants the app named “Số công” and two views, Chủ and Nhân vi�
 
 Clicking an employee first offers “Chấm công” and “Xem chi tiết”: quick attendance selects a service and hours. Employee details are compact: monthly salary first, selected-day salary second with small service-count notes, then full-width day rows stacked vertically, Vietnam today first. Each day row shows date, total session count and total saved earnings only, including zero for empty days; do not show service names, hours or session records outside a clicked day's detail panel. All day panels start collapsed, even today. Tapping a day selects it for daily salary and opens/closes its recorded service types, hours and notes directly below that row. Put smaller owner-only “Chỉnh sửa” and “Chấm công” actions below those records, not above the dates. Avoid extra explanatory employee-content blocks, avatars or legacy-attendance sections; retain historical data in the database. Employee details include a top-left return action even in employee-view preview. **Why:** the user requested only salary summaries and day totals until they explicitly tap to inspect or edit recorded sessions. Service catalog management is accessible from settings. The gear also selects the view and employee displayed in the employee view, with the selection remembered in the current browser.
 
-Choosing the Chủ view is a presentation preference, never authorization. Only a verified owner or delegated manager may edit in that view; the Nhân viên view is read-only even when previewed by either. Employee selection is a display filter, not a private employee-account access boundary: the existing public-read policy remains unchanged.
+Choosing the Chủ or Nhân viên view changes presentation only. The Chủ view permits editing without sign-in; the Nhân viên view remains a read-only display of the selected employee's records.
 
-Selecting an employee shows shift history. The owner can add/delete employees and add/edit/delete attendance after signing in with the configured Clerk account. The current app has no active AI endpoints, voice features, or Công việc feature. Historical task data remains in the database; do not drop it without explicit permission.
+Selecting an employee shows shift history. Anyone can add/delete employees and add/edit/delete attendance without signing in. The current app has no active AI endpoints, voice features, or Công việc feature. Historical task data remains in the database; do not drop it without explicit permission.
 
 ## Gotchas
 
-- Keep `ADMIN_EMAIL` unset until the intended owner email is known; the app fails closed and stays read-only.
-- Preserve the API proxy route `/api/__clerk` when changing API service routing; Clerk needs it in production.
+- The app is intentionally unauthenticated and writable by any visitor; do not reintroduce sign-in or owner authorization without the user's request.
 
 ## Pointers
 

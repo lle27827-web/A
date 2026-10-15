@@ -2,17 +2,17 @@ import type { AttendanceRecord } from '@workspace/api-client-react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { formatShortDate, initial, statusLabel } from '@/lib/attendance';
 
-export function AttendanceTable({ records, caption, isOwner, showDate, busy, onEdit, onDelete, testId }: {
+export function AttendanceTable({ records, caption, canEdit, showDate, busy, onEdit, onDelete, testId }: {
   records: AttendanceRecord[];
   caption: string;
-  isOwner: boolean;
+  canEdit: boolean;
   showDate: boolean;
   busy?: boolean;
   onEdit?: (record: AttendanceRecord) => void;
   onDelete?: (record: AttendanceRecord) => void;
   testId: string;
 }) {
-  const canEdit = isOwner && onEdit && onDelete;
+  const showActions = canEdit && onEdit && onDelete;
   return (
     <div className="table-wrap">
       <table className="data-table" data-testid={testId}>
@@ -37,7 +37,7 @@ export function AttendanceTable({ records, caption, isOwner, showDate, busy, onE
               <td className="mono">{record.checkIn ?? <span className="muted">—</span>}</td>
               <td className="mono">{record.checkOut ?? <span className="muted">—</span>}</td>
               <td className="note-cell">{record.note || <span className="muted">—</span>}</td>
-              {canEdit && (
+              {showActions && (
                 <td>
                   <div className="row-actions">
                     <button type="button" className="icon-btn" onClick={() => onEdit(record)} aria-label={`Sửa ca của ${record.employeeName} ngày ${formatShortDate(record.workDate)}`} data-testid={`button-edit-attendance-${record.id}`}><Pencil size={14} /></button>

@@ -1,7 +1,7 @@
 kind = "web"
 previewPath = "/"
 title = "SỔ CÔNG"
-description = "Quản lý nhân viên, chấm công, lương và thẻ liệu trình cho cơ sở massage; chủ sở hữu cấp quyền quản lý dữ liệu cho tài khoản khác."
+description = "Quản lý công khai nhân viên, chấm công, lương và thẻ liệu trình cho cơ sở massage; không cần đăng nhập."
 version = "1.0.0"
 id = "artifacts/task-manager"
 router = "path"

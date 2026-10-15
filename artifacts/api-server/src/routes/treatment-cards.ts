@@ -16,7 +16,7 @@ router.get("/treatment-cards", massageHandler(async (_req, res) => {
     .from(treatmentCardsTable).leftJoin(serviceSessionsTable, eq(serviceSessionsTable.cardId, treatmentCardsTable.id))
     .where(isNull(treatmentCardsTable.deletedAt))
     .groupBy(treatmentCardsTable.id).orderBy(desc(treatmentCardsTable.purchaseDate), desc(treatmentCardsTable.id));
-  res.json(ListTreatmentCardsResponse.parse(rows.map(({ card, used }) => cardResponse(card, Number(used), true))));
+  res.json(ListTreatmentCardsResponse.parse(rows.map(({ card, used }) => cardResponse(card, Number(used)))));
 }));
 router.post("/treatment-cards", massageHandler(async (req, res) => {
   const input = parseInput(CreateTreatmentCardBody, req.body);

@@ -164,13 +164,13 @@ export default function AttendanceApp() {
         ) : (
         <div className="layout">
           <aside className="side">
-            <MemberList members={members} selectedId={selectedMemberId} isOwner={canEdit} loading={membersQuery.isLoading} error={membersQuery.isError} busy={createMember.isPending || deleteMember.isPending}
+            <MemberList members={members} selectedId={selectedMemberId} canEdit={canEdit} loading={membersQuery.isLoading} error={membersQuery.isError} busy={createMember.isPending || deleteMember.isPending}
               onRetry={() => void membersQuery.refetch()} onSelect={setSelectedMemberId} onCreate={addMember} onDelete={removeMember} />
           </aside>
 
           <div className="content">
             {selectedMember && (
-              <MemberHistory member={selectedMember} records={historyQuery.data ?? []} loading={historyQuery.isLoading} error={historyQuery.isError} isOwner={canEdit} busy={deleteRecord.isPending}
+              <MemberHistory member={selectedMember} records={historyQuery.data ?? []} loading={historyQuery.isLoading} error={historyQuery.isError} canEdit={canEdit} busy={deleteRecord.isPending}
                 onRetry={() => void historyQuery.refetch()} onClose={() => setSelectedMemberId(null)} onEdit={openEdit} onDelete={removeRecord}
                 onAdd={() => { setOperationError(''); setDialog({ record: null, memberId: selectedMember.id }); }} />
             )}
@@ -194,7 +194,7 @@ export default function AttendanceApp() {
                 ) : shiftMatches.length === 0 ? (
                   <div className="empty" data-testid="status-empty-search"><Search size={20} /><p>Không có ca làm nào khớp{statusFilter ? ' với tình trạng đã chọn' : ''}.</p><button type="button" className="btn" onClick={() => setQuery('')}>Xóa tìm kiếm</button></div>
                 ) : (
-                  <AttendanceTable records={shiftMatches} caption="Ca làm khớp từ khóa trên mọi ngày, mới nhất trước" isOwner={canEdit} showDate busy={deleteRecord.isPending} onEdit={openEdit} onDelete={removeRecord} testId="search-shifts" />
+                  <AttendanceTable records={shiftMatches} caption="Ca làm khớp từ khóa trên mọi ngày, mới nhất trước" canEdit={canEdit} showDate busy={deleteRecord.isPending} onEdit={openEdit} onDelete={removeRecord} testId="search-shifts" />
                 )}
               </section>
             ) : (
@@ -238,7 +238,7 @@ export default function AttendanceApp() {
                       {canEdit && !statusFilter && <button type="button" className="btn primary" onClick={() => setDialog({ record: null })} data-testid="button-add-first-attendance"><Plus size={15} />Ghi nhận ca đầu tiên</button>}
                     </div>
                   ) : (
-                    <AttendanceTable records={dayRecords} caption={`Ca làm ngày ${formatShortDate(date)}`} isOwner={canEdit} showDate={false} busy={deleteRecord.isPending} onEdit={openEdit} onDelete={removeRecord} testId="day-shifts" />
+                    <AttendanceTable records={dayRecords} caption={`Ca làm ngày ${formatShortDate(date)}`} canEdit={canEdit} showDate={false} busy={deleteRecord.isPending} onEdit={openEdit} onDelete={removeRecord} testId="day-shifts" />
                   )}
                 </div>
               </section>

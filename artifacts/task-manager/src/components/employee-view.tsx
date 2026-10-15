@@ -69,7 +69,7 @@ export function EmployeeView({ employeeId, employee, membersLoading, membersErro
         ) : loading ? <TableSkeleton label="Đang tải lịch sử ca" /> : sorted.length === 0 ? (
           <div className="empty" data-testid="status-empty-employee-history"><Search size={20} /><p>{q ? 'Không có ca nào khớp từ khóa.' : 'Nhân viên này chưa có ca nào được ghi nhận.'}</p>{q && <button type="button" className="btn" onClick={onClearQuery}>Xóa tìm kiếm</button>}</div>
         ) : (
-          <AttendanceTable records={sorted} caption={`Ca làm của ${employee.name}, mới nhất trước`} isOwner={false} showDate busy={false} onEdit={noop} onDelete={noop} testId="employee-history" />
+          <AttendanceTable records={sorted} caption={`Ca làm của ${employee.name}, mới nhất trước`} canEdit={false} showDate busy={false} onEdit={noop} onDelete={noop} testId="employee-history" />
         )}
       </section>
     </div>

@@ -6,10 +6,10 @@ import { Form } from '@/components/ui/form';
 import { initial } from '@/lib/attendance';
 import { AttendanceTable, TableSkeleton } from '@/components/attendance-table';
 
-export function MemberList({ members, selectedId, isOwner, loading, error, busy, onRetry, onSelect, onCreate, onDelete }: {
+export function MemberList({ members, selectedId, canEdit, loading, error, busy, onRetry, onSelect, onCreate, onDelete }: {
   members: MemberRecord[];
   selectedId: number | null;
-  isOwner: boolean;
+  canEdit: boolean;
   loading: boolean;
   error: boolean;
   busy: boolean;
@@ -25,9 +25,9 @@ export function MemberList({ members, selectedId, isOwner, loading, error, busy,
     <section className="panel members" aria-labelledby="members-title" data-testid="section-members">
       <div className="panel-head">
         <h2 id="members-title">Nhân viên <span className="count" data-testid="text-member-count">{loading ? '…' : members.length}</span></h2>
-        {isOwner && <button type="button" className="btn small" onClick={() => setAdding((v) => !v)} aria-expanded={adding} data-testid="button-add-member"><Plus size={14} />Thêm</button>}
+        {canEdit && <button type="button" className="btn small" onClick={() => setAdding((v) => !v)} aria-expanded={adding} data-testid="button-add-member"><Plus size={14} />Thêm</button>}
       </div>
-      {adding && isOwner && (
+      {adding && canEdit && (
         <Form {...form}>
           <form className="member-form" onSubmit={form.handleSubmit((values) => onCreate({ name: values.name.trim() }, () => { form.reset({ name: '' }); setAdding(false); }))}>
             <label className="sr-only" htmlFor="member-name">Tên Nhân viên</label>
@@ -41,7 +41,7 @@ export function MemberList({ members, selectedId, isOwner, loading, error, busy,
       {error ? (
         <div className="banner danger" role="alert" data-testid="status-members-error"><AlertCircle size={15} /><span>Không tải được Nhân viên.</span><button type="button" onClick={onRetry}>Thử lại</button></div>
       ) : loading ? <TableSkeleton label="Đang tải Nhân viên" /> : members.length === 0 ? (
-        <div className="empty small" data-testid="status-empty-members"><Users size={18} /><p>Chưa có Nhân viên.{isOwner ? ' Thêm người đầu tiên để bắt đầu.' : ''}</p></div>
+        <div className="empty small" data-testid="status-empty-members"><Users size={18} /><p>Chưa có Nhân viên.{canEdit ? ' Thêm người đầu tiên để bắt đầu.' : ''}</p></div>
       ) : (
         <ul className="member-list" aria-label="Danh sách Nhân viên" data-testid="list-members">
           {members.map((m) => (
@@ -50,7 +50,7 @@ export function MemberList({ members, selectedId, isOwner, loading, error, busy,
                 <span className="initials" aria-hidden="true">{initial(m.name)}</span>
                 <span className="member-name">{m.name}</span>
               </button>
-              {isOwner && <button type="button" className="icon-btn danger" onClick={() => onDelete(m)} disabled={busy} aria-label={`Xóa Nhân viên ${m.name}`} data-testid={`button-delete-member-${m.id}`}><Trash2 size={14} /></button>}
+              {canEdit && <button type="button" className="icon-btn danger" onClick={() => onDelete(m)} disabled={busy} aria-label={`Xóa Nhân viên ${m.name}`} data-testid={`button-delete-member-${m.id}`}><Trash2 size={14} /></button>}
             </li>
           ))}
         </ul>
@@ -59,12 +59,12 @@ export function MemberList({ members, selectedId, isOwner, loading, error, busy,
   );
 }
 
-export function MemberHistory({ member, records, loading, error, isOwner, busy, onRetry, onClose, onEdit, onDelete, onAdd }: {
+export function MemberHistory({ member, records, loading, error, canEdit, busy, onRetry, onClose, onEdit, onDelete, onAdd }: {
   member: MemberRecord;
   records: AttendanceRecord[];
   loading: boolean;
   error: boolean;
-  isOwner: boolean;
+  canEdit: boolean;
   busy: boolean;
   onRetry: () => void;
   onClose: () => void;
@@ -83,7 +83,7 @@ export function MemberHistory({ member, records, loading, error, isOwner, busy, 
           <p className="sub" data-testid="text-history-stats">{sorted.length} ca · {counts.present} có mặt · {counts.late} muộn · {counts.absent} vắng · {counts.leave} nghỉ phép</p>
         </div>
         <div className="head-actions">
-          {isOwner && <button type="button" className="btn small" onClick={onAdd} data-testid="button-add-member-shift"><Plus size={14} />Thêm ca</button>}
+          {canEdit && <button type="button" className="btn small" onClick={onAdd} data-testid="button-add-member-shift"><Plus size={14} />Thêm ca</button>}
           <button type="button" className="icon-btn" onClick={onClose} aria-label="Đóng lịch sử Nhân viên" data-testid="button-close-member-history"><X size={16} /></button>
         </div>
       </div>
@@ -92,7 +92,7 @@ export function MemberHistory({ member, records, loading, error, isOwner, busy, 
       ) : loading ? <TableSkeleton label="Đang tải lịch sử ca" /> : sorted.length === 0 ? (
         <div className="empty small" data-testid="status-empty-history"><p>Nhân viên này chưa có ca nào được ghi nhận.</p></div>
       ) : (
-        <AttendanceTable records={sorted} caption={`Toàn bộ ca làm của ${member.name}, mới nhất trước`} isOwner={isOwner} showDate busy={busy} onEdit={onEdit} onDelete={onDelete} testId="member-history" />
+        <AttendanceTable records={sorted} caption={`Toàn bộ ca làm của ${member.name}, mới nhất trước`} canEdit={canEdit} showDate busy={busy} onEdit={onEdit} onDelete={onDelete} testId="member-history" />
       )}
     </section>
   );

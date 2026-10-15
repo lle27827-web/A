@@ -9,24 +9,18 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:massage": "esbuild src/lib/massage.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/cung-lam-massage-tests.cjs && node --test /tmp/cung-lam-massage-tests.cjs",
-    "test:permissions": "esbuild src/lib/permissions.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-permissions-tests.cjs && node --test /tmp/so-cong-permissions-tests.cjs",
     "test:revenue": "esbuild src/lib/facility-revenue.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-revenue-tests.cjs && node --test /tmp/so-cong-revenue-tests.cjs"
   },
   "dependencies": {
-    "@clerk/express": "^2.1.78",
-    "@clerk/shared": "^4.40.0",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
-    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "drizzle-orm": "catalog:",
     "express": "^5.2.1",
-    "http-proxy-middleware": "^4.2.0",
     "pino": "^9.14.0",
     "pino-http": "^10.5.0"
   },
   "devDependencies": {
-    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "catalog:",
