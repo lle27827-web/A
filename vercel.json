@@ -30,9 +30,34 @@
       }
     },
     {
-      "source": "/(.*)",
+      "source": "/assets/(.*)",
       "destination": {
         "service": "task-manager"
+      }
+    },
+    {
+      "source": "/favicon.svg",
+      "destination": {
+        "service": "task-manager"
+      }
+    },
+    {
+      "source": "/logo.svg",
+      "destination": {
+        "service": "task-manager"
+      }
+    },
+    {
+      "source": "/robots.txt",
+      "destination": {
+        "service": "task-manager"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "task-manager",
+        "path": "/index.html"
       }
     }
   ]
