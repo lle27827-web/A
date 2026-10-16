@@ -13,31 +13,25 @@ import { comparisonMemberParams, comparisonRoster, discrepancyPairs } from '@/li
 
 type Scope = 'day' | 'month';
 
-function CompactDifference({ personal, reference }: { personal: PersonalComparisonVisit[]; reference: PersonalComparisonVisit[] }) {
-  const visit = personal[0] ?? reference[0];
+function CompactDifference({ personal, reference, index }: { personal: PersonalComparisonVisit | null; reference: PersonalComparisonVisit | null; index: number }) {
+  const visit = personal ?? reference;
   if (!visit) return null;
   return (
-    <>
+    <div className="cmp-disc" data-testid={`row-cmp-discrepancy-${index}`}>
+      <strong className="cmp-pair-title">Lần chấm công chưa khớp {index + 1}</strong>
       <h4>{visit.serviceName} · {formatShortDate(visit.workDate)}</h4>
-      <div className="cmp-pairs">
-        {discrepancyPairs(personal, reference).map((pair, index) => (
-          <div className="cmp-pair" key={index}>
-            <strong className="cmp-pair-title">Lần chấm công lệch {index + 1}</strong>
-            <div className="cmp-cols">
-              {[{ title: 'Cơ sở', row: pair.reference }, { title: 'Cá nhân', row: pair.personal }].map(({ title, row }) => (
-                <div className="cmp-shift" key={title}>
-                  <strong>{title}</strong>
-                  {row ? <>
-                    <span>{formatMinutes(row.minutes)} · Tiền công {formatVnd(row.earnings)}</span>
-                    {row.customerName && <span>Khách: {row.customerName}</span>}
-                  </> : <span className="cmp-none">Không có ca bên {title === 'Cơ sở' ? 'cơ sở' : 'cá nhân'}</span>}
-                </div>
-              ))}
-            </div>
+      <div className="cmp-cols">
+        {[{ title: 'Cơ sở', row: reference }, { title: 'Cá nhân', row: personal }].map(({ title, row }) => (
+          <div className="cmp-shift" key={title}>
+            <strong>{title}</strong>
+            {row ? <>
+              <span>{formatMinutes(row.minutes)} · Tiền công {formatVnd(row.earnings)}</span>
+              {row.customerName && <span>Khách: {row.customerName}</span>}
+            </> : <span className="cmp-none">Không có ca bên {title === 'Cơ sở' ? 'cơ sở' : 'cá nhân'}</span>}
           </div>
         ))}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -71,6 +65,7 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
   const personal = (d?.personalVisits ?? []).filter(inScope);
   const reference = (d?.referenceVisits ?? []).filter(inScope);
   const discrepancies = (d?.discrepancies ?? []).filter((x) => scope === 'month' || [...x.personal, ...x.reference].some((v) => v.workDate === date));
+  const unmatchedPairs = discrepancies.flatMap((x) => discrepancyPairs(x.personal, x.reference));
   const rangeLabel = scope === 'day' ? `ngày ${formatShortDate(date)}` : formatMonth(month).toLowerCase();
   function pick(id: number | null) { setMemberId(id); setConfirming(false); setSyncError(''); setNotice(''); }
   function runSync() {
@@ -142,12 +137,10 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
             ) : (<>
               <section className="cmp-section" aria-labelledby="cmp-disc" data-testid="section-cmp-discrepancies">
                 <h3 id="cmp-disc">Ca chưa khớp</h3>
-                {discrepancies.length === 0
+                {unmatchedPairs.length === 0
                   ? <div className="cmp-ok" data-testid="status-cmp-match"><CheckCircle2 size={16} />Không có khác biệt trong {rangeLabel}.</div>
-                  : discrepancies.map((x, i) => (
-                    <div className="cmp-disc" key={i} data-testid={`row-cmp-discrepancy-${i}`}>
-                      <CompactDifference personal={x.personal} reference={x.reference} />
-                    </div>
+                  : unmatchedPairs.map((pair, i) => (
+                    <CompactDifference key={`${pair.reference?.id ?? 'none'}-${pair.personal?.id ?? 'none'}`} personal={pair.personal} reference={pair.reference} index={i} />
                   ))}
               </section>
               <button type="button" className="btn" disabled={sync.isPending || cmp.isFetching} onClick={() => { setSyncError(''); setNotice(''); setConfirming(true); }} data-testid="button-open-sync">

@@ -28,6 +28,21 @@ test("comparison hides exact occurrences and leaves only unmatched date/service/
   assert.equal(comparePersonalVisits([row], [{ ...row, earnings: 90000 }]).length, 1);
 });
 
+test("comparison keeps repeated service visits as independent occurrence matches", () => {
+  const row = { id: 1, serviceName: "Massage", customerName: "", workDate: "2022-11-11", minutes: 60, hourlyRate: 75000, earnings: 75000, note: "" };
+  const facility = Array.from({ length: 4 }, (_, i) => ({ ...row, id: i + 1 }));
+  const personalTwoMatches = [{ ...row, id: 10 }, { ...row, id: 11 }, { ...row, id: 12, minutes: 90 }, { ...row, id: 13, minutes: 120 }];
+  const mismatches = comparePersonalVisits(personalTwoMatches, facility);
+  assert.equal(mismatches.length, 2, "each of the two unmatched occurrences is its own discrepancy");
+  assert.ok(mismatches.every((item) => item.personal.length === 1 && item.reference.length === 1));
+  assert.deepEqual(mismatches.map((item) => [item.reference[0].minutes, item.personal[0].minutes]), [[60, 90], [60, 120]]);
+  const noneAdded = comparePersonalVisits([], facility);
+  assert.equal(noneAdded.length, 4, "all four facility shifts remain individually visible");
+  assert.ok(noneAdded.every((item) => item.personal.length === 0 && item.reference.length === 1));
+  assert.equal(comparePersonalVisits(personalTwoMatches.slice(0, 2), facility.slice(0, 2)).length, 0,
+    "matching duplicate shifts are consumed one-to-one and do not appear");
+});
+
 test("personal live rates, idempotency, scope replacement, detailed mismatches and account isolation", async () => {
   const marker = randomUUID(), a = `sync-a-${marker}`, b = `sync-b-${marker}`;
   const day = "2092-03-02", month = "2092-03";

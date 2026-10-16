@@ -14,7 +14,7 @@ const groupKey = (v: Visit) => JSON.stringify([v.workDate, normalize(v.serviceNa
 // Compare the recorded duration and actual pay, once per occurrence.
 const amounts = (v: Visit) => JSON.stringify([v.minutes, v.earnings]);
 
-/** Match identical occurrences first so two legitimate same-day visits are never collapsed. */
+/** Match identical occurrences first and emit each remaining shift as its own discrepancy. */
 export function comparePersonalVisits(personal: Visit[], reference: Visit[]): PersonalDiscrepancy[] {
   const keys = new Set([...personal, ...reference].map(groupKey));
   const result: PersonalDiscrepancy[] = [];
@@ -25,9 +25,11 @@ export function comparePersonalVisits(personal: Visit[], reference: Visit[]): Pe
       const match = right.findIndex((r) => amounts(r) === amounts(left[i]));
       if (match >= 0) { left.splice(i, 1); right.splice(match, 1); }
     }
-    if (left.length || right.length) result.push({
+    const count = Math.max(left.length, right.length);
+    for (let i = 0; i < count; i++) result.push({
       reason: "Ca chưa khớp: thời lượng hoặc tiền công",
-      personal: left, reference: right,
+      personal: left[i] ? [left[i]] : [],
+      reference: right[i] ? [right[i]] : [],
     });
   }
   return result.sort((a, b) => (b.personal[0] ?? b.reference[0]).workDate.localeCompare((a.personal[0] ?? a.reference[0]).workDate));
