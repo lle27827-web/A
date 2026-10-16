@@ -8,7 +8,10 @@
     "./schema": "./src/schema/index.ts"
   },
   "scripts": {
-    "migrate": "drizzle-kit migrate --config ./drizzle.config.ts",
+    "migrate": "node ./scripts/migrations.mjs migrate",
+    "migrate:audit": "node ./scripts/migrations.mjs audit",
+    "migrate:baseline": "node ./scripts/migrations.mjs baseline",
+    "test:migrations": "node --test ./scripts/migrations.test.mjs",
     "migrate:card-topups": "node ./scripts/apply-card-topups.mjs",
     "migrate:employee-history": "node ./scripts/apply-employee-history.mjs",
     "migrate:card-usage-lock": "node ./scripts/apply-card-usage-lock.mjs",

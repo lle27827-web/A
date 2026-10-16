@@ -14,4 +14,6 @@ dated transactions; past unrecorded top-ups cannot be reconstructed.
 Some existing databases have populated tables but an empty Drizzle migration
 journal. The general `migrate` command then tries to replay the initial schema.
 The targeted update avoids replaying it and does not invent a baseline or reset
-data. A full migration-baseline reconciliation must audit the existing schema.
+data. For verified baseline reconciliation and safe general upgrades, see
+[MIGRATIONS.md](./MIGRATIONS.md). General `migrate` now refuses an unbaselined
+populated database instead of trying to recreate its tables.
