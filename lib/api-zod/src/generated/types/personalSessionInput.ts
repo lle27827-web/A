@@ -18,4 +18,11 @@ export interface PersonalSessionInput {
   minutes: number;
   /** @maxLength 2000 */
   note: string;
+  /** @maxLength 160 */
+  customerName?: string;
+  /**
+     * @minLength 16
+     * @maxLength 80
+     */
+  requestId?: string;
 }

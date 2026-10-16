@@ -12,6 +12,37 @@ export const ListHistoryMonthsResponseItem = zod.string()
 export const ListHistoryMonthsResponse = zod.array(ListHistoryMonthsResponseItem)
 
 
+export const UpdatePersonalSettingsBody = zod.object({
+  "useFacilityRates": zod.boolean()
+})
+
+export const UpdatePersonalSettingsResponse = zod.object({
+  "useFacilityRates": zod.boolean()
+})
+
+
+
+export const syncPersonalNotebookBodyMonthRegExp = new RegExp('^\\d{4}-\\d{2}$');
+export const syncPersonalNotebookBodyDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const syncPersonalNotebookBodyRevisionMin = 64;
+export const syncPersonalNotebookBodyRevisionMax = 64;
+
+
+
+export const SyncPersonalNotebookBody = zod.object({
+  "memberId": zod.number().int().min(1),
+  "month": zod.string().regex(syncPersonalNotebookBodyMonthRegExp),
+  "date": zod.string().regex(syncPersonalNotebookBodyDateRegExp),
+  "scope": zod.enum(['day', 'month']),
+  "revision": zod.string().min(syncPersonalNotebookBodyRevisionMin).max(syncPersonalNotebookBodyRevisionMax)
+})
+
+export const SyncPersonalNotebookResponse = zod.object({
+  "removed": zod.number().int(),
+  "imported": zod.number().int()
+})
+
+
 export const getPersonalNotebookQueryMonthRegExp = new RegExp('^\\d{4}-\\d{2}$');
 export const getPersonalNotebookQueryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
 
@@ -32,22 +63,32 @@ export const getPersonalNotebookResponseSessionsItemOneMinutesMax = 1440;
 
 export const getPersonalNotebookResponseSessionsItemOneNoteMax = 2000;
 
+export const getPersonalNotebookResponseSessionsItemOneCustomerNameDefault = ``;
+export const getPersonalNotebookResponseSessionsItemOneCustomerNameMax = 160;
+
+export const getPersonalNotebookResponseSessionsItemOneRequestIdMin = 16;
+export const getPersonalNotebookResponseSessionsItemOneRequestIdMax = 80;
+
 
 
 export const GetPersonalNotebookResponse = zod.object({
   "month": zod.string(),
+  "useFacilityRates": zod.boolean(),
   "date": zod.string(),
   "services": zod.array(zod.object({
   "name": zod.string().min(1).max(getPersonalNotebookResponseServicesItemOneNameMax),
   "hourlyRate": zod.number().int().min(getPersonalNotebookResponseServicesItemOneHourlyRateMin).max(getPersonalNotebookResponseServicesItemOneHourlyRateMax)
 }).and(zod.object({
-  "id": zod.number().int()
+  "id": zod.number().int(),
+  "facilityServiceId": zod.number().int().nullish()
 }))),
   "sessions": zod.array(zod.object({
   "serviceId": zod.number().int().min(1),
   "workDate": zod.string().regex(getPersonalNotebookResponseSessionsItemOneWorkDateRegExp),
   "minutes": zod.number().int().min(1).max(getPersonalNotebookResponseSessionsItemOneMinutesMax),
-  "note": zod.string().max(getPersonalNotebookResponseSessionsItemOneNoteMax)
+  "note": zod.string().max(getPersonalNotebookResponseSessionsItemOneNoteMax),
+  "customerName": zod.string().max(getPersonalNotebookResponseSessionsItemOneCustomerNameMax).default(getPersonalNotebookResponseSessionsItemOneCustomerNameDefault),
+  "requestId": zod.string().min(getPersonalNotebookResponseSessionsItemOneRequestIdMin).max(getPersonalNotebookResponseSessionsItemOneRequestIdMax).optional()
 }).and(zod.object({
   "id": zod.number().int(),
   "serviceName": zod.string(),
@@ -84,7 +125,8 @@ export const CreatePersonalServiceResponse = zod.object({
   "name": zod.string().min(1).max(createPersonalServiceResponseOneNameMax),
   "hourlyRate": zod.number().int().min(createPersonalServiceResponseOneHourlyRateMin).max(createPersonalServiceResponseOneHourlyRateMax)
 }).and(zod.object({
-  "id": zod.number().int()
+  "id": zod.number().int(),
+  "facilityServiceId": zod.number().int().nullish()
 }))
 
 
@@ -118,7 +160,8 @@ export const UpdatePersonalServiceResponse = zod.object({
   "name": zod.string().min(1).max(updatePersonalServiceResponseOneNameMax),
   "hourlyRate": zod.number().int().min(updatePersonalServiceResponseOneHourlyRateMin).max(updatePersonalServiceResponseOneHourlyRateMax)
 }).and(zod.object({
-  "id": zod.number().int()
+  "id": zod.number().int(),
+  "facilityServiceId": zod.number().int().nullish()
 }))
 
 
@@ -138,13 +181,21 @@ export const createPersonalSessionBodyMinutesMax = 1440;
 
 export const createPersonalSessionBodyNoteMax = 2000;
 
+export const createPersonalSessionBodyCustomerNameDefault = ``;
+export const createPersonalSessionBodyCustomerNameMax = 160;
+
+export const createPersonalSessionBodyRequestIdMin = 16;
+export const createPersonalSessionBodyRequestIdMax = 80;
+
 
 
 export const CreatePersonalSessionBody = zod.object({
   "serviceId": zod.number().int().min(1),
   "workDate": zod.string().regex(createPersonalSessionBodyWorkDateRegExp),
   "minutes": zod.number().int().min(1).max(createPersonalSessionBodyMinutesMax),
-  "note": zod.string().max(createPersonalSessionBodyNoteMax)
+  "note": zod.string().max(createPersonalSessionBodyNoteMax),
+  "customerName": zod.string().max(createPersonalSessionBodyCustomerNameMax).default(createPersonalSessionBodyCustomerNameDefault),
+  "requestId": zod.string().min(createPersonalSessionBodyRequestIdMin).max(createPersonalSessionBodyRequestIdMax).optional()
 })
 
 
@@ -153,13 +204,21 @@ export const createPersonalSessionResponseOneMinutesMax = 1440;
 
 export const createPersonalSessionResponseOneNoteMax = 2000;
 
+export const createPersonalSessionResponseOneCustomerNameDefault = ``;
+export const createPersonalSessionResponseOneCustomerNameMax = 160;
+
+export const createPersonalSessionResponseOneRequestIdMin = 16;
+export const createPersonalSessionResponseOneRequestIdMax = 80;
+
 
 
 export const CreatePersonalSessionResponse = zod.object({
   "serviceId": zod.number().int().min(1),
   "workDate": zod.string().regex(createPersonalSessionResponseOneWorkDateRegExp),
   "minutes": zod.number().int().min(1).max(createPersonalSessionResponseOneMinutesMax),
-  "note": zod.string().max(createPersonalSessionResponseOneNoteMax)
+  "note": zod.string().max(createPersonalSessionResponseOneNoteMax),
+  "customerName": zod.string().max(createPersonalSessionResponseOneCustomerNameMax).default(createPersonalSessionResponseOneCustomerNameDefault),
+  "requestId": zod.string().min(createPersonalSessionResponseOneRequestIdMin).max(createPersonalSessionResponseOneRequestIdMax).optional()
 }).and(zod.object({
   "id": zod.number().int(),
   "serviceName": zod.string(),
@@ -182,13 +241,21 @@ export const updatePersonalSessionBodyMinutesMax = 1440;
 
 export const updatePersonalSessionBodyNoteMax = 2000;
 
+export const updatePersonalSessionBodyCustomerNameDefault = ``;
+export const updatePersonalSessionBodyCustomerNameMax = 160;
+
+export const updatePersonalSessionBodyRequestIdMin = 16;
+export const updatePersonalSessionBodyRequestIdMax = 80;
+
 
 
 export const UpdatePersonalSessionBody = zod.object({
   "serviceId": zod.number().int().min(1),
   "workDate": zod.string().regex(updatePersonalSessionBodyWorkDateRegExp),
   "minutes": zod.number().int().min(1).max(updatePersonalSessionBodyMinutesMax),
-  "note": zod.string().max(updatePersonalSessionBodyNoteMax)
+  "note": zod.string().max(updatePersonalSessionBodyNoteMax),
+  "customerName": zod.string().max(updatePersonalSessionBodyCustomerNameMax).default(updatePersonalSessionBodyCustomerNameDefault),
+  "requestId": zod.string().min(updatePersonalSessionBodyRequestIdMin).max(updatePersonalSessionBodyRequestIdMax).optional()
 })
 
 
@@ -197,13 +264,21 @@ export const updatePersonalSessionResponseOneMinutesMax = 1440;
 
 export const updatePersonalSessionResponseOneNoteMax = 2000;
 
+export const updatePersonalSessionResponseOneCustomerNameDefault = ``;
+export const updatePersonalSessionResponseOneCustomerNameMax = 160;
+
+export const updatePersonalSessionResponseOneRequestIdMin = 16;
+export const updatePersonalSessionResponseOneRequestIdMax = 80;
+
 
 
 export const UpdatePersonalSessionResponse = zod.object({
   "serviceId": zod.number().int().min(1),
   "workDate": zod.string().regex(updatePersonalSessionResponseOneWorkDateRegExp),
   "minutes": zod.number().int().min(1).max(updatePersonalSessionResponseOneMinutesMax),
-  "note": zod.string().max(updatePersonalSessionResponseOneNoteMax)
+  "note": zod.string().max(updatePersonalSessionResponseOneNoteMax),
+  "customerName": zod.string().max(updatePersonalSessionResponseOneCustomerNameMax).default(updatePersonalSessionResponseOneCustomerNameDefault),
+  "requestId": zod.string().min(updatePersonalSessionResponseOneRequestIdMin).max(updatePersonalSessionResponseOneRequestIdMax).optional()
 }).and(zod.object({
   "id": zod.number().int(),
   "serviceName": zod.string(),
@@ -241,7 +316,52 @@ export const GetPersonalComparisonResponse = zod.object({
   "referenceDay": zod.number().int(),
   "referenceMonth": zod.number().int(),
   "differenceDay": zod.number().int(),
-  "differenceMonth": zod.number().int()
+  "differenceMonth": zod.number().int(),
+  "personalVisits": zod.array(zod.object({
+  "id": zod.number().int(),
+  "workDate": zod.string(),
+  "serviceName": zod.string(),
+  "customerName": zod.string(),
+  "minutes": zod.number().int(),
+  "hourlyRate": zod.number().int(),
+  "earnings": zod.number().int(),
+  "note": zod.string()
+})),
+  "referenceVisits": zod.array(zod.object({
+  "id": zod.number().int(),
+  "workDate": zod.string(),
+  "serviceName": zod.string(),
+  "customerName": zod.string(),
+  "minutes": zod.number().int(),
+  "hourlyRate": zod.number().int(),
+  "earnings": zod.number().int(),
+  "note": zod.string()
+})),
+  "discrepancies": zod.array(zod.object({
+  "reason": zod.string(),
+  "personal": zod.array(zod.object({
+  "id": zod.number().int(),
+  "workDate": zod.string(),
+  "serviceName": zod.string(),
+  "customerName": zod.string(),
+  "minutes": zod.number().int(),
+  "hourlyRate": zod.number().int(),
+  "earnings": zod.number().int(),
+  "note": zod.string()
+})),
+  "reference": zod.array(zod.object({
+  "id": zod.number().int(),
+  "workDate": zod.string(),
+  "serviceName": zod.string(),
+  "customerName": zod.string(),
+  "minutes": zod.number().int(),
+  "hourlyRate": zod.number().int(),
+  "earnings": zod.number().int(),
+  "note": zod.string()
+}))
+})),
+  "revisionDay": zod.string(),
+  "revisionMonth": zod.string()
 })
 
 
@@ -616,6 +736,7 @@ export const ListTreatmentCardsResponseItem = zod.object({
 export const ListTreatmentCardsResponse = zod.array(ListTreatmentCardsResponseItem)
 
 
+
 export const createTreatmentCardBodyCustomerNameMax = 120;
 
 export const createTreatmentCardBodyPhoneMax = 32;
@@ -633,6 +754,7 @@ export const createTreatmentCardBodyNoteMax = 2000;
 
 
 export const CreateTreatmentCardBody = zod.object({
+  "mergeTargetId": zod.number().int().min(1).optional(),
   "customerName": zod.string().min(1).max(createTreatmentCardBodyCustomerNameMax),
   "phone": zod.string().min(1).max(createTreatmentCardBodyPhoneMax),
   "serviceType": zod.string().min(1).max(createTreatmentCardBodyServiceTypeMax),
@@ -676,6 +798,7 @@ export const UpdateTreatmentCardParams = zod.object({
   "id": zod.coerce.number().int().min(1)
 })
 
+
 export const updateTreatmentCardBodyCustomerNameMax = 120;
 
 export const updateTreatmentCardBodyPhoneMax = 32;
@@ -693,6 +816,7 @@ export const updateTreatmentCardBodyNoteMax = 2000;
 
 
 export const UpdateTreatmentCardBody = zod.object({
+  "mergeTargetId": zod.number().int().min(1).optional(),
   "customerName": zod.string().min(1).max(updateTreatmentCardBodyCustomerNameMax).optional(),
   "phone": zod.string().min(1).max(updateTreatmentCardBodyPhoneMax).optional(),
   "serviceType": zod.string().min(1).max(updateTreatmentCardBodyServiceTypeMax).optional(),

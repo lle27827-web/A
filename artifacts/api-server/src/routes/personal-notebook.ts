@@ -6,10 +6,12 @@ import {
   GetPersonalNotebookResponse, GetPersonalComparisonQueryParams, GetPersonalComparisonResponse,
   UpdatePersonalServiceBody, UpdatePersonalServiceParams, UpdatePersonalSessionBody, UpdatePersonalSessionParams,
   DeletePersonalServiceParams, DeletePersonalSessionParams,
+  UpdatePersonalSettingsBody, SyncPersonalNotebookBody,
 } from "@workspace/api-zod";
 import { massageHandler, parseInput } from "./massage-errors";
 import { savePersonalService, deletePersonalService, savePersonalSession, deletePersonalSession,
-  getPersonalNotebook, getPersonalComparison } from "../lib/personal-notebook";
+  getPersonalNotebook, getPersonalComparison, updatePersonalSettings } from "../lib/personal-notebook";
+import { syncPersonalNotebook } from "../lib/personal-comparison";
 import { MassageError } from "../lib/massage";
 
 const router: IRouter = Router();
@@ -17,6 +19,13 @@ function account(value: unknown): string {
   if (typeof value !== "string" || !value) throw new MassageError(401, "Vui lòng đăng nhập.");
   return value;
 }
+router.put("/personal/settings", massageHandler(async (req, res) => {
+  const { useFacilityRates } = parseInput(UpdatePersonalSettingsBody, req.body);
+  res.json(await updatePersonalSettings(account(res.locals.personalUserId), useFacilityRates));
+}));
+router.post("/personal/sync", massageHandler(async (req, res) => {
+  res.json(await syncPersonalNotebook(account(res.locals.personalUserId), parseInput(SyncPersonalNotebookBody, req.body)));
+}));
 router.get("/personal/notebook", massageHandler(async (req, res) => {
   const { month, date } = parseInput(GetPersonalNotebookQueryParams, req.query);
   res.json(GetPersonalNotebookResponse.parse(await getPersonalNotebook(account(res.locals.personalUserId), month, date)));

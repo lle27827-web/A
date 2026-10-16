@@ -4,8 +4,9 @@ import { Modal } from '@/components/modal';
 import { formatShortDate, localDate } from '@/lib/attendance';
 import { daysInMonth, formatMonth, weekday } from '@/lib/massage';
 
-export function DatePickerDialog({ value, title = 'Chọn ngày', onClose, onSelect }: {
+export function DatePickerDialog({ value, title = 'Chọn ngày', immediate = false, onClose, onSelect }: {
   value: string;
+  immediate?: boolean;
   title?: string;
   onClose: () => void;
   onSelect: (date: string) => void;
@@ -36,7 +37,7 @@ export function DatePickerDialog({ value, title = 'Chọn ngày', onClose, onSel
         {dates.map((date) => (
           <li key={date}>
             <button type="button" className={`date-picker-option ${date === selectedDate ? 'selected' : ''}`} aria-pressed={date === selectedDate}
-              aria-current={date === today ? 'date' : undefined} onClick={() => setSelectedDate(date)} data-testid={`button-date-picker-${date}`}>
+              aria-current={date === today ? 'date' : undefined} onClick={() => { if (immediate) onSelect(date); else setSelectedDate(date); }} data-testid={`button-date-picker-${date}`}>
               <span><strong>{formatShortDate(date)}</strong><span className="muted">{weekday(date)}</span></span>
               <span className="date-picker-badge">{date === today ? 'Hôm nay' : date === selectedDate ? 'Đã chọn' : ''}</span>
             </button>
@@ -45,7 +46,7 @@ export function DatePickerDialog({ value, title = 'Chọn ngày', onClose, onSel
       </ul>
       <div className="dialog-actions date-picker-actions">
         <button type="button" className="btn ghost" onClick={onClose} data-testid="button-cancel-date-picker">Hủy</button>
-        <button type="button" className="btn primary" onClick={() => onSelect(selectedDate)} data-testid="button-apply-selected-date">Chọn ngày</button>
+        {!immediate && <button type="button" className="btn primary" onClick={() => onSelect(selectedDate)} data-testid="button-apply-selected-date">Chọn ngày</button>}
       </div>
     </Modal>
   );

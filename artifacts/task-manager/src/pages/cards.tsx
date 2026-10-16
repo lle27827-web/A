@@ -5,7 +5,7 @@ import { getListTreatmentCardsQueryKey, useCreateTreatmentCard, useListTreatment
 import { ChevronRight, CreditCard, LockKeyhole, Plus, Search, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { useShell } from '@/components/app-shell';
-import { CardDialog } from '@/components/entity-dialogs';
+import { CardDialog, mergeConflictTarget } from '@/components/entity-dialogs';
 import { ErrorBanner, Skeleton } from '@/components/modal';
 import { formatShortDate, localDate, normalize } from '@/lib/attendance';
 import { cardMatches, errorText, formatMinutes, formatVnd, useRefreshMassage } from '@/lib/massage';
@@ -16,6 +16,7 @@ export default function CardsPage() {
   const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), refetchOnWindowFocus: true } });
   const [open, setOpen] = useState(false);
   const [dialogError, setDialogError] = useState('');
+  const [mergeTarget, setMergeTarget] = useState<number | null>(null);
   const create = useCreateTreatmentCard();
   const cache = useQueryClient();
   const refresh = useRefreshMassage();
@@ -66,8 +67,9 @@ export default function CardsPage() {
         </ul>
       )}
       {open && canEdit && (
-        <CardDialog card={null} defaultDate={localDate()} busy={create.isPending} serverError={dialogError} onClose={() => setOpen(false)}
-          onSubmit={(data) => create.mutate({ data }, {
+        <CardDialog card={null} defaultDate={localDate()} busy={create.isPending} serverError={dialogError} mergeTargetId={mergeTarget}
+          onCancelMerge={() => setMergeTarget(null)} onClose={() => { setMergeTarget(null); setOpen(false); }}
+          onSubmit={(data) => { if (create.isPending) return; setDialogError(''); setMergeTarget(null); create.mutate({ data }, {
             onSuccess: (card) => {
               cache.setQueryData<TreatmentCard[]>(getListTreatmentCardsQueryKey(), (old) =>
                 [card, ...(old ?? []).filter((c) => c.id !== card.id)].sort((a, b) => b.purchaseDate.localeCompare(a.purchaseDate) || b.id - a.id));
@@ -75,8 +77,8 @@ export default function CardsPage() {
               notify(card.mergedIntoExisting ? `Đã cộng giờ và tiền vào thẻ hiện có của ${card.customerName}; lịch sử đã được lưu.` : `Đã bán thẻ cho ${card.customerName}.`);
               navigate(`/cards/${card.id}`);
             },
-            onError: (e) => { setDialogError(errorText(e)); fail(e); },
-          })} />
+            onError: (e) => { const t = mergeConflictTarget(e); if (t) { setMergeTarget(t); return; } setDialogError(errorText(e)); fail(e); },
+          }); }} />
       )}
     </section>
   );

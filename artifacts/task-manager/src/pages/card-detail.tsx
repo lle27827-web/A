@@ -9,7 +9,7 @@ import type { MemberRecord, ServiceSession, ServiceSessionInput, TreatmentCard }
 import { ChevronDown, ChevronUp, CreditCard, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Link, useLocation, useParams } from 'wouter';
 import { useShell } from '@/components/app-shell';
-import { CardDialog } from '@/components/entity-dialogs';
+import { CardDialog, mergeConflictTarget } from '@/components/entity-dialogs';
 import { CardHoursDialog } from '@/components/card-hours-dialog';
 import { ConfirmDialog, ErrorBanner, Skeleton, type ConfirmState } from '@/components/modal';
 import { SessionDialog } from '@/components/session-dialog';
@@ -42,6 +42,7 @@ export default function CardDetailPage() {
   const [sessionDialog, setSessionDialog] = useState<{ session: ServiceSession | null } | null>(null);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [dialogError, setDialogError] = useState('');
+  const [mergeTarget, setMergeTarget] = useState<number | null>(null);
 
   const card = (cardsQuery.data ?? []).find((c) => c.id === id) ?? null;
   const sessions = useMemo(() => [...(sessionsQuery.data ?? [])].sort((a, b) => b.workDate.localeCompare(a.workDate) || b.id - a.id), [sessionsQuery.data]);
@@ -93,13 +94,6 @@ export default function CardDetailPage() {
   const pct = card.totalMinutes ? Math.max(0, Math.min(1, card.remainingMinutes / card.totalMinutes)) : 0;
   return (
     <div className="detail">
-      {canEdit && (
-        <div className="card-actions-top" data-testid="card-actions-top">
-          <button type="button" className="btn primary" onClick={() => { setDialogError(''); setHoursDialog(true); }} data-testid="button-add-card-hours"><Plus size={15} />Nạp thẻ</button>
-          <button type="button" className="btn primary" disabled={card.remainingMinutes <= 0} title={card.remainingMinutes <= 0 ? 'Thẻ đã hết giờ' : undefined} onClick={() => { setDialogError(''); setSessionDialog({ session: null }); }} data-testid="button-add-usage"><Plus size={15} />Ghi lần dùng</button>
-        </div>
-      )}
-      
       <section className="salary-hero" aria-labelledby="card-title" data-testid="section-card">
         <div className="hero-top">
           <span className="initials big"><CreditCard size={20} /></span>
@@ -126,6 +120,13 @@ export default function CardDetailPage() {
         {card.note && <p className="sub">Ghi chú: {card.note}</p>}
       </section>
 
+
+      {canEdit && (
+        <div className="card-actions-top" data-testid="card-actions-top">
+          <button type="button" className="btn primary" onClick={() => { setDialogError(''); setHoursDialog(true); }} data-testid="button-add-card-hours"><Plus size={15} />Nạp thẻ</button>
+          <button type="button" className="btn primary" disabled={card.remainingMinutes <= 0} title={card.remainingMinutes <= 0 ? 'Thẻ đã hết giờ' : undefined} onClick={() => { setDialogError(''); setSessionDialog({ session: null }); }} data-testid="button-add-usage"><Plus size={15} />Ghi lần dùng</button>
+        </div>
+      )}
 
       <section className="panel" aria-labelledby="history-title" data-testid="section-card-history">
         <div className="panel-head"><h2 id="history-title">Lịch sử thẻ</h2></div>
@@ -174,8 +175,22 @@ export default function CardDetailPage() {
       </section>
 
       {cardDialog && canEdit && (
-        <CardDialog card={card} defaultDate={localDate()} busy={updateCard.isPending} serverError={dialogError} onClose={() => setCardDialog(false)}
-          onSubmit={(data) => updateCard.mutate({ id: card.id, data }, { onSuccess: () => { refresh(); setCardDialog(false); notify('Đã cập nhật thẻ.'); }, onError: (e) => { setDialogError(errorText(e)); fail(e); } })} />
+        <CardDialog card={card} defaultDate={localDate()} busy={updateCard.isPending} serverError={dialogError} mergeTargetId={mergeTarget}
+          onCancelMerge={() => setMergeTarget(null)} onClose={() => { setMergeTarget(null); setCardDialog(false); }}
+          onSubmit={(data) => {
+            if (updateCard.isPending) return;
+            setDialogError(''); setMergeTarget(null);
+            updateCard.mutate({ id: card.id, data }, {
+              onSuccess: (saved) => {
+                refresh(); setCardDialog(false);
+                if (saved.id !== card.id || saved.mergedIntoExisting) {
+                  notify(`Đã gộp vào thẻ hiện có của ${saved.customerName}; giờ, tiền, lần dùng và lịch sử đã được cộng dồn.`);
+                  navigate(`/cards/${saved.id}`);
+                } else notify('Đã cập nhật thẻ.');
+              },
+              onError: (e) => { const t = mergeConflictTarget(e); if (t) { setMergeTarget(t); return; } setDialogError(errorText(e)); fail(e); },
+            });
+          }} />
       )}
       {hoursDialog && canEdit && (
         <CardHoursDialog card={card} busy={addHours.isPending} serverError={dialogError} onClose={() => setHoursDialog(false)}

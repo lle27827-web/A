@@ -7,6 +7,8 @@
  */
 
 export interface TreatmentCardInput {
+  /** @minimum 1 */
+  mergeTargetId?: number;
   /**
      * @minLength 1
      * @maxLength 120

@@ -9,8 +9,14 @@ Cards with a deletion timestamp stay in the database as audit records. Do not ph
 
 **How to apply:** when changing card deletion, balances, employee payroll or daily/monthly revenue, test that archived card data is absent from active screens and calculations, while the stored history remains intact.
 
-Never allow a card that has ever been used to be deleted or archived through normal app operations. Retain this protection even after the last visit is deleted or reassigned. Unused cards may still be archived; old archived records remain excluded by the policy above.
+Never allow a card that has ever been used to be deleted or archived through the normal delete operation. Retain this protection even after the last visit is deleted or reassigned. Unused cards may still be archived; old archived records remain excluded by the policy above. A confirmed duplicate-card merge is a separate operation: keep all usage, payments and the ever-used protection on the surviving card; retaining the retired source for audit is not a deletion of its history.
 
 **Why:** the user explicitly requested “Thẻ khách hàng khi đã dùng thì không thể xóa”.
 
 **How to apply:** enforce the restriction on the server as well as in the UI, serialize it with recording use, and preserve the existing card, hours, payments, wages and visit history when deletion is refused.
+
+Both creating and editing a card must detect a duplicate only when customer name, phone and service all match, and ask for confirmation before combining. Combining cards must retain original sale/top-up dates and recognize each cash receipt once.
+
+**Why:** the user explicitly requested the same duplicate handling when editing customer-card details and a “thẻ đã có, xác nhận cộng vào” warning before merging.
+
+**How to apply:** do not silently combine on identity edits, remove usage history, or recognize historical receipts again on the merge date.

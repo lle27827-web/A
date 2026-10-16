@@ -14,7 +14,7 @@ export const cardTopUpsTable = pgTable("card_top_ups", {
 }, (table) => [
   index("card_top_ups_card_idx").on(table.cardId),
   index("card_top_ups_date_idx").on(table.paymentDate),
-  check("card_top_ups_minutes_positive", sql`${table.minutes} > 0`),
+  check("card_top_ups_minutes_positive", sql`${table.minutes} > 0 or (${table.minutes} = 0 and ${table.source} = 'merged_card')`),
   check("card_top_ups_amount_nonnegative", sql`${table.amount} >= 0`),
 ]);
 

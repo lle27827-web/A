@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetPersonalComparisonQueryKey, getGetPersonalNotebookQueryKey,
   useCreatePersonalService, useCreatePersonalSession, useDeletePersonalService, useDeletePersonalSession,
-  useGetPersonalNotebook, useUpdatePersonalService, useUpdatePersonalSession,
+  useGetPersonalNotebook, useUpdatePersonalService, useUpdatePersonalSession, useUpdatePersonalSettings,
 } from '@workspace/api-client-react';
 import type { PersonalService, PersonalSession } from '@workspace/api-client-react';
 import { AlertCircle, ArrowLeft, BookHeart, CalendarDays, Check, ChevronLeft, ChevronRight, History, Home, LogIn, Plus, Scale, X } from 'lucide-react';
@@ -76,6 +76,9 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
   const createShift = useCreatePersonalSession();
   const updateShift = useUpdatePersonalSession();
   const deleteShift = useDeletePersonalSession();
+  const updateSettings = useUpdatePersonalSettings();
+  const [mode, setMode] = useState<'day' | 'month'>('day');
+  const [settingError, setSettingError] = useState('');
 
   function refresh() {
     void cache.invalidateQueries({ queryKey: getGetPersonalNotebookQueryKey() });
@@ -96,6 +99,15 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
   const daySessions = sessions.filter((s) => s.workDate === date);
   const monthMinutes = sessions.reduce((a, s) => a + s.minutes, 0);
   const services = data?.services ?? [];
+  const useFacility = data?.useFacilityRates === true;
+  function toggleFacility(next: boolean) {
+    if (updateSettings.isPending) return;
+    setSettingError('');
+    updateSettings.mutate({ data: { useFacilityRates: next } }, {
+      onSuccess: () => { refresh(); setNotice(next ? 'Đã chuyển sang dịch vụ và tiền công của cơ sở.' : 'Đã quay về dịch vụ riêng của bạn.'); },
+      onError: (e) => { refresh(); setSettingError(errorText(e)); },
+    });
+  }
 
   const askDeleteService = (s: PersonalService) => setConfirm({
     title: `Xóa dịch vụ ${s.name}?`,
@@ -143,29 +155,34 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
         : (
           <div className="p-grid">
             <section className="p-card" aria-label="Ca của tôi" data-testid="section-personal-shifts">
-              <h2 className="day-title"><CalendarDays size={16} aria-hidden="true" />{formatDate(date)}</h2>
-              <ShiftList title="Ca trong ngày" sessions={daySessions} busy={deleteShift.isPending} emptyText="Chưa có ca nào trong ngày này." testId="day-shifts"
-                onEdit={(s) => open({ kind: 'shift', item: s })} onDelete={askDeleteShift} />
-              <ShiftList title={`Tất cả ca ${formatMonth(month).toLowerCase()}`} sessions={sessions} busy={deleteShift.isPending} emptyText="Tháng này chưa có ca." testId="month-shifts"
-                onEdit={(s) => open({ kind: 'shift', item: s })} onDelete={askDeleteShift} />
+              <h2 className="day-title"><CalendarDays size={16} aria-hidden="true" />{mode === 'day' ? formatDate(date) : `Tất cả ca ${formatMonth(month).toLowerCase()}`}</h2>
+              <div className="seg" role="tablist" aria-label="Chế độ xem ca">
+                <button type="button" role="tab" aria-selected={mode === 'day'} className={mode === 'day' ? 'active' : ''} onClick={() => setMode('day')} data-testid="tab-personal-day">Ngày · {daySessions.length}</button>
+                <button type="button" role="tab" aria-selected={mode === 'month'} className={mode === 'month' ? 'active' : ''} onClick={() => setMode('month')} data-testid="tab-personal-month">Tháng · {sessions.length}</button>
+              </div>
+              {mode === 'day'
+                ? <ShiftList sessions={daySessions} busy={deleteShift.isPending} emptyText="Chưa có ca nào trong ngày này." testId="day-shifts"
+                    onEdit={(s) => open({ kind: 'shift', item: s })} onDelete={askDeleteShift} />
+                : <ShiftList sessions={sessions} busy={deleteShift.isPending} emptyText="Tháng này chưa có ca." testId="month-shifts"
+                    onEdit={(s) => open({ kind: 'shift', item: s })} onDelete={askDeleteShift} />}
             </section>
-            <ServiceList services={services} busy={deleteService.isPending} onAdd={() => open({ kind: 'service', item: null })}
+            <ServiceList services={services} busy={deleteService.isPending} useFacility={useFacility} settingBusy={updateSettings.isPending} settingError={settingError} onToggleFacility={toggleFacility} onAdd={() => open({ kind: 'service', item: null })}
               onEdit={(s) => open({ kind: 'service', item: s })} onDelete={askDeleteService} />
           </div>
         )}
 
-      {dlg?.kind === 'service' && <PersonalServiceDialog service={dlg.item} busy={createService.isPending || updateService.isPending} serverError={dialogError} onClose={() => setDlg(null)}
+      {dlg?.kind === 'service' && !useFacility && <PersonalServiceDialog service={dlg.item} busy={createService.isPending || updateService.isPending} serverError={dialogError} onClose={() => setDlg(null)}
         onSubmit={(input) => dlg.item
           ? updateService.mutate({ id: dlg.item.id, data: input }, { onSuccess: () => done('Đã cập nhật dịch vụ.'), onError: failed })
           : createService.mutate({ data: input }, { onSuccess: () => done('Đã thêm dịch vụ.'), onError: failed })} />}
       {dlg?.kind === 'shift' && <PersonalShiftDialog session={dlg.item} services={services} defaultDate={date} maxDate={today} busy={createShift.isPending || updateShift.isPending} serverError={dialogError} onClose={() => setDlg(null)}
-        onSubmit={(input) => dlg.item
+        onSubmit={(input) => { setDialogError(''); return dlg.item
           ? updateShift.mutate({ id: dlg.item.id, data: input }, { onSuccess: (saved) => { done('Đã cập nhật ca.'); goSaved(saved.workDate); }, onError: failed })
-          : createShift.mutate({ data: input }, { onSuccess: (saved) => { done('Đã ghi ca.'); goSaved(saved.workDate); }, onError: failed })} />}
-      {dlg?.kind === 'compare' && <ComparisonDialog month={month} date={date} onClose={() => setDlg(null)} />}
+          : createShift.mutate({ data: input }, { onSuccess: (saved) => { done('Đã ghi ca.'); goSaved(saved.workDate); }, onError: failed }); }} />}
+      {dlg?.kind === 'compare' && <ComparisonDialog month={month} date={date} onClose={() => setDlg(null)} onUpdated={refresh} />}
       {dlg?.kind === 'history' && <HistoryMonthsDialog title="Lịch sử sổ của tôi" months={data?.months ?? []} onClose={() => setDlg(null)}
         onPick={(m, d) => { setDlg(null); goPeriod(m, d); }} />}
-      {dlg?.kind === 'date' && <DatePickerDialog value={date} title="Chọn ngày" onClose={() => setDlg(null)} onSelect={(d) => { setDlg(null); goPeriod(monthOf(d), d); }} />}
+      {dlg?.kind === 'date' && <DatePickerDialog value={date} title="Chọn ngày" immediate onClose={() => setDlg(null)} onSelect={(d) => { setDlg(null); goPeriod(monthOf(d), d); }} />}
       {confirm && <ConfirmDialog state={confirm} busy={deleteService.isPending || deleteShift.isPending} onClose={() => setConfirm(null)} />}
     </PersonalFrame>
   );

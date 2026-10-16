@@ -16,6 +16,7 @@
     "migrate:employee-history": "node ./scripts/apply-employee-history.mjs",
     "migrate:card-usage-lock": "node ./scripts/apply-card-usage-lock.mjs",
     "migrate:personal-notebook": "node ./scripts/apply-personal-notebook.mjs",
+    "migrate:personal-sync": "node ./scripts/apply-personal-sync.mjs",
     "push": "drizzle-kit push --config ./drizzle.config.ts",
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts"
   },

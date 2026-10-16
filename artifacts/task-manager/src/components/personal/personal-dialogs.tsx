@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PersonalService, PersonalServiceInput, PersonalSession, PersonalSessionInput } from '@workspace/api-client-react';
 import { AlertCircle, LoaderCircle } from 'lucide-react';
 import { Modal } from '@/components/modal';
@@ -55,7 +55,12 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
   const [hours, setHours] = useState(session ? String(Math.floor(session.minutes / 60)) : '1');
   const [mins, setMins] = useState(session ? String(session.minutes % 60) : '0');
   const [note, setNote] = useState(session?.note ?? '');
+  const [customerName, setCustomerName] = useState(session?.customerName ?? '');
   const [error, setError] = useState('');
+  // One idempotency key per open "new shift" draft, reused on every retry.
+  const [requestId] = useState(() => (session ? undefined : crypto.randomUUID()));
+  const submitting = useRef(false);
+  useEffect(() => { if (serverError) submitting.current = false; }, [serverError]);
   const total = (Number(hours) || 0) * 60 + (Number(mins) || 0);
   const chosen = options.find((o) => String(o.id) === serviceId);
   const keepsOldRate = session && chosen && chosen.id === session.serviceId;
@@ -63,13 +68,16 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
 
   function setTotal(m: number) { setHours(String(Math.floor(m / 60))); setMins(String(m % 60)); }
   function submit() {
+    if (busy || submitting.current) return;
     if (!chosen) return setError('Hãy chọn dịch vụ.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setError('Hãy chọn ngày làm.');
     if (date > maxDate) return setError('Không thể ghi ca cho ngày trong tương lai.');
     if (!/^\d*$/.test(hours) || !/^\d*$/.test(mins) || !Number.isInteger(total) || total < 1 || total > 1440) return setError('Thời lượng phải từ 1 phút đến 24 giờ.');
     if (note.length > 2000) return setError('Ghi chú tối đa 2000 ký tự.');
+    if (customerName.trim().length > 160) return setError('Tên khách tối đa 160 ký tự.');
     setError('');
-    onSubmit({ serviceId: chosen.id, workDate: date, minutes: total, note: note.trim() });
+    submitting.current = true;
+    onSubmit({ serviceId: chosen.id, workDate: date, minutes: total, note: note.trim(), customerName: customerName.trim(), ...(requestId ? { requestId } : {}) });
   }
   return (
     <Modal title={session ? 'Sửa ca của tôi' : 'Ghi ca của tôi'} description="Chỉ lưu vào sổ cá nhân, không ảnh hưởng dữ liệu cơ sở." onClose={onClose} testId="dialog-personal-shift">
@@ -89,8 +97,11 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
         <div className="chip-row" role="group" aria-label="Chọn nhanh thời lượng">
           {QUICK.map((m) => <button key={m} type="button" className={`chip pad ${total === m ? 'active' : ''}`} onClick={() => setTotal(m)} data-testid={`button-quick-${m}`}>{formatMinutes(m)}</button>)}
         </div>
+        <label className="field">Tên khách (không bắt buộc)
+          <input value={customerName} maxLength={160} onChange={(e) => setCustomerName(e.target.value)} placeholder="VD: Chị Lan" data-testid="input-personal-customer" />
+        </label>
         <label className="field">Ghi chú
-          <textarea rows={2} value={note} maxLength={2000} onChange={(e) => setNote(e.target.value)} placeholder="Khách, phòng, tip…" data-testid="input-personal-note" />
+          <textarea rows={2} value={note} maxLength={2000} onChange={(e) => setNote(e.target.value)} placeholder="Phòng, tip…" data-testid="input-personal-note" />
         </label>
         <p className="card-hint" data-testid="text-personal-preview">
           {total > 0 ? <>{formatMinutes(total)} × {formatVnd(rate)}/giờ = <strong>{formatVnd((total / 60) * rate)}</strong></> : 'Nhập thời lượng để xem tiền công.'}
@@ -99,7 +110,7 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
         {(error || serverError) && <p className="form-error" role="alert" data-testid="text-dialog-error"><AlertCircle size={14} />{error || serverError}</p>}
         <div className="dialog-actions">
           <button type="button" className="btn ghost" onClick={onClose}>Hủy</button>
-          <button type="submit" className="btn primary" disabled={busy} data-testid="button-save-personal-shift">{busy && <LoaderCircle size={14} className="spin" />}Lưu ca</button>
+          <button type="submit" className="btn primary" disabled={busy} aria-busy={busy} data-testid="button-save-personal-shift">{busy && <LoaderCircle size={14} className="spin" />}Lưu ca</button>
         </div>
       </form>
     </Modal>

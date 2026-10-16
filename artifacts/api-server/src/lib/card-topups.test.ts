@@ -17,10 +17,16 @@ test("paid top-ups and duplicate sales retain history and recognize cash once on
   const month = today.slice(0, 7);
   const oldDate = "2097-01-05";
   const make = async (overrides: Partial<Parameters<typeof createCard>[0]> = {}) => {
-    const card = await createCard({
+    const input = {
       customerName: marker, phone: "0900 000-001", serviceType: `${marker} Service`,
       totalMinutes: 120, purchaseAmount: 1000000, purchaseDate: oldDate, ...overrides,
-    });
+    };
+    let card;
+    try { card = await createCard(input); } catch (e) {
+      assert.ok(e instanceof MassageError && e.status === 409 && e.details?.mergeTargetId,
+        "duplicates must require consent before being credited");
+      card = await createCard({ ...input, mergeTargetId: e.details.mergeTargetId });
+    }
     cardIds.add(card.id);
     return card;
   };

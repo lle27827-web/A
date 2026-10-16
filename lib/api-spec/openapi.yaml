@@ -24,6 +24,35 @@ paths:
           content:
             application/json:
               schema: { type: array, items: { type: string } }
+  /personal/settings:
+    put:
+      operationId: updatePersonalSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PersonalSettingsInput" }
+      responses:
+        "200":
+          description: Cài đặt riêng của tài khoản
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonalSettingsInput" }
+  /personal/sync:
+    post:
+      operationId: syncPersonalNotebook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PersonalSyncInput" }
+      responses:
+        "200":
+          description: Đã thay thế các ca cá nhân trong khoảng đã xác nhận
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonalSyncResult" }
+        "409": { description: Dữ liệu đã thay đổi; phải đối chiếu và xác nhận lại }
   /personal/notebook:
     get:
       operationId: getPersonalNotebook
@@ -117,7 +146,7 @@ paths:
         - { in: query, name: date, required: true, schema: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' } }
       responses:
         "200":
-          description: Chỉ đối chiếu tổng tiền công; không nhập dữ liệu từ cơ sở
+          description: Đối chiếu tiền công và chi tiết ca ngày/tháng; không gồm doanh thu cơ sở hay số điện thoại
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PersonalComparison" }
@@ -540,6 +569,45 @@ paths:
         "404": { description: Không tìm thấy nhân viên }
 components:
   schemas:
+    PersonalSettingsInput:
+      type: object
+      required: [useFacilityRates]
+      properties:
+        useFacilityRates: { type: boolean }
+    PersonalSyncInput:
+      type: object
+      required: [memberId, month, date, scope, revision]
+      properties:
+        memberId: { type: integer, minimum: 1 }
+        month: { type: string, pattern: '^\d{4}-\d{2}$' }
+        date: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        scope: { type: string, enum: [day, month] }
+        revision: { type: string, minLength: 64, maxLength: 64 }
+    PersonalSyncResult:
+      type: object
+      required: [removed, imported]
+      properties:
+        removed: { type: integer }
+        imported: { type: integer }
+    PersonalComparisonVisit:
+      type: object
+      required: [id, workDate, serviceName, customerName, minutes, hourlyRate, earnings, note]
+      properties:
+        id: { type: integer }
+        workDate: { type: string }
+        serviceName: { type: string }
+        customerName: { type: string }
+        minutes: { type: integer }
+        hourlyRate: { type: integer }
+        earnings: { type: integer }
+        note: { type: string }
+    PersonalDiscrepancy:
+      type: object
+      required: [reason, personal, reference]
+      properties:
+        reason: { type: string }
+        personal: { type: array, items: { $ref: "#/components/schemas/PersonalComparisonVisit" } }
+        reference: { type: array, items: { $ref: "#/components/schemas/PersonalComparisonVisit" } }
     PersonalServiceInput:
       type: object
       required: [name, hourlyRate]
@@ -553,6 +621,7 @@ components:
           required: [id]
           properties:
             id: { type: integer }
+            facilityServiceId: { type: ["integer", "null"] }
     PersonalSessionInput:
       type: object
       required: [serviceId, workDate, minutes, note]
@@ -561,6 +630,8 @@ components:
         workDate: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
         minutes: { type: integer, minimum: 1, maximum: 1440 }
         note: { type: string, maxLength: 2000 }
+        customerName: { type: string, maxLength: 160, default: "" }
+        requestId: { type: string, minLength: 16, maxLength: 80 }
     PersonalSession:
       allOf:
         - { $ref: "#/components/schemas/PersonalSessionInput" }
@@ -574,9 +645,10 @@ components:
             createdAt: { type: string }
     PersonalNotebook:
       type: object
-      required: [month, date, services, sessions, totalDay, totalMonth, months]
+      required: [month, date, services, sessions, totalDay, totalMonth, months, useFacilityRates]
       properties:
         month: { type: string }
+        useFacilityRates: { type: boolean }
         date: { type: string }
         services: { type: array, items: { $ref: "#/components/schemas/PersonalService" } }
         sessions: { type: array, items: { $ref: "#/components/schemas/PersonalSession" } }
@@ -585,7 +657,7 @@ components:
         months: { type: array, items: { type: string } }
     PersonalComparison:
       type: object
-      required: [memberName, personalDay, personalMonth, referenceDay, referenceMonth, differenceDay, differenceMonth]
+      required: [memberName, personalDay, personalMonth, referenceDay, referenceMonth, differenceDay, differenceMonth, personalVisits, referenceVisits, discrepancies, revisionDay, revisionMonth]
       properties:
         memberName: { type: string }
         personalDay: { type: integer }
@@ -594,6 +666,11 @@ components:
         referenceMonth: { type: integer }
         differenceDay: { type: integer }
         differenceMonth: { type: integer }
+        personalVisits: { type: array, items: { $ref: "#/components/schemas/PersonalComparisonVisit" } }
+        referenceVisits: { type: array, items: { $ref: "#/components/schemas/PersonalComparisonVisit" } }
+        discrepancies: { type: array, items: { $ref: "#/components/schemas/PersonalDiscrepancy" } }
+        revisionDay: { type: string }
+        revisionMonth: { type: string }
     HealthStatus:
       type: object
       properties:
@@ -780,6 +857,7 @@ components:
       type: object
       required: [customerName, phone, serviceType, totalMinutes, purchaseAmount, purchaseDate]
       properties:
+        mergeTargetId: { type: integer, minimum: 1 }
         customerName: { type: string, minLength: 1, maxLength: 120 }
         phone: { type: string, minLength: 1, maxLength: 32 }
         serviceType: { type: string, minLength: 1, maxLength: 120 }
@@ -796,6 +874,7 @@ components:
     TreatmentCardUpdate:
       type: object
       properties:
+        mergeTargetId: { type: integer, minimum: 1 }
         customerName: { type: string, minLength: 1, maxLength: 120 }
         phone: { type: string, minLength: 1, maxLength: 32 }
         serviceType: { type: string, minLength: 1, maxLength: 120 }

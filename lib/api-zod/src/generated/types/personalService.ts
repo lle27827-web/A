@@ -7,6 +7,8 @@
  */
 import type { PersonalServiceInput } from './personalServiceInput';
 
-export type PersonalService = PersonalServiceInput & {
+export type PersonalService = PersonalServiceInput & ({
   id: number;
-};
+  /** @nullable */
+  facilityServiceId?: number | null;
+});

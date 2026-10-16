@@ -3,7 +3,7 @@ import { cardTopUpsTable, db, membersTable, serviceSessionsTable, treatmentCards
 import type { ServiceSessionInput, TreatmentCardInput, TreatmentCardUpdate } from "@workspace/api-zod";
 
 export class MassageError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(public status: number, message: string, public details?: { mergeTargetId: number }) { super(message); }
 }
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -79,11 +79,14 @@ function cardValues(input: TreatmentCardInput) {
   const serviceType = input.serviceType.trim();
   const phone = input.phone.trim();
   if (!customerName || !serviceType || !phone) throw new MassageError(400, "Cần tên khách, số điện thoại và loại dịch vụ.");
-  return { ...input, customerName, serviceType, phone, note: input.note?.trim() ?? "" };
+  const { mergeTargetId: _confirmation, ...data } = input;
+  return { ...data, customerName, serviceType, phone, note: input.note?.trim() ?? "" };
 }
 export async function createCard(input: TreatmentCardInput) {
   const values = cardValues(input);
   return db.transaction(async (tx) => {
+    // Shared by creation and edits: changing identity cannot race a concurrent sale.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('so-cong:card-identities', 0))`);
     const identity = [identityText(values.customerName), identityPhone(values.phone), identityText(values.serviceType)];
     // Serialize identical sale requests even when no matching card exists yet.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${JSON.stringify(identity)}, 0))`);
@@ -94,15 +97,18 @@ export async function createCard(input: TreatmentCardInput) {
     )).orderBy(asc(treatmentCardsTable.id)).for("update");
     const existing = candidates.find((card) => identityPhone(card.phone) === identity[1]);
     if (existing) {
+      if (input.mergeTargetId !== existing.id) throw new MassageError(409, "Thẻ đã có. Xác nhận cộng vào thẻ hiện có?", { mergeTargetId: existing.id });
       return { ...await creditCard(tx, existing, values.totalMinutes, values.purchaseAmount, values.purchaseDate,
         "merged_sale", values.note), mergedIntoExisting: true };
     }
+    if (input.mergeTargetId) throw new MassageError(409, "Thẻ cần gộp đã thay đổi. Hãy kiểm tra thông tin và lưu lại.");
     const [row] = await tx.insert(treatmentCardsTable).values(values).returning();
     return { ...cardResponse(row), mergedIntoExisting: false };
   });
 }
 export async function updateCard(id: number, input: TreatmentCardUpdate) {
   return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('so-cong:card-identities', 0))`);
     const [old] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
     if (!old || old.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
     const used = await usedMinutes(tx, id);
@@ -113,6 +119,33 @@ export async function updateCard(id: number, input: TreatmentCardUpdate) {
     if (values.totalMinutes < Number(topUpTotal.minutes)) {
       throw new MassageError(409, "Tổng giờ không thể thấp hơn số giờ đã nạp trong lịch sử.");
     }
+    const identity = [identityText(values.customerName), identityPhone(values.phone), identityText(values.serviceType)];
+    const matches = await tx.select().from(treatmentCardsTable).where(and(ne(treatmentCardsTable.id, id),
+      isNull(treatmentCardsTable.deletedAt),
+      sql`lower(normalize(regexp_replace(btrim(${treatmentCardsTable.customerName}), '[[:space:]]+', ' ', 'g'), NFC)) = ${identity[0]}`,
+      sql`lower(normalize(regexp_replace(btrim(${treatmentCardsTable.serviceType}), '[[:space:]]+', ' ', 'g'), NFC)) = ${identity[2]}`,
+    )).orderBy(asc(treatmentCardsTable.id)).for("update");
+    const target = matches.find((card) => identityPhone(card.phone) === identity[1]);
+    if (target) {
+      if (input.mergeTargetId !== target.id) throw new MassageError(409, "Thẻ đã có. Xác nhận cộng giờ, tiền và lịch sử vào thẻ hiện có?", { mergeTargetId: target.id });
+      const totalMinutes = target.totalMinutes + values.totalMinutes;
+      if (totalMinutes > 600000) throw new MassageError(400, "Tổng giờ sau khi gộp không được vượt quá 10.000 giờ.");
+      // Preserve every receipt's original business date. Moving the old initial sale
+      // into the payment ledger avoids counting the sale twice or booking it today.
+      await tx.insert(cardTopUpsTable).values({ cardId: target.id,
+        minutes: values.totalMinutes - Number(topUpTotal.minutes), amount: values.purchaseAmount,
+        paymentDate: values.purchaseDate, source: "merged_card",
+        note: `Gộp thẻ #${old.id}${values.note ? ` · ${values.note}` : ""}` });
+      await tx.update(cardTopUpsTable).set({ cardId: target.id }).where(eq(cardTopUpsTable.cardId, id));
+      await tx.update(serviceSessionsTable).set({ cardId: target.id }).where(eq(serviceSessionsTable.cardId, id));
+      const firstUsedAt = [target.firstUsedAt, old.firstUsedAt].filter((v): v is Date => Boolean(v))
+        .sort((a, b) => a.getTime() - b.getTime())[0] ?? (used > 0 ? new Date() : null);
+      const [merged] = await tx.update(treatmentCardsTable).set({ totalMinutes, firstUsedAt })
+        .where(eq(treatmentCardsTable.id, target.id)).returning();
+      await tx.update(treatmentCardsTable).set({ deletedAt: new Date() }).where(eq(treatmentCardsTable.id, id));
+      return { ...await cardWithHistory(tx, merged, await usedMinutes(tx, target.id)), mergedIntoExisting: true };
+    }
+    if (input.mergeTargetId) throw new MassageError(409, "Thẻ cần gộp đã thay đổi. Hãy kiểm tra thông tin và lưu lại.");
     const [row] = await tx.update(treatmentCardsTable).set({
       customerName: values.customerName, phone: values.phone, serviceType: values.serviceType,
       totalMinutes: values.totalMinutes, purchaseAmount: values.purchaseAmount,

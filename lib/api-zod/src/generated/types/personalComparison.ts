@@ -5,6 +5,8 @@
  * API công khai để quản lý dữ liệu nhân viên, chấm công, dịch vụ và thẻ liệu trình.
  * OpenAPI spec version: 0.1.0
  */
+import type { PersonalComparisonVisit } from './personalComparisonVisit';
+import type { PersonalDiscrepancy } from './personalDiscrepancy';
 
 export interface PersonalComparison {
   memberName: string;
@@ -14,4 +16,9 @@ export interface PersonalComparison {
   referenceMonth: number;
   differenceDay: number;
   differenceMonth: number;
+  personalVisits: PersonalComparisonVisit[];
+  referenceVisits: PersonalComparisonVisit[];
+  discrepancies: PersonalDiscrepancy[];
+  revisionDay: string;
+  revisionMonth: string;
 }

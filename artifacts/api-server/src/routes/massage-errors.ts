@@ -79,7 +79,7 @@ export function massageHandler(handler: (req: Request, res: Response) => Promise
   return async (req, res): Promise<void> => {
     try { await handler(req, res); }
     catch (error) {
-      if (error instanceof MassageError) res.status(error.status).json({ error: error.message });
+      if (error instanceof MassageError) res.status(error.status).json({ error: error.message, ...error.details });
       else {
         // ORM exception messages may contain customer data in SQL parameters.
         const failure = knownDatabaseFailure(error);

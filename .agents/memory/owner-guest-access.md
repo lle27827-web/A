@@ -13,7 +13,7 @@ Every signed-in account may keep a separate personal employee notebook: own atte
 
 **Why:** the user explicitly chose “Tự chấm công, dịch vụ/mức tiền riêng, thu nhập và lịch sử” and requested complete separation for each account.
 
-**How to apply:** derive identity only from the verified session; scope all personal data by account, including owner accounts. Personal writes never change facility data. Comparison may show only the selected central employee's daily/monthly **pay**, beside the account's own pay, never facility revenue or another account's private notebook.
+**How to apply:** derive identity only from the verified session; scope all personal data by account, including owner accounts. Personal writes never change facility data. Signed-in comparison may show the selected central employee's daily/monthly **pay** and service/customer-name shift details beside the account's own records, never facility cash revenue, customer phone numbers or another account's private notebook.
 
 Valid sessions must be restored automatically when the app starts or the page reloads, without requiring another reload. Do not turn a temporarily unverified signed-in session into a guest and redirect away from the user's page.
 

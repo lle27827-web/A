@@ -75,7 +75,9 @@ test("personal data stays account-scoped, snapshots pay, and compares central sa
     ]).returning();
     centralIds.push(...central.map((row) => row.id));
     const comparison = await getPersonalComparison(a, memberId, month, day);
-    assert.deepEqual(comparison, { memberName: member.name, personalDay: 60000, personalMonth: 160000,
+    assert.deepEqual({ memberName: comparison.memberName, personalDay: comparison.personalDay, personalMonth: comparison.personalMonth,
+      referenceDay: comparison.referenceDay, referenceMonth: comparison.referenceMonth, differenceDay: comparison.differenceDay,
+      differenceMonth: comparison.differenceMonth }, { memberName: member.name, personalDay: 60000, personalMonth: 160000,
       referenceDay: 40000, referenceMonth: 60000, differenceDay: 20000, differenceMonth: 100000 });
     const compareB = await getPersonalComparison(b, memberId, month, day);
     assert.equal(compareB.personalMonth, 52500);

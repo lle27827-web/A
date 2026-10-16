@@ -5,6 +5,55 @@
  * API công khai để quản lý dữ liệu nhân viên, chấm công, dịch vụ và thẻ liệu trình.
  * OpenAPI spec version: 0.1.0
  */
+export interface PersonalSettingsInput {
+  useFacilityRates: boolean;
+}
+
+export type PersonalSyncInputScope = typeof PersonalSyncInputScope[keyof typeof PersonalSyncInputScope];
+
+
+export const PersonalSyncInputScope = {
+  day: 'day',
+  month: 'month',
+} as const;
+
+export interface PersonalSyncInput {
+  /** @minimum 1 */
+  memberId: number;
+  /** @pattern ^\d{4}-\d{2}$ */
+  month: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  date: string;
+  scope: PersonalSyncInputScope;
+  /**
+     * @minLength 64
+     * @maxLength 64
+     */
+  revision: string;
+}
+
+export interface PersonalSyncResult {
+  removed: number;
+  imported: number;
+}
+
+export interface PersonalComparisonVisit {
+  id: number;
+  workDate: string;
+  serviceName: string;
+  customerName: string;
+  minutes: number;
+  hourlyRate: number;
+  earnings: number;
+  note: string;
+}
+
+export interface PersonalDiscrepancy {
+  reason: string;
+  personal: PersonalComparisonVisit[];
+  reference: PersonalComparisonVisit[];
+}
+
 export interface PersonalServiceInput {
   /**
      * @minLength 1
@@ -18,9 +67,11 @@ export interface PersonalServiceInput {
   hourlyRate: number;
 }
 
-export type PersonalService = PersonalServiceInput & {
+export type PersonalService = PersonalServiceInput & ({
   id: number;
-};
+  /** @nullable */
+  facilityServiceId?: number | null;
+});
 
 export interface PersonalSessionInput {
   /** @minimum 1 */
@@ -34,6 +85,13 @@ export interface PersonalSessionInput {
   minutes: number;
   /** @maxLength 2000 */
   note: string;
+  /** @maxLength 160 */
+  customerName?: string;
+  /**
+     * @minLength 16
+     * @maxLength 80
+     */
+  requestId?: string;
 }
 
 export type PersonalSession = PersonalSessionInput & {
@@ -46,6 +104,7 @@ export type PersonalSession = PersonalSessionInput & {
 
 export interface PersonalNotebook {
   month: string;
+  useFacilityRates: boolean;
   date: string;
   services: PersonalService[];
   sessions: PersonalSession[];
@@ -62,6 +121,11 @@ export interface PersonalComparison {
   referenceMonth: number;
   differenceDay: number;
   differenceMonth: number;
+  personalVisits: PersonalComparisonVisit[];
+  referenceVisits: PersonalComparisonVisit[];
+  discrepancies: PersonalDiscrepancy[];
+  revisionDay: string;
+  revisionMonth: string;
 }
 
 export interface HealthStatus {
@@ -250,6 +314,8 @@ export interface TreatmentCard {
 }
 
 export interface TreatmentCardInput {
+  /** @minimum 1 */
+  mergeTargetId?: number;
   /**
      * @minLength 1
      * @maxLength 120
@@ -295,6 +361,8 @@ export interface CardHoursInput {
 }
 
 export interface TreatmentCardUpdate {
+  /** @minimum 1 */
+  mergeTargetId?: number;
   /**
      * @minLength 1
      * @maxLength 120

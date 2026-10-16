@@ -10,6 +10,7 @@ import type { PersonalSession } from './personalSession';
 
 export interface PersonalNotebook {
   month: string;
+  useFacilityRates: boolean;
   date: string;
   services: PersonalService[];
   sessions: PersonalSession[];

@@ -1,15 +1,28 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { MemberRecord, TreatmentCard, TreatmentCardInput } from '@workspace/api-client-react';
 import { getListServiceTypesQueryKey, useListServiceTypes } from '@workspace/api-client-react';
-import { AlertCircle, LoaderCircle } from 'lucide-react';
+import { AlertCircle, GitMerge, LoaderCircle } from 'lucide-react';
 import { Link } from 'wouter';
 import { Modal } from '@/components/modal';
 import { SESSION_FRESHNESS, formatMinutes, formatVnd, hoursValue, parseHoursToMinutes, parseMoney } from '@/lib/massage';
 
-export function CardDialog({ card, defaultDate, busy, serverError, onClose, onSubmit }: {
+/** Server answers 409 { error, mergeTargetId } when the card duplicates an existing one. */
+export function mergeConflictTarget(e: unknown): number | null {
+  if (!e || typeof e !== 'object') return null;
+  const err = e as { status?: unknown; data?: unknown };
+  if (err.status !== 409 || !err.data || typeof err.data !== 'object') return null;
+  const id = (err.data as { mergeTargetId?: unknown }).mergeTargetId;
+  return typeof id === 'number' && Number.isInteger(id) && id > 0 ? id : null;
+}
+
+export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId = null, onCancelMerge, onClose, onSubmit }: {
   card: TreatmentCard | null; defaultDate: string; busy: boolean; serverError: string;
+  mergeTargetId?: number | null; onCancelMerge?: () => void;
   onClose: () => void; onSubmit: (input: TreatmentCardInput) => void;
 }) {
+  const draftRef = useRef<TreatmentCardInput | null>(null);
+  const submitting = useRef(false);
+  useEffect(() => { if (!busy) submitting.current = false; }, [busy, serverError, mergeTargetId]);
   const servicesQuery = useListServiceTypes({ query: { queryKey: getListServiceTypesQueryKey(), ...SESSION_FRESHNESS } });
   const [customerName, setCustomerName] = useState(card?.customerName ?? '');
   const [phone, setPhone] = useState(card?.phone ?? '');
@@ -26,6 +39,7 @@ export function CardDialog({ card, defaultDate, busy, serverError, onClose, onSu
 
   function submit(e: FormEvent) {
     e.preventDefault();
+    if (busy || submitting.current) return;
     if (!customerName.trim()) return setError('Hãy nhập tên khách.');
     if (!phone.trim()) return setError('Hãy nhập số điện thoại.');
     if (!serviceType.trim()) return setError('Hãy chọn dịch vụ.');
@@ -35,12 +49,31 @@ export function CardDialog({ card, defaultDate, busy, serverError, onClose, onSu
     if (money === null) return setError('Hãy nhập số tiền đã trả.');
     if (!purchaseDate) return setError('Hãy chọn ngày mua.');
     setError('');
-    onSubmit({ customerName: customerName.trim(), phone: phone.trim(), serviceType: serviceType.trim(), totalMinutes, purchaseAmount: money, purchaseDate, note: note.trim() });
+    const draft = { customerName: customerName.trim(), phone: phone.trim(), serviceType: serviceType.trim(), totalMinutes, purchaseAmount: money, purchaseDate, note: note.trim() };
+    draftRef.current = draft;
+    submitting.current = true;
+    onSubmit(draft);
+  }
+  function confirmMerge() {
+    if (busy || submitting.current || !draftRef.current || !mergeTargetId) return;
+    submitting.current = true;
+    onSubmit({ ...draftRef.current, mergeTargetId });
   }
   const shown = error || serverError;
+  const pending = mergeTargetId !== null && draftRef.current !== null;
   return (
     <Modal title={card ? 'Sửa thẻ liệu trình' : 'Bán thẻ liệu trình mới'} onClose={onClose} testId="dialog-card">
-      <form className="form-grid" onSubmit={submit} noValidate>
+      {pending && (
+        <div className="merge-confirm" role="alertdialog" aria-labelledby="merge-title" aria-describedby="merge-body" data-testid="dialog-card-merge">
+          <h3 id="merge-title"><GitMerge size={16} aria-hidden="true" />Thẻ đã có. Xác nhận cộng vào?</h3>
+          <p id="merge-body">Đã có thẻ cùng khách, số điện thoại và dịch vụ (thẻ #{mergeTargetId}). Nếu xác nhận, {card ? 'thẻ này' : 'thẻ mới'} sẽ được gộp vào thẻ đó: số giờ, tiền đã trả, các lần dùng và lịch sử mua/nạp được cộng dồn vào thẻ hiện có. Giao dịch ban đầu vẫn giữ đúng ngày gốc.</p>
+          <div className="dialog-actions">
+            <button type="button" className="btn ghost" disabled={busy} onClick={onCancelMerge} data-testid="button-cancel-card-merge">Không, quay lại sửa</button>
+            <button type="button" className="btn primary" disabled={busy} onClick={confirmMerge} autoFocus data-testid="button-confirm-card-merge">{busy && <LoaderCircle size={14} className="spin" />}Xác nhận cộng vào</button>
+          </div>
+        </div>
+      )}
+      <form hidden={pending} className="form-grid" onSubmit={submit} noValidate>
         <div className="field-row">
           <label className="field" htmlFor="c-name">Tên khách<input id="c-name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={120} required data-testid="input-card-customer" /></label>
           <label className="field" htmlFor="c-phone">Số điện thoại<input id="c-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={32} required data-testid="input-card-phone" /></label>
@@ -69,7 +102,7 @@ export function CardDialog({ card, defaultDate, busy, serverError, onClose, onSu
         {shown && <p className="form-error" role="alert"><AlertCircle size={13} /> {shown}</p>}
         <div className="dialog-actions">
           <button type="button" className="btn ghost" onClick={onClose}>Hủy</button>
-          <button type="submit" className="btn primary" disabled={busy} data-testid="button-save-card">{busy && <LoaderCircle size={14} className="spin" />}Lưu thẻ</button>
+          <button type="submit" className="btn primary" disabled={busy || pending} data-testid="button-save-card">{busy && <LoaderCircle size={14} className="spin" />}Lưu thẻ</button>
         </div>
       </form>
     </Modal>

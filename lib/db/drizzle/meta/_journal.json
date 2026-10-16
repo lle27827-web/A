@@ -43,6 +43,13 @@
       "when": 1792154000509,
       "tag": "0005_personal_notebook",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792169321764,
+      "tag": "0006_card_merge_personal_sync",
+      "breakpoints": true
     }
   ]
 }

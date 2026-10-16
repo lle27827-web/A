@@ -11,3 +11,4 @@
 - [Drizzle nested selects](drizzle-nested-selects.md) — raw selected SQL may strip column qualifiers; explicitly qualify joined subqueries.
 - [Employee history](employee-history.md) — staff removal preserves visits and wages; month history applies across employee management, not just revenue.
 - [Navigation placement](navigation-placement.md) — back/home controls belong after content and lists, including search and employee-view mode.
+- [Personal synchronization](personal-synchronization.md) — importing replaces only the confirmed day/month; optional facility rates use employee pay and preserve historical wages.
