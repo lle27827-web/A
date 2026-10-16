@@ -105,18 +105,18 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
     : null;
 
   if (memberId === null) {
-    return <section className="panel page">{back}<div className="empty"><UserX size={22} /><p>Chưa chọn nhân viên để xem.</p><button type="button" className="btn primary" onClick={shell.openSettings} data-testid="button-choose-employee">Chọn nhân viên</button></div></section>;
+    return <section className="panel page"><div className="empty"><UserX size={22} /><p>Chưa chọn nhân viên để xem.</p><button type="button" className="btn primary" onClick={shell.openSettings} data-testid="button-choose-employee">Chọn nhân viên</button></div>{back}</section>;
   }
-  if (membersLoading) return <section className="panel page">{back}<Skeleton rows={6} label="Đang tải nhân viên" /></section>;
-  if (membersError) return <section className="panel page">{back}<ErrorBanner text="Không tải được thông tin nhân viên." onRetry={retryMembers} /></section>;
+  if (membersLoading) return <section className="panel page"><Skeleton rows={6} label="Đang tải nhân viên" />{back}</section>;
+  if (membersError) return <section className="panel page"><ErrorBanner text="Không tải được thông tin nhân viên." onRetry={retryMembers} />{back}</section>;
   if (!member) {
-    return <section className="panel page">{back}<div className="empty"><UserX size={22} /><p>{historyMonth ? `Không có dữ liệu của nhân viên này trong ${formatMonth(historyMonth).toLowerCase()}.` : 'Nhân viên này không tồn tại hoặc đã bị xóa.'}</p>
+    return <section className="panel page"><div className="empty"><UserX size={22} /><p>{historyMonth ? `Không có dữ liệu của nhân viên này trong ${formatMonth(historyMonth).toLowerCase()}.` : 'Nhân viên này không tồn tại hoặc đã bị xóa.'}</p>
       {readOnly ? <button type="button" className="btn" onClick={shell.openSettings}>Chọn nhân viên khác</button> : (
         <div className="head-actions">
           <Link href={withHistory('/employees')} className="btn" data-testid="link-empty-roster">Về danh sách{historyMonth ? ' tháng này' : ''}</Link>
           {historyMonth && <Link href={`/employees/${memberId}`} className="btn ghost" data-testid="link-empty-current">Xem dữ liệu hiện tại</Link>}
         </div>
-      )}</div></section>;
+      )}</div>{back}</section>;
   }
 
   const p = payroll.data;
@@ -147,7 +147,6 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
   );
   return (
     <div className="detail">
-      {readOnly && <div className="detail-top">{back}</div>}
       <section className="salary-hero compact" aria-labelledby="salary-title" data-testid="section-salary">
         <div className="month-nav">
           <button type="button" className="icon-btn" onClick={() => changeMonth(shiftMonth(month, -1))} aria-label="Tháng trước" data-testid="button-prev-month"><ChevronLeft size={16} /></button>
@@ -201,6 +200,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
           })} />
       )}
       {confirm && <ConfirmDialog state={confirm} busy={deleteSession.isPending || deleteMember.isPending} onClose={() => setConfirm(null)} />}
+      {readOnly && <div className="detail-bottom">{back}</div>}
     </div>
   );
 }

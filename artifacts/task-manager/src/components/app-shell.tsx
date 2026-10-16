@@ -182,16 +182,6 @@ export function AppShell({
         </header>
         <main className="main" id="main">
           {authStatusMessage && <div className="banner danger" role="status">{authStatusMessage}</div>}
-          {location !== '/' && location !== '/attendance' && !showResults && (
-            <nav className="screen-nav" aria-label="Điều hướng trang">
-              <Link href={withHistory('/')} onClick={() => setQuery('')} className="btn ghost" data-testid="link-return-home">
-                <Home size={15} aria-hidden="true" />Trở về trang chính
-              </Link>
-              <button type="button" className="btn ghost" onClick={goBack} data-testid="button-return-previous">
-                <ArrowLeft size={15} aria-hidden="true" />Trở về
-              </button>
-            </nav>
-          )}
           {historyMonth && employeeRoute && (
             <div className="banner soft history-banner" role="status" data-testid="status-history-mode">
               <History size={15} aria-hidden="true" />
@@ -214,6 +204,16 @@ export function AppShell({
             <button type="button" onClick={() => setNotice('')} aria-label="Đóng thông báo"><X size={14} /></button>
           </div>}
           {employeeMode ? employeeView : children}
+          {(showResults || (location !== '/' && location !== '/attendance')) && (
+            <nav className="screen-nav" aria-label="Điều hướng trang">
+              <Link href={withHistory('/')} onClick={() => setQuery('')} className="btn ghost" data-testid="link-return-home">
+                <Home size={15} aria-hidden="true" />Trở về trang chính
+              </Link>
+              <button type="button" className="btn ghost" onClick={goBack} data-testid="button-return-previous">
+                <ArrowLeft size={15} aria-hidden="true" />Trở về
+              </button>
+            </nav>
+          )}
         </main>
         <footer className="footer">
           <span>SỔ CÔNG · tiệm massage</span>

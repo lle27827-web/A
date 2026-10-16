@@ -83,11 +83,24 @@ test("paid top-ups and duplicate sales retain history and recognize cash once on
     assert.equal(report.today.cardRevenue - baseline.today.cardRevenue, 570000);
     assert.equal(report.today.netRevenue - baseline.today.netRevenue, 620000);
     assert.equal(report.cardsSold, baseline.cardsSold, "top-ups must not create extra card-sale counts");
-    await deleteCard(original.id);
+    const creditedUsedCard = await make({ totalMinutes: 60, purchaseAmount: 10000, purchaseDate: today });
+    assert.equal(creditedUsedCard.id, original.id, "used cards still receive matching new sales as top-ups");
+    assert.equal(creditedUsedCard.hasBeenUsed, true);
+    assert.equal(creditedUsedCard.usedMinutes, 30);
+    assert.equal(creditedUsedCard.topUps.length, 7);
+    const creditedReport = await getFacilityRevenue(month, today);
+    assert.equal(creditedReport.netRevenue - report.netRevenue, 10000);
+    assert.equal(creditedReport.payroll, report.payroll);
+    await assert.rejects(deleteCard(original.id),
+      (error: unknown) => error instanceof MassageError && error.status === 409);
+    assert.deepEqual(await getFacilityRevenue(month, today), creditedReport);
+    // A legacy archive is seeded directly to verify old archived rows remain excluded.
+    await db.update(treatmentCardsTable).set({ deletedAt: new Date() })
+      .where(eq(treatmentCardsTable.id, original.id));
     const archived = await getFacilityRevenue(month, today);
     assert.equal(archived.cardRevenue, baseline.cardRevenue);
     assert.equal(archived.netRevenue - baseline.netRevenue, 50000);
-    assert.equal((await db.select().from(cardTopUpsTable).where(eq(cardTopUpsTable.cardId, original.id))).length, 6);
+    assert.equal((await db.select().from(cardTopUpsTable).where(eq(cardTopUpsTable.cardId, original.id))).length, 7);
     const replacement = await make({ purchaseDate: today });
     assert.notEqual(replacement.id, original.id, "archived cards cannot receive automatic merges");
     for (const overrides of [

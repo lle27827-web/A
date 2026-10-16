@@ -5,7 +5,7 @@
       "root": "artifacts/api-server",
       "framework": "express",
       "installCommand": "pnpm install --frozen-lockfile --filter @workspace/api-server...",
-      "buildCommand": "pnpm --filter @workspace/db run migrate:card-topups && pnpm --filter @workspace/db run migrate:employee-history && pnpm -r --filter @workspace/api-server... --if-present run build"
+      "buildCommand": "pnpm --filter @workspace/db run migrate:card-topups && pnpm --filter @workspace/db run migrate:employee-history && pnpm --filter @workspace/db run migrate:card-usage-lock && pnpm -r --filter @workspace/api-server... --if-present run build"
     },
     "mockup-sandbox": {
       "root": "artifacts/mockup-sandbox",

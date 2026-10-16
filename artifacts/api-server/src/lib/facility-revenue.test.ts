@@ -4,7 +4,7 @@ import { eq, inArray } from "drizzle-orm";
 import { db, pool, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
 import { GetMassageSummaryQueryParams, GetMassageSummaryResponse } from "@workspace/api-zod";
 import { getFacilityRevenue } from "./facility-revenue";
-import { deleteCard } from "./massage";
+import { deleteCard, MassageError } from "./massage";
 
 test("daily and monthly reports count recorded visits, and deleting a card removes its revenue and visits", async () => {
   const cardIds: number[] = [];
@@ -130,7 +130,12 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     assert.equal(updated.payroll, after.payroll);
     assert.equal(updated.revenueExcludingCardSessions, after.revenueExcludingCardSessions - 1200);
     assert.equal(updated.revenue, after.revenue - 1200);
-    await deleteCard(cards[0].id);
+    await assert.rejects(deleteCard(cards[0].id),
+      (error: unknown) => error instanceof MassageError && error.status === 409);
+    assert.deepEqual(await getFacilityRevenue(month, date), updated);
+    // Previously archived cards remain excluded; normal deletion can no longer archive a used card.
+    await db.update(treatmentCardsTable).set({ deletedAt: new Date() })
+      .where(eq(treatmentCardsTable.id, cards[0].id));
     const removedReport = await getFacilityRevenue(month, date);
     assert.equal(removedReport.cardRevenue, updated.cardRevenue - 800);
     assert.equal(removedReport.serviceRevenue, updated.serviceRevenue);

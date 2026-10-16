@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { TreatmentCard } from '@workspace/api-client-react';
 import { getListTreatmentCardsQueryKey, useCreateTreatmentCard, useListTreatmentCards } from '@workspace/api-client-react';
-import { ArrowLeft, ChevronRight, CreditCard, LockKeyhole, Plus, Search, X } from 'lucide-react';
+import { ChevronRight, CreditCard, LockKeyhole, Plus, Search, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { CardDialog } from '@/components/entity-dialogs';
@@ -26,7 +26,6 @@ export default function CardsPage() {
 
   return (
     <section className="panel page" aria-labelledby="cards-title">
-      <Link href="/" className="back" data-testid="link-back"><ArrowLeft size={15} />Trang chính</Link>
       <div className="panel-head wrap">
         <div><h1 id="cards-title" className="page-title">Quản lý thẻ</h1><p className="sub">Thẻ liệu trình của khách · trừ theo giờ phục vụ</p></div>
         {canEdit ? <button type="button" className="btn primary" onClick={() => { setDialogError(''); setOpen(true); }} data-testid="button-add-card"><Plus size={15} />Bán thẻ mới</button>

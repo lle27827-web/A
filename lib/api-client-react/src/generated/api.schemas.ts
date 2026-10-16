@@ -178,6 +178,8 @@ export interface TreatmentCard {
   serviceType: string;
   totalMinutes: number;
   usedMinutes: number;
+  /** Thẻ đã từng sử dụng; không được xóa kể cả khi lượt dùng cũ đã được sửa hoặc xóa. */
+  hasBeenUsed?: boolean;
   remainingMinutes: number;
   purchaseAmount: number;
   totalPaidAmount: number;

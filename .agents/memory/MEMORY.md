@@ -10,3 +10,4 @@
 - [Migration baselines](database-migration-baseline.md) — existing tables may have an empty migration journal; do not replay or invent a baseline blindly.
 - [Drizzle nested selects](drizzle-nested-selects.md) — raw selected SQL may strip column qualifiers; explicitly qualify joined subqueries.
 - [Employee history](employee-history.md) — staff removal preserves visits and wages; month history applies across employee management, not just revenue.
+- [Navigation placement](navigation-placement.md) — back/home controls belong after content and lists, including search and employee-view mode.

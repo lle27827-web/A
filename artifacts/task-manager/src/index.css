@@ -433,7 +433,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 
 /* Navigation and attendance controls stay in-flow and usable in dialogs on phones. */
 .screen-nav, .window-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.screen-nav { margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid hsl(var(--border)); }
+.screen-nav { margin: 20px 0 0; padding-top: 12px; border-top: 1px solid hsl(var(--border)); }
 .window-nav { margin: 12px 0 16px; padding: 8px 0; border-block: 1px solid hsl(var(--border)); }
 .screen-nav .btn, .window-nav .btn { flex: 1; min-width: 0; text-decoration: none; }
 .net-revenue-row { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid hsl(var(--primary) / .3); border-radius: 10px; background: hsl(var(--primary) / .06); }
@@ -478,3 +478,10 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 99px; border: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground)); font-size: 11px; font-weight: 700; white-space: nowrap; }
 .tag.warn { border-color: hsl(var(--warn) / .5); color: hsl(var(--warn)); }
 .name-tags { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-left: 6px; vertical-align: middle; }
+
+.card-actions-top { display: flex; justify-content: space-between; gap: 10px; margin: 0 0 14px; }
+.card-actions-top .btn { flex: 1 1 0; min-width: 0; justify-content: center; }
+.history-block + .history-block { margin-top: 16px; }
+.history-toggle { margin-top: 10px; }
+.lock-note { font-size: 12px; color: hsl(var(--muted-foreground)); max-width: 220px; }
+.detail-bottom { margin-top: 16px; }

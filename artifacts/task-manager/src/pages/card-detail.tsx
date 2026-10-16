@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getListMembersQueryKey, getListServiceSessionsQueryKey, getListTreatmentCardsQueryKey, useListMembers,
@@ -6,7 +6,7 @@ import {
   useUpdateServiceSession, useUpdateTreatmentCard, useAddTreatmentCardHours,
 } from '@workspace/api-client-react';
 import type { MemberRecord, ServiceSession, ServiceSessionInput, TreatmentCard } from '@workspace/api-client-react';
-import { ArrowLeft, CreditCard, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, CreditCard, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Link, useLocation, useParams } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { CardDialog } from '@/components/entity-dialogs';
@@ -21,7 +21,7 @@ export default function CardDetailPage() {
   const params = useParams<{ id: string }>();
   const n = Number(params.id);
   const id = Number.isInteger(n) && n > 0 ? n : 0;
-  const { isOwner: canEdit, notify, fail, setQuery } = useShell();
+  const { isOwner: canEdit, notify, fail } = useShell();
   // Card data is always current; session member options come from the CURRENT roster, not a history month.
   const activeMembersQuery = useListMembers(undefined, { query: { queryKey: getListMembersQueryKey(), ...SESSION_FRESHNESS } });
   const members = useMemo(() => activeMembersQuery.data ?? [], [activeMembersQuery.data]);
@@ -45,11 +45,16 @@ export default function CardDetailPage() {
 
   const card = (cardsQuery.data ?? []).find((c) => c.id === id) ?? null;
   const sessions = useMemo(() => [...(sessionsQuery.data ?? [])].sort((a, b) => b.workDate.localeCompare(a.workDate) || b.id - a.id), [sessionsQuery.data]);
-  const back = <Link href="/" onClick={() => setQuery('')} className="back" data-testid="link-back"><ArrowLeft size={15} />Trang chính</Link>;
+  const [showAllUsage, setShowAllUsage] = useState(false);
+  const [showPayments, setShowPayments] = useState(false);
+  useEffect(() => {
+    setShowAllUsage(false);
+    setShowPayments(false);
+  }, [id]);
 
-  if (cardsQuery.isLoading || (!card && cardsQuery.isFetching)) return <section className="panel page">{back}<Skeleton rows={6} label="Đang tải thẻ" /></section>;
-  if (cardsQuery.isError) return <section className="panel page">{back}<ErrorBanner text="Không tải được thẻ." onRetry={() => void cardsQuery.refetch()} /></section>;
-  if (!card) return <section className="panel page">{back}<div className="empty"><CreditCard size={22} /><p>Thẻ không tồn tại hoặc đã bị xóa.</p><Link href="/cards" className="btn">Về danh sách thẻ</Link></div></section>;
+  if (cardsQuery.isLoading || (!card && cardsQuery.isFetching)) return <section className="panel page"><Skeleton rows={6} label="Đang tải thẻ" /></section>;
+  if (cardsQuery.isError) return <section className="panel page"><ErrorBanner text="Không tải được thẻ." onRetry={() => void cardsQuery.refetch()} /></section>;
+  if (!card) return <section className="panel page"><div className="empty"><CreditCard size={22} /><p>Thẻ không tồn tại hoặc đã bị xóa.</p><Link href="/cards" className="btn">Về danh sách thẻ</Link></div></section>;
 
   function submitSession(input: ServiceSessionInput) {
     if (!canEdit || !sessionDialog || !card) return;
@@ -71,7 +76,7 @@ export default function CardDetailPage() {
     if (!card) return;
     setConfirm({
       title: `Xóa thẻ của ${card.customerName}?`,
-      body: <p>Thẻ sẽ bị ẩn khỏi danh sách. Tổng tiền mua và nạp {formatVnd(card.totalPaidAmount)}, {sessions.length} ca sử dụng liên quan, tiền công và lượt khách sẽ không còn tính trong báo cáo. Dữ liệu lịch sử vẫn được lưu trữ.</p>,
+      body: <p>Thẻ chưa sử dụng sẽ bị ẩn khỏi danh sách. Tiền mua và nạp {formatVnd(card.totalPaidAmount)} sẽ không còn tính trong báo cáo. Lịch sử thanh toán vẫn được lưu trữ.</p>,
       confirmLabel: 'Xóa thẻ',
       onConfirm: () => deleteCard.mutate({ id: card.id }, { onSuccess: () => { refresh(); setConfirm(null); notify('Đã xóa thẻ.'); navigate('/cards'); }, onError: (e) => { setConfirm(null); fail(e); } }),
     });
@@ -83,10 +88,18 @@ export default function CardDetailPage() {
     return [...members, { id: session.memberId, name: `${session.employeeName} (đã nghỉ)`, hourlyRate: session.hourlyRate, createdAt: session.createdAt, deletedAt: session.createdAt }];
   }
 
+  const cardUsed = card.hasBeenUsed === true || card.usedMinutes > 0 || sessions.length > 0;
+  const visibleSessions = showAllUsage ? sessions : sessions.slice(0, 1);
   const pct = card.totalMinutes ? Math.max(0, Math.min(1, card.remainingMinutes / card.totalMinutes)) : 0;
   return (
     <div className="detail">
-      {back}
+      {canEdit && (
+        <div className="card-actions-top" data-testid="card-actions-top">
+          <button type="button" className="btn primary" onClick={() => { setDialogError(''); setHoursDialog(true); }} data-testid="button-add-card-hours"><Plus size={15} />Nạp thẻ</button>
+          <button type="button" className="btn primary" disabled={card.remainingMinutes <= 0} title={card.remainingMinutes <= 0 ? 'Thẻ đã hết giờ' : undefined} onClick={() => { setDialogError(''); setSessionDialog({ session: null }); }} data-testid="button-add-usage"><Plus size={15} />Ghi lần dùng</button>
+        </div>
+      )}
+      
       <section className="salary-hero" aria-labelledby="card-title" data-testid="section-card">
         <div className="hero-top">
           <span className="initials big"><CreditCard size={20} /></span>
@@ -95,7 +108,9 @@ export default function CardDetailPage() {
           {canEdit && (
             <div className="head-actions">
               <button type="button" className="btn" onClick={() => { setDialogError(''); setCardDialog(true); }} data-testid="button-edit-card"><Pencil size={14} />Sửa thẻ</button>
-              <button type="button" className="icon-btn danger" onClick={askDeleteCard} aria-label="Xóa thẻ" data-testid="button-delete-card"><Trash2 size={15} /></button>
+              {cardUsed
+                ? <span className="lock-note" data-testid="text-card-delete-locked">Thẻ đã có lần dùng nên không thể xóa.</span>
+                : <button type="button" className="icon-btn danger" disabled={sessionsQuery.isLoading || sessionsQuery.isError} onClick={askDeleteCard} aria-label="Xóa thẻ" data-testid="button-delete-card"><Trash2 size={15} /></button>}
             </div>
           )}
         </div>
@@ -111,11 +126,30 @@ export default function CardDetailPage() {
         {card.note && <p className="sub">Ghi chú: {card.note}</p>}
       </section>
 
-      {canEdit && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setHoursDialog(true); }} data-testid="button-add-card-hours"><Plus size={15} />Nạp thẻ</button>}
 
-      <section className="panel" aria-labelledby="payments-title" data-testid="section-card-payments">
-        <div className="panel-head"><h2 id="payments-title">Lịch sử mua và nạp thẻ</h2></div>
-        <ul className="emp-list">
+      <section className="panel" aria-labelledby="history-title" data-testid="section-card-history">
+        <div className="panel-head"><h2 id="history-title">Lịch sử thẻ</h2></div>
+        <div className="history-block">
+          <div className="panel-head wrap"><div><h3 id="usage-title">Lần dùng gần nhất</h3><p className="sub">{sessions.length} lần dùng</p></div></div>
+          {sessionsQuery.isLoading ? <Skeleton rows={2} label="Đang tải lịch sử" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được lịch sử sử dụng." onRetry={() => void sessionsQuery.refetch()} /> : sessions.length === 0 ? (
+            <div className="empty small"><CreditCard size={18} /><p>Thẻ chưa được sử dụng.</p></div>
+          ) : (<>
+            <SessionTable sessions={visibleSessions} caption="Lịch sử dùng thẻ. Ngày là ngày phục vụ; giờ ghi là lúc lưu ca." canEdit={canEdit} cardHistory showDate showTime showEmployee busy={deleteSession.isPending}
+            onEdit={(s) => { setDialogError(''); setSessionDialog({ session: s }); }} onDelete={askDeleteSession} testId="card-usages" />
+            {sessions.length > 1 && (
+              <button type="button" className="btn ghost small history-toggle" aria-expanded={showAllUsage} onClick={() => setShowAllUsage((v) => !v)} data-testid="button-toggle-usage-history">
+                {showAllUsage ? <><ChevronUp size={14} />Thu gọn</> : <><ChevronDown size={14} />Xem tất cả {sessions.length} lần dùng</>}
+              </button>
+            )}
+          </>)}
+        </div>
+        <div className="history-block" data-testid="section-card-payments">
+          <div className="panel-head wrap"><div><h3 id="payments-title">Mua và nạp thẻ</h3><p className="sub">{card.topUps.length + 1} giao dịch · {formatVnd(card.totalPaidAmount)}</p></div></div>
+          <button type="button" className="btn ghost small history-toggle" aria-expanded={showPayments} aria-controls="payments-list" onClick={() => setShowPayments((v) => !v)} data-testid="button-toggle-payment-history">
+            {showPayments ? <><ChevronUp size={14} />Thu gọn</> : <><ChevronDown size={14} />Xem {card.topUps.length + 1} giao dịch mua và nạp</>}
+          </button>
+          {showPayments && (
+            <ul className="emp-list" id="payments-list">
           {card.topUps.map((payment) => (
             <li className="emp-row wrap" key={payment.id} data-testid={`row-card-topup-${payment.id}`}>
               <span className="grow">
@@ -134,19 +168,9 @@ export default function CardDetailPage() {
             <strong className="mono">{formatVnd(card.purchaseAmount)}</strong>
           </li>
         </ul>
-      </section>
 
-      <section className="panel" aria-labelledby="usage-title">
-        <div className="panel-head wrap">
-          <div><h2 id="usage-title">Lịch sử sử dụng</h2><p className="sub">{sessions.length} lần</p></div>
-          {canEdit && <button type="button" className="btn primary" disabled={card.remainingMinutes <= 0} onClick={() => { setDialogError(''); setSessionDialog({ session: null }); }} data-testid="button-add-usage"><Plus size={15} />Ghi lần dùng</button>}
+          )}
         </div>
-        {sessionsQuery.isLoading ? <Skeleton rows={3} label="Đang tải lịch sử" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được lịch sử sử dụng." onRetry={() => void sessionsQuery.refetch()} /> : sessions.length === 0 ? (
-          <div className="empty small"><CreditCard size={18} /><p>Thẻ chưa được sử dụng.</p></div>
-        ) : (
-          <SessionTable sessions={sessions} caption="Lịch sử dùng thẻ. Ngày là ngày phục vụ; giờ ghi là lúc lưu ca." canEdit={canEdit} cardHistory showDate showTime showEmployee busy={deleteSession.isPending}
-            onEdit={(s) => { setDialogError(''); setSessionDialog({ session: s }); }} onDelete={askDeleteSession} testId="card-usages" />
-        )}
       </section>
 
       {cardDialog && canEdit && (

@@ -329,7 +329,7 @@ paths:
       responses:
         "204": { description: Đã xóa thẻ chưa có lượt sử dụng }
         "404": { description: Không tìm thấy thẻ }
-        "409": { description: Cần xóa các lượt sử dụng trước khi xóa thẻ }
+        "409": { description: "Thẻ đã từng sử dụng nên không thể xóa, kể cả khi lượt dùng cũ đã được xóa" }
   /treatment-cards/{id}/hours:
     post:
       operationId: addTreatmentCardHours
@@ -594,6 +594,7 @@ components:
         serviceType: { type: string }
         totalMinutes: { type: integer }
         usedMinutes: { type: integer }
+        hasBeenUsed: { type: boolean, description: "Thẻ đã từng sử dụng; không được xóa kể cả khi lượt dùng cũ đã được sửa hoặc xóa." }
         remainingMinutes: { type: integer }
         purchaseAmount: { type: integer }
         totalPaidAmount: { type: number }

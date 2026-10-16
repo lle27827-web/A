@@ -129,7 +129,39 @@ test("card balance and service payroll stay consistent through edits and concurr
     });
     cards.push(removedCard.id);
     const linkedSession = await record({ ...input, cardId: removedCard.id, minutes: 60, workDate: "2099-12-01" });
-    await deleteCard(removedCard.id);
+    await assert.rejects(deleteCard(removedCard.id), fails(409));
+    const [protectedCard] = await db.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, removedCard.id));
+    assert.equal(protectedCard.deletedAt, null);
+    assert.ok(protectedCard.firstUsedAt);
+    assert.equal(cardResponse(protectedCard, 60).hasBeenUsed, true);
+    assert.equal(await balance(removedCard.id), 60);
+    const formerlyUsed = await makeCard(60);
+    const lastVisit = await record({ ...input, cardId: formerlyUsed.id, minutes: 30 });
+    await deleteSession(lastVisit.id);
+    assert.equal(await balance(formerlyUsed.id), 0);
+    await assert.rejects(deleteCard(formerlyUsed.id), fails(409));
+    const unused = await makeCard(60);
+    await deleteCard(unused.id);
+    const [unusedArchived] = await db.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, unused.id));
+    assert.ok(unusedArchived.deletedAt, "unused cards can still be archived");
+    const racing = await makeCard(60);
+    const race = await Promise.allSettled([
+      record({ ...input, cardId: racing.id, minutes: 30 }),
+      deleteCard(racing.id),
+    ]);
+    assert.equal(race.filter((result) => result.status === "fulfilled").length, 1);
+    const [raceCard] = await db.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, racing.id));
+    if (race[0].status === "fulfilled") {
+      assert.equal(raceCard.deletedAt, null);
+      assert.ok(raceCard.firstUsedAt);
+      assert.equal(await balance(racing.id), 30);
+    } else {
+      assert.ok(raceCard.deletedAt);
+      assert.equal(await balance(racing.id), 0);
+    }
+    // Existing legacy archives still retain visits and disallow further use.
+    await db.update(treatmentCardsTable).set({ deletedAt: new Date() })
+      .where(eq(treatmentCardsTable.id, removedCard.id));
     const [archivedCard] = await db.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, removedCard.id));
     assert.ok(archivedCard.deletedAt);
     assert.equal((await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, linkedSession.id))).length, 1);

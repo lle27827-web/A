@@ -31,8 +31,8 @@ Keep both the original gross “Tổng doanh thu cơ sở” and the separate �
 
 **How to apply:** retain gross component values and payroll in calculations; hiding payroll must never remove its deduction. Historical month/day selections must request the matching dated report and survive reloads.
 
-The card-use history table should show only service date/recorded time, technician, hours and notes, plus owner edit/delete controls. Do not repeat customer identity, service or amounts in that table.
+The card-use history table should show only service date/recorded time, technician, hours and notes, plus owner edit/delete controls. Show only the latest use by default; older uses require expanding the history. Keep payment/top-up history collapsible in the same card-history area. Do not repeat customer identity, service or amounts in the usage table.
 
-**Why:** the user requested a compact card-use history without customer and payment lines.
+**Why:** the user requested a compact card-use history without customer and payment lines, then explicitly requested that older uses and payment history be opened on demand.
 
 **How to apply:** limit this presentation change to card-use history; retain stored identity, payment history, wage calculations and the employee-attendance view.

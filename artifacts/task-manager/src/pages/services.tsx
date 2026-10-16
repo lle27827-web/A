@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getListServiceTypesQueryKey, useCreateServiceType, useDeleteServiceType, useListServiceTypes, useUpdateServiceType } from '@workspace/api-client-react';
 import type { ServiceTypeRecord } from '@workspace/api-client-react';
-import { AlertCircle, ArrowLeft, LoaderCircle, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { AlertCircle, LoaderCircle, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { Link } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
@@ -73,7 +73,6 @@ export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
 
   return (
     <section className={`panel${embedded ? '' : ' page'}`} aria-labelledby="svc-title" data-testid="section-services">
-      {!embedded && <Link href="/" className="back" data-testid="link-back"><ArrowLeft size={15} />Trang chính</Link>}
       <div className="panel-head wrap">
         <div>{embedded ? <h2 id="svc-title">Dịch vụ &amp; bảng giá</h2> : <h1 id="svc-title" className="page-title">Dịch vụ &amp; bảng giá</h1>}</div>
         {canEdit && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setDialog({ service: null }); }} data-testid="button-add-service"><Plus size={15} />Thêm dịch vụ</button>}

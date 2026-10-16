@@ -31,6 +31,7 @@ export function cardResponse(row: typeof treatmentCardsTable.$inferSelect, usedM
     ...row,
     phone: row.phone,
     usedMinutes,
+    hasBeenUsed: Boolean(row.firstUsedAt) || usedMinutes > 0,
     remainingMinutes: row.totalMinutes - usedMinutes,
     totalPaidAmount: row.purchaseAmount + topUps.reduce((sum, payment) => sum + payment.amount, 0),
     topUps: topUps.map((payment) => ({ ...payment, createdAt: payment.createdAt.toISOString() })),
@@ -124,6 +125,11 @@ export async function deleteCard(id: number) {
   await db.transaction(async (tx) => {
     const [card] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
     if (!card || card.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
+    const [visit] = await tx.select({ id: serviceSessionsTable.id }).from(serviceSessionsTable)
+      .where(eq(serviceSessionsTable.cardId, id)).limit(1);
+    if (card.firstUsedAt || visit) {
+      throw new MassageError(409, "Thẻ đã có lượt sử dụng nên không thể xóa.");
+    }
     // Preserve the audit record; live lists, balances and reports exclude it.
     await tx.update(treatmentCardsTable).set({ deletedAt: new Date() }).where(eq(treatmentCardsTable.id, id));
   });
@@ -200,6 +206,10 @@ export async function saveSession(input: ServiceSessionInput, id?: number) {
     const [row] = id
       ? await tx.update(serviceSessionsTable).set(values).where(eq(serviceSessionsTable.id, id)).returning()
       : await tx.insert(serviceSessionsTable).values(values).returning();
+    if (card && !card.firstUsedAt) {
+      await tx.update(treatmentCardsTable).set({ firstUsedAt: sql`clock_timestamp()` })
+        .where(eq(treatmentCardsTable.id, card.id));
+    }
     return sessionResponse(row);
   });
 }
