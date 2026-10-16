@@ -26,3 +26,15 @@ Do not assume that Replit's managed Clerk test helper authenticates against the 
 **Why:** the helper returned a sign-in redirect but did not establish a server-recognized session for this app; browser authentication remained unverified. This alone does not establish that normal user sign-in is broken.
 
 **How to apply:** confirm that test authentication targets the app's actual provider before interpreting results. Report a blocked authenticated-browser test honestly; never rotate keys or migrate the tenant solely to make the helper work.
+
+Authentication pages must explicitly leave the sign-in/sign-up form after server verification succeeds, and show a visible recovery screen if an existing session cannot be verified.
+
+**Why:** Clerk's sign-in/sign-up widgets may render nothing for an already signed-in account. Exempting those URLs from verification errors can strand the user without a usable login form.
+
+**How to apply:** keep the verification gate active on authentication routes too; redirect verified accounts to a whitelisted local destination. Never fix a blank login state by granting owner access or bypassing server verification.
+
+Do not rely solely on cookies for authenticated API calls in the embedded Replit preview, even when the frontend and API share the same public origin.
+
+**Why:** a Clerk session can exist in the frontend while the API sees an anonymous request inside the iframe. Explicit SDK session-token transport allowed the existing server-side owner checks to recognize that session.
+
+**How to apply:** obtain the current token through Clerk, send it only to this application's own API, clear the binding on account/session changes, and never persist tokens. For browser verification, inspect requests made by the application's API client; plain fetch calls do not automatically use its token binding.

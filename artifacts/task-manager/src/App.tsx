@@ -1,8 +1,8 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useLayoutEffect, useMemo } from 'react';
 import { ClerkProvider, useAuth, useClerk } from '@clerk/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Route, Switch, Router as WouterRouter, Redirect, useLocation, useSearch } from 'wouter';
-import { getAuthStatus, getGetAuthStatusQueryKey, useGetAuthStatus } from '@workspace/api-client-react';
+import { getAuthStatus, getGetAuthStatusQueryKey, setAuthTokenGetter, useGetAuthStatus } from '@workspace/api-client-react';
 import { AppShell, useShell } from '@/components/app-shell';
 import { EmployeeDetail } from '@/components/employee-detail';
 import HomePage from '@/pages/home';
@@ -13,7 +13,8 @@ import CardDetailPage from '@/pages/card-detail';
 import ServicesPage from '@/pages/services';
 import PersonalPage, { PersonalSignInRequired } from '@/pages/personal';
 import { AuthLoadingPage, AuthRestoreErrorPage, AuthSetupPage, clerkAppearance, SignInPage, SignUpPage } from '@/components/auth-pages';
-import { retrySessionCheck, validateRestoredSession } from '@/lib/auth-session';
+import { postAuthPath, retrySessionCheck, sessionScreen, validateRestoredSession } from '@/lib/auth-session';
+import { createWebSessionTokenGetter } from '@/lib/web-session-token';
 
 function createAppQueryClient() {
   return new QueryClient({
@@ -50,8 +51,20 @@ function GuestEmployeesRedirect() {
 }
 
 function SessionApplication() {
-  const { isLoaded, userId, sessionId } = useAuth();
+  const { isLoaded, isSignedIn, userId, sessionId, getToken } = useAuth();
   const identity = isLoaded ? `${userId ?? 'anonymous'}:${sessionId ?? 'none'}` : 'loading';
+  // Register before query effects run; cookies may be unavailable inside an
+  // embedded preview even though Clerk has successfully established a session.
+  useLayoutEffect(() => {
+    let current = true;
+    setAuthTokenGetter(isLoaded && isSignedIn
+      ? createWebSessionTokenGetter(() => getToken(), window.location.origin, () => current)
+      : null);
+    return () => {
+      current = false;
+      setAuthTokenGetter(null);
+    };
+  }, [identity, isLoaded, isSignedIn, getToken]);
   // Each session has its own cache. Login/logout immediately unmounts the old
   // role application, so cached owner data cannot leak into a guest session.
   const client = useMemo(() => createAppQueryClient(), [identity]);
@@ -82,13 +95,15 @@ function RoleApplication({
   authStatusMessage?: string;
   onSignOut?: () => void;
 }) {
+  const search = useSearch();
+  const signedInDestination = postAuthPath(search);
   return (
     <Switch>
       <Route path="/sign-in/*?">
-        <SignInPage available={authConfigured} />
+        {authenticated ? <Redirect to={signedInDestination} replace /> : <SignInPage available={authConfigured} />}
       </Route>
       <Route path="/sign-up/*?">
-        <SignUpPage available={authConfigured} />
+        {authenticated ? <Redirect to={signedInDestination} replace /> : <SignUpPage available={authConfigured} />}
       </Route>
       {/* Personal notebook: account-scoped, outside the facility shell and role switches. */}
       <Route path="/personal">
@@ -155,12 +170,15 @@ function AuthenticatedApplication() {
   });
 
   const guestCanViewPath = location === '/' || /^\/employees(?:\/|$)/.test(location);
-  if (!isLoaded || (status.isPending && (isSignedIn || !guestCanViewPath))) {
+  const screen = sessionScreen({
+    loaded: isLoaded, signedIn: isSignedIn === true, pending: status.isPending,
+    error: status.isError, publicPath: guestCanViewPath,
+  });
+  if (screen === 'loading') {
     return <AuthLoadingPage />;
   }
 
-  const isAuthPath = /^\/sign-(?:in|up)(?:\/|$)/.test(location);
-  if (isSignedIn && status.isError && !isAuthPath) {
+  if (screen === 'error') {
     return <AuthRestoreErrorPage
       pending={status.isFetching}
       onRetry={() => { void status.refetch(); }}
@@ -190,6 +208,8 @@ function ClerkApplication() {
       appearance={clerkAppearance}
       signInUrl={signInPath}
       signUpUrl={signUpPath}
+      signInFallbackRedirectUrl={basePath || '/'}
+      signUpFallbackRedirectUrl={basePath || '/'}
       localization={{
         signIn: { start: { title: 'Đăng nhập', subtitle: 'Dùng sổ cá nhân riêng; chủ sở hữu quản lý dữ liệu cơ sở.' } },
         signUp: { start: { title: 'Tạo tài khoản', subtitle: 'Đăng ký bằng email để tiếp tục.' } },

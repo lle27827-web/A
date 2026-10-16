@@ -6,7 +6,7 @@ export type ErrorType<T = unknown> = ApiError<T>;
 
 export type BodyType<T> = T;
 
-export type AuthTokenGetter = () => Promise<string | null> | string | null;
+export type AuthTokenGetter = (requestUrl: string) => Promise<string | null> | string | null;
 
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
@@ -37,8 +37,9 @@ export function setBaseUrl(url: string | null): void {
  * Useful for Expo bundles making token-gated API calls.
  * Pass `null` to clear the getter.
  *
- * NOTE: This function should never be used in web applications where session
- * token cookies are automatically associated with API calls by the browser.
+ * Web apps normally use session cookies. Embedded previews may need an explicit
+ * session token when those cookies are blocked. Such getters MUST scope tokens
+ * to the app's own API origin/path using the supplied requestUrl.
  */
 export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
@@ -352,7 +353,7 @@ export async function customFetch<T = unknown>(
   // Attach bearer token when an auth getter is configured and no
   // Authorization header has been explicitly provided.
   if (_authTokenGetter && !headers.has("authorization")) {
-    const token = await _authTokenGetter();
+    const token = await _authTokenGetter(resolveUrl(input));
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
     }
