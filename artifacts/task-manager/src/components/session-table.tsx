@@ -4,8 +4,8 @@ import { Link } from 'wouter';
 import { formatShortDate } from '@/lib/attendance';
 import { formatMinutes, formatVnd } from '@/lib/massage';
 
-export function SessionTable({ sessions, caption, canEdit, showDate, showTime, showEmployee, linkCards, visibleActions, cardHistory, busy, onEdit, onDelete, testId }: {
-  sessions: ServiceSession[]; caption: string; canEdit: boolean; showDate?: boolean; showTime?: boolean; showEmployee?: boolean; linkCards?: boolean; visibleActions?: boolean; cardHistory?: boolean; busy?: boolean;
+export function SessionTable({ sessions, caption, canEdit, showDate, showTime, showEmployee, linkCards, visibleActions, cardHistory, busy, canEditRow, onEdit, onDelete, testId }: {
+  sessions: ServiceSession[]; caption: string; canEdit: boolean; showDate?: boolean; showTime?: boolean; showEmployee?: boolean; linkCards?: boolean; visibleActions?: boolean; cardHistory?: boolean; busy?: boolean; canEditRow?: (s: ServiceSession) => boolean;
   onEdit: (s: ServiceSession) => void; onDelete: (s: ServiceSession) => void; testId: string;
 }) {
   return (
@@ -28,6 +28,7 @@ export function SessionTable({ sessions, caption, canEdit, showDate, showTime, s
         <tbody>
           {sessions.map((s) => {
             const orphan = s.memberId === null;
+            const rowEdit = canEdit && (canEditRow ? canEditRow(s) : true);
             return (
               <tr key={s.id} data-testid={`row-session-${s.id}`}>
                 {showDate && <td className="mono nowrap"><time dateTime={s.workDate}>{formatShortDate(s.workDate)}</time>
@@ -51,7 +52,9 @@ export function SessionTable({ sessions, caption, canEdit, showDate, showTime, s
                   <span className="muted">Lương {formatVnd(s.earnings)} · {formatVnd(s.hourlyRate)}/giờ</span>
                 </div></td>}
                 <td className="note-cell">{s.note || '—'}</td>
-                {canEdit && visibleActions && (
+                {canEdit && visibleActions && !rowEdit && <td className="action-cell muted">—</td>}
+                {canEdit && !visibleActions && !rowEdit && <td />}
+                {rowEdit && visibleActions && (
                   <td className="action-cell">
                     <div className="row-actions text-actions">
                       {!orphan && <button type="button" className="btn small" disabled={busy} onClick={() => onEdit(s)} aria-label={`Sửa ca ${s.id}: ${s.customerName || 'Khách lẻ'}, ${s.serviceType}, ${formatMinutes(s.minutes)}`} data-testid={`button-edit-session-${s.id}`}><Pencil size={14} />Sửa</button>}
@@ -59,7 +62,7 @@ export function SessionTable({ sessions, caption, canEdit, showDate, showTime, s
                     </div>
                   </td>
                 )}
-                {canEdit && !visibleActions && (
+                {rowEdit && !visibleActions && (
                   <td>
                     <div className="row-actions">
                       {!orphan && <button type="button" className="icon-btn" onClick={() => onEdit(s)} aria-label={`Sửa ca ${s.id}`} data-testid={`button-edit-session-${s.id}`}><Pencil size={14} /></button>}

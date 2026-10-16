@@ -603,3 +603,42 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .danger-box p, .danger-box ul { margin: 0; }
 .danger-box ul { padding-left: 18px; }
 @media (max-width: 520px) { .cmp-cols { grid-template-columns: minmax(0, 1fr); } .seg { display: flex; } .seg button { flex: 1; } }
+
+/* Stacked employee shift rows (personal-notebook style) */
+.shift-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.shift-row { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--muted) / .45); }
+.shift-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; }
+.shift-date { font-size: 12px; color: hsl(var(--muted-foreground)); }
+.shift-service { font-family: var(--app-font-display); font-size: 15px; }
+.shift-customer { font-size: 13px; color: hsl(var(--muted-foreground)); overflow-wrap: anywhere; }
+.shift-facts { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; }
+.shift-facts div { display: grid; gap: 1px; }
+.shift-facts dt { font-size: 11px; color: hsl(var(--muted-foreground)); }
+.shift-facts dd { margin: 0; font-size: 14px; font-weight: 700; }
+.shift-note { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.shift-actions { justify-content: flex-start; }
+
+/* Access grants */
+.grant-form { display: grid; gap: 12px; margin-bottom: 16px; }
+.grant-group { display: grid; gap: 6px; margin: 0; padding: 10px 12px; border: 1px solid hsl(var(--border)); border-radius: 10px; }
+.grant-group legend { padding: 0 4px; font-size: 12px; font-weight: 700; }
+.grant-check { display: flex; align-items: center; gap: 8px; min-height: 32px; font-size: 13px; cursor: pointer; }
+.grant-check input { width: 16px; height: 16px; accent-color: hsl(var(--primary)); }
+.grant-check:has(input:disabled) { opacity: .55; cursor: not-allowed; }
+.grant-members { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 2px 10px; padding: 4px 0 4px 24px; max-height: 220px; overflow: auto; }
+.grant-add { margin-bottom: 14px; }
+.grant-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.grant-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px; border: 1px solid hsl(var(--border)); border-radius: 10px; }
+.grant-row .grow { flex: 1 1 200px; display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.grant-row .muted { font-size: 12px; }
+
+/* Welcome */
+.welcome { width: min(460px, 100%); display: grid; gap: 14px; justify-items: center; text-align: center; }
+.welcome .brand-mark { width: 48px; height: 48px; }
+.welcome h1 { margin: 0; font-family: var(--app-font-display); font-size: clamp(26px, 6vw, 34px); font-weight: 800; line-height: 1.15; }
+.welcome p { margin: 0; color: hsl(var(--muted-foreground)); }
+.welcome-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 6px; }
+.no-access { width: min(480px, 100%); display: grid; gap: 14px; }
+.no-access h1 { margin: 0; font-family: var(--app-font-display); font-size: 22px; font-weight: 800; }
+.no-access p { margin: 0; line-height: 1.6; }
+.no-access .welcome-actions { justify-content: flex-start; }

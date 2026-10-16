@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { postAuthPath, retrySessionCheck, sessionScreen, SessionRestoringError, validateRestoredSession } from './auth-session';
 
-const guest = { authConfigured: true, authenticated: false, isOwner: false };
-const owner = { authConfigured: true, authenticated: true, isOwner: true };
-const viewer = { authConfigured: true, authenticated: true, isOwner: false };
+const permissions = { allEmployees: false, employeeIds: [], viewCards: false, viewRevenue: false, editEmployees: false, editCards: false, editServices: false };
+const guest = { authConfigured: true, authenticated: false, isOwner: false, permissions };
+const owner = { authConfigured: true, authenticated: true, isOwner: true, permissions: { ...permissions, allEmployees: true, viewCards: true, viewRevenue: true, editEmployees: true, editCards: true, editServices: true } };
+const viewer = { authConfigured: true, authenticated: true, isOwner: false, permissions };
 
 test('restored sessions retain verified owner/viewer roles; anonymous visitors stay guests', () => {
   assert.deepEqual(validateRestoredSession(owner, true), owner);

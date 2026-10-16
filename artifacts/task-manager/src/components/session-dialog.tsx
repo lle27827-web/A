@@ -18,7 +18,7 @@ type ServiceChoice = {
   saved: boolean;
 };
 
-export function SessionDialog({ session, members, cards, cardsLoading, defaultDate, defaultMemberId, fixedMemberId, fixedCardId, busy, serverError, onClose, onSubmit }: {
+export function SessionDialog({ session, members, cards, cardsLoading, defaultDate, defaultMemberId, fixedMemberId, fixedCardId, allowCards = true, busy, serverError, onClose, onSubmit }: {
   session: ServiceSession | null;
   members: MemberRecord[];
   cards: TreatmentCard[];
@@ -27,6 +27,8 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
   defaultMemberId?: number | null;
   fixedMemberId?: number | null;
   fixedCardId?: number | null;
+  /** Card linking requires both editCards and editEmployees. */
+  allowCards?: boolean;
   busy: boolean;
   serverError: string;
   onClose: () => void;
@@ -161,9 +163,9 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
           </label>
         )}
         <details className="extras" open={!!session || !!fixedCardId || undefined}>
-          <summary>Thêm khách, thẻ, ghi chú (không bắt buộc)</summary>
+          <summary>{allowCards ? 'Thêm khách, thẻ, ghi chú (không bắt buộc)' : 'Thêm khách, ghi chú (không bắt buộc)'}</summary>
           <div className="form-grid">
-            {fixedCardId ? null : (
+            {fixedCardId || !allowCards ? null : (
               <label className="field" htmlFor="s-card">Thẻ liệu trình
                 <select id="s-card" value={cardId} onChange={(e) => setCardId(e.target.value)} disabled={cardsLoading} data-testid="select-session-card">
                   <option value="">{cardsLoading ? 'Đang tải thẻ…' : 'Khách lẻ, không dùng thẻ'}</option>

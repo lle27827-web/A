@@ -13,6 +13,8 @@ import { savePersonalService, deletePersonalService, savePersonalSession, delete
   getPersonalNotebook, getPersonalComparison, updatePersonalSettings } from "../lib/personal-notebook";
 import { syncPersonalNotebook } from "../lib/personal-comparison";
 import { MassageError } from "../lib/massage";
+import { noPermissions } from "../lib/facility-permissions";
+import type { OwnerAuthStatus } from "../lib/owner-auth";
 
 const router: IRouter = Router();
 function account(value: unknown): string {
@@ -59,14 +61,18 @@ router.get("/personal/comparison", massageHandler(async (req, res) => {
   res.json(GetPersonalComparisonResponse.parse(await getPersonalComparison(account(res.locals.personalUserId), memberId, month, date)));
 }));
 router.get("/history-months", massageHandler(async (_req, res) => {
+  const p = (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.permissions ?? noPermissions();
+  const ids = p.employeeIds.length ? sql.join(p.employeeIds.map((id) => sql`${id}`), sql`, `) : sql`NULL`;
+  const attendanceScope = p.allEmployees ? sql`TRUE` : sql`a.member_id IN (${ids})`;
+  const sessionScope = p.allEmployees ? sql`TRUE` : sql`s.member_id IN (${ids})`;
   const { rows } = await db.execute<{ month: string }>(sql`
     SELECT DISTINCT month FROM (
-      SELECT to_char(a.work_date, 'YYYY-MM') AS month FROM public.attendance a
+      SELECT to_char(a.work_date, 'YYYY-MM') AS month FROM public.attendance a WHERE ${attendanceScope}
       UNION ALL
       SELECT to_char(s.work_date, 'YYYY-MM') AS month FROM public.service_sessions s
-      WHERE s.card_id IS NULL OR EXISTS (
+      WHERE ${sessionScope} AND (s.card_id IS NULL OR EXISTS (
         SELECT 1 FROM public.treatment_cards c WHERE c.id=s.card_id AND c.deleted_at IS NULL
-      )
+      ))
     ) history ORDER BY month DESC`);
   const current = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit" }).format(new Date());
   res.json([...new Set([current, ...rows.map((row) => row.month)])].sort().reverse());

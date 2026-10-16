@@ -14,7 +14,7 @@ export default function ServicesPage() {
 }
 
 export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
-  const { canEdit, notify, fail } = useShell();
+  const { canEditServices: canEdit, notify, fail } = useShell();
   const q = useListServiceTypes({ query: { queryKey: getListServiceTypesQueryKey(), staleTime: 20_000, refetchInterval: 60_000, refetchOnWindowFocus: true } });
   const create = useCreateServiceType();
   const update = useUpdateServiceType();

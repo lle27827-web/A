@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import type { MemberRecord } from '@workspace/api-client-react';
-import { AlertCircle, ArrowLeft, BookHeart, ChevronRight, History, Home, LogIn, Settings, Sparkles, X } from 'lucide-react';
+import type { FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
+import { AlertCircle, ArrowLeft, BookHeart, ChevronRight, History, Home, KeyRound, Settings, Sparkles, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { HistoryMonthsDialog } from '@/components/history-months-dialog';
+import { AccessGrantsDialog } from '@/components/access-grants';
 
 export type ViewMode = 'owner' | 'employee';
 export type ViewPrefs = { mode: ViewMode; employeeId: number | null };
@@ -35,17 +36,19 @@ export function useViewPrefs() {
   return [prefs, update] as const;
 }
 
-export function ViewSettings({ prefs, members, membersLoading, open, onOpenChange, onApply, isOwner = true, authenticated = false, authConfigured = false }: {
+export function ViewSettings({ prefs, members, membersLoading, open, onOpenChange, onApply, isOwner, permissions }: {
   prefs: ViewPrefs;
   members: MemberRecord[];
   membersLoading: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onApply: (prefs: ViewPrefs) => void;
-  isOwner?: boolean;
-  authenticated?: boolean;
-  authConfigured?: boolean;
+  isOwner: boolean;
+  permissions: FacilityPermissions;
 }) {
+  const canViewEmployees = permissions.allEmployees || permissions.employeeIds.length > 0;
+  const canHistory = canViewEmployees || permissions.viewRevenue;
+  const [grantsOpen, setGrantsOpen] = useState(false);
   const [, navigate] = useLocation();
   const [mode, setMode] = useState<ViewMode>(prefs.mode);
   const [employeeId, setEmployeeId] = useState<string>(prefs.employeeId ? String(prefs.employeeId) : '');
@@ -75,7 +78,7 @@ export function ViewSettings({ prefs, members, membersLoading, open, onOpenChang
     setHistoryOpen(false);
     onOpenChange(false);
     if (isOwner) onApply({ mode: 'owner', employeeId: prefs.employeeId });
-    navigate(`${isOwner ? '/' : '/employees'}?month=${month}&date=${date}`);
+    navigate(`${permissions.viewRevenue ? '/' : '/employees'}?month=${month}&date=${date}`);
   }
 
   return (
@@ -92,28 +95,31 @@ export function ViewSettings({ prefs, members, membersLoading, open, onOpenChang
             <DialogPrimitive.Close asChild><button type="button" className="icon-btn" aria-label="Đóng cài đặt"><X size={18} /></button></DialogPrimitive.Close>
           </div>
           <DialogPrimitive.Description className="sub">
-            {isOwner ? 'Lịch sử, dịch vụ, chế độ xem và sổ cá nhân của bạn.' : 'Lịch sử tháng và sổ chấm công cá nhân của bạn.'}
+            {isOwner ? 'Lịch sử, dịch vụ, quyền truy cập và sổ cá nhân.' : 'Lịch sử tháng và sổ cá nhân.'}
           </DialogPrimitive.Description>
 
-          {authenticated ? (
-            <Link href="/personal" className="settings-link personal-entry" onClick={() => onOpenChange(false)} data-testid="link-personal-notebook">
-              <BookHeart size={17} aria-hidden="true" /><span className="grow"><strong>Chấm công cá nhân</strong><span className="muted">Sổ riêng của tài khoản bạn · dịch vụ, ca và tiền công riêng</span></span><ChevronRight size={16} aria-hidden="true" />
-            </Link>
-          ) : authConfigured ? (
-            <Link href="/sign-in?next=personal" className="settings-link personal-entry" onClick={() => onOpenChange(false)} data-testid="link-personal-sign-in">
-              <LogIn size={17} aria-hidden="true" /><span className="grow"><strong>Đăng nhập để dùng Chấm công cá nhân</strong><span className="muted">Mỗi tài khoản có một sổ riêng, không ai khác xem được</span></span><ChevronRight size={16} aria-hidden="true" />
-            </Link>
-          ) : (
-            <p className="hint" data-testid="text-personal-unavailable">Chấm công cá nhân cần đăng nhập; đăng nhập chưa được cấu hình.</p>
+          <Link href="/personal" className="settings-link personal-entry" onClick={() => onOpenChange(false)} data-testid="link-personal-notebook">
+            <BookHeart size={17} aria-hidden="true" /><span className="grow"><strong>Chấm công cá nhân</strong><span className="muted">Sổ riêng của tài khoản bạn</span></span><ChevronRight size={16} aria-hidden="true" />
+          </Link>
+
+          {canHistory && (
+            <button type="button" className="settings-link" onClick={() => setHistoryOpen(true)} data-testid="button-open-history-months">
+              <History size={15} aria-hidden="true" /><span className="grow"><strong>Xem lịch sử tháng</strong><span className="muted">{permissions.viewRevenue ? 'Doanh thu và dữ liệu cơ sở theo tháng' : 'Nhân viên theo tháng'}</span></span><ChevronRight size={16} aria-hidden="true" />
+            </button>
           )}
 
-          <button type="button" className="settings-link" onClick={() => setHistoryOpen(true)} data-testid="button-open-history-months">
-            <History size={15} aria-hidden="true" /><span className="grow"><strong>Xem lịch sử tháng</strong><span className="muted">{isOwner ? 'Chọn bất kỳ tháng nào để xem doanh thu cơ sở' : 'Chọn bất kỳ tháng nào để xem nhân viên'}</span></span><ChevronRight size={16} aria-hidden="true" />
-          </button>
+          {permissions.editServices && (
+            <Link href="/services" className="settings-link" onClick={() => { onApply({ mode: 'owner', employeeId: prefs.employeeId }); onOpenChange(false); }} data-testid="link-services"><Sparkles size={15} aria-hidden="true" /><span className="grow"><strong>Dịch vụ &amp; giá trả công</strong><span className="muted">Thêm, sửa, xóa dịch vụ của cơ sở</span></span><ChevronRight size={16} aria-hidden="true" /></Link>
+          )}
+
+          {isOwner && (
+            <button type="button" className="settings-link" onClick={() => { onOpenChange(false); setGrantsOpen(true); }} data-testid="button-open-access-grants">
+              <KeyRound size={15} aria-hidden="true" /><span className="grow"><strong>Quyền truy cập</strong><span className="muted">Cấp quyền chi tiết cho từng email</span></span><ChevronRight size={16} aria-hidden="true" />
+            </button>
+          )}
 
           {isOwner && (
             <>
-              <Link href="/services" className="settings-link" onClick={() => { onApply({ mode: 'owner', employeeId: prefs.employeeId }); onOpenChange(false); }} data-testid="link-services"><Sparkles size={15} /><span className="grow"><strong>Dịch vụ &amp; giá trả công</strong><span className="muted">Thêm, sửa, xóa loại massage và giá theo giờ của cơ sở</span></span><ChevronRight size={16} /></Link>
               <form onSubmit={(e) => { e.preventDefault(); apply(); }}>
                 <fieldset>
                   <legend>Bố cục cơ sở</legend>
@@ -152,7 +158,8 @@ export function ViewSettings({ prefs, members, membersLoading, open, onOpenChang
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
     {historyOpen && <HistoryMonthsDialog onPick={pickHistory} onClose={() => setHistoryOpen(false)}
-      description={isOwner ? 'Chọn tháng để xem doanh thu và dữ liệu cơ sở (chỉ xem).' : 'Chọn tháng để xem danh sách nhân viên tháng đó (chỉ xem).'} />}
+      description={permissions.viewRevenue ? 'Chọn tháng để xem doanh thu và dữ liệu cơ sở (chỉ xem).' : 'Chọn tháng để xem danh sách nhân viên tháng đó (chỉ xem).'} />}
+    {grantsOpen && isOwner && <AccessGrantsDialog members={members} onClose={() => setGrantsOpen(false)} />}
     </>
   );
 }

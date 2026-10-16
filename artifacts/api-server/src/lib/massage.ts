@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { cardTopUpsTable, db, membersTable, serviceSessionsTable, treatmentCardsTable, serviceTypesTable, type CardTopUpRow } from "@workspace/db";
-import type { ServiceSessionInput, TreatmentCardInput, TreatmentCardUpdate } from "@workspace/api-zod";
+import type { FacilityPermissions, ServiceSessionInput, TreatmentCardInput, TreatmentCardUpdate } from "@workspace/api-zod";
+import { canEditEmployee } from "./facility-permissions";
 
 export class MassageError extends Error {
   constructor(public status: number, message: string, public details?: { mergeTargetId: number }) { super(message); }
@@ -191,12 +192,17 @@ export async function addCardHours(id: number, minutes: number, amount: number) 
 
 // Lock the session and affected cards in a consistent order. Card row locks
 // serialize balance checks so simultaneous requests cannot overspend hours.
-export async function saveSession(input: ServiceSessionInput, id?: number) {
+export async function saveSession(input: ServiceSessionInput, id?: number, permissions?: FacilityPermissions) {
   validDate(input.workDate);
   return db.transaction(async (tx) => {
     const [old] = id ? await tx.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, id)).for("update") : [];
     if (id && !old) throw new MassageError(404, "Không tìm thấy lượt phục vụ.");
     const cardId = input.cardId ?? null;
+    if (permissions && (!canEditEmployee(permissions, input.memberId)
+      || (old && !canEditEmployee(permissions, old.memberId ?? 0))
+      || ((old?.cardId != null || cardId !== null) && !(permissions.viewCards && permissions.editCards)))) {
+      throw new MassageError(403, "Bạn chưa được cấp quyền sửa ca này.");
+    }
     const ids = [...new Set([old?.cardId, cardId].filter((n): n is number => n !== null && n !== undefined))].sort((a, b) => a - b);
     let card: typeof treatmentCardsTable.$inferSelect | undefined;
     for (const lockId of ids) {
@@ -246,9 +252,13 @@ export async function saveSession(input: ServiceSessionInput, id?: number) {
     return sessionResponse(row);
   });
 }
-export async function deleteSession(id: number) {
+export async function deleteSession(id: number, permissions?: FacilityPermissions) {
   await db.transaction(async (tx) => {
     const [old] = await tx.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, id)).for("update");
+    if (old && permissions && (!(old.memberId === null ? permissions.allEmployees && permissions.editEmployees : canEditEmployee(permissions, old.memberId))
+      || (old.cardId !== null && !(permissions.viewCards && permissions.editCards)))) {
+      throw new MassageError(403, "Bạn chưa được cấp quyền xóa ca này.");
+    }
     if (!old) throw new MassageError(404, "Không tìm thấy lượt phục vụ.");
     if (old.cardId !== null) await tx.select().from(treatmentCardsTable)
       .where(eq(treatmentCardsTable.id, old.cardId)).for("update");

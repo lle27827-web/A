@@ -132,11 +132,36 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface FacilityPermissions {
+  allEmployees: boolean;
+  /**
+     * @maxItems 1000
+     * @items.minimum 1
+     */
+  employeeIds: number[];
+  viewCards: boolean;
+  viewRevenue: boolean;
+  editEmployees: boolean;
+  editCards: boolean;
+  editServices: boolean;
+}
+
 export interface AuthStatus {
   authConfigured: boolean;
   authenticated: boolean;
   isOwner: boolean;
+  permissions: FacilityPermissions;
 }
+
+export interface AccessGrantInput {
+  /** @maxLength 254 */
+  email: string;
+  permissions: FacilityPermissions;
+}
+
+export type AccessGrant = AccessGrantInput & {
+  id: number;
+};
 
 export type AttendanceStatus = typeof AttendanceStatus[keyof typeof AttendanceStatus];
 

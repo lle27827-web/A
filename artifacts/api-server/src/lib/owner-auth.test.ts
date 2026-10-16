@@ -7,27 +7,26 @@ function request(method: string, path: string, query: Record<string, unknown> = 
   return { method, path, query } as Request;
 }
 
-test("guest reads are limited to employee-management endpoints", () => {
+test("guests can read only health and auth status, never employee data", () => {
   for (const path of [
     "/healthz",
     "/auth/status",
-    "/history-months",
-    "/members",
-    "/attendance",
-    "/attendance/summary",
   ]) {
     assert.equal(isPublicEmployeeRead(request("GET", path)), true, `${path} should be public`);
   }
 
   assert.equal(
     isPublicEmployeeRead(request("GET", "/member-payroll", { memberId: "7", month: "2026-10" })),
-    true,
+    false,
   );
   assert.equal(
     isPublicEmployeeRead(request("GET", "/service-sessions", { memberId: "7" })),
-    true,
+    false,
   );
-  assert.equal(isPublicEmployeeRead(request("HEAD", "/members")), true);
+  for (const path of ["/members", "/history-months", "/attendance", "/attendance/summary"]) {
+    assert.equal(isPublicEmployeeRead(request("GET", path)), false);
+    assert.equal(isPublicEmployeeRead(request("HEAD", path)), false);
+  }
 });
 
 test("personal routes require a verified session but never require facility ownership", () => {

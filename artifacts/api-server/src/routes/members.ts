@@ -12,13 +12,16 @@ import {
 import { deleteMember } from "../lib/massage";
 import { createEmployee, listMembersForPeriod, updateEmployee } from "../lib/employee-history";
 import { massageHandler, parseInput } from "./massage-errors";
+import { canViewEmployee, noPermissions } from "../lib/facility-permissions";
+import type { OwnerAuthStatus } from "../lib/owner-auth";
 
 const router: IRouter = Router();
 
 router.get("/members", massageHandler(async (req, res) => {
   const { month } = parseInput(ListMembersQueryParams, req.query);
   res.set("Cache-Control", "private, no-store");
-  res.json(ListMembersResponse.parse(await listMembersForPeriod(month)));
+  const permissions = (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.permissions ?? noPermissions();
+  res.json(ListMembersResponse.parse((await listMembersForPeriod(month)).filter((member) => canViewEmployee(permissions, member.id))));
 }));
 
 router.post("/members", massageHandler(async (req, res): Promise<void> => {

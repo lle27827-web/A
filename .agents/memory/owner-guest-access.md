@@ -1,19 +1,25 @@
 ---
 name: Owner and guest access
-description: Product rule for owner login, anonymous guest visibility, and write permissions.
+description: Product rules for mandatory login, owner-managed delegated access, private notebooks and session verification.
 ---
 
-Guests need no login and may view the complete employee-management area, including recorded wages and work history. Guests must not access facility revenue or card management. Only the verified owner account may view those areas or write facility data. Owner authentication must use the app's existing Clerk configuration so it works on both Replit and Vercel.
+Guests who have not signed in must not view facility data, including employee details. Show a welcome with “Chào mừng bạn đến với Sổ Công”, “Hãy đăng nhập để sử dụng dịch vụ”, and login/signup actions.
 
-**Why:** The user explicitly chose anonymous, read-only guests, owner-only editing, external Clerk across both hosts, and limited guests to employee management.
+**Why:** the user explicitly replaced the previous public employee-view policy with mandatory login when requesting manager permissions.
 
-**How to apply:** Enforce the role rules on API reads and writes as well as in route visibility. Never treat a local UI/view preference as proof of owner access.
+**How to apply:** enforce sign-in on facility reads as well as writes, not merely by hiding links. Preserve the existing app-specific Clerk authentication across Replit and Vercel.
+
+The verified owner retains full access and alone grants or revokes facility rights per account. Delegated accounts see only the employee scope chosen by the owner; card visibility, revenue visibility and editing are separate choices. New accounts receive no facility access automatically.
+
+**Why:** the user asked to choose which employees each manager can view, whether they can view cards and revenue, and what they can edit.
+
+**How to apply:** resolve grants using the authenticated account's verified email, never client-supplied identity. Restrict lists, search, totals, comparison and writes consistently. Editing a card-linked shift also requires card-edit rights. Do not let managers grant rights to themselves or others.
 
 Every signed-in account may keep a separate personal employee notebook: own attendance, own service/pay rates, own income and month history. This is not the facility's read-only employee-view filter, and it does not include personal customer/card management.
 
 **Why:** the user explicitly chose “Tự chấm công, dịch vụ/mức tiền riêng, thu nhập và lịch sử” and requested complete separation for each account.
 
-**How to apply:** derive identity only from the verified session; scope all personal data by account, including owner accounts. Personal writes never change facility data. Signed-in comparison may show the selected central employee's daily/monthly **pay** and service/customer-name shift details beside the account's own records, never facility cash revenue, customer phone numbers or another account's private notebook.
+**How to apply:** derive identity only from the verified session; scope all personal data by account, including owner accounts. Personal writes never change facility data. Comparison requires permission to view the selected central employee; it shows their daily/monthly **pay** and service/customer-name details, not facility cash revenue, phone numbers or another account's private notebook. Revoking facility rights must not erase the account's own notebook.
 
 Valid sessions must be restored automatically when the app starts or the page reloads, without requiring another reload. Do not turn a temporarily unverified signed-in session into a guest and redirect away from the user's page.
 

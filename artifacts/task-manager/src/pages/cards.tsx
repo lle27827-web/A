@@ -11,7 +11,7 @@ import { formatShortDate, localDate, normalize } from '@/lib/attendance';
 import { cardMatches, errorText, formatMinutes, formatVnd, useRefreshMassage } from '@/lib/massage';
 
 export default function CardsPage() {
-  const { canEdit, query, setQuery, notify, fail } = useShell();
+  const { canEditCards: canEdit, query, setQuery, notify, fail } = useShell();
   const [, navigate] = useLocation();
   const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), refetchOnWindowFocus: true } });
   const [open, setOpen] = useState(false);

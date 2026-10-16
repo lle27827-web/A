@@ -450,11 +450,111 @@ export const HealthCheckResponse = zod.object({
 /**
  * @summary Trạng thái đăng nhập và quyền chủ sở hữu
  */
+
+export const getAuthStatusResponsePermissionsEmployeeIdsMax = 1000;
+
+
+
 export const GetAuthStatusResponse = zod.object({
   "authConfigured": zod.boolean(),
   "authenticated": zod.boolean(),
-  "isOwner": zod.boolean()
+  "isOwner": zod.boolean(),
+  "permissions": zod.object({
+  "allEmployees": zod.boolean(),
+  "employeeIds": zod.array(zod.number().int().min(1)).max(getAuthStatusResponsePermissionsEmployeeIdsMax),
+  "viewCards": zod.boolean(),
+  "viewRevenue": zod.boolean(),
+  "editEmployees": zod.boolean(),
+  "editCards": zod.boolean(),
+  "editServices": zod.boolean()
 })
+})
+
+
+/**
+ * @summary Chủ sở hữu xem danh sách cấp quyền
+ */
+export const listAccessGrantsResponseOneEmailMax = 254;
+
+
+export const listAccessGrantsResponseOnePermissionsEmployeeIdsMax = 1000;
+
+
+
+export const ListAccessGrantsResponseItem = zod.object({
+  "email": zod.string().email().max(listAccessGrantsResponseOneEmailMax),
+  "permissions": zod.object({
+  "allEmployees": zod.boolean(),
+  "employeeIds": zod.array(zod.number().int().min(1)).max(listAccessGrantsResponseOnePermissionsEmployeeIdsMax),
+  "viewCards": zod.boolean(),
+  "viewRevenue": zod.boolean(),
+  "editEmployees": zod.boolean(),
+  "editCards": zod.boolean(),
+  "editServices": zod.boolean()
+})
+}).and(zod.object({
+  "id": zod.number().int()
+}))
+export const ListAccessGrantsResponse = zod.array(ListAccessGrantsResponseItem)
+
+
+/**
+ * @summary Chủ sở hữu cấp hoặc sửa quyền theo email đã xác minh
+ */
+export const saveAccessGrantBodyEmailMax = 254;
+
+
+export const saveAccessGrantBodyPermissionsEmployeeIdsMax = 1000;
+
+
+
+export const SaveAccessGrantBody = zod.object({
+  "email": zod.string().email().max(saveAccessGrantBodyEmailMax),
+  "permissions": zod.object({
+  "allEmployees": zod.boolean(),
+  "employeeIds": zod.array(zod.number().int().min(1)).max(saveAccessGrantBodyPermissionsEmployeeIdsMax),
+  "viewCards": zod.boolean(),
+  "viewRevenue": zod.boolean(),
+  "editEmployees": zod.boolean(),
+  "editCards": zod.boolean(),
+  "editServices": zod.boolean()
+})
+})
+
+export const saveAccessGrantResponseOneEmailMax = 254;
+
+
+export const saveAccessGrantResponseOnePermissionsEmployeeIdsMax = 1000;
+
+
+
+export const SaveAccessGrantResponse = zod.object({
+  "email": zod.string().email().max(saveAccessGrantResponseOneEmailMax),
+  "permissions": zod.object({
+  "allEmployees": zod.boolean(),
+  "employeeIds": zod.array(zod.number().int().min(1)).max(saveAccessGrantResponseOnePermissionsEmployeeIdsMax),
+  "viewCards": zod.boolean(),
+  "viewRevenue": zod.boolean(),
+  "editEmployees": zod.boolean(),
+  "editCards": zod.boolean(),
+  "editServices": zod.boolean()
+})
+}).and(zod.object({
+  "id": zod.number().int()
+}))
+
+
+/**
+ * @summary Chủ sở hữu thu hồi toàn bộ quyền cơ sở của tài khoản
+ */
+
+
+
+export const DeleteAccessGrantParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const DeleteAccessGrantResponse = zod.void()
 
 
 /**

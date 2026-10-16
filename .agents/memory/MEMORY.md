@@ -5,7 +5,7 @@
 - [Card-use revenue reporting](card-use-revenue-reporting.md) — separate service price/pay, label customer charges “Tiền dịch vụ,” and count card revenue only on purchase.
 - [OpenAPI date query strings](openapi-date-query-strings.md) — keep URL dates as validated `YYYY-MM-DD` strings; Express query values arrive as text.
 - [Vercel database access](vercel-database-access.md) — Replit's internal `DATABASE_URL` is scoped to Replit; external deployments need a remote database URL.
-- [Account access](owner-guest-access.md) — public staff views, owner-only facility data, private notebooks, and scoped session tokens for embedded previews.
+- [Account access](owner-guest-access.md) — mandatory login, owner-delegated employee/card/revenue rights, isolated notebooks and embedded session verification.
 - [Vercel SPA routing](vercel-spa-routing.md) — use raw route regex and an index destination; path transforms alone cannot resolve static SPA pages.
 - [Migration baselines](database-migration-baseline.md) — existing tables may have an empty migration journal; do not replay or invent a baseline blindly.
 - [Drizzle nested selects](drizzle-nested-selects.md) — raw selected SQL may strip column qualifiers; explicitly qualify joined subqueries.

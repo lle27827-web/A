@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './accessGrant';
+export * from './accessGrantInput';
 export * from './attendanceInput';
 export * from './attendanceRecord';
 export * from './attendanceStatus';
@@ -15,6 +17,7 @@ export * from './authStatus';
 export * from './cardHoursInput';
 export * from './cardTopUp';
 export * from './dailyRevenue';
+export * from './facilityPermissions';
 export * from './getAttendanceSummaryParams';
 export * from './getMassageSummaryParams';
 export * from './getMemberPayrollParams';

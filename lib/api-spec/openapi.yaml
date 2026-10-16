@@ -226,6 +226,46 @@ paths:
                 $ref: "#/components/schemas/AuthStatus"
         "503":
           description: Không thể xác minh tài khoản với Clerk
+  /access-grants:
+    get:
+      operationId: listAccessGrants
+      tags: [health]
+      summary: Chủ sở hữu xem danh sách cấp quyền
+      responses:
+        "200":
+          description: Danh sách quyền
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AccessGrant" }
+    post:
+      operationId: saveAccessGrant
+      tags: [health]
+      summary: Chủ sở hữu cấp hoặc sửa quyền theo email đã xác minh
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AccessGrantInput" }
+      responses:
+        "200":
+          description: Đã lưu
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AccessGrant" }
+  /access-grants/{id}:
+    delete:
+      operationId: deleteAccessGrant
+      tags: [health]
+      summary: Chủ sở hữu thu hồi toàn bộ quyền cơ sở của tài khoản
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "204": { description: Đã thu hồi }
   /members:
     get:
       operationId: listMembers
@@ -687,7 +727,37 @@ components:
           type: boolean
         isOwner:
           type: boolean
-      required: [authConfigured, authenticated, isOwner]
+        permissions:
+          $ref: "#/components/schemas/FacilityPermissions"
+      required: [authConfigured, authenticated, isOwner, permissions]
+    FacilityPermissions:
+      type: object
+      required: [allEmployees, employeeIds, viewCards, viewRevenue, editEmployees, editCards, editServices]
+      properties:
+        allEmployees: { type: boolean }
+        employeeIds:
+          type: array
+          maxItems: 1000
+          uniqueItems: true
+          items: { type: integer, minimum: 1 }
+        viewCards: { type: boolean }
+        viewRevenue: { type: boolean }
+        editEmployees: { type: boolean }
+        editCards: { type: boolean }
+        editServices: { type: boolean }
+    AccessGrantInput:
+      type: object
+      required: [email, permissions]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        permissions: { $ref: "#/components/schemas/FacilityPermissions" }
+    AccessGrant:
+      allOf:
+        - $ref: "#/components/schemas/AccessGrantInput"
+        - type: object
+          required: [id]
+          properties:
+            id: { type: integer }
     AttendanceStatus:
       type: string
       enum: [present, late, absent, leave]

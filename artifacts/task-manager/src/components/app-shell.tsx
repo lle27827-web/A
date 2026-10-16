@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { getListMembersQueryKey, useListMembers } from '@workspace/api-client-react';
-import type { MemberRecord } from '@workspace/api-client-react';
+import type { FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
 import { AlertCircle, ArrowLeft, Check, Hand, History, Home, Search, X } from 'lucide-react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { SearchResults } from '@/components/search-results';
@@ -8,17 +8,37 @@ import { ViewSettings, useViewPrefs, type ViewPrefs } from '@/components/view-se
 import { errorText, formatMonth, SESSION_FRESHNESS } from '@/lib/massage';
 import { periodHref, resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
 
+export const NO_PERMISSIONS: FacilityPermissions = {
+  allEmployees: false, employeeIds: [], viewCards: false, viewRevenue: false,
+  editEmployees: false, editCards: false, editServices: false,
+};
+export const ALL_PERMISSIONS: FacilityPermissions = {
+  allEmployees: true, employeeIds: [], viewCards: true, viewRevenue: true,
+  editEmployees: true, editCards: true, editServices: true,
+};
+export function hasFacilityAccess(p: FacilityPermissions): boolean {
+  return p.allEmployees || p.employeeIds.length > 0 || p.viewCards || p.viewRevenue || p.editServices;
+}
+
 type ShellCtx = {
-  /** Owner AND not viewing a historical month. */
+  /** Alias of canEditEmployees (employee/session edits, not in history). */
   canEdit: boolean;
+  /** Verified owner only: role/grant management. Never implies a manager. */
   isOwner: boolean;
+  permissions: FacilityPermissions;
+  canViewEmployees: boolean;
+  /** editEmployees within scope, not in a historical month. */
+  canEditEmployees: boolean;
+  /** allEmployees + editEmployees, not in history. */
+  canAddEmployees: boolean;
+  canEditCards: boolean;
+  canEditServices: boolean;
   /** YYYY-MM when viewing a past month read-only, else null. */
   historyMonth: string | null;
   selectedHistoryDate: string | null;
   /** Month/date currently selected (current month when not in history). */
   period: { month: string; date: string; currentMonth: string; today: string };
   withHistory: (path: string) => string;
-  hasManageAccess: boolean;
   employeeMode: boolean;
   prefs: ViewPrefs;
   members: MemberRecord[];
@@ -45,16 +65,14 @@ export function AppShell({
   children,
   employeeView,
   isOwner,
-  authenticated,
-  authConfigured,
+  permissions,
   authStatusMessage,
   onSignOut,
 }: {
   children: ReactNode;
   employeeView: ReactNode;
   isOwner: boolean;
-  authenticated: boolean;
-  authConfigured: boolean;
+  permissions: FacilityPermissions;
   authStatusMessage?: string;
   onSignOut?: () => void;
 }) {
@@ -68,7 +86,8 @@ export function AppShell({
   const selectedHistoryDate = historyMonth ? resolved.date : null;
   const withHistory = (path: string) => periodHref(path, historyMonth, selectedHistoryDate);
   const memberParams = useMemo(() => (historyMonth ? { month: historyMonth } : undefined), [historyMonth]);
-  const membersQuery = useListMembers(memberParams, { query: { queryKey: getListMembersQueryKey(memberParams), ...SESSION_FRESHNESS } });
+  const canViewEmployees = permissions.allEmployees || permissions.employeeIds.length > 0;
+  const membersQuery = useListMembers(memberParams, { query: { queryKey: getListMembersQueryKey(memberParams), enabled: canViewEmployees, ...SESSION_FRESHNESS } });
   const fullLocation = search ? `${location}?${search}` : location;
   const employeeRoute = /^\/employees(?:\/|$)/.test(location);
   const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
@@ -112,17 +131,22 @@ export function AppShell({
   }
 
   const ctx: ShellCtx = {
-    canEdit: isOwner && !historyMonth,
+    canEdit: canViewEmployees && permissions.editEmployees && !historyMonth,
     isOwner,
+    permissions,
+    canViewEmployees,
+    canEditEmployees: canViewEmployees && permissions.editEmployees && !historyMonth,
+    canAddEmployees: permissions.allEmployees && permissions.editEmployees && !historyMonth,
+    canEditCards: permissions.viewCards && permissions.editCards && !historyMonth,
+    canEditServices: permissions.editServices && !historyMonth,
     historyMonth,
     selectedHistoryDate,
     period: { month: resolved.month, date: resolved.date, currentMonth: resolved.currentMonth, today },
     withHistory,
-    hasManageAccess: isOwner,
     employeeMode,
     prefs,
     members,
-    membersLoading: membersQuery.isLoading,
+    membersLoading: canViewEmployees && membersQuery.isLoading,
     membersError: membersQuery.isError,
     retryMembers: () => void membersQuery.refetch(),
     query,
@@ -148,39 +172,17 @@ export function AppShell({
               <input id="global-search" type="search" value={query}
                 onChange={(event) => setQuery(event.target.value)} autoComplete="off"
                 data-testid="input-global-search"
-                placeholder={employeeMode ? 'Tìm khách, dịch vụ, ghi chú trong tháng...' : isOwner ? 'Tìm nhân viên, khách, số điện thoại, dịch vụ...' : 'Tìm nhân viên...'} />
+                placeholder={employeeMode ? 'Tìm khách, dịch vụ, ghi chú trong tháng...' : permissions.viewCards && canViewEmployees ? 'Tìm nhân viên, khách, số điện thoại, dịch vụ...' : permissions.viewCards ? 'Tìm khách, số điện thoại...' : 'Tìm nhân viên, khách, dịch vụ...'} />
               {query && <button type="button" className="icon-btn" onClick={() => setQuery('')}
                 aria-label="Xóa tìm kiếm" data-testid="button-clear-search"><X size={15} /></button>}
             </form>
             <div className="account">
-              {isOwner ? (
-                <>
-                  {employeeMode && <span className="mode-pill" data-testid="status-view-mode">Xem NV cơ sở · chỉ xem</span>}
-                  <span className="mode-pill" data-testid="status-owner-role">Chủ sở hữu</span>
-                  <button type="button" className="link-soft as-button" onClick={onSignOut}>Đăng xuất</button>
-                  <ViewSettings prefs={prefs} members={members} membersLoading={membersQuery.isLoading}
-                    open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView}
-                    isOwner authenticated={authenticated} authConfigured={authConfigured} />
-                </>
-              ) : (
-                <>
-                  <span className="mode-pill guest-pill" data-testid="status-guest-role">
-                    {authenticated ? 'Chỉ xem' : 'Khách · chỉ xem'}
-                  </span>
-                  {authenticated ? (
-                    <button type="button" className="link-soft as-button" onClick={onSignOut}>Đăng xuất</button>
-                  ) : authConfigured ? (
-                    <Link href="/sign-in" className="link-strong" data-testid="link-owner-sign-in">Đăng nhập</Link>
-                  ) : (
-                    <span className="link-soft" title="Cần cấu hình Clerk bên ngoài trong Replit và Vercel.">
-                      Đăng nhập chưa cấu hình
-                    </span>
-                  )}
-                  <ViewSettings prefs={prefs} members={members} membersLoading={membersQuery.isLoading}
-                    open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView}
-                    isOwner={false} authenticated={authenticated} authConfigured={authConfigured} />
-                </>
-              )}
+              {employeeMode && <span className="mode-pill" data-testid="status-view-mode">Xem NV cơ sở · chỉ xem</span>}
+              <span className={isOwner ? 'mode-pill' : 'mode-pill guest-pill'} data-testid={isOwner ? 'status-owner-role' : 'status-manager-role'}>{isOwner ? 'Chủ sở hữu' : 'Quản lý được cấp quyền'}</span>
+              <button type="button" className="link-soft as-button" onClick={onSignOut} data-testid="button-sign-out">Đăng xuất</button>
+              <ViewSettings prefs={prefs} members={members} membersLoading={membersQuery.isLoading}
+                open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView}
+                isOwner={isOwner} permissions={permissions} />
             </div>
           </div>
         </header>

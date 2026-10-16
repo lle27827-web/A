@@ -23,7 +23,7 @@ export function MemberTags({ member }: { member: MemberRecord }) {
 }
 
 export default function EmployeesPage() {
-  const { members, membersLoading, membersError, retryMembers, canEdit, query, notify, fail, historyMonth, withHistory } = useShell();
+  const { members, membersLoading, membersError, retryMembers, canEditEmployees: canEdit, canAddEmployees, canEditCards, query, notify, fail, historyMonth, withHistory } = useShell();
   const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
   const [dialogError, setDialogError] = useState('');
@@ -34,7 +34,7 @@ export default function EmployeesPage() {
   const del = useDeleteMember();
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const createSession = useCreateServiceSession();
-  const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), enabled: canEdit && quick !== null } });
+  const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), enabled: canEdit && canEditCards && quick !== null } });
   const refresh = useRefreshMassage();
   const list = useMemo(() => members.filter((m) => normalize(m.name).includes(normalize(query))), [members, query]);
 
@@ -62,11 +62,11 @@ export default function EmployeesPage() {
     <section className="panel page" aria-labelledby="emp-title">
       <div className="panel-head wrap">
         <div><h1 id="emp-title" className="page-title">Quản lý nhân viên</h1><p className="sub">{members.length} nhân viên{historyMonth ? ` · ${formatMonth(historyMonth).toLowerCase()}` : ''}</p></div>
-        {canEdit && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setOpen(true); }} data-testid="button-add-member"><Plus size={15} />Thêm nhân viên</button>}
+        {canAddEmployees && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setOpen(true); }} data-testid="button-add-member"><Plus size={15} />Thêm nhân viên</button>}
       </div>
       {membersLoading ? <Skeleton rows={5} label="Đang tải nhân viên" /> : membersError ? <ErrorBanner text="Không tải được danh sách nhân viên." onRetry={retryMembers} /> : list.length === 0 ? (
         <div className="empty"><Users size={22} /><p>{members.length ? 'Không có nhân viên khớp tìm kiếm.' : historyMonth ? `Không có nhân viên nào trong ${formatMonth(historyMonth).toLowerCase()}.` : 'Chưa có nhân viên nào.'}</p>{historyMonth && !members.length && <Link href="/employees" className="btn" data-testid="link-empty-current">Về danh sách hiện tại</Link>}
-          {canEdit && !members.length && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setOpen(true); }}><Plus size={15} />Thêm nhân viên đầu tiên</button>}</div>
+          {canAddEmployees && !members.length && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setOpen(true); }}><Plus size={15} />Thêm nhân viên đầu tiên</button>}</div>
       ) : (
         <ul className="emp-list">
           {list.map((m) => (
@@ -95,10 +95,10 @@ export default function EmployeesPage() {
         </Modal>
       )}
       {quick && canEdit && (
-        <SessionDialog session={null} members={members} cards={cardsQuery.data ?? []} cardsLoading={cardsQuery.isLoading} defaultDate={quickDate} fixedMemberId={quick.id}
+        <SessionDialog session={null} members={members} allowCards={canEditCards} cards={canEditCards ? cardsQuery.data ?? [] : []} cardsLoading={cardsQuery.isLoading} defaultDate={quickDate} fixedMemberId={quick.id}
           busy={createSession.isPending} serverError={dialogError} onClose={() => setQuick(null)} onSubmit={submitQuick} />
       )}
-      {open && canEdit && (
+      {open && canAddEmployees && (
         <MemberDialog member={null} busy={create.isPending} serverError={dialogError} onClose={() => setOpen(false)}
           onSubmit={({ name }) => create.mutate({ data: { name } }, {
             onSuccess: (m) => { refresh({ members: true }); setOpen(false); notify(`Đã thêm nhân viên ${m.name}.`); navigate(`/employees/${m.id}`); },

@@ -1,0 +1,1 @@
+ALTER TABLE "manager_grants" ADD COLUMN IF NOT EXISTS "permissions" jsonb DEFAULT '{}'::jsonb NOT NULL;

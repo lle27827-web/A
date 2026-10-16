@@ -12,7 +12,7 @@ import { MemberDialog } from '@/components/entity-dialogs';
 import { ConfirmDialog, ErrorBanner, Skeleton, type ConfirmState } from '@/components/modal';
 import { DatePickerDialog } from '@/components/date-picker-dialog';
 import { SessionDialog } from '@/components/session-dialog';
-import { SessionTable } from '@/components/session-table';
+import { SessionRows } from '@/components/session-rows';
 import { formatDate, formatShortDate } from '@/lib/attendance';
 import { MemberTags } from '@/pages/employees';
 import { SESSION_FRESHNESS, errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth, useRefreshMassage } from '@/lib/massage';
@@ -20,7 +20,9 @@ import { SESSION_FRESHNESS, errorText, formatMinutes, formatMonth, formatVnd, mo
 export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null; readOnly: boolean }) {
   const shell = useShell();
   const { members, membersLoading, membersError, retryMembers, notify, fail } = shell;
-  const canEdit = shell.canEdit && !readOnly;
+  const canEdit = shell.canEditEmployees && !readOnly;
+  const canUseCards = canEdit && shell.canEditCards;
+  const canEditSession = (s: ServiceSession) => canEdit && (s.cardId === null || canUseCards);
   const [location, navigate] = useLocation();
   const { historyMonth, withHistory } = shell;
   const { month, date: day, currentMonth, today } = shell.period;
@@ -36,7 +38,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
   const payroll = useGetMemberPayroll(payrollParams, { query: { queryKey: getGetMemberPayrollQueryKey(payrollParams), enabled: id > 0, ...SESSION_FRESHNESS } });
   const sessionParams = useMemo(() => ({ memberId: id, month }), [id, month]);
   const sessionsQuery = useListServiceSessions(sessionParams, { query: { queryKey: getListServiceSessionsQueryKey(sessionParams), enabled: id > 0, ...SESSION_FRESHNESS } });
-  const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), enabled: canEdit && sessionDialog !== null } });
+  const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), enabled: canUseCards && sessionDialog !== null } });
 
   const createSession = useCreateServiceSession();
   const updateSession = useUpdateServiceSession();
@@ -79,7 +81,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
     else createSession.mutate({ data: input }, opts);
   }
   function askDeleteSession(s: ServiceSession) {
-    if (!canEdit) return;
+    if (!canEditSession(s)) return;
     setConfirm({
       title: 'Xóa ca phục vụ?',
       body: <p>Xóa ca {formatMinutes(s.minutes)} ngày {formatShortDate(s.workDate)} của {s.employeeName}. Lương ca {formatVnd(s.earnings)} sẽ bị trừ khỏi bảng lương{s.cardId !== null ? `, và ${formatMinutes(s.minutes)} được hoàn lại vào thẻ #${s.cardId}` : ''}. Không thể hoàn tác.</p>,
@@ -126,7 +128,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
       {sessionsQuery.isLoading ? <Skeleton rows={3} label="Đang tải ca phục vụ" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được ca phục vụ." onRetry={() => void sessionsQuery.refetch()} /> : daySessions.length === 0 ? (
         <div className="empty small"><CalendarDays size={18} /><p>Chưa có ca được ghi trong ngày này.</p></div>
       ) : (
-          <SessionTable sessions={daySessions} caption={`Ca phục vụ ngày ${formatShortDate(day)}`} canEdit={canEdit} visibleActions linkCards={canEdit} busy={deleteSession.isPending}
+          <SessionRows sessions={daySessions} title={`Ca phục vụ ngày ${formatShortDate(day)}`} canEditRow={canEditSession} linkCards={shell.permissions.viewCards} busy={deleteSession.isPending}
           onEdit={(s) => { setDialogError(''); setSessionDialog({ session: s }); }} onDelete={askDeleteSession} testId="day-sessions" />
       )}
       {canEdit && (
@@ -180,7 +182,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
 
       {datePickerOpen && <DatePickerDialog value={day} title="Chọn ngày xem chi tiết" onClose={() => setDatePickerOpen(false)} onSelect={chooseDay} />}
       {sessionDialog && canEdit && (
-        <SessionDialog session={sessionDialog.session} members={members} cards={cardsQuery.data ?? []} cardsLoading={cardsQuery.isLoading} defaultDate={day} defaultMemberId={member.id} fixedMemberId={sessionDialog.session ? undefined : member.id}
+        <SessionDialog session={sessionDialog.session} members={members} allowCards={canUseCards} cards={canUseCards ? cardsQuery.data ?? [] : []} cardsLoading={cardsQuery.isLoading} defaultDate={day} defaultMemberId={member.id} fixedMemberId={sessionDialog.session ? undefined : member.id}
           busy={createSession.isPending || updateSession.isPending} serverError={dialogError} onClose={() => setSessionDialog(null)} onSubmit={submitSession} />
       )}
       {memberDialog && canEdit && (

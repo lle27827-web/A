@@ -5,9 +5,11 @@
  * API công khai để quản lý dữ liệu nhân viên, chấm công, dịch vụ và thẻ liệu trình.
  * OpenAPI spec version: 0.1.0
  */
+import type { FacilityPermissions } from './facilityPermissions';
 
 export interface AuthStatus {
   authConfigured: boolean;
   authenticated: boolean;
   isOwner: boolean;
+  permissions: FacilityPermissions;
 }

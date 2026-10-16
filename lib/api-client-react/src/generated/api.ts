@@ -20,6 +20,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AccessGrant,
+  AccessGrantInput,
   AttendanceInput,
   AttendanceRecord,
   AttendanceSummary,
@@ -1400,6 +1402,245 @@ export function useGetAuthStatus<TData = Awaited<ReturnType<typeof getAuthStatus
 
 
 
+
+export const getListAccessGrantsUrl = () => {
+
+
+
+
+  return `/api/access-grants`
+}
+
+/**
+ * @summary Chủ sở hữu xem danh sách cấp quyền
+ */
+export const listAccessGrants = async ( options?: Parameters<typeof customFetch>[1]): Promise<AccessGrant[]> => {
+
+  return customFetch<AccessGrant[]>(getListAccessGrantsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAccessGrantsQueryKey = () => {
+    return [
+    `/api/access-grants`
+    ] as const;
+    }
+
+
+export const getListAccessGrantsQueryOptions = <TData = Awaited<ReturnType<typeof listAccessGrants>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAccessGrants>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAccessGrantsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAccessGrants>>> = ({ signal }) => listAccessGrants({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAccessGrants>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAccessGrantsQueryResult = NonNullable<Awaited<ReturnType<typeof listAccessGrants>>>
+export type ListAccessGrantsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Chủ sở hữu xem danh sách cấp quyền
+ */
+
+export function useListAccessGrants<TData = Awaited<ReturnType<typeof listAccessGrants>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAccessGrants>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAccessGrantsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveAccessGrantUrl = () => {
+
+
+
+
+  return `/api/access-grants`
+}
+
+/**
+ * @summary Chủ sở hữu cấp hoặc sửa quyền theo email đã xác minh
+ */
+export const saveAccessGrant = async (accessGrantInput: AccessGrantInput, options?: Parameters<typeof customFetch>[1]): Promise<AccessGrant> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AccessGrant>(getSaveAccessGrantUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(accessGrantInput)
+  }
+);}
+
+
+
+
+
+export const getSaveAccessGrantMutationKey = () => ['saveAccessGrant'] as const;
+
+export const getSaveAccessGrantMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveAccessGrant>>, TError,SaveAccessGrantMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveAccessGrant>>, TError,SaveAccessGrantMutationVariables, TContext> => {
+
+const mutationKey = getSaveAccessGrantMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveAccessGrant>>, SaveAccessGrantMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  saveAccessGrant(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveAccessGrantMutationResult = NonNullable<Awaited<ReturnType<typeof saveAccessGrant>>>
+    export type SaveAccessGrantMutationBody = BodyType<AccessGrantInput>
+    export type SaveAccessGrantMutationError = ErrorType<unknown>
+    export type SaveAccessGrantMutationVariables = {data: BodyType<AccessGrantInput>}
+
+    /**
+ * @summary Chủ sở hữu cấp hoặc sửa quyền theo email đã xác minh
+ */
+export const useSaveAccessGrant = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveAccessGrant>>, TError,SaveAccessGrantMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveAccessGrant>>,
+        TError,
+        SaveAccessGrantMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSaveAccessGrantMutationOptions(options));
+    }
+
+export const getDeleteAccessGrantUrl = (id: number,) => {
+
+
+
+
+  return `/api/access-grants/${id}`
+}
+
+/**
+ * @summary Chủ sở hữu thu hồi toàn bộ quyền cơ sở của tài khoản
+ */
+export const deleteAccessGrant = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteAccessGrantUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteAccessGrantMutationKey = () => ['deleteAccessGrant'] as const;
+
+export const getDeleteAccessGrantMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAccessGrant>>, TError,DeleteAccessGrantMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAccessGrant>>, TError,DeleteAccessGrantMutationVariables, TContext> => {
+
+const mutationKey = getDeleteAccessGrantMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAccessGrant>>, DeleteAccessGrantMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteAccessGrant(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAccessGrantMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAccessGrant>>>
+
+    export type DeleteAccessGrantMutationError = ErrorType<unknown>
+    export type DeleteAccessGrantMutationVariables = {id: number}
+
+    /**
+ * @summary Chủ sở hữu thu hồi toàn bộ quyền cơ sở của tài khoản
+ */
+export const useDeleteAccessGrant = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAccessGrant>>, TError,DeleteAccessGrantMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAccessGrant>>,
+        TError,
+        DeleteAccessGrantMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteAccessGrantMutationOptions(options));
+    }
 
 export const getListMembersUrl = (params?: ListMembersParams,) => {
   const normalizedParams = new URLSearchParams();

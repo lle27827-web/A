@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { getGetMassageSummaryQueryKey, useGetMassageSummary } from '@workspace/api-client-react';
-import { ArrowRight, CreditCard, Users } from 'lucide-react';
+import { ArrowRight, CreditCard, Sparkles, Users } from 'lucide-react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { ErrorBanner } from '@/components/modal';
@@ -10,14 +10,14 @@ import { resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
 import './revenue-history.css';
 
 export default function HomePage() {
-  const { query, withHistory } = useShell();
+  const { query, withHistory, permissions, canViewEmployees, canEditServices } = useShell();
   const today = useMemo(() => vietnamToday(), []);
   const search = useSearch();
   const [, navigate] = useLocation();
   const { month, date, maxDate, currentMonth, isHistory } = resolveRevenuePeriod(search, today);
   const dayLabel = date === today ? 'hôm nay' : `ngày ${formatShortDate(date)}`;
   const summaryParams = useMemo(() => ({ month, date }), [month, date]);
-  const summary = useGetMassageSummary(summaryParams, { query: { queryKey: getGetMassageSummaryQueryKey(summaryParams), refetchOnWindowFocus: true, staleTime: 20_000, refetchInterval: 60_000 } });
+  const summary = useGetMassageSummary(summaryParams, { query: { queryKey: getGetMassageSummaryQueryKey(summaryParams), enabled: permissions.viewRevenue, refetchOnWindowFocus: true, staleTime: 20_000, refetchInterval: 60_000 } });
 
   // While searching, the shared SearchResults (mounted in AppShell) replaces the home tiles and report.
   if (query.trim()) return null;
@@ -25,18 +25,23 @@ export default function HomePage() {
   return (
     <div className="home">
       <div className="tiles">
-        <Link href={withHistory('/employees')} className="tile" aria-labelledby="employees-link-title" data-testid="link-employees">
+        {canViewEmployees && <Link href={withHistory('/employees')} className="tile" aria-labelledby="employees-link-title" data-testid="link-employees">
           <Users size={28} aria-hidden="true" />
           <strong id="employees-link-title">Quản lý nhân viên</strong>
           <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>
-        </Link>
-        <Link href="/cards" className="tile alt" aria-labelledby="cards-link-title" data-testid="link-cards">
+        </Link>}
+        {permissions.viewCards && <Link href="/cards" className="tile alt" aria-labelledby="cards-link-title" data-testid="link-cards">
           <CreditCard size={28} aria-hidden="true" />
           <strong id="cards-link-title">Quản lý thẻ</strong>
           <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>
-        </Link>
+        </Link>}
+        {canEditServices && <Link href="/services" className="tile" aria-labelledby="services-link-title" data-testid="link-services-tile">
+          <Sparkles size={28} aria-hidden="true" />
+          <strong id="services-link-title">Dịch vụ &amp; giá</strong>
+          <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>
+        </Link>}
       </div>
-      <section className="revenue" aria-labelledby="rev-title" data-testid="section-revenue">
+      {permissions.viewRevenue && <section className="revenue" aria-labelledby="rev-title" data-testid="section-revenue">
         {isHistory && (
           <div className="revenue-history-controls" data-testid="section-revenue-history">
             <h2>Lịch sử doanh thu</h2>
@@ -56,7 +61,7 @@ export default function HomePage() {
         <h1 id="rev-title" className="rev-label rev-label-key">Tổng doanh thu cơ sở · {formatMonth(month)}</h1>
         {summary.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải doanh thu" /> : summary.isError
           ? statusCode(summary.error) === 401 || statusCode(summary.error) === 403
-            ? <div className="banner danger" role="alert">Chỉ chủ sở hữu mới xem được doanh thu. <Link href="/sign-in" className="link-strong">Đăng nhập chủ sở hữu</Link></div>
+            ? <div className="banner danger" role="alert">Tài khoản này không còn quyền xem doanh thu.</div>
             : <ErrorBanner text="Không tải được doanh thu. Hãy thử tải lại; nếu vẫn lỗi, kiểm tra kết nối database của máy chủ." onRetry={() => void summary.refetch()} />
           : (
           <>
@@ -76,7 +81,7 @@ export default function HomePage() {
             </dl>
           </>
         )}
-      </section>
+      </section>}
     </div>
   );
 }

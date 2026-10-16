@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { db, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
 import {
   CreateServiceSessionBody, CreateServiceSessionResponse, DeleteServiceSessionParams,
@@ -11,11 +11,16 @@ import { deleteSession, MassageError, monthBounds, saveSession, sessionResponse,
 import { massageHandler, parseInput } from "./massage-errors";
 import { getFacilityRevenue } from "../lib/facility-revenue";
 import { listMembersForPeriod } from "../lib/employee-history";
+import { noPermissions } from "../lib/facility-permissions";
+import type { OwnerAuthStatus } from "../lib/owner-auth";
 
 const router: IRouter = Router();
+const mutationScope = (auth: OwnerAuthStatus | undefined) => auth?.isOwner ? undefined : auth?.permissions ?? noPermissions();
 router.get("/service-sessions", massageHandler(async (req, res) => {
   const q = parseInput(ListServiceSessionsQueryParams, req.query);
   const filters = [];
+  const permissions = (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.permissions ?? noPermissions();
+  if (!q.cardId && !permissions.allEmployees) filters.push(inArray(serviceSessionsTable.memberId, permissions.employeeIds));
   if (q.memberId) filters.push(eq(serviceSessionsTable.memberId, q.memberId));
   if (q.cardId) filters.push(eq(serviceSessionsTable.cardId, q.cardId));
   if (q.date) filters.push(eq(serviceSessionsTable.workDate, validDate(q.date)));
@@ -32,14 +37,14 @@ router.get("/service-sessions", massageHandler(async (req, res) => {
   res.json(ListServiceSessionsResponse.parse(rows.map(sessionResponse)));
 }));
 router.post("/service-sessions", massageHandler(async (req, res) => {
-  res.status(201).json(CreateServiceSessionResponse.parse(await saveSession(parseInput(CreateServiceSessionBody, req.body))));
+  res.status(201).json(CreateServiceSessionResponse.parse(await saveSession(parseInput(CreateServiceSessionBody, req.body), undefined, mutationScope(res.locals.facilityAuth))));
 }));
 router.patch("/service-sessions/:id", massageHandler(async (req, res) => {
   const { id } = parseInput(UpdateServiceSessionParams, req.params);
-  res.json(UpdateServiceSessionResponse.parse(await saveSession(parseInput(UpdateServiceSessionBody, req.body), id)));
+  res.json(UpdateServiceSessionResponse.parse(await saveSession(parseInput(UpdateServiceSessionBody, req.body), id, mutationScope(res.locals.facilityAuth))));
 }));
 router.delete("/service-sessions/:id", massageHandler(async (req, res) => {
-  await deleteSession(parseInput(DeleteServiceSessionParams, req.params).id);
+  await deleteSession(parseInput(DeleteServiceSessionParams, req.params).id, mutationScope(res.locals.facilityAuth));
   res.sendStatus(204);
 }));
 router.get("/massage-summary", massageHandler(async (req, res) => {

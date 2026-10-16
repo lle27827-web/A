@@ -1,6 +1,7 @@
 import { SignIn, SignUp } from "@clerk/react";
 import { Link, useSearch } from "wouter";
 import { shadcn } from "@clerk/themes";
+import { BookHeart, Hand, LogIn, LogOut, UserPlus } from "lucide-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -40,24 +41,45 @@ export const clerkAppearance = {
   },
 };
 
+export const WELCOME_TITLE = "Chào mừng bạn đến với Sổ Công";
+
+function WelcomeHeading({ level = 1 }: { level?: 1 | 2 }) {
+  const Heading = level === 1 ? "h1" : "h2";
+  return (
+    <div className="welcome">
+      <span className="brand-mark"><Hand size={22} strokeWidth={2.4} aria-hidden="true" /></span>
+      <Heading data-testid="text-welcome-title">{WELCOME_TITLE}</Heading>
+      <p data-testid="text-welcome-subtitle">Hãy đăng nhập để sử dụng dịch vụ</p>
+    </div>
+  );
+}
+
+export function WelcomePage() {
+  return (
+    <main className="auth-page" data-testid="page-welcome">
+      <WelcomeHeading />
+      <div className="welcome-actions">
+        <Link href="/sign-in" className="btn primary" data-testid="link-welcome-sign-in"><LogIn size={15} aria-hidden="true" />Đăng nhập</Link>
+        <Link href="/sign-up" className="btn" data-testid="link-welcome-sign-up"><UserPlus size={15} aria-hidden="true" />Tạo tài khoản</Link>
+      </div>
+    </main>
+  );
+}
+
 export function SignInPage({ available }: { available: boolean }) {
   const ret = usePersonalReturn();
   if (!available) return <AuthSetupPage />;
 
   return (
     <main className="auth-page">
-      <div className="auth-heading">
-        <Link href="/employees" className="link-soft" data-testid="link-auth-continue-guest">← Tiếp tục xem nhân viên không cần đăng nhập</Link>
-        <p data-testid="text-sign-in-scope">{ret.personal ? "Đăng nhập để mở sổ chấm công cá nhân của bạn." : "Mọi tài khoản đều dùng được sổ chấm công cá nhân riêng."} Chỉ chủ sở hữu đã xác minh mới chỉnh sửa được dữ liệu cơ sở.</p>
-        <p>Chưa có tài khoản? <Link href={`/sign-up${ret.qs}`} className="link-strong" data-testid="link-to-sign-up">Tạo tài khoản</Link></p>
-        <p className="muted small">Quên mật khẩu? Nhập email, nhấn Tiếp tục rồi chọn “Forgot password?” để nhận hướng dẫn đặt lại qua email.</p>
-      </div>
+      <WelcomeHeading />
       <SignIn
         routing="path"
         path={`${basePath}/sign-in`}
         signUpUrl={`${basePath}/sign-up${ret.qs}`}
         {...ret.redirect}
       />
+      <p className="muted small">Chưa có tài khoản? <Link href={`/sign-up${ret.qs}`} className="link-strong" data-testid="link-to-sign-up">Tạo tài khoản</Link></p>
     </main>
   );
 }
@@ -68,17 +90,13 @@ export function SignUpPage({ available }: { available: boolean }) {
 
   return (
     <main className="auth-page">
-      <div className="auth-heading">
-        <Link href="/employees" className="link-soft" data-testid="link-auth-continue-guest">← Tiếp tục xem nhân viên không cần đăng nhập</Link>
-        <p data-testid="text-sign-up-scope">Tạo tài khoản để có sổ chấm công cá nhân riêng tư. Chỉ email chủ sở hữu đã xác minh mới có quyền chỉnh sửa dữ liệu cơ sở.</p>
-        <p>Đã có tài khoản? <Link href={`/sign-in${ret.qs}`} className="link-strong" data-testid="link-to-sign-in">Đăng nhập</Link></p>
-      </div>
       <SignUp
         routing="path"
         path={`${basePath}/sign-up`}
         signInUrl={`${basePath}/sign-in${ret.qs}`}
         {...ret.redirectUp}
       />
+      <p className="muted small">Đã có tài khoản? <Link href={`/sign-in${ret.qs}`} className="link-strong" data-testid="link-to-sign-in">Đăng nhập</Link></p>
     </main>
   );
 }
@@ -88,9 +106,24 @@ export function AuthSetupPage() {
     <main className="auth-page">
       <section className="panel auth-notice">
         <h1>Đăng nhập chưa được cấu hình</h1>
-        <p>Ứng dụng đang ở chế độ chỉ xem. Cần cấu hình Clerk bên ngoài trong Replit và Vercel trước khi tài khoản có thể đăng nhập (sổ cá nhân) và chủ sở hữu chỉnh sửa dữ liệu cơ sở.</p>
+        <p>Cần cấu hình Clerk trước khi tài khoản có thể đăng nhập.</p>
         <p className="muted small">Thiết lập các biến APP_CLERK_SECRET_KEY, APP_CLERK_PUBLISHABLE_KEY, VITE_APP_CLERK_PUBLISHABLE_KEY và ADMIN_EMAIL.</p>
-        <Link href="/employees" className="btn primary">Tiếp tục xem nhân viên</Link>
+        <Link href="/" className="btn primary">Trang chào mừng</Link>
+      </section>
+    </main>
+  );
+}
+
+export function NoFacilityAccessPage({ onSignOut }: { onSignOut?: () => void }) {
+  return (
+    <main className="auth-page" data-testid="page-no-facility-access">
+      <section className="panel no-access">
+        <h1>Chưa có quyền truy cập cơ sở</h1>
+        <p>Tài khoản của bạn chưa được chủ sở hữu cấp quyền xem dữ liệu cơ sở. Bạn vẫn dùng được sổ chấm công cá nhân.</p>
+        <div className="welcome-actions">
+          <Link href="/personal" className="btn primary" data-testid="link-no-access-personal"><BookHeart size={15} aria-hidden="true" />Chấm công cá nhân</Link>
+          <button type="button" className="btn ghost" onClick={onSignOut} data-testid="button-no-access-sign-out"><LogOut size={15} aria-hidden="true" />Đăng xuất</button>
+        </div>
       </section>
     </main>
   );

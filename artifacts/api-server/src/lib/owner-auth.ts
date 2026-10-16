@@ -1,6 +1,10 @@
 import { createClerkClient } from "@clerk/backend";
 import { getAuth } from "@clerk/express";
 import type { NextFunction, Request, Response } from "express";
+import { db, attendanceTable, serviceSessionsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import type { FacilityPermissions } from "@workspace/api-zod";
+import { canEditEmployee, canViewEmployee, noPermissions, ownerPermissions, permissionsForEmail } from "./facility-permissions";
 
 const secretKey = process.env.APP_CLERK_SECRET_KEY?.trim();
 const publishableKey = process.env.APP_CLERK_PUBLISHABLE_KEY?.trim();
@@ -15,6 +19,7 @@ export type OwnerAuthStatus = {
   authConfigured: boolean;
   authenticated: boolean;
   isOwner: boolean;
+  permissions: FacilityPermissions;
 };
 
 export function ownerAuthIsConfigured(): boolean {
@@ -23,12 +28,12 @@ export function ownerAuthIsConfigured(): boolean {
 
 export async function getOwnerAuthStatus(req: Request): Promise<OwnerAuthStatus> {
   if (!ownerAuthIsConfigured() || !clerk) {
-    return { authConfigured: false, authenticated: false, isOwner: false };
+    return { authConfigured: false, authenticated: false, isOwner: false, permissions: noPermissions() };
   }
 
   const userId = getAuth(req).userId;
   if (!userId) {
-    return { authConfigured: true, authenticated: false, isOwner: false };
+    return { authConfigured: true, authenticated: false, isOwner: false, permissions: noPermissions() };
   }
 
   const user = await clerk.users.getUser(userId);
@@ -39,7 +44,9 @@ export async function getOwnerAuthStatus(req: Request): Promise<OwnerAuthStatus>
     primaryEmail.emailAddress.trim().toLowerCase() === ownerEmail,
   );
 
-  return { authConfigured: true, authenticated: true, isOwner };
+  const email = primaryEmail?.verification?.status === "verified" ? primaryEmail.emailAddress.trim().toLowerCase() : null;
+  const permissions = isOwner ? ownerPermissions() : email ? await permissionsForEmail(email) : noPermissions();
+  return { authConfigured: true, authenticated: true, isOwner, permissions };
 }
 
 function requestHasTrustedOrigin(req: Request): boolean {
@@ -100,37 +107,25 @@ export async function requireOwner(
   }
 }
 
-function hasQueryValue(value: unknown): boolean {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
 export function isPublicEmployeeRead(req: Request): boolean {
-  if (req.method !== "GET" && req.method !== "HEAD") return false;
-  if (req.path === "/healthz" || req.path === "/auth/status" || req.path === "/history-months") return true;
-  if (["/members", "/attendance", "/attendance/summary"].includes(req.path)) return true;
-
-  if (req.path === "/member-payroll") {
-    return hasQueryValue(req.query.memberId);
-  }
-
-  if (req.path === "/service-sessions") {
-    return hasQueryValue(req.query.memberId) && !hasQueryValue(req.query.cardId);
-  }
-
-  return false;
+  return (req.method === "GET" || req.method === "HEAD") && ["/healthz", "/auth/status"].includes(req.path);
 }
 
-export function apiAuthorizationGate(
+const positiveId = (value: unknown): number => typeof value === "number" && Number.isSafeInteger(value) && value > 0
+  ? value : typeof value === "string" && /^[1-9]\d*$/.test(value) && Number.isSafeInteger(Number(value)) ? Number(value) : 0;
+
+export async function apiAuthorizationGate(
   req: Request,
   res: Response,
   next: NextFunction,
-): void {
+): Promise<void> {
+  res.set("Cache-Control", "private, no-store");
+  if (req.method === "OPTIONS" || isPublicEmployeeRead(req)) { next(); return; }
+  if (!requestHasTrustedOrigin(req)) {
+    res.status(403).json({ error: "Yêu cầu không được gửi từ ứng dụng này." });
+    return;
+  }
   if (req.path === "/personal" || req.path.startsWith("/personal/")) {
-    res.set("Cache-Control", "private, no-store");
-    if (!requestHasTrustedOrigin(req)) {
-      res.status(403).json({ error: "Yêu cầu không được gửi từ ứng dụng này." });
-      return;
-    }
     try {
       const userId = getAuth(req).userId;
       if (!userId) {
@@ -138,15 +133,75 @@ export function apiAuthorizationGate(
         return;
       }
       res.locals.personalUserId = userId;
+      if (req.path === "/personal/comparison" || req.path === "/personal/sync") {
+        const status = await getOwnerAuthStatus(req);
+        const id = positiveId(req.path === "/personal/sync" ? req.body?.memberId : req.query.memberId);
+        if (!canViewEmployee(status.permissions, id)) {
+          res.status(403).json({ error: "Bạn chưa được cấp quyền xem nhân viên này." });
+          return;
+        }
+      }
       next();
     } catch {
       res.status(503).json({ error: "Không thể xác minh phiên đăng nhập." });
     }
     return;
   }
-  if (req.method === "OPTIONS" || isPublicEmployeeRead(req)) {
-    next();
-    return;
+  try {
+    const status = await getOwnerAuthStatus(req);
+    if (!status.authenticated) { res.status(401).json({ error: "Vui lòng đăng nhập để sử dụng dịch vụ." }); return; }
+    res.locals.facilityAuth = status;
+    if (status.isOwner) { next(); return; }
+    if (await managerRequestAllowed(req, status.permissions)) { next(); return; }
+    res.status(403).json({ error: "Tài khoản chưa được cấp quyền thực hiện thao tác này." });
+  } catch (error) {
+    req.log?.error({ err: error }, "Unable to verify facility permissions");
+    res.status(503).json({ error: "Không thể xác minh quyền truy cập. Hãy thử lại." });
   }
-  void requireOwner(req, res, next);
+}
+
+/** Every unrecognized endpoint fails closed. Identity and grants never come from request bodies. */
+export async function managerRequestAllowed(req: Request, p: FacilityPermissions): Promise<boolean> {
+  const read = req.method === "GET" || req.method === "HEAD";
+  const path = req.path;
+  if (read) {
+    if (path === "/members" || path === "/history-months" || path === "/attendance" || path === "/attendance/summary") return true; // rows filtered at source
+    if (path === "/massage-summary") return p.viewRevenue;
+    if (path === "/service-types") return p.allEmployees || p.employeeIds.length > 0 || p.viewCards || p.editServices;
+    if (path === "/member-payroll") return canViewEmployee(p, positiveId(req.query.memberId));
+    if (path === "/service-sessions") {
+      if (req.query.cardId !== undefined) return positiveId(req.query.cardId) > 0 && p.viewCards;
+      if (req.query.memberId !== undefined) return canViewEmployee(p, positiveId(req.query.memberId));
+      return p.allEmployees || p.employeeIds.length > 0;
+    }
+    if (/^\/treatment-cards(?:\/[1-9]\d*(?:\/hours)?)?$/.test(path)) return p.viewCards;
+    return false;
+  }
+  if (path === "/members" && req.method === "POST") return p.allEmployees && p.editEmployees;
+  if (/^\/members\/[1-9]\d*$/.test(path) && ["PATCH", "DELETE"].includes(req.method)) return canEditEmployee(p, positiveId(path.split("/")[2]));
+  if (/^\/service-types(?:\/[1-9]\d*)?$/.test(path)) return p.editServices && ["POST", "PATCH", "DELETE"].includes(req.method);
+  if (/^\/treatment-cards(?:\/[1-9]\d*(?:\/hours)?)?$/.test(path)) return p.viewCards && p.editCards && ["POST", "PATCH", "DELETE"].includes(req.method);
+  const sessionId = /^\/service-sessions\/([1-9]\d*)$/.exec(path);
+  if (path === "/service-sessions" || sessionId) {
+    if (!["POST", "PATCH", "DELETE"].includes(req.method) || !p.editEmployees) return false;
+    if (sessionId) {
+      const [old] = await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, positiveId(sessionId[1]))).limit(1);
+      if (!old || !(old.memberId === null && req.method === "DELETE" ? p.allEmployees : canEditEmployee(p, old.memberId ?? 0))
+        || (old.cardId !== null && !(p.viewCards && p.editCards))) return false;
+      if (req.method === "DELETE") return true;
+    } else if (req.method !== "POST") return false;
+    return canEditEmployee(p, positiveId(req.body?.memberId)) && (req.body?.cardId == null || (p.viewCards && p.editCards));
+  }
+  const attendanceId = /^\/attendance\/([1-9]\d*)$/.exec(path);
+  if (path === "/attendance" || attendanceId) {
+    if (!["POST", "PATCH", "DELETE"].includes(req.method) || !p.editEmployees) return false;
+    if (attendanceId) {
+      const [old] = await db.select().from(attendanceTable).where(eq(attendanceTable.id, positiveId(attendanceId[1]))).limit(1);
+      if (!old || !canEditEmployee(p, old.memberId ?? 0)) return false;
+      if (req.method === "DELETE") return true;
+      if (!Object.hasOwn(req.body ?? {}, "memberId")) return true;
+    } else if (req.method !== "POST") return false;
+    return canEditEmployee(p, positiveId(req.body?.memberId));
+  }
+  return false;
 }

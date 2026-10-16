@@ -21,9 +21,10 @@ export default function CardDetailPage() {
   const params = useParams<{ id: string }>();
   const n = Number(params.id);
   const id = Number.isInteger(n) && n > 0 ? n : 0;
-  const { isOwner: canEdit, notify, fail } = useShell();
+  const { canEditCards: canEdit, canEditEmployees, permissions, canViewEmployees, notify, fail } = useShell();
+  const canUse = canEdit && canEditEmployees;
   // Card data is always current; session member options come from the CURRENT roster, not a history month.
-  const activeMembersQuery = useListMembers(undefined, { query: { queryKey: getListMembersQueryKey(), ...SESSION_FRESHNESS } });
+  const activeMembersQuery = useListMembers(undefined, { query: { queryKey: getListMembersQueryKey(), enabled: canViewEmployees, ...SESSION_FRESHNESS } });
   const members = useMemo(() => activeMembersQuery.data ?? [], [activeMembersQuery.data]);
   const [, navigate] = useLocation();
   const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), ...SESSION_FRESHNESS } });
@@ -58,7 +59,7 @@ export default function CardDetailPage() {
   if (!card) return <section className="panel page"><div className="empty"><CreditCard size={22} /><p>Thẻ không tồn tại hoặc đã bị xóa.</p><Link href="/cards" className="btn">Về danh sách thẻ</Link></div></section>;
 
   function submitSession(input: ServiceSessionInput) {
-    if (!canEdit || !sessionDialog || !card) return;
+    if (!canUse || !sessionDialog || !card) return;
     setDialogError('');
     const data = { ...input, cardId: card.id };
     const opts = { onSuccess: () => { refresh(); setSessionDialog(null); notify(sessionDialog.session ? 'Đã cập nhật lần dùng thẻ.' : 'Đã ghi lần dùng thẻ.'); }, onError: (e: unknown) => { setDialogError(errorText(e)); fail(e); } };
@@ -124,7 +125,7 @@ export default function CardDetailPage() {
       {canEdit && (
         <div className="card-actions-top" data-testid="card-actions-top">
           <button type="button" className="btn primary" onClick={() => { setDialogError(''); setHoursDialog(true); }} data-testid="button-add-card-hours"><Plus size={15} />Nạp thẻ</button>
-          <button type="button" className="btn primary" disabled={card.remainingMinutes <= 0} title={card.remainingMinutes <= 0 ? 'Thẻ đã hết giờ' : undefined} onClick={() => { setDialogError(''); setSessionDialog({ session: null }); }} data-testid="button-add-usage"><Plus size={15} />Ghi lần dùng</button>
+          {canUse && <button type="button" className="btn primary" disabled={card.remainingMinutes <= 0} title={card.remainingMinutes <= 0 ? 'Thẻ đã hết giờ' : undefined} onClick={() => { setDialogError(''); setSessionDialog({ session: null }); }} data-testid="button-add-usage"><Plus size={15} />Ghi lần dùng</button>}
         </div>
       )}
 
@@ -135,7 +136,7 @@ export default function CardDetailPage() {
           {sessionsQuery.isLoading ? <Skeleton rows={2} label="Đang tải lịch sử" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được lịch sử sử dụng." onRetry={() => void sessionsQuery.refetch()} /> : sessions.length === 0 ? (
             <div className="empty small"><CreditCard size={18} /><p>Thẻ chưa được sử dụng.</p></div>
           ) : (<>
-            <SessionTable sessions={visibleSessions} caption="Lịch sử dùng thẻ. Ngày là ngày phục vụ; giờ ghi là lúc lưu ca." canEdit={canEdit} cardHistory showDate showTime showEmployee busy={deleteSession.isPending}
+            <SessionTable sessions={visibleSessions} caption="Lịch sử dùng thẻ. Ngày là ngày phục vụ; giờ ghi là lúc lưu ca." canEdit={canUse} canEditRow={(s) => s.memberId === null ? permissions.allEmployees : members.some((m) => m.id === s.memberId)} cardHistory showDate showTime showEmployee busy={deleteSession.isPending}
             onEdit={(s) => { setDialogError(''); setSessionDialog({ session: s }); }} onDelete={askDeleteSession} testId="card-usages" />
             {sessions.length > 1 && (
               <button type="button" className="btn ghost small history-toggle" aria-expanded={showAllUsage} onClick={() => setShowAllUsage((v) => !v)} data-testid="button-toggle-usage-history">
@@ -207,7 +208,7 @@ export default function CardDetailPage() {
             });
           }} />
       )}
-      {sessionDialog && canEdit && (
+      {sessionDialog && canUse && (
         <SessionDialog session={sessionDialog.session} members={dialogMembers(sessionDialog.session)} cards={[card]} defaultDate={localDate()} fixedCardId={card.id}
           busy={createSession.isPending || updateSession.isPending || activeMembersQuery.isLoading || activeMembersQuery.isError}
           serverError={dialogError || (activeMembersQuery.isError ? 'Không tải được danh sách kỹ thuật viên. Hãy đóng cửa sổ và thử lại.' : '')}

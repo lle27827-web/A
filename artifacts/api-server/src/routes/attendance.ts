@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, asc, count, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import {
   CreateAttendanceBody,
   CreateAttendanceResponse,
@@ -18,6 +18,8 @@ import {
   membersTable,
   type AttendanceStatus,
 } from "@workspace/db";
+import { noPermissions } from "../lib/facility-permissions";
+import type { OwnerAuthStatus } from "../lib/owner-auth";
 
 const router: IRouter = Router();
 
@@ -47,6 +49,8 @@ router.get("/attendance", async (req, res): Promise<void> => {
   }
 
   const filters = [];
+  const permissions = (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.permissions ?? noPermissions();
+  if (!permissions.allEmployees) filters.push(inArray(attendanceTable.memberId, permissions.employeeIds));
   if (query.data.date) {
     filters.push(eq(attendanceTable.workDate, query.data.date));
   }
@@ -84,6 +88,7 @@ router.get("/attendance/summary", async (req, res): Promise<void> => {
   }
 
   const workDate = query.data.date;
+  const permissions = (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.permissions ?? noPermissions();
   const [row] = await db
     .select({
       total: count(),
@@ -95,7 +100,8 @@ router.get("/attendance/summary", async (req, res): Promise<void> => {
       checkedOut: sql<number>`count(*) filter (where ${attendanceTable.checkOut} is not null)`,
     })
     .from(attendanceTable)
-    .where(eq(attendanceTable.workDate, workDate));
+    .where(and(eq(attendanceTable.workDate, workDate),
+      permissions.allEmployees ? undefined : inArray(attendanceTable.memberId, permissions.employeeIds)));
 
   res.json(GetAttendanceSummaryResponse.parse({
     date: workDate,
@@ -180,7 +186,9 @@ router.patch("/attendance/:id", async (req, res): Promise<void> => {
   const [record] = await db
     .update(attendanceTable)
     .set(update)
-    .where(eq(attendanceTable.id, params.data.id))
+    .where(and(eq(attendanceTable.id, params.data.id),
+      res.locals.facilityAuth?.permissions.allEmployees ? undefined
+        : inArray(attendanceTable.memberId, res.locals.facilityAuth?.permissions.employeeIds ?? [])))
     .returning();
 
   if (!record) {
@@ -200,7 +208,9 @@ router.delete("/attendance/:id", async (req, res): Promise<void> => {
 
   const [record] = await db
     .delete(attendanceTable)
-    .where(eq(attendanceTable.id, params.data.id))
+    .where(and(eq(attendanceTable.id, params.data.id),
+      res.locals.facilityAuth?.permissions.allEmployees ? undefined
+        : inArray(attendanceTable.memberId, res.locals.facilityAuth?.permissions.employeeIds ?? [])))
     .returning({ id: attendanceTable.id });
 
   if (!record) {
