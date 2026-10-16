@@ -21,7 +21,7 @@ Creating a card matching an active card's customer name, phone and service must 
 
 Monthly and daily “Doanh thu đã khấu trừ” means walk-in customer charges plus original card sales and top-up cash, minus wages for all active walk-in and card sessions. Redemptions add no revenue, and net amounts may be negative.
 
-**Why:** the user explicitly requested paid top-ups, automatic duplicate-card credits with history, and owner revenue after employee pay without double-counting card usage.
+**Why:** the user explicitly requested paid top-ups, automatic duplicate-card credits with history, and owner revenue after employee pay without double-counting card usage. The user reiterated that “khấu trừ” means subtracting each service session's employee pay; excluding card-redemption revenue must not exclude the corresponding wages.
 
 **How to apply:** credit balance and payment history atomically; protect concurrent new-card matches as well as existing-card credits. Exclude archived cards and their payments/wages from active reports. Keep owner-only financial access.
 

@@ -2,6 +2,12 @@ import { sql } from "drizzle-orm";
 import { cardTopUpsTable, db, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
 import { monthBounds, validDate } from "./massage";
 
+/** Card redemptions contribute wages, never another customer payment. */
+function revenueTotals(walkInCharges: number, cardPayments: number, allSessionWages: number) {
+  const revenue = walkInCharges + cardPayments;
+  return { revenue, netRevenue: revenue - allSessionWages };
+}
+
 /** Gross revenue recognizes walk-in service charges and card sales, not card redemptions. */
 export async function getFacilityRevenue(month: string, requestedDate?: string) {
   const { start, end } = monthBounds(month);
@@ -106,13 +112,13 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
   const dayCardRevenue = Number(row.dayCardRevenue);
   const dayPayroll = Number(row.dayPayroll);
   return {
-    month, revenue: serviceRevenue + cardRevenue, netRevenue: serviceRevenue + cardRevenue - payroll,
+    month, ...revenueTotals(walkInServiceRevenue, cardRevenue, payroll),
     serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, payroll,
     revenueExcludingCardSessions: walkInServiceRevenue + cardRevenue, cardRevenue, cardsSold: Number(row.cardsSold),
     walkInVisits: Number(row.walkInVisits), cardVisits: Number(row.cardVisits),
     today: {
-      date, revenue: dayServiceRevenue + dayCardRevenue,
-      netRevenue: dayServiceRevenue + dayCardRevenue - dayPayroll, serviceRevenue: dayServiceRevenue,
+      date, ...revenueTotals(dayWalkInServiceRevenue, dayCardRevenue, dayPayroll),
+      serviceRevenue: dayServiceRevenue,
       walkInServiceRevenue: dayWalkInServiceRevenue,
       walkInServiceMinutes: dayWalkInServiceMinutes,
       payroll: dayPayroll,

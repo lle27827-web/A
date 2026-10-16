@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db, pool, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
 import { GetMassageSummaryQueryParams, GetMassageSummaryResponse } from "@workspace/api-zod";
 import { getFacilityRevenue } from "./facility-revenue";
@@ -14,6 +14,7 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
   try {
     assert.equal(GetMassageSummaryQueryParams.parse({ month, date }).date, date);
     const baseline = await getFacilityRevenue(month, date);
+    const redemptionDayBaseline = await getFacilityRevenue(month, "2099-02-02");
     assert.equal(baseline.revenue, baseline.serviceRevenue + baseline.cardRevenue);
     const noSalesMonth = "2098-03";
     const noSalesDay = "2098-03-12";
@@ -31,6 +32,8 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     assert.equal(serviceOnly.cardRevenue, 0);
     assert.equal(serviceOnly.payroll, 5000);
     assert.equal(serviceOnly.revenue, 10000);
+    assert.equal(serviceOnly.netRevenue, 5000);
+    assert.equal(serviceOnly.today.netRevenue, 5000);
     assert.equal(serviceOnly.revenueExcludingCardSessions, 10000);
     assert.equal(validatedServiceOnly.revenueExcludingCardSessions, 10000);
     assert.equal(validatedServiceOnly.today.revenueExcludingCardSessions, 10000);
@@ -69,6 +72,46 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     assert.equal(after.revenueExcludingCardSessions - baseline.revenueExcludingCardSessions, 2100);
     assert.equal(after.today.revenueExcludingCardSessions - baseline.today.revenueExcludingCardSessions, 800);
     assert.equal(after.cardsSold - baseline.cardsSold, 2);
+    assert.equal(after.netRevenue - baseline.netRevenue, 1850);
+    assert.equal(after.today.netRevenue - baseline.today.netRevenue, 650);
+    const redemptionDay = await getFacilityRevenue(month, "2099-02-02");
+    assert.equal(redemptionDay.today.revenue - redemptionDayBaseline.today.revenue, 0);
+    assert.equal(redemptionDay.today.netRevenue - redemptionDayBaseline.today.netRevenue, -50,
+      "using a card on a day without a sale still deducts the employee wage");
+
+    // A stored redemption price must never be counted, even alongside cash-paying visits.
+    await db.update(serviceSessionsTable).set({ customerCharge: 999999 })
+      .where(eq(serviceSessionsTable.id, rows[0].id));
+    assert.deepEqual(await getFacilityRevenue(month, date), after);
+    const [extraWalkIn] = await db.insert(serviceSessionsTable).values({
+      memberId: null, employeeName: "__facility_net_test", cardId: null, customerName: "",
+      serviceType: "test", workDate: date, minutes: 60, customerHourlyRate: 300000,
+      customerCharge: 300000, hourlyRate: 100000, earnings: 100000, note: "",
+    }).returning();
+    sessionIds.push(extraWalkIn.id);
+    const mixed = GetMassageSummaryResponse.parse(await getFacilityRevenue(month, date));
+    assert.equal(mixed.netRevenue - after.netRevenue, 200000);
+    assert.equal(mixed.today.netRevenue - after.today.netRevenue, 200000);
+    assert.equal(mixed.today.revenue - after.today.revenue, 300000);
+    await db.update(serviceSessionsTable).set({ customerCharge: 400000, earnings: 150000 })
+      .where(eq(serviceSessionsTable.id, extraWalkIn.id));
+    const edited = await getFacilityRevenue(month, date);
+    assert.equal(edited.netRevenue - after.netRevenue, 250000);
+    assert.equal(edited.today.netRevenue - after.today.netRevenue, 250000);
+    await db.delete(serviceSessionsTable).where(eq(serviceSessionsTable.id, extraWalkIn.id));
+    sessionIds.splice(sessionIds.indexOf(extraWalkIn.id), 1);
+    assert.deepEqual(await getFacilityRevenue(month, date), after,
+      "removing a cash visit removes both its customer charge and its wage");
+
+    await db.update(serviceSessionsTable).set({ earnings: 1000000 })
+      .where(eq(serviceSessionsTable.id, rows[0].id));
+    const loss = await getFacilityRevenue(month, date);
+    assert.equal(loss.netRevenue - baseline.netRevenue, -998000);
+    assert.equal(loss.today.netRevenue - baseline.today.netRevenue, -999200,
+      "do not clamp losses to zero or skip wages on card sessions");
+    await db.update(serviceSessionsTable).set({ customerCharge: 200, earnings: 150 })
+      .where(eq(serviceSessionsTable.id, rows[0].id));
+    assert.deepEqual(await getFacilityRevenue(month, date), after);
     await db.delete(treatmentCardsTable).where(inArray(treatmentCardsTable.id, [cards[1].id]));
     cardIds.splice(cardIds.indexOf(cards[1].id), 1);
     const updated = await getFacilityRevenue(month, date);
