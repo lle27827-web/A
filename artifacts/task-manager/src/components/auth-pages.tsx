@@ -84,7 +84,26 @@ export function AuthSetupPage() {
 export function AuthLoadingPage() {
   return (
     <main className="auth-page">
-      <section className="panel auth-notice" role="status">Đang kiểm tra quyền truy cập…</section>
+      <section className="panel auth-notice" role="status" data-testid="status-restoring-session">Đang khôi phục phiên và kiểm tra quyền truy cập…</section>
+    </main>
+  );
+}
+
+export function AuthRestoreErrorPage({ pending, onRetry, onSignIn }: {
+  pending: boolean;
+  onRetry: () => void;
+  onSignIn: () => void;
+}) {
+  return (
+    <main className="auth-page">
+      <section className="panel auth-notice" role="alert" data-testid="status-session-error">
+        <h1>Chưa thể xác minh phiên đăng nhập</h1>
+        <p>Không cần tải lại trang. Hãy thử kết nối lại; nếu phiên đã hết hạn, hãy đăng nhập lại.</p>
+        <button type="button" className="btn primary" onClick={onRetry} disabled={pending}>
+          {pending ? 'Đang xác minh…' : 'Thử lại'}
+        </button>
+        <button type="button" className="btn ghost" onClick={onSignIn} disabled={pending}>Đăng nhập lại</button>
+      </section>
     </main>
   );
 }
