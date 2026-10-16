@@ -32,3 +32,9 @@ When the selected range contains shifts and every occurrence matches, hide the d
 **Why:** the user asked not to show old comparison history after complete matching and to report clearly that the data matches.
 
 **How to apply:** render only current unmatched occurrences; do not treat an empty range as a successful match.
+
+Always fetch a fresh comparison when the dialog opens or its selected employee changes. Edits to either notebook must invalidate the comparison, and cached results must not be presented as current while a refresh is in progress.
+
+**Why:** the user requires edits that make the two records match to be recognized on the next comparison, rather than leaving a stale mismatch visible.
+
+**How to apply:** keep comparison queries fresh on mount, invalidate them after personal or facility session mutations, and show a loading state until the refreshed snapshot arrives.

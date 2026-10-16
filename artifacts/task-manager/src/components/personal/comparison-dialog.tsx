@@ -57,7 +57,16 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
     }
   }, [members.isSuccess, memberId, selectedMember]);
   const params = useMemo(() => ({ memberId: memberId ?? 0, month, date }), [memberId, month, date]);
-  const cmp = useGetPersonalComparison(params, { query: { queryKey: getGetPersonalComparisonQueryKey(params), enabled: !!selectedMember, staleTime: 0, refetchOnMount: true, refetchOnWindowFocus: !confirming, refetchInterval: confirming ? false : 60_000 } });
+  const cmp = useGetPersonalComparison(params, { query: {
+    queryKey: getGetPersonalComparisonQueryKey(params),
+    enabled: !!selectedMember,
+    staleTime: 0,
+    // Always fetch a fresh snapshot when the dialog/employee query is opened,
+    // even if React Query still has a cached comparison for these parameters.
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: confirming ? false : 'always',
+    refetchOnReconnect: 'always',
+  } });
   const sync = useSyncPersonalNotebook();
 
   const d = cmp.data;
@@ -118,7 +127,7 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
           </div>
           {notice && result !== 'matched' && <div className="banner success" role="status" data-testid="status-sync-success"><Check size={15} /><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Đóng">Đóng</button></div>}
           {syncError && <div className="banner danger" role="alert" data-testid="status-sync-error"><AlertCircle size={15} /><span>{syncError}</span></div>}
-          {cmp.isLoading ? <Skeleton rows={4} label="Đang đối chiếu" />
+          {cmp.isLoading || cmp.isFetching ? <Skeleton rows={4} label="Đang tải đối chiếu mới nhất" />
             : cmp.isError || !d ? <ErrorBanner text="Không đối chiếu được. Hãy thử lại." onRetry={() => void cmp.refetch()} />
             : confirming ? (
               <div className="danger-box" role="alertdialog" aria-labelledby="sync-title" data-testid="dialog-sync-confirm">
