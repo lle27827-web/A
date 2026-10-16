@@ -10,9 +10,9 @@ import { lockPersonal, personalSettings, refreshFacilityServices, type PersonalT
 type Visit = PersonalComparisonVisit;
 const normalize = (s: string) => s.normalize("NFC").trim().replace(/\s+/g, " ").toLowerCase();
 const groupKey = (v: Visit) => JSON.stringify([v.workDate, normalize(v.serviceName)]);
-// Customers, notes and the current catalog rate do not define a worked shift match.
-// Compare the recorded duration and actual pay, once per occurrence.
-const amounts = (v: Visit) => JSON.stringify([v.minutes, v.earnings]);
+// The user defines a match by service and duration. Pay, rate, customer and note
+// are deliberately not match criteria; retain duplicate visits as occurrences.
+const sameDuration = (a: Visit, b: Visit) => a.minutes === b.minutes;
 
 /** Match identical occurrences first and emit each remaining shift as its own discrepancy. */
 export function comparePersonalVisits(personal: Visit[], reference: Visit[]): PersonalDiscrepancy[] {
@@ -22,12 +22,12 @@ export function comparePersonalVisits(personal: Visit[], reference: Visit[]): Pe
     const left = personal.filter((v) => groupKey(v) === key);
     const right = reference.filter((v) => groupKey(v) === key);
     for (let i = left.length - 1; i >= 0; i--) {
-      const match = right.findIndex((r) => amounts(r) === amounts(left[i]));
+      const match = right.findIndex((r) => sameDuration(r, left[i]));
       if (match >= 0) { left.splice(i, 1); right.splice(match, 1); }
     }
     const count = Math.max(left.length, right.length);
     for (let i = 0; i < count; i++) result.push({
-      reason: "Ca chưa khớp: thời lượng hoặc tiền công",
+      reason: "Ca chưa khớp: thời lượng",
       personal: left[i] ? [left[i]] : [],
       reference: right[i] ? [right[i]] : [],
     });

@@ -15,9 +15,9 @@ Facility-library mode uses facility service names and EMPLOYEE pay rates, not cu
 
 **How to apply:** keep the choice account-specific, do not synchronize private data back into the facility, and compare detailed occurrences rather than collapsing legitimate same-day visits.
 
-Match comparisons one occurrence at a time by date, service, recorded duration and actual employee pay. Customer text, hidden notes and current catalog rates must not make an otherwise identical worked shift mismatch. Show only unmatched individual shifts; never aggregate hours by service or list matched totals in the comparison.
+Match comparisons one occurrence at a time by date, service name and recorded duration. Pay, rate, customer text and notes do not define whether a shift matches. Show only unmatched individual shifts; never aggregate hours by service or list matched totals in the comparison.
 
-**Why:** the user explicitly gave examples requiring four matched pairs hidden, remaining duration-mismatches shown as individual paired shifts, and a clear “no shift” label when the other side has no occurrence.
+**Why:** the user explicitly clarified that equal service and hours form a match, even when pay differs; duration mismatches remain visible as individual pairs.
 
 **How to apply:** never compare totals alone or reuse one shift for multiple matches. The employee selector must use the same current roster as facility management for the current month and historical identities for past months. Distinct employee identities that genuinely share a name must remain distinct and clearly labelled; never silently merge their work by name.
 

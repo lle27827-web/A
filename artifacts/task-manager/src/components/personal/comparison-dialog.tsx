@@ -8,7 +8,7 @@ import type { PersonalComparisonVisit } from '@workspace/api-client-react';
 import { AlertCircle, AlertTriangle, ArrowLeft, Check, CheckCircle2, LoaderCircle, RefreshCw, Scale, Users } from 'lucide-react';
 import { Modal, ErrorBanner, Skeleton } from '@/components/modal';
 import { formatShortDate, localDate } from '@/lib/attendance';
-import { errorText, formatMinutes, formatMonth, formatVnd } from '@/lib/massage';
+import { errorText, formatMinutes, formatMonth } from '@/lib/massage';
 import { comparisonMemberParams, comparisonRoster, discrepancyPairs } from '@/lib/comparison-display';
 
 type Scope = 'day' | 'month';
@@ -25,7 +25,7 @@ function CompactDifference({ personal, reference, index }: { personal: PersonalC
           <div className="cmp-shift" key={title}>
             <strong>{title}</strong>
             {row ? <>
-              <span>{formatMinutes(row.minutes)} · Tiền công {formatVnd(row.earnings)}</span>
+              <span>{formatMinutes(row.minutes)}</span>
               {row.customerName && <span>Khách: {row.customerName}</span>}
             </> : <span className="cmp-none">Không có ca bên {title === 'Cơ sở' ? 'cơ sở' : 'cá nhân'}</span>}
           </div>

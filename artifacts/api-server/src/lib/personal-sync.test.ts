@@ -9,7 +9,7 @@ import { comparePersonalVisits, getPersonalComparison, syncPersonalNotebook } fr
 import { createEmployee } from "./employee-history";
 import { MassageError } from "./massage";
 
-test("comparison hides exact occurrences and leaves only unmatched date/service/duration/pay rows", () => {
+test("comparison matches by date/service/duration and shows only unmatched occurrences", () => {
   const row = { id: 1, serviceName: "Trị liệu", customerName: "", workDate: "2022-11-11", minutes: 60, hourlyRate: 60000, earnings: 60000, note: "" };
   const reference = Array.from({ length: 5 }, (_, i) => ({ ...row, id: i + 1 }));
   const personal = Array.from({ length: 4 }, (_, i) => ({ ...row, id: i + 11 }));
@@ -19,13 +19,13 @@ test("comparison hides exact occurrences and leaves only unmatched date/service/
   assert.deepEqual(differences[0].personal.map((v) => [v.minutes, v.earnings]), [[90, 90000]]);
   assert.deepEqual(differences[0].reference.map((v) => [v.minutes, v.earnings]), [[60, 60000]]);
   assert.equal(reference.length, 5, "input rows are never mutated");
-  assert.equal(comparePersonalVisits([{ ...row, customerName: "Different", hourlyRate: 99999, note: "Old note" }], [row]).length, 0,
-    "matching uses actual pay, duration and service, not hidden notes or customer text");
+  assert.equal(comparePersonalVisits([{ ...row, customerName: "Different", hourlyRate: 99999, earnings: 1000, note: "Old note" }], [row]).length, 0,
+    "same service and duration match despite different pay, notes or customer text");
   assert.equal(comparePersonalVisits([{ ...row, minutes: 90 }], [row]).length, 1, "same pay but different duration does not match");
   assert.equal(comparePersonalVisits([{ ...row, workDate: "2022-11-12" }], [row]).length, 2, "never match across dates");
   assert.equal(comparePersonalVisits([{ ...row, serviceName: "Massage" }], [row]).length, 2, "never match across services");
   assert.equal(comparePersonalVisits([row, { ...row, id: 2 }], [row])[0].personal.length, 1, "matching consumes each occurrence only once");
-  assert.equal(comparePersonalVisits([row], [{ ...row, earnings: 90000 }]).length, 1);
+  assert.equal(comparePersonalVisits([row], [{ ...row, earnings: 90000 }]).length, 0, "pay differences do not change service/duration matching");
 });
 
 test("comparison keeps repeated service visits as independent occurrence matches", () => {
@@ -114,7 +114,7 @@ test("personal live rates, idempotency, scope replacement, detailed mismatches a
     assert.ok((await getPersonalNotebook(a, month, day)).services.some((s) => s.id === own.id), "own catalog survives turning sync off");
     const row = cmp.referenceVisits[0];
     const diffs = comparePersonalVisits([{ ...row, minutes: 30, earnings: 30000 }], [row]);
-    assert.match(diffs[0].reason, /thời lượng.*tiền công/);
+    assert.match(diffs[0].reason, /thời lượng/);
     assert.equal(comparePersonalVisits([row, { ...row, id: 99999 }], [row]).length, 1, "legitimate same-day visits use multiset comparison");
   } finally {
     await db.delete(sessions).where(inArray(sessions.userId, [a, b]));
