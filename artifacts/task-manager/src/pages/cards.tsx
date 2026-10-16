@@ -55,7 +55,7 @@ export default function CardsPage() {
                 <Link href={`/cards/${c.id}`} onClick={() => setQuery('')} className="card-row" data-testid={`link-card-${c.id}`}>
                   <span className="grow">
                     <strong>{c.customerName}</strong>
-                    <span className="muted">{c.phone} · {c.serviceType} · mua {formatShortDate(c.purchaseDate)} · {formatVnd(c.purchaseAmount)}</span>
+                    <span className="muted">{c.phone} · {c.serviceType} · mua {formatShortDate(c.purchaseDate)} · đã trả {formatVnd(c.totalPaidAmount)}</span>
                     <span className="meter" aria-hidden="true"><span style={{ transform: `scaleX(${pct / 100})` }} /></span>
                   </span>
                   <span className="remain mono"><strong>{formatMinutes(c.remainingMinutes)}</strong><span className="muted">/ {formatMinutes(c.totalMinutes)}</span></span>
@@ -72,7 +72,9 @@ export default function CardsPage() {
             onSuccess: (card) => {
               cache.setQueryData<TreatmentCard[]>(getListTreatmentCardsQueryKey(), (old) =>
                 [card, ...(old ?? []).filter((c) => c.id !== card.id)].sort((a, b) => b.purchaseDate.localeCompare(a.purchaseDate) || b.id - a.id));
-              refresh(); setOpen(false); notify(`Đã bán thẻ cho ${card.customerName}.`); navigate(`/cards/${card.id}`);
+              refresh(); setOpen(false);
+              notify(card.mergedIntoExisting ? `Đã cộng giờ và tiền vào thẻ hiện có của ${card.customerName}; lịch sử đã được lưu.` : `Đã bán thẻ cho ${card.customerName}.`);
+              navigate(`/cards/${card.id}`);
             },
             onError: (e) => { setDialogError(errorText(e)); fail(e); },
           })} />

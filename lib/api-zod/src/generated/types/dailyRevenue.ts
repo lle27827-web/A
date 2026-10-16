@@ -9,6 +9,7 @@
 export interface DailyRevenue {
   date: Date;
   revenue: number;
+  netRevenue: number;
   serviceRevenue: number;
   walkInServiceRevenue: number;
   walkInServiceMinutes: number;

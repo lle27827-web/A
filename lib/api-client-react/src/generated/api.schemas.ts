@@ -150,6 +150,16 @@ export interface MemberUpdate {
   hourlyRate?: number;
 }
 
+export interface CardTopUp {
+  id: number;
+  minutes: number;
+  amount: number;
+  paymentDate: string;
+  source: string;
+  note: string;
+  createdAt: string;
+}
+
 export interface TreatmentCard {
   id: number;
   customerName: string;
@@ -159,6 +169,9 @@ export interface TreatmentCard {
   usedMinutes: number;
   remainingMinutes: number;
   purchaseAmount: number;
+  totalPaidAmount: number;
+  mergedIntoExisting?: boolean;
+  topUps: CardTopUp[];
   purchaseDate: string;
   note: string;
   createdAt: string;
@@ -202,6 +215,11 @@ export interface CardHoursInput {
      * @maximum 600000
      */
   minutes: number;
+  /**
+     * @minimum 0
+     * @maximum 1000000000
+     */
+  amount: number;
 }
 
 export interface TreatmentCardUpdate {
@@ -314,6 +332,7 @@ export interface ServiceSessionInput {
 export interface DailyRevenue {
   date: string;
   revenue: number;
+  netRevenue: number;
   serviceRevenue: number;
   walkInServiceRevenue: number;
   walkInServiceMinutes: number;
@@ -329,6 +348,8 @@ export interface MassageSummary {
   month: string;
   /** Tổng doanh thu gộp: tiền dịch vụ khách lẻ cộng tiền bán thẻ trong tháng; không cộng lại khi dùng thẻ. */
   revenue: number;
+  /** Doanh thu khách lẻ, bán và nạp thẻ trừ tiền công mọi ca đang hoạt động; không cộng doanh thu khi dùng thẻ. */
+  netRevenue: number;
   /** Tiền khách lẻ trả theo giá dịch vụ đã lưu ở từng ca; không gồm ca thanh toán bằng thẻ. */
   serviceRevenue: number;
   /** Bí danh tương thích của serviceRevenue; không gồm ca đã dùng thẻ. */
@@ -337,7 +358,7 @@ export interface MassageSummary {
   walkInServiceMinutes: number;
   /** Tổng doanh thu gộp, không tính lại dịch vụ đã thanh toán qua thẻ. */
   revenueExcludingCardSessions: number;
-  /** Tổng tiền bán thẻ theo ngày mua. */
+  /** Tiền bán thẻ theo ngày mua và tiền nạp theo ngày giao dịch. */
   cardRevenue: number;
   /** Tổng tiền công nhân viên theo ca trong tháng, gồm ca khách lẻ và thẻ còn hoạt động. */
   payroll: number;

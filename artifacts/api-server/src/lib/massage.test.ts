@@ -31,7 +31,7 @@ test("card balance and service payroll stay consistent through edits and concurr
     services.push(service.id, otherService.id, unpricedService.id);
     const makeCard = async (minutes: number) => {
       const card = await createCard({
-        customerName: marker, phone: "0000000000", serviceType: "Dịch vụ kiểm tra",
+        customerName: `${marker}-${cards.length}`, phone: "0000000000", serviceType: "Dịch vụ kiểm tra",
         totalMinutes: minutes, purchaseAmount: 1000000, purchaseDate: "2099-10-13",
       });
       cards.push(card.id);
@@ -41,20 +41,20 @@ test("card balance and service payroll stay consistent through edits and concurr
     const b = await makeCard(120);
     const c = await makeCard(30);
     const topupCard = await makeCard(120);
-    const before = await addCardHours(topupCard.id, 90);
+    const before = await addCardHours(topupCard.id, 90, 0);
     assert.equal(before.totalMinutes, 210);
     assert.equal(before.remainingMinutes, 210);
     assert.equal(before.purchaseAmount, 1000000);
     assert.equal(before.purchaseDate, "2099-10-13");
-    await Promise.all([addCardHours(topupCard.id, 30), addCardHours(topupCard.id, 60)]);
-    const after = await addCardHours(topupCard.id, 1);
+    await Promise.all([addCardHours(topupCard.id, 30, 0), addCardHours(topupCard.id, 60, 0)]);
+    const after = await addCardHours(topupCard.id, 1, 0);
     assert.equal(after.totalMinutes, 301, "concurrent top-ups add, rather than overwrite");
-    await assert.rejects(addCardHours(topupCard.id, 0), fails(400));
-    await assert.rejects(addCardHours(topupCard.id, -1), fails(400));
-    await assert.rejects(addCardHours(topupCard.id, 1.5), fails(400));
-    await assert.rejects(addCardHours(topupCard.id, 600000), fails(400));
+    await assert.rejects(addCardHours(topupCard.id, 0, 0), fails(400));
+    await assert.rejects(addCardHours(topupCard.id, -1, 0), fails(400));
+    await assert.rejects(addCardHours(topupCard.id, 1.5, 0), fails(400));
+    await assert.rejects(addCardHours(topupCard.id, 600000, 0), fails(400));
     const topupVisit = await record({ memberId, serviceTypeId: service.id, cardId: topupCard.id, workDate: "2099-10-13", minutes: 60, note: marker });
-    const toppedWithHistory = await addCardHours(topupCard.id, 30);
+    const toppedWithHistory = await addCardHours(topupCard.id, 30, 0);
     assert.equal(toppedWithHistory.totalMinutes, 331);
     assert.equal(toppedWithHistory.usedMinutes, 60);
     assert.equal(toppedWithHistory.remainingMinutes, 271);
@@ -134,7 +134,7 @@ test("card balance and service payroll stay consistent through edits and concurr
     assert.ok(archivedCard.deletedAt);
     assert.equal((await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, linkedSession.id))).length, 1);
     await assert.rejects(record({ ...input, cardId: removedCard.id, minutes: 90, workDate: "2099-12-01" }, linkedSession.id), fails(404));
-    await assert.rejects(addCardHours(removedCard.id, 60), fails(404));
+    await assert.rejects(addCardHours(removedCard.id, 60, 0), fails(404));
     await assert.rejects(updateCard(removedCard.id, { customerName: marker }), fails(404));
     await deleteMember(memberId);
     memberId = undefined;

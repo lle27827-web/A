@@ -49,18 +49,20 @@ export default function HomePage() {
             <p className="rev-value mono" data-testid="text-revenue">{formatVnd(summary.data?.revenue ?? 0)}</p>
             <dl className="rev-breakdown">
               <div><dt>Doanh thu khách lẻ (tháng)</dt><dd className="mono" data-testid="text-service-revenue">{formatVnd(summary.data?.serviceRevenue ?? 0)}</dd></div>
-              <div><dt>Doanh thu bán thẻ (tháng)</dt><dd className="mono" data-testid="text-card-revenue">{formatVnd(summary.data?.cardRevenue ?? 0)}</dd></div>
+              <div><dt>Doanh thu bán và nạp thẻ (tháng)</dt><dd className="mono" data-testid="text-card-revenue">{formatVnd(summary.data?.cardRevenue ?? 0)}</dd></div>
               <div className="net-revenue-row"><dt>Tiền công nhân viên (tháng)</dt><dd className="net-revenue-values"><strong className="mono" data-testid="text-payroll">{formatVnd(summary.data?.payroll ?? 0)}</strong><span>Gồm ca khách lẻ và ca dùng thẻ</span></dd></div>
+              <div className="net-revenue-row"><dt>Doanh thu đã khấu trừ trong tháng</dt><dd className="mono" data-testid="text-net-revenue"><strong>{formatVnd(summary.data?.netRevenue ?? 0)}</strong></dd></div>
               <div><dt>Khách lẻ (tháng)</dt><dd className="mono" data-testid="text-walk-in-visits">{summary.data?.walkInVisits ?? 0} lượt</dd></div>
               <div><dt>Khách thẻ (tháng)</dt><dd className="mono" data-testid="text-card-visits">{summary.data?.cardVisits ?? 0} lượt</dd></div>
               <div className="today-heading"><dt>Doanh thu hôm nay · {formatShortDate(today)}</dt><dd className="mono" data-testid="text-today-revenue">{formatVnd(summary.data?.today.revenue ?? 0)}</dd></div>
               <div><dt>Khách lẻ hôm nay</dt><dd className="mono" data-testid="text-today-service-revenue">{formatVnd(summary.data?.today.serviceRevenue ?? 0)}</dd></div>
-              <div><dt>Bán thẻ hôm nay</dt><dd className="mono" data-testid="text-today-card-revenue">{formatVnd(summary.data?.today.cardRevenue ?? 0)}</dd></div>
+              <div><dt>Bán và nạp thẻ hôm nay</dt><dd className="mono" data-testid="text-today-card-revenue">{formatVnd(summary.data?.today.cardRevenue ?? 0)}</dd></div>
               <div className="net-revenue-row"><dt>Tiền công nhân viên hôm nay</dt><dd className="net-revenue-values"><strong className="mono" data-testid="text-today-payroll">{formatVnd(summary.data?.today.payroll ?? 0)}</strong><span>Gồm ca khách lẻ và ca dùng thẻ</span></dd></div>
+              <div className="net-revenue-row"><dt>Doanh thu đã khấu trừ hôm nay</dt><dd className="mono" data-testid="text-today-net-revenue"><strong>{formatVnd(summary.data?.today.netRevenue ?? 0)}</strong></dd></div>
               <div><dt>Khách lẻ hôm nay</dt><dd className="mono" data-testid="text-today-walk-in-visits">{summary.data?.today.walkInVisits ?? 0} lượt</dd></div>
               <div><dt>Khách thẻ hôm nay</dt><dd className="mono" data-testid="text-today-card-visits">{summary.data?.today.cardVisits ?? 0} lượt</dd></div>
             </dl>
-            <p className="hint">Doanh thu gồm giá khách lẻ và tiền bán thẻ theo ngày mua; lượt dùng thẻ không cộng doanh thu lần nữa. Tiền công nhân viên được thống kê riêng theo các ca đang hoạt động.</p>
+            <p className="hint">Tiền bán và nạp thẻ tính theo ngày giao dịch; lượt dùng thẻ không cộng doanh thu lần nữa. Doanh thu đã khấu trừ = tổng doanh thu − tiền công nhân viên.</p>
           </>
         )}
       </section>

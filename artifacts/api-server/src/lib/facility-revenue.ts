@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { db, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
+import { cardTopUpsTable, db, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
 import { monthBounds, validDate } from "./massage";
 
 /** Gross revenue recognizes walk-in service charges and card sales, not card redemptions. */
@@ -15,7 +15,12 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
     cardRevenue: sql<number>`coalesce((select sum(${treatmentCardsTable.purchaseAmount})
       from ${treatmentCardsTable} where ${treatmentCardsTable.purchaseDate} >= ${start}
         and ${treatmentCardsTable.purchaseDate} < ${end}
-        and ${treatmentCardsTable.deletedAt} is null), 0)`,
+        and ${treatmentCardsTable.deletedAt} is null), 0) + coalesce((
+          select sum(${cardTopUpsTable.amount}) from ${cardTopUpsTable}
+          inner join ${treatmentCardsTable} on ${treatmentCardsTable}."id" = ${cardTopUpsTable}."card_id"
+          where ${cardTopUpsTable.paymentDate} >= ${start} and ${cardTopUpsTable.paymentDate} < ${end}
+            and ${treatmentCardsTable.deletedAt} is null
+        ), 0)`,
     cardsSold: sql<number>`(select count(*) from ${treatmentCardsTable}
       where ${treatmentCardsTable.purchaseDate} >= ${start}
         and ${treatmentCardsTable.purchaseDate} < ${end}
@@ -75,7 +80,11 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
       and ${serviceSessionsTable.cardId} is null), 0)`,
     dayCardRevenue: sql<number>`coalesce((select sum(${treatmentCardsTable.purchaseAmount})
       from ${treatmentCardsTable} where ${treatmentCardsTable.purchaseDate} = ${date}
-      and ${treatmentCardsTable.deletedAt} is null), 0)`,
+      and ${treatmentCardsTable.deletedAt} is null), 0) + coalesce((
+        select sum(${cardTopUpsTable.amount}) from ${cardTopUpsTable}
+        inner join ${treatmentCardsTable} on ${treatmentCardsTable}."id" = ${cardTopUpsTable}."card_id"
+        where ${cardTopUpsTable.paymentDate} = ${date} and ${treatmentCardsTable.deletedAt} is null
+      ), 0)`,
     dayCardsSold: sql<number>`(select count(*) from ${treatmentCardsTable}
       where ${treatmentCardsTable.purchaseDate} = ${date} and ${treatmentCardsTable.deletedAt} is null)`,
     dayWalkInVisits: sql<number>`(select count(*) from ${serviceSessionsTable}
@@ -97,11 +106,13 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
   const dayCardRevenue = Number(row.dayCardRevenue);
   const dayPayroll = Number(row.dayPayroll);
   return {
-    month, revenue: serviceRevenue + cardRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, payroll,
+    month, revenue: serviceRevenue + cardRevenue, netRevenue: serviceRevenue + cardRevenue - payroll,
+    serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, payroll,
     revenueExcludingCardSessions: walkInServiceRevenue + cardRevenue, cardRevenue, cardsSold: Number(row.cardsSold),
     walkInVisits: Number(row.walkInVisits), cardVisits: Number(row.cardVisits),
     today: {
-      date, revenue: dayServiceRevenue + dayCardRevenue, serviceRevenue: dayServiceRevenue,
+      date, revenue: dayServiceRevenue + dayCardRevenue,
+      netRevenue: dayServiceRevenue + dayCardRevenue - dayPayroll, serviceRevenue: dayServiceRevenue,
       walkInServiceRevenue: dayWalkInServiceRevenue,
       walkInServiceMinutes: dayWalkInServiceMinutes,
       payroll: dayPayroll,

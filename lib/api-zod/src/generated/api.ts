@@ -347,6 +347,17 @@ export const ListTreatmentCardsResponseItem = zod.object({
   "usedMinutes": zod.number().int(),
   "remainingMinutes": zod.number().int(),
   "purchaseAmount": zod.number().int(),
+  "totalPaidAmount": zod.number(),
+  "mergedIntoExisting": zod.boolean().optional(),
+  "topUps": zod.array(zod.object({
+  "id": zod.number().int(),
+  "minutes": zod.number().int(),
+  "amount": zod.number().int(),
+  "paymentDate": zod.string(),
+  "source": zod.string(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
   "purchaseDate": zod.string(),
   "note": zod.string(),
   "createdAt": zod.coerce.date()
@@ -389,6 +400,17 @@ export const CreateTreatmentCardResponse = zod.object({
   "usedMinutes": zod.number().int(),
   "remainingMinutes": zod.number().int(),
   "purchaseAmount": zod.number().int(),
+  "totalPaidAmount": zod.number(),
+  "mergedIntoExisting": zod.boolean().optional(),
+  "topUps": zod.array(zod.object({
+  "id": zod.number().int(),
+  "minutes": zod.number().int(),
+  "amount": zod.number().int(),
+  "paymentDate": zod.string(),
+  "source": zod.string(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
   "purchaseDate": zod.string(),
   "note": zod.string(),
   "createdAt": zod.coerce.date()
@@ -437,6 +459,17 @@ export const UpdateTreatmentCardResponse = zod.object({
   "usedMinutes": zod.number().int(),
   "remainingMinutes": zod.number().int(),
   "purchaseAmount": zod.number().int(),
+  "totalPaidAmount": zod.number(),
+  "mergedIntoExisting": zod.boolean().optional(),
+  "topUps": zod.array(zod.object({
+  "id": zod.number().int(),
+  "minutes": zod.number().int(),
+  "amount": zod.number().int(),
+  "paymentDate": zod.string(),
+  "source": zod.string(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
   "purchaseDate": zod.string(),
   "note": zod.string(),
   "createdAt": zod.coerce.date()
@@ -462,10 +495,14 @@ export const AddTreatmentCardHoursParams = zod.object({
 
 export const addTreatmentCardHoursBodyMinutesMax = 600000;
 
+export const addTreatmentCardHoursBodyAmountMin = 0;
+export const addTreatmentCardHoursBodyAmountMax = 1000000000;
+
 
 
 export const AddTreatmentCardHoursBody = zod.object({
-  "minutes": zod.number().int().min(1).max(addTreatmentCardHoursBodyMinutesMax)
+  "minutes": zod.number().int().min(1).max(addTreatmentCardHoursBodyMinutesMax),
+  "amount": zod.number().int().min(addTreatmentCardHoursBodyAmountMin).max(addTreatmentCardHoursBodyAmountMax)
 })
 
 export const AddTreatmentCardHoursResponse = zod.object({
@@ -477,6 +514,17 @@ export const AddTreatmentCardHoursResponse = zod.object({
   "usedMinutes": zod.number().int(),
   "remainingMinutes": zod.number().int(),
   "purchaseAmount": zod.number().int(),
+  "totalPaidAmount": zod.number(),
+  "mergedIntoExisting": zod.boolean().optional(),
+  "topUps": zod.array(zod.object({
+  "id": zod.number().int(),
+  "minutes": zod.number().int(),
+  "amount": zod.number().int(),
+  "paymentDate": zod.string(),
+  "source": zod.string(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
   "purchaseDate": zod.string(),
   "note": zod.string(),
   "createdAt": zod.coerce.date()
@@ -633,11 +681,12 @@ export const GetMassageSummaryQueryParams = zod.object({
 export const GetMassageSummaryResponse = zod.object({
   "month": zod.string(),
   "revenue": zod.number().describe('Tổng doanh thu gộp: tiền dịch vụ khách lẻ cộng tiền bán thẻ trong tháng; không cộng lại khi dùng thẻ.'),
+  "netRevenue": zod.number().describe('Doanh thu khách lẻ, bán và nạp thẻ trừ tiền công mọi ca đang hoạt động; không cộng doanh thu khi dùng thẻ.'),
   "serviceRevenue": zod.number().describe('Tiền khách lẻ trả theo giá dịch vụ đã lưu ở từng ca; không gồm ca thanh toán bằng thẻ.'),
   "walkInServiceRevenue": zod.number().describe('Bí danh tương thích của serviceRevenue; không gồm ca đã dùng thẻ.'),
   "walkInServiceMinutes": zod.number().int().describe('Tổng số phút phục vụ khách lẻ; không gồm ca đã dùng thẻ.'),
   "revenueExcludingCardSessions": zod.number().describe('Tổng doanh thu gộp, không tính lại dịch vụ đã thanh toán qua thẻ.'),
-  "cardRevenue": zod.number().describe('Tổng tiền bán thẻ theo ngày mua.'),
+  "cardRevenue": zod.number().describe('Tiền bán thẻ theo ngày mua và tiền nạp theo ngày giao dịch.'),
   "payroll": zod.number().describe('Tổng tiền công nhân viên theo ca trong tháng, gồm ca khách lẻ và thẻ còn hoạt động.'),
   "cardsSold": zod.number().int(),
   "walkInVisits": zod.number().int().describe('Số ca không dùng thẻ; mỗi ca là một lượt khách.'),
@@ -645,6 +694,7 @@ export const GetMassageSummaryResponse = zod.object({
   "today": zod.object({
   "date": zod.coerce.date(),
   "revenue": zod.number(),
+  "netRevenue": zod.number(),
   "serviceRevenue": zod.number(),
   "walkInServiceRevenue": zod.number(),
   "walkInServiceMinutes": zod.number().int(),

@@ -14,3 +14,13 @@ For user-facing service and attendance screens, label the customer charge “Ti�
 **Why:** the user requested this terminology and a less cluttered attendance/service setup flow.
 
 **How to apply:** change display labels and copy only; preserve the separate customer-price and payroll values and their calculations.
+
+Card top-ups have both hours and money. Recognize each payment on its own transaction date in Vietnam time, not the original card purchase date. Preserve the initial purchase and every subsequent credit separately. Do not fabricate histories or amounts for past unrecorded credits.
+
+Creating a card matching an active card's customer name, phone and service must credit that existing card and retain its usage and payment history. Compare case/spacing-normalized names/services and phone digits; do not merge different names by removing Vietnamese accents.
+
+Monthly and daily “Doanh thu đã khấu trừ” means walk-in customer charges plus original card sales and top-up cash, minus wages for all active walk-in and card sessions. Redemptions add no revenue, and net amounts may be negative.
+
+**Why:** the user explicitly requested paid top-ups, automatic duplicate-card credits with history, and owner revenue after employee pay without double-counting card usage.
+
+**How to apply:** credit balance and payment history atomically; protect concurrent new-card matches as well as existing-card credits. Exclude archived cards and their payments/wages from active reports. Keep owner-only financial access.

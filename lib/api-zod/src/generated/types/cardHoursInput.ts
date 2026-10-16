@@ -12,4 +12,9 @@ export interface CardHoursInput {
      * @maximum 600000
      */
   minutes: number;
+  /**
+     * @minimum 0
+     * @maximum 1000000000
+     */
+  amount: number;
 }

@@ -55,11 +55,11 @@ export function CardDialog({ card, defaultDate, busy, serverError, onClose, onSu
           {!servicesQuery.isLoading && !servicesQuery.isError && catalog.length === 0 && <span className="hint warn" role="status">Chưa có dịch vụ nào. <Link href="/services" className="link-strong" onClick={onClose}>Thêm dịch vụ</Link></span>}
         </label>
         <div className="field-row">
-          <label className="field" htmlFor="c-hours">Tổng số giờ đã mua
+          <label className="field" htmlFor="c-hours">{card ? 'Tổng số giờ (gồm đã nạp)' : 'Số giờ mua'}
             <input id="c-hours" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} required data-testid="input-card-hours" />
             <span className="hint">{totalMinutes ? `${totalMinutes} phút` : ' '}</span>
           </label>
-          <label className="field" htmlFor="c-amount">Tiền đã trả (VND)
+          <label className="field" htmlFor="c-amount">{card ? 'Tiền mua ban đầu (VND)' : 'Tiền đã trả (VND)'}
             <input id="c-amount" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} required data-testid="input-card-amount" />
             <span className="hint">{money !== null ? formatVnd(money) : ' '}</span>
           </label>

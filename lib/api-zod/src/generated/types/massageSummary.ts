@@ -11,6 +11,8 @@ export interface MassageSummary {
   month: string;
   /** Tổng doanh thu gộp: tiền dịch vụ khách lẻ cộng tiền bán thẻ trong tháng; không cộng lại khi dùng thẻ. */
   revenue: number;
+  /** Doanh thu khách lẻ, bán và nạp thẻ trừ tiền công mọi ca đang hoạt động; không cộng doanh thu khi dùng thẻ. */
+  netRevenue: number;
   /** Tiền khách lẻ trả theo giá dịch vụ đã lưu ở từng ca; không gồm ca thanh toán bằng thẻ. */
   serviceRevenue: number;
   /** Bí danh tương thích của serviceRevenue; không gồm ca đã dùng thẻ. */
@@ -19,7 +21,7 @@ export interface MassageSummary {
   walkInServiceMinutes: number;
   /** Tổng doanh thu gộp, không tính lại dịch vụ đã thanh toán qua thẻ. */
   revenueExcludingCardSessions: number;
-  /** Tổng tiền bán thẻ theo ngày mua. */
+  /** Tiền bán thẻ theo ngày mua và tiền nạp theo ngày giao dịch. */
   cardRevenue: number;
   /** Tổng tiền công nhân viên theo ca trong tháng, gồm ca khách lẻ và thẻ còn hoạt động. */
   payroll: number;

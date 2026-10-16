@@ -1,5 +1,5 @@
-import { and, eq, ne, sql } from "drizzle-orm";
-import { db, membersTable, serviceSessionsTable, treatmentCardsTable, serviceTypesTable } from "@workspace/db";
+import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
+import { cardTopUpsTable, db, membersTable, serviceSessionsTable, treatmentCardsTable, serviceTypesTable, type CardTopUpRow } from "@workspace/db";
 import type { ServiceSessionInput, TreatmentCardInput, TreatmentCardUpdate } from "@workspace/api-zod";
 
 export class MassageError extends Error {
@@ -26,14 +26,45 @@ export function monthBounds(month: string) {
 export function sessionResponse(row: typeof serviceSessionsTable.$inferSelect) {
   return { ...row, createdAt: row.createdAt.toISOString() };
 }
-export function cardResponse(row: typeof treatmentCardsTable.$inferSelect, usedMinutes = 0) {
+export function cardResponse(row: typeof treatmentCardsTable.$inferSelect, usedMinutes = 0, topUps: CardTopUpRow[] = []) {
   return {
     ...row,
     phone: row.phone,
     usedMinutes,
     remainingMinutes: row.totalMinutes - usedMinutes,
+    totalPaidAmount: row.purchaseAmount + topUps.reduce((sum, payment) => sum + payment.amount, 0),
+    topUps: topUps.map((payment) => ({ ...payment, createdAt: payment.createdAt.toISOString() })),
     createdAt: row.createdAt.toISOString(),
   };
+}
+async function cardWithHistory(tx: Tx, row: typeof treatmentCardsTable.$inferSelect, used = 0) {
+  const topUps = await tx.select().from(cardTopUpsTable).where(eq(cardTopUpsTable.cardId, row.id))
+    .orderBy(desc(cardTopUpsTable.paymentDate), desc(cardTopUpsTable.id));
+  return cardResponse(row, used, topUps);
+}
+export function currentBusinessDate() {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date()).map((part) => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+const identityText = (value: string) => value.normalize("NFC").trim().replace(/\s+/g, " ").toLowerCase();
+const identityPhone = (value: string) => value.replace(/\D/g, "") || identityText(value);
+
+async function creditCard(tx: Tx, card: typeof treatmentCardsTable.$inferSelect, minutes: number, amount: number,
+  paymentDate: string, source: string, note = "") {
+  if (!Number.isSafeInteger(minutes) || minutes < 1 || minutes > 600000 ||
+      !Number.isSafeInteger(amount) || amount < 0 || amount > 1000000000) {
+    throw new MassageError(400, "Số giờ hoặc số tiền nạp không hợp lệ.");
+  }
+  if (card.totalMinutes + minutes > 600000) {
+    throw new MassageError(400, "Tổng số giờ của thẻ không được vượt quá 10.000 giờ.");
+  }
+  validDate(paymentDate);
+  await tx.insert(cardTopUpsTable).values({ cardId: card.id, minutes, amount, paymentDate, source, note });
+  const [row] = await tx.update(treatmentCardsTable).set({ totalMinutes: card.totalMinutes + minutes })
+    .where(eq(treatmentCardsTable.id, card.id)).returning();
+  return cardWithHistory(tx, row, await usedMinutes(tx, row.id));
 }
 async function usedMinutes(tx: Tx, cardId: number, excludeId?: number) {
   const [row] = await tx.select({ used: sql<number>`coalesce(sum(${serviceSessionsTable.minutes}), 0)` })
@@ -50,8 +81,24 @@ function cardValues(input: TreatmentCardInput) {
   return { ...input, customerName, serviceType, phone, note: input.note?.trim() ?? "" };
 }
 export async function createCard(input: TreatmentCardInput) {
-  const [row] = await db.insert(treatmentCardsTable).values(cardValues(input)).returning();
-  return cardResponse(row);
+  const values = cardValues(input);
+  return db.transaction(async (tx) => {
+    const identity = [identityText(values.customerName), identityPhone(values.phone), identityText(values.serviceType)];
+    // Serialize identical sale requests even when no matching card exists yet.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${JSON.stringify(identity)}, 0))`);
+    const candidates = await tx.select().from(treatmentCardsTable).where(and(
+      isNull(treatmentCardsTable.deletedAt),
+      sql`lower(normalize(regexp_replace(btrim(${treatmentCardsTable.customerName}), '[[:space:]]+', ' ', 'g'), NFC)) = ${identity[0]}`,
+      sql`lower(normalize(regexp_replace(btrim(${treatmentCardsTable.serviceType}), '[[:space:]]+', ' ', 'g'), NFC)) = ${identity[2]}`,
+    )).orderBy(asc(treatmentCardsTable.id)).for("update");
+    const existing = candidates.find((card) => identityPhone(card.phone) === identity[1]);
+    if (existing) {
+      return { ...await creditCard(tx, existing, values.totalMinutes, values.purchaseAmount, values.purchaseDate,
+        "merged_sale", values.note), mergedIntoExisting: true };
+    }
+    const [row] = await tx.insert(treatmentCardsTable).values(values).returning();
+    return { ...cardResponse(row), mergedIntoExisting: false };
+  });
 }
 export async function updateCard(id: number, input: TreatmentCardUpdate) {
   return db.transaction(async (tx) => {
@@ -60,12 +107,17 @@ export async function updateCard(id: number, input: TreatmentCardUpdate) {
     const used = await usedMinutes(tx, id);
     const values = cardValues({ ...old, ...input });
     if (values.totalMinutes < used) throw new MassageError(409, "Tổng giờ của thẻ không thể thấp hơn số giờ đã sử dụng.");
+    const [topUpTotal] = await tx.select({ minutes: sql<number>`coalesce(sum(${cardTopUpsTable.minutes}), 0)` })
+      .from(cardTopUpsTable).where(eq(cardTopUpsTable.cardId, id));
+    if (values.totalMinutes < Number(topUpTotal.minutes)) {
+      throw new MassageError(409, "Tổng giờ không thể thấp hơn số giờ đã nạp trong lịch sử.");
+    }
     const [row] = await tx.update(treatmentCardsTable).set({
       customerName: values.customerName, phone: values.phone, serviceType: values.serviceType,
       totalMinutes: values.totalMinutes, purchaseAmount: values.purchaseAmount,
       purchaseDate: values.purchaseDate, note: values.note,
     }).where(eq(treatmentCardsTable.id, id)).returning();
-    return cardResponse(row, used);
+    return cardWithHistory(tx, row, used);
   });
 }
 export async function deleteCard(id: number) {
@@ -88,19 +140,14 @@ export async function deleteMember(id: number) {
 }
 
 /** Additive update, serialized with usage/edit operations to avoid lost hours. */
-export async function addCardHours(id: number, minutes: number) {
+export async function addCardHours(id: number, minutes: number, amount: number) {
   if (!Number.isSafeInteger(minutes) || minutes < 1 || minutes > 600000) {
     throw new MassageError(400, "Số giờ nạp phải lớn hơn 0 và không quá 10.000 giờ.");
   }
   return db.transaction(async (tx) => {
     const [card] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
     if (!card || card.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
-    if (card.totalMinutes + minutes > 600000) {
-      throw new MassageError(400, "Tổng số giờ của thẻ không được vượt quá 10.000 giờ.");
-    }
-    const [row] = await tx.update(treatmentCardsTable)
-      .set({ totalMinutes: card.totalMinutes + minutes }).where(eq(treatmentCardsTable.id, id)).returning();
-    return cardResponse(row, await usedMinutes(tx, id));
+    return creditCard(tx, card, minutes, amount, currentBusinessDate(), "topup");
   });
 }
 

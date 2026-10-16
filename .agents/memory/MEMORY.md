@@ -7,3 +7,5 @@
 - [Vercel database access](vercel-database-access.md) — Replit's internal `DATABASE_URL` is scoped to Replit; external deployments need a remote database URL.
 - [Owner and guest access](owner-guest-access.md) — guests may read employee management only; verified owner login is required for all edits, revenue, and card management.
 - [Vercel SPA routing](vercel-spa-routing.md) — use raw route regex and an index destination; path transforms alone cannot resolve static SPA pages.
+- [Migration baselines](database-migration-baseline.md) — existing tables may have an empty migration journal; do not replay or invent a baseline blindly.
+- [Drizzle nested selects](drizzle-nested-selects.md) — raw selected SQL may strip column qualifiers; explicitly qualify joined subqueries.

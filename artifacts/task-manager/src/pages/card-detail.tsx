@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   getListServiceSessionsQueryKey, getListTreatmentCardsQueryKey,
   useCreateServiceSession, useDeleteServiceSession, useDeleteTreatmentCard, useListServiceSessions, useListTreatmentCards,
   useUpdateServiceSession, useUpdateTreatmentCard, useAddTreatmentCardHours,
 } from '@workspace/api-client-react';
-import type { ServiceSession, ServiceSessionInput } from '@workspace/api-client-react';
+import type { ServiceSession, ServiceSessionInput, TreatmentCard } from '@workspace/api-client-react';
 import { ArrowLeft, CreditCard, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Link, useLocation, useParams } from 'wouter';
 import { useShell } from '@/components/app-shell';
@@ -32,6 +33,7 @@ export default function CardDetailPage() {
   const updateSession = useUpdateServiceSession();
   const deleteSession = useDeleteServiceSession();
   const refresh = useRefreshMassage();
+  const cache = useQueryClient();
   const [cardDialog, setCardDialog] = useState(false);
   const [hoursDialog, setHoursDialog] = useState(false);
   const [sessionDialog, setSessionDialog] = useState<{ session: ServiceSession | null } | null>(null);
@@ -66,7 +68,7 @@ export default function CardDetailPage() {
     if (!card) return;
     setConfirm({
       title: `Xóa thẻ của ${card.customerName}?`,
-      body: <p>Xóa thẻ sẽ xóa vĩnh viễn {sessions.length} ca sử dụng liên quan, tiền bán {formatVnd(card.purchaseAmount)}, lương, lượt khách và lịch sử của các ca đó khỏi báo cáo. Không thể hoàn tác.</p>,
+      body: <p>Thẻ sẽ bị ẩn khỏi danh sách. Tổng tiền mua và nạp {formatVnd(card.totalPaidAmount)}, {sessions.length} ca sử dụng liên quan, tiền công và lượt khách sẽ không còn tính trong báo cáo. Dữ liệu lịch sử vẫn được lưu trữ.</p>,
       confirmLabel: 'Xóa thẻ',
       onConfirm: () => deleteCard.mutate({ id: card.id }, { onSuccess: () => { refresh(); setConfirm(null); notify('Đã xóa thẻ.'); navigate('/cards'); }, onError: (e) => { setConfirm(null); fail(e); } }),
     });
@@ -94,13 +96,36 @@ export default function CardDetailPage() {
         <dl className="facts">
           <div><dt>Đã mua</dt><dd className="mono">{formatMinutes(card.totalMinutes)}</dd></div>
           <div><dt>Đã dùng</dt><dd className="mono">{formatMinutes(card.usedMinutes)}</dd></div>
-          <div><dt>Tiền đã trả</dt><dd className="mono">{formatVnd(card.purchaseAmount)}</dd></div>
+          <div><dt>Tổng tiền đã trả</dt><dd className="mono" data-testid="text-card-total-paid">{formatVnd(card.totalPaidAmount)}</dd></div>
           <div><dt>Ngày mua</dt><dd className="mono">{formatShortDate(card.purchaseDate)}</dd></div>
         </dl>
         {card.note && <p className="sub">Ghi chú: {card.note}</p>}
       </section>
 
-      {canEdit && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setHoursDialog(true); }} data-testid="button-add-card-hours"><Plus size={15} />Nạp thêm giờ vào thẻ</button>}
+      {canEdit && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setHoursDialog(true); }} data-testid="button-add-card-hours"><Plus size={15} />Nạp thẻ</button>}
+
+      <section className="panel" aria-labelledby="payments-title" data-testid="section-card-payments">
+        <div className="panel-head"><h2 id="payments-title">Lịch sử mua và nạp thẻ</h2></div>
+        <ul className="emp-list">
+          {card.topUps.map((payment) => (
+            <li className="emp-row wrap" key={payment.id} data-testid={`row-card-topup-${payment.id}`}>
+              <span className="grow">
+                <strong>{payment.source === 'merged_sale' ? 'Nạp từ thẻ mới trùng thông tin' : 'Nạp thẻ'}</strong>
+                <span className="muted">{formatShortDate(payment.paymentDate)} · {formatMinutes(payment.minutes)}</span>
+                <span className="muted">Ghi lúc {new Date(payment.createdAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</span>
+                {payment.note && <span className="muted">{payment.note}</span>}
+              </span>
+              <strong className="mono">{formatVnd(payment.amount)}</strong>
+            </li>
+          ))}
+          <li className="emp-row wrap" data-testid="row-card-initial-purchase">
+            <span className="grow"><strong>Mua thẻ ban đầu</strong>
+              <span className="muted">{formatShortDate(card.purchaseDate)} · {formatMinutes(card.totalMinutes - card.topUps.reduce((sum, payment) => sum + payment.minutes, 0))}</span>
+            </span>
+            <strong className="mono">{formatVnd(card.purchaseAmount)}</strong>
+          </li>
+        </ul>
+      </section>
 
       <section className="panel" aria-labelledby="usage-title">
         <div className="panel-head wrap">
@@ -121,11 +146,15 @@ export default function CardDetailPage() {
       )}
       {hoursDialog && canEdit && (
         <CardHoursDialog card={card} busy={addHours.isPending} serverError={dialogError} onClose={() => setHoursDialog(false)}
-          onSubmit={(minutes) => {
+          onSubmit={(data) => {
             if (!canEdit || addHours.isPending) return;
             setDialogError('');
-            addHours.mutate({ id: card.id, data: { minutes } }, {
-              onSuccess: () => { refresh(); setHoursDialog(false); notify(`Đã nạp thêm ${formatMinutes(minutes)} vào thẻ.`); },
+            addHours.mutate({ id: card.id, data }, {
+              onSuccess: (saved) => {
+                cache.setQueryData<TreatmentCard[]>(getListTreatmentCardsQueryKey(), (old) =>
+                  old?.map((item) => item.id === saved.id ? saved : item));
+                refresh(); setHoursDialog(false); notify(`Đã nạp ${formatMinutes(data.minutes)} · ${formatVnd(data.amount)} vào thẻ.`);
+              },
               onError: (e) => { setDialogError(errorText(e)); fail(e); },
             });
           }} />

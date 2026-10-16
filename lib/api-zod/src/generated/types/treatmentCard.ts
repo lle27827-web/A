@@ -5,6 +5,7 @@
  * API công khai để quản lý dữ liệu nhân viên, chấm công, dịch vụ và thẻ liệu trình.
  * OpenAPI spec version: 0.1.0
  */
+import type { CardTopUp } from './cardTopUp';
 
 export interface TreatmentCard {
   id: number;
@@ -15,6 +16,9 @@ export interface TreatmentCard {
   usedMinutes: number;
   remainingMinutes: number;
   purchaseAmount: number;
+  totalPaidAmount: number;
+  mergedIntoExisting?: boolean;
+  topUps: CardTopUp[];
   purchaseDate: string;
   note: string;
   createdAt: Date;
