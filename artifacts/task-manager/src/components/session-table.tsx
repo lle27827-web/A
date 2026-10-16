@@ -20,7 +20,6 @@ export function SessionTable({ sessions, caption, canEdit, showDate, showTime, s
             {!cardHistory && <th scope="col">Khách / dịch vụ</th>}
             <th scope="col">{cardHistory ? 'Số giờ' : 'Thời lượng'}</th>
             {!cardHistory && <th scope="col">Tiền dịch vụ / lương</th>}
-            <th scope="col">Ghi chú</th>
             {canEdit && !visibleActions && <th scope="col"><span className="sr-only">Thao tác</span></th>}
             {canEdit && visibleActions && <th scope="col">Thao tác</th>}
           </tr>
@@ -51,7 +50,6 @@ export function SessionTable({ sessions, caption, canEdit, showDate, showTime, s
                    <strong>{s.cardId !== null ? 'Đã tính khi bán thẻ' : `Tiền dịch vụ ${formatVnd(s.customerCharge)}`}</strong>
                   <span className="muted">Lương {formatVnd(s.earnings)} · {formatVnd(s.hourlyRate)}/giờ</span>
                 </div></td>}
-                <td className="note-cell">{s.note || '—'}</td>
                 {canEdit && visibleActions && !rowEdit && <td className="action-cell muted">—</td>}
                 {canEdit && !visibleActions && !rowEdit && <td />}
                 {rowEdit && visibleActions && (

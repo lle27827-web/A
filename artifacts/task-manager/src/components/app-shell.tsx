@@ -172,7 +172,7 @@ export function AppShell({
               <input id="global-search" type="search" value={query}
                 onChange={(event) => setQuery(event.target.value)} autoComplete="off"
                 data-testid="input-global-search"
-                placeholder={employeeMode ? 'Tìm khách, dịch vụ, ghi chú trong tháng...' : permissions.viewCards && canViewEmployees ? 'Tìm nhân viên, khách, số điện thoại, dịch vụ...' : permissions.viewCards ? 'Tìm khách, số điện thoại...' : 'Tìm nhân viên, khách, dịch vụ...'} />
+                placeholder={employeeMode ? 'Tìm khách, dịch vụ trong tháng...' : permissions.viewCards && canViewEmployees ? 'Tìm nhân viên, khách, số điện thoại, dịch vụ...' : permissions.viewCards ? 'Tìm khách, số điện thoại...' : 'Tìm nhân viên, khách, dịch vụ...'} />
               {query && <button type="button" className="icon-btn" onClick={() => setQuery('')}
                 aria-label="Xóa tìm kiếm" data-testid="button-clear-search"><X size={15} /></button>}
             </form>

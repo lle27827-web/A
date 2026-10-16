@@ -9,6 +9,25 @@ import { comparePersonalVisits, getPersonalComparison, syncPersonalNotebook } fr
 import { createEmployee } from "./employee-history";
 import { MassageError } from "./massage";
 
+test("comparison hides exact occurrences and leaves only unmatched date/service/duration/pay rows", () => {
+  const row = { id: 1, serviceName: "Trị liệu", customerName: "", workDate: "2022-11-11", minutes: 60, hourlyRate: 60000, earnings: 60000, note: "" };
+  const reference = Array.from({ length: 5 }, (_, i) => ({ ...row, id: i + 1 }));
+  const personal = Array.from({ length: 4 }, (_, i) => ({ ...row, id: i + 11 }));
+  personal.push({ ...row, id: 15, minutes: 90, earnings: 90000 });
+  const differences = comparePersonalVisits(personal, reference);
+  assert.equal(differences.length, 1);
+  assert.deepEqual(differences[0].personal.map((v) => [v.minutes, v.earnings]), [[90, 90000]]);
+  assert.deepEqual(differences[0].reference.map((v) => [v.minutes, v.earnings]), [[60, 60000]]);
+  assert.equal(reference.length, 5, "input rows are never mutated");
+  assert.equal(comparePersonalVisits([{ ...row, customerName: "Different", hourlyRate: 99999, note: "Old note" }], [row]).length, 0,
+    "matching uses actual pay, duration and service, not hidden notes or customer text");
+  assert.equal(comparePersonalVisits([{ ...row, minutes: 90 }], [row]).length, 1, "same pay but different duration does not match");
+  assert.equal(comparePersonalVisits([{ ...row, workDate: "2022-11-12" }], [row]).length, 2, "never match across dates");
+  assert.equal(comparePersonalVisits([{ ...row, serviceName: "Massage" }], [row]).length, 2, "never match across services");
+  assert.equal(comparePersonalVisits([row, { ...row, id: 2 }], [row])[0].personal.length, 1, "matching consumes each occurrence only once");
+  assert.equal(comparePersonalVisits([row], [{ ...row, earnings: 90000 }]).length, 1);
+});
+
 test("personal live rates, idempotency, scope replacement, detailed mismatches and account isolation", async () => {
   const marker = randomUUID(), a = `sync-a-${marker}`, b = `sync-b-${marker}`;
   const day = "2092-03-02", month = "2092-03";

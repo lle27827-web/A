@@ -44,7 +44,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
   const [hours, setHours] = useState(session ? hoursValue(session.minutes) : '1');
   const [serviceId, setServiceId] = useState(session ? (session.serviceTypeId !== null ? String(session.serviceTypeId) : KEEP) : '');
   const [customerName, setCustomerName] = useState(session && session.cardId === null ? session.customerName : '');
-  const [note, setNote] = useState(session?.note ?? '');
+  const note = session?.note ?? '';
   const [error, setError] = useState('');
   const autoPickedFor = useRef<string | null>(null);
 
@@ -104,7 +104,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
     if (minutes === null || minutes < 1 || minutes > 1440) return setError('Số giờ phải lớn hơn 0 và không quá 24 giờ.');
     if (!cardId && customerRate <= 0 && !keepsSnapshot) return setError('Hãy cài giá khách trả cho dịch vụ trước khi ghi ca khách lẻ.');
     setError('');
-    const input: ServiceSessionInput = { memberId: member.id, workDate: date, minutes, note: note.trim(), serviceTypeId: serviceId === KEEP ? null : Number(serviceId) };
+    const input: ServiceSessionInput = { memberId: member.id, workDate: date, minutes, note, serviceTypeId: serviceId === KEEP ? null : Number(serviceId) };
     if (cardId) input.cardId = Number(cardId);
     else { input.cardId = null; input.customerName = customerName.trim(); }
     onSubmit(input);
@@ -144,7 +144,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
         <div className="field-row session-hours-row">
           <label className="field" htmlFor="s-hours">Số giờ
             <input id="s-hours" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} required aria-describedby={minutes ? 's-hours-hint' : undefined} data-testid="input-session-hours" />
-            {minutes && <span id="s-hours-hint" className="hint">{minutes} phút · Tiền công {formatVnd(Math.round(minutes * rate / 60))}{!cardId && customerRate > 0 ? ` · Tiền dịch vụ ${formatVnd(Math.round(minutes * customerRate / 60))}` : ''}</span>}
+            {minutes && <span id="s-hours-hint" className="hint">{formatMinutes(minutes)} · Tiền công {formatVnd(Math.round(minutes * rate / 60))}{!cardId && customerRate > 0 ? ` · Tiền dịch vụ ${formatVnd(Math.round(minutes * customerRate / 60))}` : ''}</span>}
           </label>
         </div>
         <div className="field session-date-control">
@@ -163,7 +163,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
           </label>
         )}
         <details className="extras" open={!!session || !!fixedCardId || undefined}>
-          <summary>{allowCards ? 'Thêm khách, thẻ, ghi chú (không bắt buộc)' : 'Thêm khách, ghi chú (không bắt buộc)'}</summary>
+          <summary>{allowCards ? 'Khách và thẻ' : 'Khách hàng'}</summary>
           <div className="form-grid">
             {fixedCardId || !allowCards ? null : (
               <label className="field" htmlFor="s-card">Thẻ liệu trình
@@ -180,9 +180,6 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
                 <input id="s-customer" value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={120} data-testid="input-session-customer" />
               </label>
             )}
-            <label className="field" htmlFor="s-note">Ghi chú
-              <textarea id="s-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} data-testid="input-session-note" />
-            </label>
           </div>
         </details>
         {shown && <p className="form-error" role="alert"><AlertCircle size={13} /> {shown}</p>}

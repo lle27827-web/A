@@ -39,7 +39,7 @@ export function AttendanceDialog({ record, members, busy, error, initialDate, in
       status: values.status,
       checkIn: values.checkIn || null,
       checkOut: values.checkOut || null,
-      note: values.note?.trim() || null,
+      note: record?.note ?? null,
     });
   }
 
@@ -78,9 +78,6 @@ export function AttendanceDialog({ record, members, busy, error, initialDate, in
                 <select id="attendance-status" {...form.register('status')} data-testid="select-attendance-form-status">
                   {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
-              </label>
-              <label className="field" htmlFor="attendance-note">Ghi chú
-                <textarea id="attendance-note" rows={3} maxLength={2000} {...form.register('note')} placeholder="Ví dụ: đổi ca với Lan" data-testid="input-attendance-note" />
               </label>
               {(validation || error) && <p className="form-error" role="alert" data-testid="status-attendance-form-error">{validation || error}</p>}
               <div className="dialog-actions">

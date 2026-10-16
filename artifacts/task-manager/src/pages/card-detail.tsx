@@ -118,7 +118,6 @@ export default function CardDetailPage() {
           <div><dt>Tổng tiền đã trả</dt><dd className="mono" data-testid="text-card-total-paid">{formatVnd(card.totalPaidAmount)}</dd></div>
           <div><dt>Ngày mua</dt><dd className="mono">{formatShortDate(card.purchaseDate)}</dd></div>
         </dl>
-        {card.note && <p className="sub">Ghi chú: {card.note}</p>}
       </section>
 
 
@@ -158,7 +157,6 @@ export default function CardDetailPage() {
                 <strong>{payment.source === 'merged_sale' ? 'Nạp từ thẻ mới trùng thông tin' : 'Nạp thẻ'}</strong>
                 <span className="muted">{formatShortDate(payment.paymentDate)} · {formatMinutes(payment.minutes)}</span>
                 <span className="muted">Ghi lúc {new Date(payment.createdAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</span>
-                {payment.note && <span className="muted">{payment.note}</span>}
               </span>
               <strong className="mono">{formatVnd(payment.amount)}</strong>
             </li>

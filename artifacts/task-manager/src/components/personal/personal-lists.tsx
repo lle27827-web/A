@@ -59,7 +59,6 @@ export function ShiftList({ title, sessions, busy, emptyText, onEdit, onDelete, 
                 <strong>{s.serviceName}</strong>
                 {s.customerName && <span className="small" data-testid={`text-personal-shift-customer-${s.id}`}>Khách: {s.customerName}</span>}
                 <span className="muted mono">{formatMinutes(s.minutes)} · {formatVnd(s.hourlyRate)}/giờ</span>
-                {s.note && <span className="muted p-note">{s.note}</span>}
               </span>
               <strong className="mono p-earn">{formatVnd(s.earnings)}</strong>
               <span className="head-actions">

@@ -24,7 +24,6 @@ export function AttendanceTable({ records, caption, canEdit, showDate, busy, onE
             <th scope="col">Tình trạng</th>
             <th scope="col">Vào ca</th>
             <th scope="col">Tan ca</th>
-            <th scope="col">Ghi chú</th>
             {canEdit && <th scope="col"><span className="sr-only">Thao tác</span></th>}
           </tr>
         </thead>
@@ -36,7 +35,6 @@ export function AttendanceTable({ records, caption, canEdit, showDate, busy, onE
               <td><span className={`status-chip ${record.status}`}><span className="dot" />{statusLabel(record.status)}</span></td>
               <td className="mono">{record.checkIn ?? <span className="muted">—</span>}</td>
               <td className="mono">{record.checkOut ?? <span className="muted">—</span>}</td>
-              <td className="note-cell">{record.note || <span className="muted">—</span>}</td>
               {showActions && (
                 <td>
                   <div className="row-actions">

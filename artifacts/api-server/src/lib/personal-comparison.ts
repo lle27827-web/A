@@ -9,8 +9,10 @@ import { lockPersonal, personalSettings, refreshFacilityServices, type PersonalT
 
 type Visit = PersonalComparisonVisit;
 const normalize = (s: string) => s.normalize("NFC").trim().replace(/\s+/g, " ").toLowerCase();
-const groupKey = (v: Visit) => JSON.stringify([v.workDate, normalize(v.serviceName), normalize(v.customerName)]);
-const amounts = (v: Visit) => JSON.stringify([v.minutes, v.hourlyRate, v.earnings, v.note]);
+const groupKey = (v: Visit) => JSON.stringify([v.workDate, normalize(v.serviceName)]);
+// Customers, notes and the current catalog rate do not define a worked shift match.
+// Compare the recorded duration and actual pay, once per occurrence.
+const amounts = (v: Visit) => JSON.stringify([v.minutes, v.earnings]);
 
 /** Match identical occurrences first so two legitimate same-day visits are never collapsed. */
 export function comparePersonalVisits(personal: Visit[], reference: Visit[]): PersonalDiscrepancy[] {
@@ -23,18 +25,10 @@ export function comparePersonalVisits(personal: Visit[], reference: Visit[]): Pe
       const match = right.findIndex((r) => amounts(r) === amounts(left[i]));
       if (match >= 0) { left.splice(i, 1); right.splice(match, 1); }
     }
-    while (left.length || right.length) {
-      const p = left.shift(), r = right.shift();
-      const changes = p && r ? [
-        p.minutes !== r.minutes ? "thời lượng" : "",
-        p.hourlyRate !== r.hourlyRate ? "đơn giá" : "",
-        p.earnings !== r.earnings ? "tiền công" : "",
-        p.note !== r.note ? "ghi chú" : "",
-      ].filter(Boolean) : [];
-      result.push({ reason: p && r ? `Sai lệch ${changes.join(", ")}` : p
-        ? "Ca chỉ có trong sổ cá nhân (khác hoặc thừa so với cơ sở)"
-        : "Thiếu ca trong sổ cá nhân", personal: p ? [p] : [], reference: r ? [r] : [] });
-    }
+    if (left.length || right.length) result.push({
+      reason: "Ca chưa khớp: thời lượng hoặc tiền công",
+      personal: left, reference: right,
+    });
   }
   return result.sort((a, b) => (b.personal[0] ?? b.reference[0]).workDate.localeCompare((a.personal[0] ?? a.reference[0]).workDate));
 }

@@ -4,7 +4,7 @@ import { AlertCircle, CalendarDays, LoaderCircle } from 'lucide-react';
 import { Modal } from '@/components/modal';
 import { DatePickerDialog } from '@/components/date-picker-dialog';
 import { formatShortDate } from '@/lib/attendance';
-import { formatMinutes, formatVnd, parseMoney } from '@/lib/massage';
+import { formatMinutes, formatVnd, hoursValue, parseHoursToMinutes, parseMoney } from '@/lib/massage';
 
 export function PersonalServiceDialog({ service, busy, serverError, onClose, onSubmit }: {
   service: PersonalService | null; busy: boolean; serverError: string;
@@ -54,32 +54,30 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
   const [serviceId, setServiceId] = useState(String(session?.serviceId ?? services[0]?.id ?? ''));
   const [date, setDate] = useState(session?.workDate ?? defaultDate);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [hours, setHours] = useState(session ? String(Math.floor(session.minutes / 60)) : '1');
-  const [mins, setMins] = useState(session ? String(session.minutes % 60) : '0');
-  const [note, setNote] = useState(session?.note ?? '');
+  const [hours, setHours] = useState(session ? hoursValue(session.minutes) : '1');
+  const note = session?.note ?? '';
   const [customerName, setCustomerName] = useState(session?.customerName ?? '');
   const [error, setError] = useState('');
   // One idempotency key per open "new shift" draft, reused on every retry.
   const [requestId] = useState(() => (session ? undefined : crypto.randomUUID()));
   const submitting = useRef(false);
   useEffect(() => { if (serverError) submitting.current = false; }, [serverError]);
-  const total = (Number(hours) || 0) * 60 + (Number(mins) || 0);
+  const total = parseHoursToMinutes(hours);
   const chosen = options.find((o) => String(o.id) === serviceId);
   const keepsOldRate = session && chosen && chosen.id === session.serviceId;
   const rate = keepsOldRate ? session.hourlyRate : chosen?.hourlyRate ?? 0;
 
-  function setTotal(m: number) { setHours(String(Math.floor(m / 60))); setMins(String(m % 60)); }
+  function setTotal(m: number) { setHours(hoursValue(m)); }
   function submit() {
     if (busy || submitting.current) return;
     if (!chosen) return setError('Hãy chọn dịch vụ.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setError('Hãy chọn ngày làm.');
     if (date > maxDate) return setError('Không thể ghi ca cho ngày trong tương lai.');
-    if (!/^\d*$/.test(hours) || !/^\d*$/.test(mins) || !Number.isInteger(total) || total < 1 || total > 1440) return setError('Thời lượng phải từ 1 phút đến 24 giờ.');
-    if (note.length > 2000) return setError('Ghi chú tối đa 2000 ký tự.');
+    if (total === null || total < 1 || total > 1440) return setError('Số giờ phải lớn hơn 0 và không quá 24 giờ.');
     if (customerName.trim().length > 160) return setError('Tên khách tối đa 160 ký tự.');
     setError('');
     submitting.current = true;
-    onSubmit({ serviceId: chosen.id, workDate: date, minutes: total, note: note.trim(), customerName: customerName.trim(), ...(requestId ? { requestId } : {}) });
+    onSubmit({ serviceId: chosen.id, workDate: date, minutes: total, note, customerName: customerName.trim(), ...(requestId ? { requestId } : {}) });
   }
   return (
     <Modal title={session ? 'Sửa ca của tôi' : 'Ghi ca của tôi'} onClose={onClose} testId="dialog-personal-shift">
@@ -95,23 +93,16 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
             <CalendarDays size={15} aria-hidden="true" /><span id="personal-date-value">{formatShortDate(date)}</span>
           </button>
         </div>
-        <div className="field-row">
-          <label className="field">Giờ<input inputMode="numeric" value={hours} onChange={(e) => setHours(e.target.value)} data-testid="input-personal-hours" /></label>
-          <label className="field">Phút<input inputMode="numeric" value={mins} onChange={(e) => setMins(e.target.value)} data-testid="input-personal-minutes" /></label>
-        </div>
+        <label className="field" htmlFor="personal-hours">Số giờ
+          <input id="personal-hours" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} required aria-describedby={total ? 'personal-hours-hint' : undefined} data-testid="input-personal-hours" />
+          {total && <span id="personal-hours-hint" className="hint" data-testid="text-personal-duration">{formatMinutes(total)} · Tiền công {formatVnd(Math.round(total * rate / 60))}</span>}
+        </label>
         <div className="chip-row" role="group" aria-label="Chọn nhanh thời lượng">
           {QUICK.map((m) => <button key={m} type="button" className={`chip pad ${total === m ? 'active' : ''}`} onClick={() => setTotal(m)} data-testid={`button-quick-${m}`}>{formatMinutes(m)}</button>)}
         </div>
         <label className="field">Tên khách (không bắt buộc)
           <input value={customerName} maxLength={160} onChange={(e) => setCustomerName(e.target.value)} placeholder="VD: Chị Lan" data-testid="input-personal-customer" />
         </label>
-        <label className="field">Ghi chú
-          <textarea rows={2} value={note} maxLength={2000} onChange={(e) => setNote(e.target.value)} placeholder="Phòng, tip…" data-testid="input-personal-note" />
-        </label>
-        <p className="card-hint" data-testid="text-personal-preview">
-          {total > 0 ? <>{formatMinutes(total)} × {formatVnd(rate)}/giờ = <strong>{formatVnd((total / 60) * rate)}</strong></> : 'Nhập thời lượng để xem tiền công.'}
-          {keepsOldRate && <><br /><span className="muted">Giữ giá đã ghi lúc tạo ca.</span></>}
-        </p>
         {(error || serverError) && <p className="form-error" role="alert" data-testid="text-dialog-error"><AlertCircle size={14} />{error || serverError}</p>}
         <div className="dialog-actions">
           <button type="button" className="btn ghost" onClick={onClose}>Hủy</button>

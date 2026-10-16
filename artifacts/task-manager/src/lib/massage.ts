@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetMassageSummaryQueryKey,
   getGetMemberPayrollQueryKey,
+  getGetPersonalComparisonQueryKey,
   getListMembersQueryKey,
   getListServiceTypesQueryKey,
   getListServiceSessionsQueryKey,
@@ -77,6 +78,7 @@ export function useRefreshMassage() {
     void cache.invalidateQueries({ queryKey: getListServiceSessionsQueryKey() });
     void cache.invalidateQueries({ queryKey: getGetMassageSummaryQueryKey() });
     void cache.invalidateQueries({ queryKey: getGetMemberPayrollQueryKey() });
+    void cache.invalidateQueries({ queryKey: getGetPersonalComparisonQueryKey() });
     if (opts.services) void cache.invalidateQueries({ queryKey: getListServiceTypesQueryKey() });
     if (opts.members) void cache.invalidateQueries({ queryKey: getListMembersQueryKey() });
   };

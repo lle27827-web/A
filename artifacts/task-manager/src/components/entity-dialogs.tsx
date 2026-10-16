@@ -30,7 +30,7 @@ export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId
   const [hours, setHours] = useState(card ? hoursValue(card.totalMinutes) : '10');
   const [amount, setAmount] = useState(card ? String(card.purchaseAmount) : '');
   const [purchaseDate, setPurchaseDate] = useState(card?.purchaseDate ?? defaultDate);
-  const [note, setNote] = useState(card?.note ?? '');
+  const note = card?.note ?? '';
   const [error, setError] = useState('');
   const catalog = servicesQuery.data ?? [];
   const legacy = card && card.serviceType && !catalog.some((s) => s.name === card.serviceType) ? card.serviceType : null;
@@ -49,7 +49,7 @@ export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId
     if (money === null) return setError('Hãy nhập số tiền đã trả.');
     if (!purchaseDate) return setError('Hãy chọn ngày mua.');
     setError('');
-    const draft = { customerName: customerName.trim(), phone: phone.trim(), serviceType: serviceType.trim(), totalMinutes, purchaseAmount: money, purchaseDate, note: note.trim() };
+    const draft = { customerName: customerName.trim(), phone: phone.trim(), serviceType: serviceType.trim(), totalMinutes, purchaseAmount: money, purchaseDate, note };
     draftRef.current = draft;
     submitting.current = true;
     onSubmit(draft);
@@ -98,7 +98,6 @@ export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId
           </label>
         </div>
         <label className="field" htmlFor="c-date">Ngày mua<input id="c-date" type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} required data-testid="input-card-date" /></label>
-        <label className="field" htmlFor="c-note">Ghi chú<textarea id="c-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} data-testid="input-card-note" /></label>
         {shown && <p className="form-error" role="alert"><AlertCircle size={13} /> {shown}</p>}
         <div className="dialog-actions">
           <button type="button" className="btn ghost" onClick={onClose}>Hủy</button>

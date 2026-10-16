@@ -31,7 +31,6 @@ export function SessionRows({ sessions, title, canEditRow, linkCards, busy, onEd
               <div><dt>Tiền công</dt><dd className="mono" data-testid={`text-session-pay-${s.id}`}>{formatVnd(s.earnings)}</dd></div>
               <div><dt>Tiền dịch vụ</dt><dd className="mono">{s.cardId !== null ? 'Tính khi bán thẻ' : formatVnd(s.customerCharge)}</dd></div>
             </dl>
-            {s.note && <p className="shift-note">{s.note}</p>}
             {editable && (
               <div className="row-actions text-actions shift-actions">
                 {s.memberId !== null && <button type="button" className="btn small" disabled={busy} onClick={() => onEdit(s)} aria-label={`Sửa ca ${customer}, ${s.serviceType}, ${formatMinutes(s.minutes)}`} data-testid={`button-edit-session-${s.id}`}><Pencil size={14} aria-hidden="true" />Sửa</button>}

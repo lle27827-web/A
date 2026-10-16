@@ -22,7 +22,7 @@ export function SearchResults() {
   const q = normalize(raw);
   const memberHits = useMemo(() => (searching ? members.filter((m) => normalize(m.name).includes(q)) : []), [members, q, searching]);
   const cardHits = useMemo(() => (searching ? (cardsQuery.data ?? []).filter((c) => cardMatches(c, raw, normalize) || normalize(c.serviceType).includes(q)) : []), [cardsQuery.data, raw, q, searching]);
-  const sessionHits = useMemo(() => (searching ? (sessionsQuery.data ?? []).filter((s) => normalize([s.employeeName, s.customerName, s.serviceType, s.note, formatShortDate(s.workDate)].join(' ')).includes(q)) : []), [sessionsQuery.data, q, searching]);
+  const sessionHits = useMemo(() => (searching ? (sessionsQuery.data ?? []).filter((s) => normalize([s.employeeName, s.customerName, s.serviceType, formatShortDate(s.workDate)].join(' ')).includes(q)) : []), [sessionsQuery.data, q, searching]);
 
   if (!searching) return null;
 

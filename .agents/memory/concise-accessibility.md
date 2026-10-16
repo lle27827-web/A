@@ -14,3 +14,9 @@ Comparison discrepancies should briefly identify service, date, customer if pres
 **Why:** the user explicitly requested compact discrepancy lines and short money comparisons.
 
 **How to apply:** simplify presentation only; retain occurrence-level comparison, wage calculations and explicit confirmation before replacing private shifts.
+
+Do not show note inputs or note rows on the application's screens. Personal attendance uses one decimal-hour input rather than separate hours/minutes fields, with readable duration below the input, consistent with facility attendance.
+
+**Why:** the user explicitly asked to remove every note row and the personal minutes field.
+
+**How to apply:** removing note UI is not permission to erase previously stored notes. Preserve hidden note data when editing unrelated fields.
