@@ -11,6 +11,7 @@ import EmployeePage from '@/pages/employee-page';
 import CardsPage from '@/pages/cards';
 import CardDetailPage from '@/pages/card-detail';
 import ServicesPage from '@/pages/services';
+import PersonalPage, { PersonalSignInRequired } from '@/pages/personal';
 import { AuthLoadingPage, AuthRestoreErrorPage, AuthSetupPage, clerkAppearance, SignInPage, SignUpPage } from '@/components/auth-pages';
 import { retrySessionCheck, validateRestoredSession } from '@/lib/auth-session';
 
@@ -88,6 +89,10 @@ function RoleApplication({
       </Route>
       <Route path="/sign-up/*?">
         <SignUpPage available={authConfigured} />
+      </Route>
+      {/* Personal notebook: account-scoped, outside the facility shell and role switches. */}
+      <Route path="/personal">
+        {authenticated ? <PersonalPage onSignOut={onSignOut} /> : <PersonalSignInRequired authConfigured={authConfigured} />}
       </Route>
       <Route>
         <AppShell
@@ -186,7 +191,7 @@ function ClerkApplication() {
       signInUrl={signInPath}
       signUpUrl={signUpPath}
       localization={{
-        signIn: { start: { title: 'Đăng nhập chủ sở hữu', subtitle: 'Đăng nhập để quản lý toàn bộ dữ liệu cơ sở.' } },
+        signIn: { start: { title: 'Đăng nhập', subtitle: 'Dùng sổ cá nhân riêng; chủ sở hữu quản lý dữ liệu cơ sở.' } },
         signUp: { start: { title: 'Tạo tài khoản', subtitle: 'Đăng ký bằng email để tiếp tục.' } },
       }}
       routerPush={(to) => setLocation(stripBase(to))}

@@ -29,6 +29,8 @@ import type {
   GetAttendanceSummaryParams,
   GetMassageSummaryParams,
   GetMemberPayrollParams,
+  GetPersonalComparisonParams,
+  GetPersonalNotebookParams,
   HealthStatus,
   ListAttendanceParams,
   ListMembersParams,
@@ -38,6 +40,12 @@ import type {
   MemberPayroll,
   MemberRecord,
   MemberUpdate,
+  PersonalComparison,
+  PersonalNotebook,
+  PersonalService,
+  PersonalServiceInput,
+  PersonalSession,
+  PersonalSessionInput,
   ServiceSession,
   ServiceSessionInput,
   ServiceTypeInput,
@@ -73,6 +81,699 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getListHistoryMonthsUrl = () => {
+
+
+
+
+  return `/api/history-months`
+}
+
+export const listHistoryMonths = async ( options?: Parameters<typeof customFetch>[1]): Promise<string[]> => {
+
+  return customFetch<string[]>(getListHistoryMonthsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListHistoryMonthsQueryKey = () => {
+    return [
+    `/api/history-months`
+    ] as const;
+    }
+
+
+export const getListHistoryMonthsQueryOptions = <TData = Awaited<ReturnType<typeof listHistoryMonths>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listHistoryMonths>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListHistoryMonthsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listHistoryMonths>>> = ({ signal }) => listHistoryMonths({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listHistoryMonths>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListHistoryMonthsQueryResult = NonNullable<Awaited<ReturnType<typeof listHistoryMonths>>>
+export type ListHistoryMonthsQueryError = ErrorType<unknown>
+
+
+
+export function useListHistoryMonths<TData = Awaited<ReturnType<typeof listHistoryMonths>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listHistoryMonths>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListHistoryMonthsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPersonalNotebookUrl = (params: GetPersonalNotebookParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/personal/notebook?${stringifiedParams}` : `/api/personal/notebook`
+}
+
+export const getPersonalNotebook = async (params: GetPersonalNotebookParams, options?: Parameters<typeof customFetch>[1]): Promise<PersonalNotebook> => {
+
+  return customFetch<PersonalNotebook>(getGetPersonalNotebookUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPersonalNotebookQueryKey = (params?: GetPersonalNotebookParams,) => {
+    return [
+    `/api/personal/notebook`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetPersonalNotebookQueryOptions = <TData = Awaited<ReturnType<typeof getPersonalNotebook>>, TError = ErrorType<unknown>>(params: GetPersonalNotebookParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPersonalNotebook>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPersonalNotebookQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPersonalNotebook>>> = ({ signal }) => getPersonalNotebook(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPersonalNotebook>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPersonalNotebookQueryResult = NonNullable<Awaited<ReturnType<typeof getPersonalNotebook>>>
+export type GetPersonalNotebookQueryError = ErrorType<unknown>
+
+
+
+export function useGetPersonalNotebook<TData = Awaited<ReturnType<typeof getPersonalNotebook>>, TError = ErrorType<unknown>>(
+ params: GetPersonalNotebookParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPersonalNotebook>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPersonalNotebookQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreatePersonalServiceUrl = () => {
+
+
+
+
+  return `/api/personal/services`
+}
+
+export const createPersonalService = async (personalServiceInput: PersonalServiceInput, options?: Parameters<typeof customFetch>[1]): Promise<PersonalService> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<PersonalService>(getCreatePersonalServiceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(personalServiceInput)
+  }
+);}
+
+
+
+
+
+export const getCreatePersonalServiceMutationKey = () => ['createPersonalService'] as const;
+
+export const getCreatePersonalServiceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPersonalService>>, TError,CreatePersonalServiceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPersonalService>>, TError,CreatePersonalServiceMutationVariables, TContext> => {
+
+const mutationKey = getCreatePersonalServiceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPersonalService>>, CreatePersonalServiceMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPersonalService(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePersonalServiceMutationResult = NonNullable<Awaited<ReturnType<typeof createPersonalService>>>
+    export type CreatePersonalServiceMutationBody = BodyType<PersonalServiceInput>
+    export type CreatePersonalServiceMutationError = ErrorType<unknown>
+    export type CreatePersonalServiceMutationVariables = {data: BodyType<PersonalServiceInput>}
+
+    export const useCreatePersonalService = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPersonalService>>, TError,CreatePersonalServiceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPersonalService>>,
+        TError,
+        CreatePersonalServiceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreatePersonalServiceMutationOptions(options));
+    }
+
+export const getUpdatePersonalServiceUrl = (id: number,) => {
+
+
+
+
+  return `/api/personal/services/${id}`
+}
+
+export const updatePersonalService = async (id: number,
+    personalServiceInput: PersonalServiceInput, options?: Parameters<typeof customFetch>[1]): Promise<PersonalService> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<PersonalService>(getUpdatePersonalServiceUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(personalServiceInput)
+  }
+);}
+
+
+
+
+
+export const getUpdatePersonalServiceMutationKey = () => ['updatePersonalService'] as const;
+
+export const getUpdatePersonalServiceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePersonalService>>, TError,UpdatePersonalServiceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePersonalService>>, TError,UpdatePersonalServiceMutationVariables, TContext> => {
+
+const mutationKey = getUpdatePersonalServiceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePersonalService>>, UpdatePersonalServiceMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updatePersonalService(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePersonalServiceMutationResult = NonNullable<Awaited<ReturnType<typeof updatePersonalService>>>
+    export type UpdatePersonalServiceMutationBody = BodyType<PersonalServiceInput>
+    export type UpdatePersonalServiceMutationError = ErrorType<unknown>
+    export type UpdatePersonalServiceMutationVariables = {id: number;data: BodyType<PersonalServiceInput>}
+
+    export const useUpdatePersonalService = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePersonalService>>, TError,UpdatePersonalServiceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePersonalService>>,
+        TError,
+        UpdatePersonalServiceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdatePersonalServiceMutationOptions(options));
+    }
+
+export const getDeletePersonalServiceUrl = (id: number,) => {
+
+
+
+
+  return `/api/personal/services/${id}`
+}
+
+export const deletePersonalService = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeletePersonalServiceUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeletePersonalServiceMutationKey = () => ['deletePersonalService'] as const;
+
+export const getDeletePersonalServiceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePersonalService>>, TError,DeletePersonalServiceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deletePersonalService>>, TError,DeletePersonalServiceMutationVariables, TContext> => {
+
+const mutationKey = getDeletePersonalServiceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deletePersonalService>>, DeletePersonalServiceMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deletePersonalService(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeletePersonalServiceMutationResult = NonNullable<Awaited<ReturnType<typeof deletePersonalService>>>
+
+    export type DeletePersonalServiceMutationError = ErrorType<unknown>
+    export type DeletePersonalServiceMutationVariables = {id: number}
+
+    export const useDeletePersonalService = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePersonalService>>, TError,DeletePersonalServiceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deletePersonalService>>,
+        TError,
+        DeletePersonalServiceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeletePersonalServiceMutationOptions(options));
+    }
+
+export const getCreatePersonalSessionUrl = () => {
+
+
+
+
+  return `/api/personal/sessions`
+}
+
+export const createPersonalSession = async (personalSessionInput: PersonalSessionInput, options?: Parameters<typeof customFetch>[1]): Promise<PersonalSession> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<PersonalSession>(getCreatePersonalSessionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(personalSessionInput)
+  }
+);}
+
+
+
+
+
+export const getCreatePersonalSessionMutationKey = () => ['createPersonalSession'] as const;
+
+export const getCreatePersonalSessionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPersonalSession>>, TError,CreatePersonalSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPersonalSession>>, TError,CreatePersonalSessionMutationVariables, TContext> => {
+
+const mutationKey = getCreatePersonalSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPersonalSession>>, CreatePersonalSessionMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPersonalSession(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePersonalSessionMutationResult = NonNullable<Awaited<ReturnType<typeof createPersonalSession>>>
+    export type CreatePersonalSessionMutationBody = BodyType<PersonalSessionInput>
+    export type CreatePersonalSessionMutationError = ErrorType<unknown>
+    export type CreatePersonalSessionMutationVariables = {data: BodyType<PersonalSessionInput>}
+
+    export const useCreatePersonalSession = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPersonalSession>>, TError,CreatePersonalSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPersonalSession>>,
+        TError,
+        CreatePersonalSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreatePersonalSessionMutationOptions(options));
+    }
+
+export const getUpdatePersonalSessionUrl = (id: number,) => {
+
+
+
+
+  return `/api/personal/sessions/${id}`
+}
+
+export const updatePersonalSession = async (id: number,
+    personalSessionInput: PersonalSessionInput, options?: Parameters<typeof customFetch>[1]): Promise<PersonalSession> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<PersonalSession>(getUpdatePersonalSessionUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(personalSessionInput)
+  }
+);}
+
+
+
+
+
+export const getUpdatePersonalSessionMutationKey = () => ['updatePersonalSession'] as const;
+
+export const getUpdatePersonalSessionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePersonalSession>>, TError,UpdatePersonalSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePersonalSession>>, TError,UpdatePersonalSessionMutationVariables, TContext> => {
+
+const mutationKey = getUpdatePersonalSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePersonalSession>>, UpdatePersonalSessionMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updatePersonalSession(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePersonalSessionMutationResult = NonNullable<Awaited<ReturnType<typeof updatePersonalSession>>>
+    export type UpdatePersonalSessionMutationBody = BodyType<PersonalSessionInput>
+    export type UpdatePersonalSessionMutationError = ErrorType<unknown>
+    export type UpdatePersonalSessionMutationVariables = {id: number;data: BodyType<PersonalSessionInput>}
+
+    export const useUpdatePersonalSession = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePersonalSession>>, TError,UpdatePersonalSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePersonalSession>>,
+        TError,
+        UpdatePersonalSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdatePersonalSessionMutationOptions(options));
+    }
+
+export const getDeletePersonalSessionUrl = (id: number,) => {
+
+
+
+
+  return `/api/personal/sessions/${id}`
+}
+
+export const deletePersonalSession = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeletePersonalSessionUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeletePersonalSessionMutationKey = () => ['deletePersonalSession'] as const;
+
+export const getDeletePersonalSessionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePersonalSession>>, TError,DeletePersonalSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deletePersonalSession>>, TError,DeletePersonalSessionMutationVariables, TContext> => {
+
+const mutationKey = getDeletePersonalSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deletePersonalSession>>, DeletePersonalSessionMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deletePersonalSession(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeletePersonalSessionMutationResult = NonNullable<Awaited<ReturnType<typeof deletePersonalSession>>>
+
+    export type DeletePersonalSessionMutationError = ErrorType<unknown>
+    export type DeletePersonalSessionMutationVariables = {id: number}
+
+    export const useDeletePersonalSession = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePersonalSession>>, TError,DeletePersonalSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deletePersonalSession>>,
+        TError,
+        DeletePersonalSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeletePersonalSessionMutationOptions(options));
+    }
+
+export const getGetPersonalComparisonUrl = (params: GetPersonalComparisonParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/personal/comparison?${stringifiedParams}` : `/api/personal/comparison`
+}
+
+export const getPersonalComparison = async (params: GetPersonalComparisonParams, options?: Parameters<typeof customFetch>[1]): Promise<PersonalComparison> => {
+
+  return customFetch<PersonalComparison>(getGetPersonalComparisonUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPersonalComparisonQueryKey = (params?: GetPersonalComparisonParams,) => {
+    return [
+    `/api/personal/comparison`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetPersonalComparisonQueryOptions = <TData = Awaited<ReturnType<typeof getPersonalComparison>>, TError = ErrorType<unknown>>(params: GetPersonalComparisonParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPersonalComparison>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPersonalComparisonQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPersonalComparison>>> = ({ signal }) => getPersonalComparison(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPersonalComparison>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPersonalComparisonQueryResult = NonNullable<Awaited<ReturnType<typeof getPersonalComparison>>>
+export type GetPersonalComparisonQueryError = ErrorType<unknown>
+
+
+
+export function useGetPersonalComparison<TData = Awaited<ReturnType<typeof getPersonalComparison>>, TError = ErrorType<unknown>>(
+ params: GetPersonalComparisonParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPersonalComparison>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPersonalComparisonQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListServiceTypesUrl = () => {
 

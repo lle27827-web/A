@@ -12,7 +12,8 @@
     "test:massage": "esbuild src/lib/massage.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/cung-lam-massage-tests.cjs && node --test /tmp/cung-lam-massage-tests.cjs",
     "test:revenue": "esbuild src/lib/facility-revenue.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-revenue-tests.cjs && node --test /tmp/so-cong-revenue-tests.cjs",
     "test:card-topups": "esbuild src/lib/card-topups.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-card-topup-tests.cjs && node --test /tmp/so-cong-card-topup-tests.cjs",
-    "test:employee-history": "esbuild src/lib/employee-history.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-employee-history-tests.cjs && node --test /tmp/so-cong-employee-history-tests.cjs"
+    "test:employee-history": "esbuild src/lib/employee-history.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-employee-history-tests.cjs && node --test /tmp/so-cong-employee-history-tests.cjs",
+    "test:personal": "esbuild src/lib/personal-notebook.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-personal-tests.cjs && node --test /tmp/so-cong-personal-tests.cjs"
   },
   "dependencies": {
     "@clerk/backend": "^3.23.2",

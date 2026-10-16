@@ -6,6 +6,7 @@ import attendanceRouter from "./attendance";
 import membersRouter from "./members";
 import treatmentCardsRouter from "./treatment-cards";
 import serviceSessionsRouter from "./service-sessions";
+import personalNotebookRouter from "./personal-notebook";
 
 const router: IRouter = Router();
 router.use(authRouter);
@@ -15,5 +16,6 @@ router.use(attendanceRouter);
 router.use(membersRouter);
 router.use(treatmentCardsRouter);
 router.use(serviceSessionsRouter);
+router.use(personalNotebookRouter);
 
 export default router;

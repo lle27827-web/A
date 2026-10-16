@@ -22,6 +22,7 @@ export function SessionTable({ sessions, caption, canEdit, showDate, showTime, s
             {!cardHistory && <th scope="col">Tiền dịch vụ / lương</th>}
             <th scope="col">Ghi chú</th>
             {canEdit && !visibleActions && <th scope="col"><span className="sr-only">Thao tác</span></th>}
+            {canEdit && visibleActions && <th scope="col">Thao tác</th>}
           </tr>
         </thead>
         <tbody>
@@ -50,6 +51,14 @@ export function SessionTable({ sessions, caption, canEdit, showDate, showTime, s
                   <span className="muted">Lương {formatVnd(s.earnings)} · {formatVnd(s.hourlyRate)}/giờ</span>
                 </div></td>}
                 <td className="note-cell">{s.note || '—'}</td>
+                {canEdit && visibleActions && (
+                  <td className="action-cell">
+                    <div className="row-actions text-actions">
+                      {!orphan && <button type="button" className="btn small" disabled={busy} onClick={() => onEdit(s)} aria-label={`Sửa ca ${s.id}: ${s.customerName || 'Khách lẻ'}, ${s.serviceType}, ${formatMinutes(s.minutes)}`} data-testid={`button-edit-session-${s.id}`}><Pencil size={14} />Sửa</button>}
+                      <button type="button" className="btn small danger" disabled={busy} onClick={() => onDelete(s)} aria-label={`Xóa ca ${s.id}: ${s.customerName || 'Khách lẻ'}, ${s.serviceType}, ${formatMinutes(s.minutes)}`} data-testid={`button-delete-session-${s.id}`}><Trash2 size={14} />Xóa</button>
+                    </div>
+                  </td>
+                )}
                 {canEdit && !visibleActions && (
                   <td>
                     <div className="row-actions">
@@ -64,19 +73,6 @@ export function SessionTable({ sessions, caption, canEdit, showDate, showTime, s
         </tbody>
       </table>
     </div>
-    {canEdit && visibleActions && (
-      <ul className="emp-list" aria-label="Sửa hoặc xóa từng ca" data-testid={`actions-${testId}`}>
-        {sessions.map((s) => (
-          <li key={s.id} className="emp-row wrap">
-             <span className="grow"><strong>{s.customerName || 'Khách lẻ'} · {s.serviceType}</strong><span className="muted mono">{formatMinutes(s.minutes)} · {formatShortDate(s.workDate)} · Ca #{s.id}{s.cardId !== null ? ` · Thẻ #${s.cardId} · doanh thu ghi ngày bán` : ` · Tiền dịch vụ ${formatVnd(s.customerCharge)}`} · Lương ${formatVnd(s.earnings)}</span></span>
-            <span className="head-actions">
-              {s.memberId !== null && <button type="button" className="btn small" disabled={busy} onClick={() => onEdit(s)} aria-label={`Sửa ca ${s.id}: ${s.customerName || 'Khách lẻ'}, ${s.serviceType}, ${formatMinutes(s.minutes)}`} data-testid={`button-edit-session-${s.id}`}><Pencil size={14} />Sửa ca</button>}
-              <button type="button" className="btn small danger" disabled={busy} onClick={() => onDelete(s)} aria-label={`Xóa ca ${s.id}: ${s.customerName || 'Khách lẻ'}, ${s.serviceType}, ${formatMinutes(s.minutes)}`} data-testid={`button-delete-session-${s.id}`}><Trash2 size={14} />Xóa ca</button>
-            </span>
-          </li>
-        ))}
-      </ul>
-    )}
     </>
   );
 }

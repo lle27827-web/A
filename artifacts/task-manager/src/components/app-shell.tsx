@@ -155,11 +155,12 @@ export function AppShell({
             <div className="account">
               {isOwner ? (
                 <>
-                  {employeeMode && <span className="mode-pill" data-testid="status-view-mode">Xem nhân viên</span>}
+                  {employeeMode && <span className="mode-pill" data-testid="status-view-mode">Xem NV cơ sở · chỉ xem</span>}
                   <span className="mode-pill" data-testid="status-owner-role">Chủ sở hữu</span>
                   <button type="button" className="link-soft as-button" onClick={onSignOut}>Đăng xuất</button>
                   <ViewSettings prefs={prefs} members={members} membersLoading={membersQuery.isLoading}
-                    open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView} />
+                    open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView}
+                    isOwner authenticated={authenticated} authConfigured={authConfigured} />
                 </>
               ) : (
                 <>
@@ -169,12 +170,15 @@ export function AppShell({
                   {authenticated ? (
                     <button type="button" className="link-soft as-button" onClick={onSignOut}>Đăng xuất</button>
                   ) : authConfigured ? (
-                    <Link href="/sign-in" className="link-strong" data-testid="link-owner-sign-in">Đăng nhập chủ</Link>
+                    <Link href="/sign-in" className="link-strong" data-testid="link-owner-sign-in">Đăng nhập</Link>
                   ) : (
                     <span className="link-soft" title="Cần cấu hình Clerk bên ngoài trong Replit và Vercel.">
                       Đăng nhập chưa cấu hình
                     </span>
                   )}
+                  <ViewSettings prefs={prefs} members={members} membersLoading={membersQuery.isLoading}
+                    open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView}
+                    isOwner={false} authenticated={authenticated} authConfigured={authConfigured} />
                 </>
               )}
             </div>

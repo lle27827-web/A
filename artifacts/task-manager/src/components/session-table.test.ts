@@ -35,6 +35,26 @@ test('regular employee session tables retain customer and financial information'
     assert.ok(html.includes(value));
   }
 });
+test('editable employee rows contain exactly one edit/delete pair in the same row', () => {
+  const html = renderToStaticMarkup(createElement(SessionTable, {
+    sessions: [session], caption: 'Employee shifts', canEdit: true, visibleActions: true,
+    onEdit: () => {}, onDelete: () => {}, testId: 'employee-shifts',
+  }));
+  assert.equal((html.match(/data-testid="row-session-1"/g) ?? []).length, 1);
+  assert.equal((html.match(/data-testid="button-edit-session-1"/g) ?? []).length, 1);
+  assert.equal((html.match(/data-testid="button-delete-session-1"/g) ?? []).length, 1);
+  const row = html.match(/<tr[^>]*data-testid="row-session-1"[\s\S]*?<\/tr>/)?.[0] ?? '';
+  assert.ok(row.includes('button-edit-session-1') && row.includes('button-delete-session-1'));
+  assert.ok(row.includes('Sửa') && row.includes('Xóa'));
+});
+test('read-only employee rows never expose edit/delete controls', () => {
+  const html = renderToStaticMarkup(createElement(SessionTable, {
+    sessions: [session], caption: 'Employee history', canEdit: false, visibleActions: true,
+    onEdit: () => {}, onDelete: () => {}, testId: 'employee-history',
+  }));
+  assert.ok(!html.includes('button-edit-session-') && !html.includes('button-delete-session-'));
+  assert.ok(html.includes('TEST_NOTE'));
+});
 test('deleted technicians remain visible without an invalid edit action', () => {
   const html = render(true, { ...session, memberId: null });
   assert.ok(html.includes('TEST_TECHNICIAN (đã xóa)'));

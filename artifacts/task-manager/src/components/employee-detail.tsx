@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   getGetMemberPayrollQueryKey, getListServiceSessionsQueryKey, getListTreatmentCardsQueryKey,
   useCreateServiceSession, useDeleteMember, useDeleteServiceSession, useGetMemberPayroll, useListServiceSessions,
@@ -29,9 +29,6 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
   const [memberDialog, setMemberDialog] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [dialogError, setDialogError] = useState('');
-  const [editing, setEditing] = useState(false);
-
-  useEffect(() => { setEditing(false); }, [day, month, memberId, canEdit]);
 
   const member = memberId !== null ? members.find((m) => m.id === memberId) ?? null : null;
   const id = member?.id ?? 0;
@@ -129,17 +126,11 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
       {sessionsQuery.isLoading ? <Skeleton rows={3} label="Đang tải ca phục vụ" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được ca phục vụ." onRetry={() => void sessionsQuery.refetch()} /> : daySessions.length === 0 ? (
         <div className="empty small"><CalendarDays size={18} /><p>Chưa có ca được ghi trong ngày này.</p></div>
       ) : (
-          <SessionTable sessions={daySessions} caption={`Ca phục vụ ngày ${formatShortDate(day)}`} canEdit={canEdit && editing} visibleActions linkCards={canEdit} busy={deleteSession.isPending}
+          <SessionTable sessions={daySessions} caption={`Ca phục vụ ngày ${formatShortDate(day)}`} canEdit={canEdit} visibleActions linkCards={canEdit} busy={deleteSession.isPending}
           onEdit={(s) => { setDialogError(''); setSessionDialog({ session: s }); }} onDelete={askDeleteSession} testId="day-sessions" />
       )}
       {canEdit && (
         <div className="day-actions" data-testid="day-actions">
-          <button type="button" className={`btn small ${editing ? 'primary' : ''}`} aria-pressed={editing} disabled={daySessions.length === 0 || sessionsQuery.isLoading}
-            aria-describedby={daySessions.length === 0 ? 'day-edit-hint' : undefined} onClick={() => setEditing((v) => !v)} data-testid="button-toggle-edit-day">
-            <Pencil size={14} />{editing ? 'Xong chỉnh sửa' : 'Chỉnh sửa'}
-          </button>
-          {daySessions.length === 0 && <span id="day-edit-hint" className="hint">Chưa có ca để chỉnh sửa trong ngày này.</span>}
-          {editing && daySessions.length > 0 && <span className="hint">Chọn Sửa ca hoặc Xóa ca ở danh sách.</span>}
           <button type="button" className="btn small" onClick={() => { setDialogError(''); setSessionDialog({ session: null }); }} data-testid="button-add-session"><Plus size={14} />Chấm công</button>
         </div>
       )}

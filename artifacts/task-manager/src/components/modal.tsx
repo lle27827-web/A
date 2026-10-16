@@ -24,11 +24,11 @@ export function Modal({ title, description, onClose, children, testId }: { title
             <D.Close asChild><button type="button" className="icon-btn" aria-label="Đóng"><X size={18} /></button></D.Close>
           </div>
           {description && <D.Description className="sub" style={{ marginBottom: 14 }}>{description}</D.Description>}
-          <nav className="window-nav" aria-label="Điều hướng cửa sổ">
+          {children}
+          <nav className="window-nav bottom" aria-label="Điều hướng cửa sổ">
             <Link href="/" onClick={onClose} className="btn ghost" data-testid="link-window-home"><Home size={14} aria-hidden="true" />Trang chính</Link>
             <button type="button" className="btn ghost" onClick={onClose} data-testid="button-window-back"><ArrowLeft size={14} aria-hidden="true" />Trở về</button>
           </nav>
-          {children}
         </D.Content>
       </D.Portal>
     </D.Root>

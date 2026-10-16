@@ -106,7 +106,7 @@ function hasQueryValue(value: unknown): boolean {
 
 export function isPublicEmployeeRead(req: Request): boolean {
   if (req.method !== "GET" && req.method !== "HEAD") return false;
-  if (req.path === "/healthz" || req.path === "/auth/status") return true;
+  if (req.path === "/healthz" || req.path === "/auth/status" || req.path === "/history-months") return true;
   if (["/members", "/attendance", "/attendance/summary"].includes(req.path)) return true;
 
   if (req.path === "/member-payroll") {
@@ -125,6 +125,25 @@ export function apiAuthorizationGate(
   res: Response,
   next: NextFunction,
 ): void {
+  if (req.path === "/personal" || req.path.startsWith("/personal/")) {
+    res.set("Cache-Control", "private, no-store");
+    if (!requestHasTrustedOrigin(req)) {
+      res.status(403).json({ error: "Yêu cầu không được gửi từ ứng dụng này." });
+      return;
+    }
+    try {
+      const userId = getAuth(req).userId;
+      if (!userId) {
+        res.status(401).json({ error: "Vui lòng đăng nhập để dùng sổ cá nhân." });
+        return;
+      }
+      res.locals.personalUserId = userId;
+      next();
+    } catch {
+      res.status(503).json({ error: "Không thể xác minh phiên đăng nhập." });
+    }
+    return;
+  }
   if (req.method === "OPTIONS" || isPublicEmployeeRead(req)) {
     next();
     return;

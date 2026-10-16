@@ -5,6 +5,65 @@
  * API công khai để quản lý dữ liệu nhân viên, chấm công, dịch vụ và thẻ liệu trình.
  * OpenAPI spec version: 0.1.0
  */
+export interface PersonalServiceInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name: string;
+  /**
+     * @minimum 0
+     * @maximum 100000000
+     */
+  hourlyRate: number;
+}
+
+export type PersonalService = PersonalServiceInput & {
+  id: number;
+};
+
+export interface PersonalSessionInput {
+  /** @minimum 1 */
+  serviceId: number;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  workDate: string;
+  /**
+     * @minimum 1
+     * @maximum 1440
+     */
+  minutes: number;
+  /** @maxLength 2000 */
+  note: string;
+}
+
+export type PersonalSession = PersonalSessionInput & {
+  id: number;
+  serviceName: string;
+  hourlyRate: number;
+  earnings: number;
+  createdAt: string;
+};
+
+export interface PersonalNotebook {
+  month: string;
+  date: string;
+  services: PersonalService[];
+  sessions: PersonalSession[];
+  totalDay: number;
+  totalMonth: number;
+  months: string[];
+}
+
+export interface PersonalComparison {
+  memberName: string;
+  personalDay: number;
+  personalMonth: number;
+  referenceDay: number;
+  referenceMonth: number;
+  differenceDay: number;
+  differenceMonth: number;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -390,6 +449,32 @@ export interface MemberPayroll {
   totalMinutes: number;
   totalSalary: number;
 }
+
+export type GetPersonalNotebookParams = {
+/**
+ * @pattern ^\d{4}-\d{2}$
+ */
+month: string;
+/**
+ * @pattern ^\d{4}-\d{2}-\d{2}$
+ */
+date: string;
+};
+
+export type GetPersonalComparisonParams = {
+/**
+ * @minimum 1
+ */
+memberId: number;
+/**
+ * @pattern ^\d{4}-\d{2}$
+ */
+month: string;
+/**
+ * @pattern ^\d{4}-\d{2}-\d{2}$
+ */
+date: string;
+};
 
 export type ListMembersParams = {
 /**

@@ -3,11 +3,17 @@ name: Owner and guest access
 description: Product rule for owner login, anonymous guest visibility, and write permissions.
 ---
 
-Guests need no login and may view the complete employee-management area, including recorded wages and work history. Guests must not access facility revenue or card management. Only the verified owner account may view those areas or write any data. Owner authentication must use external Clerk so it works on both Replit and Vercel.
+Guests need no login and may view the complete employee-management area, including recorded wages and work history. Guests must not access facility revenue or card management. Only the verified owner account may view those areas or write facility data. Owner authentication must use the app's existing Clerk configuration so it works on both Replit and Vercel.
 
 **Why:** The user explicitly chose anonymous, read-only guests, owner-only editing, external Clerk across both hosts, and limited guests to employee management.
 
 **How to apply:** Enforce the role rules on API reads and writes as well as in route visibility. Never treat a local UI/view preference as proof of owner access.
+
+Every signed-in account may keep a separate personal employee notebook: own attendance, own service/pay rates, own income and month history. This is not the facility's read-only employee-view filter, and it does not include personal customer/card management.
+
+**Why:** the user explicitly chose “Tự chấm công, dịch vụ/mức tiền riêng, thu nhập và lịch sử” and requested complete separation for each account.
+
+**How to apply:** derive identity only from the verified session; scope all personal data by account, including owner accounts. Personal writes never change facility data. Comparison may show only the selected central employee's daily/monthly **pay**, beside the account's own pay, never facility revenue or another account's private notebook.
 
 Valid sessions must be restored automatically when the app starts or the page reloads, without requiring another reload. Do not turn a temporarily unverified signed-in session into a guest and redirect away from the user's page.
 
