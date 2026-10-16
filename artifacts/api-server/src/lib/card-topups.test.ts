@@ -79,9 +79,9 @@ test("paid top-ups and duplicate sales retain history and recognize cash once on
     assert.equal(report.cardRevenue - baseline.cardRevenue, 570000);
     assert.equal(report.serviceRevenue - baseline.serviceRevenue, 100000);
     assert.equal(report.payroll - baseline.payroll, 100000);
-    assert.equal(report.netRevenue - baseline.netRevenue, 570000);
+    assert.equal(report.netRevenue - baseline.netRevenue, 620000);
     assert.equal(report.today.cardRevenue - baseline.today.cardRevenue, 570000);
-    assert.equal(report.today.netRevenue - baseline.today.netRevenue, 570000);
+    assert.equal(report.today.netRevenue - baseline.today.netRevenue, 620000);
     assert.equal(report.cardsSold, baseline.cardsSold, "top-ups must not create extra card-sale counts");
     await deleteCard(original.id);
     const archived = await getFacilityRevenue(month, today);

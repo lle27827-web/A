@@ -72,12 +72,14 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     assert.equal(after.revenueExcludingCardSessions - baseline.revenueExcludingCardSessions, 2100);
     assert.equal(after.today.revenueExcludingCardSessions - baseline.today.revenueExcludingCardSessions, 800);
     assert.equal(after.cardsSold - baseline.cardsSold, 2);
-    assert.equal(after.netRevenue - baseline.netRevenue, 1850);
-    assert.equal(after.today.netRevenue - baseline.today.netRevenue, 650);
+    assert.equal(after.netRevenue - baseline.netRevenue, 2050);
+    assert.equal(after.today.netRevenue - baseline.today.netRevenue, 800);
     const redemptionDay = await getFacilityRevenue(month, "2099-02-02");
     assert.equal(redemptionDay.today.revenue - redemptionDayBaseline.today.revenue, 0);
-    assert.equal(redemptionDay.today.netRevenue - redemptionDayBaseline.today.netRevenue, -50,
-      "using a card on a day without a sale still deducts the employee wage");
+    assert.equal(redemptionDay.today.netRevenue - redemptionDayBaseline.today.netRevenue, 0,
+      "using a card does not change revenue even on a day without a sale");
+    assert.equal(redemptionDay.today.payroll - redemptionDayBaseline.today.payroll, 50,
+      "card-session wages must still be recorded in employee payroll");
 
     // A stored redemption price must never be counted, even alongside cash-paying visits.
     await db.update(serviceSessionsTable).set({ customerCharge: 999999 })
@@ -98,6 +100,12 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     const edited = await getFacilityRevenue(month, date);
     assert.equal(edited.netRevenue - after.netRevenue, 250000);
     assert.equal(edited.today.netRevenue - after.today.netRevenue, 250000);
+    await db.update(serviceSessionsTable).set({ earnings: 500000 })
+      .where(eq(serviceSessionsTable.id, extraWalkIn.id));
+    const walkInLoss = await getFacilityRevenue(month, date);
+    assert.equal(walkInLoss.netRevenue - after.netRevenue, -100000);
+    assert.equal(walkInLoss.today.netRevenue - after.today.netRevenue, -100000,
+      "cash-paying visits still deduct wages, even if wages exceed their charge");
     await db.delete(serviceSessionsTable).where(eq(serviceSessionsTable.id, extraWalkIn.id));
     sessionIds.splice(sessionIds.indexOf(extraWalkIn.id), 1);
     assert.deepEqual(await getFacilityRevenue(month, date), after,
@@ -105,10 +113,12 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
 
     await db.update(serviceSessionsTable).set({ earnings: 1000000 })
       .where(eq(serviceSessionsTable.id, rows[0].id));
-    const loss = await getFacilityRevenue(month, date);
-    assert.equal(loss.netRevenue - baseline.netRevenue, -998000);
-    assert.equal(loss.today.netRevenue - baseline.today.netRevenue, -999200,
-      "do not clamp losses to zero or skip wages on card sessions");
+    const changedCardWage = await getFacilityRevenue(month, date);
+    assert.equal(changedCardWage.netRevenue, after.netRevenue);
+    assert.equal(changedCardWage.today.netRevenue, after.today.netRevenue,
+      "editing a card-session wage must not affect net revenue");
+    assert.equal(changedCardWage.payroll - after.payroll, 999850);
+    assert.equal(changedCardWage.today.payroll - after.today.payroll, 999850);
     await db.update(serviceSessionsTable).set({ customerCharge: 200, earnings: 150 })
       .where(eq(serviceSessionsTable.id, rows[0].id));
     assert.deepEqual(await getFacilityRevenue(month, date), after);

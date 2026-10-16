@@ -9,6 +9,7 @@
 export interface DailyRevenue {
   date: Date;
   revenue: number;
+  /** Cùng công thức của tháng, chỉ tính giao dịch và ca khách lẻ trong ngày; ca dùng thẻ không thay đổi chỉ tiêu này. */
   netRevenue: number;
   serviceRevenue: number;
   walkInServiceRevenue: number;

@@ -2,10 +2,10 @@ import { sql } from "drizzle-orm";
 import { cardTopUpsTable, db, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
 import { monthBounds, validDate } from "./massage";
 
-/** Card redemptions contribute wages, never another customer payment. */
-function revenueTotals(walkInCharges: number, cardPayments: number, allSessionWages: number) {
+/** Card-session wages remain in payroll but do not change this owner-defined revenue metric. */
+function revenueTotals(walkInCharges: number, cardPayments: number, walkInWages: number) {
   const revenue = walkInCharges + cardPayments;
-  return { revenue, netRevenue: revenue - allSessionWages };
+  return { revenue, netRevenue: revenue - walkInWages };
 }
 
 /** Gross revenue recognizes walk-in service charges and card sales, not card redemptions. */
@@ -43,6 +43,12 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
         and ${serviceSessionsTable.workDate} < ${end}
         and ${serviceSessionsTable.cardId} is null
     ), 0)`,
+    walkInPayroll: sql<number>`coalesce((
+      select sum(${serviceSessionsTable.earnings}) from ${serviceSessionsTable}
+      where ${serviceSessionsTable.workDate} >= ${start}
+        and ${serviceSessionsTable.workDate} < ${end}
+        and ${serviceSessionsTable.cardId} is null
+    ), 0)`,
     payroll: sql<number>`coalesce((
       select sum(${serviceSessionsTable.earnings}) from ${serviceSessionsTable}
       where ${serviceSessionsTable.workDate} >= ${start}
@@ -72,6 +78,9 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
       from ${serviceSessionsTable} where ${serviceSessionsTable.workDate} = ${date}
       and ${serviceSessionsTable.cardId} is null), 0)`,
     dayWalkInServiceRevenue: sql<number>`coalesce((select sum(${serviceSessionsTable.customerCharge})
+      from ${serviceSessionsTable} where ${serviceSessionsTable.workDate} = ${date}
+      and ${serviceSessionsTable.cardId} is null), 0)`,
+    dayWalkInPayroll: sql<number>`coalesce((select sum(${serviceSessionsTable.earnings})
       from ${serviceSessionsTable} where ${serviceSessionsTable.workDate} = ${date}
       and ${serviceSessionsTable.cardId} is null), 0)`,
     dayPayroll: sql<number>`coalesce((select sum(${serviceSessionsTable.earnings})
@@ -106,18 +115,20 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
   const walkInServiceMinutes = Number(row.walkInServiceMinutes);
   const cardRevenue = Number(row.cardRevenue);
   const payroll = Number(row.payroll);
+  const walkInPayroll = Number(row.walkInPayroll);
   const dayServiceRevenue = Number(row.dayServiceRevenue);
   const dayWalkInServiceRevenue = Number(row.dayWalkInServiceRevenue);
   const dayWalkInServiceMinutes = Number(row.dayWalkInServiceMinutes);
   const dayCardRevenue = Number(row.dayCardRevenue);
   const dayPayroll = Number(row.dayPayroll);
+  const dayWalkInPayroll = Number(row.dayWalkInPayroll);
   return {
-    month, ...revenueTotals(walkInServiceRevenue, cardRevenue, payroll),
+    month, ...revenueTotals(walkInServiceRevenue, cardRevenue, walkInPayroll),
     serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, payroll,
     revenueExcludingCardSessions: walkInServiceRevenue + cardRevenue, cardRevenue, cardsSold: Number(row.cardsSold),
     walkInVisits: Number(row.walkInVisits), cardVisits: Number(row.cardVisits),
     today: {
-      date, ...revenueTotals(dayWalkInServiceRevenue, dayCardRevenue, dayPayroll),
+      date, ...revenueTotals(dayWalkInServiceRevenue, dayCardRevenue, dayWalkInPayroll),
       serviceRevenue: dayServiceRevenue,
       walkInServiceRevenue: dayWalkInServiceRevenue,
       walkInServiceMinutes: dayWalkInServiceMinutes,

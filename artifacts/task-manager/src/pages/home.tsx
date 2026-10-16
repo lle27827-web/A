@@ -76,7 +76,7 @@ export default function HomePage() {
               <div><dt>Khách lẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-walk-in-visits">{summary.data?.today.walkInVisits ?? 0} lượt</dd></div>
               <div><dt>Khách thẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-card-visits">{summary.data?.today.cardVisits ?? 0} lượt</dd></div>
             </dl>
-            <p className="hint">Doanh thu đã khấu trừ = tiền dịch vụ khách lẻ + tiền bán, nạp thẻ − tiền công mọi ca (kể cả ca dùng thẻ). Không cộng tiền dịch vụ của lượt dùng thẻ.</p>
+            <p className="hint">Doanh thu đã khấu trừ = tiền dịch vụ khách lẻ + tiền bán, nạp thẻ − tiền công ca khách lẻ. Ca dùng thẻ chỉ ghi tiền công vào lương nhân viên, không làm thay đổi dòng doanh thu này.</p>
           </>
         )}
       </section>

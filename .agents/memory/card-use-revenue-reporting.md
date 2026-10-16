@@ -19,13 +19,13 @@ Card top-ups have both hours and money. Recognize each payment on its own transa
 
 Creating a card matching an active card's customer name, phone and service must credit that existing card and retain its usage and payment history. Compare case/spacing-normalized names/services and phone digits; do not merge different names by removing Vietnamese accents.
 
-Monthly and daily “Doanh thu đã khấu trừ” means walk-in customer charges plus original card sales and top-up cash, minus wages for all active walk-in and card sessions. Redemptions add no revenue, and net amounts may be negative.
+Monthly and daily “Doanh thu đã khấu trừ” means walk-in customer charges plus original card sales and top-up cash, minus wages for walk-in sessions only. Card sessions must not change this metric at all: exclude both their service charges and their wages, but retain their wages in employee payroll. Walk-in losses may produce a negative amount.
 
-**Why:** the user explicitly requested paid top-ups, automatic duplicate-card credits with history, and owner revenue after employee pay without double-counting card usage. The user reiterated that “khấu trừ” means subtracting each service session's employee pay; excluding card-redemption revenue must not exclude the corresponding wages.
+**Why:** the user explicitly chose “Giữ nguyên doanh thu; tiền công ca dùng thẻ chỉ ghi vào lương nhân viên” after reporting that card attendance reduced the metric. This replaces the earlier rule that deducted all session wages. This is the user's custom revenue metric, not profit after all labor costs.
 
 **How to apply:** credit balance and payment history atomically; protect concurrent new-card matches as well as existing-card credits. Exclude archived cards and their payments/wages from active reports. Keep owner-only financial access.
 
-Keep both the original gross “Tổng doanh thu cơ sở” and the separate “Doanh thu đã khấu trừ” rows in monthly and daily reports. Remove only the separate employee-pay rows; keep the wage deduction in net calculations. Settings should open the previous month's revenue history.
+Keep both the original gross “Tổng doanh thu cơ sở” and the separate “Doanh thu đã khấu trừ” rows in monthly and daily reports. Remove only the separate employee-pay rows; keep the walk-in wage deduction in net calculations. Settings should open the previous month's revenue history.
 
 **Why:** the user clarified that both original totals must remain, rather than replacing gross revenue with net revenue; only the payroll display is to be removed.
 

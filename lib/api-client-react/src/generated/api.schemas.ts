@@ -343,6 +343,7 @@ export interface ServiceSessionInput {
 export interface DailyRevenue {
   date: string;
   revenue: number;
+  /** Cùng công thức của tháng, chỉ tính giao dịch và ca khách lẻ trong ngày; ca dùng thẻ không thay đổi chỉ tiêu này. */
   netRevenue: number;
   serviceRevenue: number;
   walkInServiceRevenue: number;
@@ -359,7 +360,7 @@ export interface MassageSummary {
   month: string;
   /** Tổng doanh thu gộp: tiền dịch vụ khách lẻ cộng tiền bán thẻ trong tháng; không cộng lại khi dùng thẻ. */
   revenue: number;
-  /** Doanh thu khách lẻ, bán và nạp thẻ trừ tiền công mọi ca đang hoạt động; không cộng doanh thu khi dùng thẻ. */
+  /** Tiền dịch vụ khách lẻ cộng tiền bán và nạp thẻ trừ tiền công ca khách lẻ. Ca dùng thẻ không thay đổi chỉ tiêu này; tiền công ca thẻ vẫn ghi vào lương nhân viên. */
   netRevenue: number;
   /** Tiền khách lẻ trả theo giá dịch vụ đã lưu ở từng ca; không gồm ca thanh toán bằng thẻ. */
   serviceRevenue: number;

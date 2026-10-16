@@ -694,7 +694,7 @@ export const GetMassageSummaryQueryParams = zod.object({
 export const GetMassageSummaryResponse = zod.object({
   "month": zod.string(),
   "revenue": zod.number().describe('Tổng doanh thu gộp: tiền dịch vụ khách lẻ cộng tiền bán thẻ trong tháng; không cộng lại khi dùng thẻ.'),
-  "netRevenue": zod.number().describe('Doanh thu khách lẻ, bán và nạp thẻ trừ tiền công mọi ca đang hoạt động; không cộng doanh thu khi dùng thẻ.'),
+  "netRevenue": zod.number().describe('Tiền dịch vụ khách lẻ cộng tiền bán và nạp thẻ trừ tiền công ca khách lẻ. Ca dùng thẻ không thay đổi chỉ tiêu này; tiền công ca thẻ vẫn ghi vào lương nhân viên.'),
   "serviceRevenue": zod.number().describe('Tiền khách lẻ trả theo giá dịch vụ đã lưu ở từng ca; không gồm ca thanh toán bằng thẻ.'),
   "walkInServiceRevenue": zod.number().describe('Bí danh tương thích của serviceRevenue; không gồm ca đã dùng thẻ.'),
   "walkInServiceMinutes": zod.number().int().describe('Tổng số phút phục vụ khách lẻ; không gồm ca đã dùng thẻ.'),
@@ -707,7 +707,7 @@ export const GetMassageSummaryResponse = zod.object({
   "today": zod.object({
   "date": zod.coerce.date(),
   "revenue": zod.number(),
-  "netRevenue": zod.number(),
+  "netRevenue": zod.number().describe('Cùng công thức của tháng, chỉ tính giao dịch và ca khách lẻ trong ngày; ca dùng thẻ không thay đổi chỉ tiêu này.'),
   "serviceRevenue": zod.number(),
   "walkInServiceRevenue": zod.number(),
   "walkInServiceMinutes": zod.number().int(),
