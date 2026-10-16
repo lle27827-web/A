@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { monthLastDate, previousRevenueMonth, resolveRevenuePeriod, vietnamToday } from './revenue-period';
+import { monthLastDate, periodHref, previousRevenueMonth, resolveRevenuePeriod, vietnamToday } from './revenue-period';
 
 test('Vietnam business dates and previous month handle midnight and year rollover', () => {
   assert.equal(vietnamToday(new Date('2026-12-31T18:00:00Z')), '2027-01-01');
@@ -27,4 +27,22 @@ test('invalid, future or mismatched inputs never send invalid API dates', () => 
   }
   assert.equal(resolveRevenuePeriod('date=2026-10-17', '2026-10-16').date, '2026-10-16');
   assert.equal(resolveRevenuePeriod('', '2026-10-16').isHistory, false);
+});
+
+test('historical employee links retain month and selected day across navigation and reload', () => {
+  const href = periodHref('/employees/7', '2026-09', '2026-09-10');
+  assert.equal(href, '/employees/7?month=2026-09&date=2026-09-10');
+  const period = resolveRevenuePeriod(href.split('?')[1], '2026-10-16');
+  assert.equal(period.month, '2026-09');
+  assert.equal(period.date, '2026-09-10');
+  assert.equal(periodHref('/employees/7?date=2026-10-01', '2026-09', '2026-09-10'), href.replace('month=2026-09&date=2026-09-10', 'date=2026-09-10&month=2026-09'));
+  assert.equal(periodHref('/employees/7?date=2026-09-02', '2026-09', '2026-09-10'), '/employees/7?date=2026-09-02&month=2026-09');
+  assert.equal(periodHref('/employees', null), '/employees');
+});
+
+test('legacy date-only employee links select historical data instead of today', () => {
+  const period = resolveRevenuePeriod('?date=2025-01-12', '2026-10-16');
+  assert.equal(period.month, '2025-01');
+  assert.equal(period.date, '2025-01-12');
+  assert.equal(period.isHistory, true);
 });

@@ -137,10 +137,9 @@ test("card balance and service payroll stay consistent through edits and concurr
     await assert.rejects(addCardHours(removedCard.id, 60, 0), fails(404));
     await assert.rejects(updateCard(removedCard.id, { customerName: marker }), fails(404));
     await deleteMember(memberId);
-    memberId = undefined;
     const [retained] = await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, first.id));
-    assert.equal(retained, undefined);
-    assert.equal((await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, linkedSession.id))).length, 0);
+    assert.equal(retained?.memberId, memberId);
+    assert.equal((await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, linkedSession.id))).length, 1);
   } finally {
     if (sessions.length) await db.delete(serviceSessionsTable).where(inArray(serviceSessionsTable.id, sessions));
     if (cards.length) await db.delete(treatmentCardsTable).where(inArray(treatmentCardsTable.id, cards));

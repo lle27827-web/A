@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  getListServiceSessionsQueryKey, getListTreatmentCardsQueryKey,
+  getListMembersQueryKey, getListServiceSessionsQueryKey, getListTreatmentCardsQueryKey, useListMembers,
   useCreateServiceSession, useDeleteServiceSession, useDeleteTreatmentCard, useListServiceSessions, useListTreatmentCards,
   useUpdateServiceSession, useUpdateTreatmentCard, useAddTreatmentCardHours,
 } from '@workspace/api-client-react';
-import type { ServiceSession, ServiceSessionInput, TreatmentCard } from '@workspace/api-client-react';
+import type { MemberRecord, ServiceSession, ServiceSessionInput, TreatmentCard } from '@workspace/api-client-react';
 import { ArrowLeft, CreditCard, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Link, useLocation, useParams } from 'wouter';
 import { useShell } from '@/components/app-shell';
@@ -21,7 +21,10 @@ export default function CardDetailPage() {
   const params = useParams<{ id: string }>();
   const n = Number(params.id);
   const id = Number.isInteger(n) && n > 0 ? n : 0;
-  const { canEdit, members, notify, fail, setQuery } = useShell();
+  const { isOwner: canEdit, notify, fail, setQuery } = useShell();
+  // Card data is always current; session member options come from the CURRENT roster, not a history month.
+  const activeMembersQuery = useListMembers(undefined, { query: { queryKey: getListMembersQueryKey(), ...SESSION_FRESHNESS } });
+  const members = useMemo(() => activeMembersQuery.data ?? [], [activeMembersQuery.data]);
   const [, navigate] = useLocation();
   const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), ...SESSION_FRESHNESS } });
   const sessionParams = useMemo(() => ({ cardId: id }), [id]);
@@ -72,6 +75,12 @@ export default function CardDetailPage() {
       confirmLabel: 'Xóa thẻ',
       onConfirm: () => deleteCard.mutate({ id: card.id }, { onSuccess: () => { refresh(); setConfirm(null); notify('Đã xóa thẻ.'); navigate('/cards'); }, onError: (e) => { setConfirm(null); fail(e); } }),
     });
+  }
+
+  function dialogMembers(session: ServiceSession | null): MemberRecord[] {
+    // Old visit by an archived employee: keep its stored employee selectable so editing does not silently reassign.
+    if (!session || session.memberId === null || members.some((m) => m.id === session.memberId)) return members;
+    return [...members, { id: session.memberId, name: `${session.employeeName} (đã nghỉ)`, hourlyRate: session.hourlyRate, createdAt: session.createdAt, deletedAt: session.createdAt }];
   }
 
   const pct = card.totalMinutes ? Math.max(0, Math.min(1, card.remainingMinutes / card.totalMinutes)) : 0;
@@ -160,8 +169,10 @@ export default function CardDetailPage() {
           }} />
       )}
       {sessionDialog && canEdit && (
-        <SessionDialog session={sessionDialog.session} members={members} cards={[card]} defaultDate={localDate()} fixedCardId={card.id}
-          busy={createSession.isPending || updateSession.isPending} serverError={dialogError} onClose={() => setSessionDialog(null)} onSubmit={submitSession} />
+        <SessionDialog session={sessionDialog.session} members={dialogMembers(sessionDialog.session)} cards={[card]} defaultDate={localDate()} fixedCardId={card.id}
+          busy={createSession.isPending || updateSession.isPending || activeMembersQuery.isLoading || activeMembersQuery.isError}
+          serverError={dialogError || (activeMembersQuery.isError ? 'Không tải được danh sách kỹ thuật viên. Hãy đóng cửa sổ và thử lại.' : '')}
+          onClose={() => setSessionDialog(null)} onSubmit={submitSession} />
       )}
       {confirm && <ConfirmDialog state={confirm} busy={deleteCard.isPending || deleteSession.isPending} onClose={() => setConfirm(null)} />}
     </div>

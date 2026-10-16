@@ -18,15 +18,32 @@ export function monthLastDate(month: string): string {
 export function resolveRevenuePeriod(search: string, today: string) {
   const params = new URLSearchParams(search);
   const currentMonth = today.slice(0, 7);
-  const requestedMonth = params.get('month') ?? '';
+  const requestedDate = params.get('date') ?? '';
+  // Date-only employee links predate month navigation and must still open
+  // that date's roster, rather than silently showing today's employee data.
+  const requestedMonth = params.get('month') ?? (/^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate.slice(0, 7) : '');
   const validMonth = /^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(requestedMonth) && requestedMonth <= currentMonth;
   const month = validMonth ? requestedMonth : currentMonth;
   const maxDate = month === currentMonth ? today : monthLastDate(month);
-  const requestedDate = params.get('date') ?? '';
   const validDate = /^\d{4}-\d{2}-(0[1-9]|[12]\d|3[01])$/.test(requestedDate)
     && requestedDate.slice(0, 7) === month && requestedDate <= maxDate;
   return {
     month, date: validDate ? requestedDate : maxDate, maxDate, currentMonth,
     isHistory: validMonth || params.has('date'),
   };
+}
+
+/** Append month (and optional date) query params to a path, keeping any existing query. */
+export function periodHref(path: string, month: string | null, date?: string | null): string {
+  const [base, qs = ''] = path.split('?');
+  const params = new URLSearchParams(qs);
+  if (month) {
+    params.set('month', month);
+    if (params.get('date')?.slice(0, 7) !== month) {
+      if (date && date.slice(0, 7) === month) params.set('date', date);
+      else params.delete('date');
+    }
+  }
+  const s = params.toString();
+  return s ? `${base}?${s}` : base;
 }

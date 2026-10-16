@@ -7,11 +7,13 @@ export const membersTable = pgTable("members", {
   name: varchar("name", { length: 120 }).notNull(),
   hourlyRate: integer("hourly_rate").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const insertMemberSchema = createInsertSchema(membersTable).omit({
   id: true,
   createdAt: true,
+  deletedAt: true,
 });
 
 export type InsertMember = z.infer<typeof insertMemberSchema>;

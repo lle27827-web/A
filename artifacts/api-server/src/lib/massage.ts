@@ -131,11 +131,10 @@ export async function deleteCard(id: number) {
 
 export async function deleteMember(id: number) {
   await db.transaction(async (tx) => {
-    const [member] = await tx.select({ id: membersTable.id }).from(membersTable)
+    const [member] = await tx.select({ id: membersTable.id, deletedAt: membersTable.deletedAt }).from(membersTable)
       .where(eq(membersTable.id, id)).for("update");
     if (!member) throw new MassageError(404, "Không tìm thấy nhân viên.");
-    await tx.delete(serviceSessionsTable).where(eq(serviceSessionsTable.memberId, id));
-    await tx.delete(membersTable).where(eq(membersTable.id, id));
+    if (!member.deletedAt) await tx.update(membersTable).set({ deletedAt: sql`clock_timestamp()` }).where(eq(membersTable.id, id));
   });
 }
 
@@ -167,8 +166,8 @@ export async function saveSession(input: ServiceSessionInput, id?: number) {
       if (lockId === cardId) card = row;
     }
     if (card?.deletedAt) throw new MassageError(404, "Thẻ đã bị xóa, không thể ghi thêm lượt sử dụng.");
-    const [member] = await tx.select().from(membersTable).where(eq(membersTable.id, input.memberId));
-    if (!member) throw new MassageError(404, "Không tìm thấy kỹ thuật viên.");
+    const [member] = await tx.select().from(membersTable).where(eq(membersTable.id, input.memberId)).for("share");
+    if (!member || (member.deletedAt && old?.memberId !== member.id)) throw new MassageError(404, "Không tìm thấy kỹ thuật viên đang hoạt động.");
     const sameEmployee = old?.memberId === member.id;
     const serviceTypeId = input.serviceTypeId ?? null;
     const [service] = serviceTypeId !== null

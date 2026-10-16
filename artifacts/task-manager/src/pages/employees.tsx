@@ -8,10 +8,22 @@ import { MemberDialog } from '@/components/entity-dialogs';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
 import { SessionDialog } from '@/components/session-dialog';
 import { initial, localDate, normalize } from '@/lib/attendance';
-import { errorText, useRefreshMassage } from '@/lib/massage';
+import { errorText, formatMonth, useRefreshMassage } from '@/lib/massage';
+
+export function MemberTags({ member }: { member: MemberRecord }) {
+  const deleted = !!member.deletedAt;
+  const unverified = member.historicalNameSource === 'unverified';
+  if (!deleted && !unverified) return null;
+  return (
+    <span className="name-tags">
+      {deleted && <span className="tag" data-testid={`status-member-deleted-${member.id}`}>Đã ẩn ở hiện tại</span>}
+      {unverified && <span className="tag warn" title="Tên cũ của tháng này chưa được ghi lại; đang hiển thị tên hiện tại." data-testid={`status-member-unverified-${member.id}`}>Tên chưa xác minh</span>}
+    </span>
+  );
+}
 
 export default function EmployeesPage() {
-  const { members, membersLoading, membersError, retryMembers, canEdit, query, notify, fail } = useShell();
+  const { members, membersLoading, membersError, retryMembers, canEdit, query, notify, fail, historyMonth, withHistory } = useShell();
   const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
   const [dialogError, setDialogError] = useState('');
@@ -40,29 +52,29 @@ export default function EmployeesPage() {
     if (!canEdit) return;
     setConfirm({
       title: `Xóa nhân viên ${m.name}?`,
-      body: <p>Xóa {m.name} cũng sẽ xóa toàn bộ ca, lịch sử sử dụng thẻ và lương đã ghi của nhân viên này khỏi báo cáo. Không thể hoàn tác.</p>,
+      body: <p>{m.name} sẽ được ẩn khỏi danh sách nhân viên hiện tại. Các ca phục vụ cũ, giờ đã trừ trên thẻ khách và tiền lương đã ghi vẫn được giữ nguyên, vẫn xem được trong lịch sử từng tháng. Không ca nào bị xóa.</p>,
       confirmLabel: 'Xóa nhân viên',
-      onConfirm: () => del.mutate({ id: m.id }, { onSuccess: () => { refresh({ members: true }); setConfirm(null); notify(`Đã xóa nhân viên ${m.name}.`); }, onError: (e) => { setConfirm(null); fail(e); } }),
+      onConfirm: () => del.mutate({ id: m.id }, { onSuccess: () => { refresh({ members: true }); setConfirm(null); notify(`Đã ẩn ${m.name} khỏi danh sách. Lịch sử ca và lương vẫn được giữ.`); }, onError: (e) => { setConfirm(null); fail(e); } }),
     });
   }
 
   return (
     <section className="panel page" aria-labelledby="emp-title">
-      <Link href="/" className="back" data-testid="link-back"><ArrowLeft size={15} />Trang chính</Link>
+      <Link href={withHistory('/')} className="back" data-testid="link-back"><ArrowLeft size={15} />Trang chính</Link>
       <div className="panel-head wrap">
-        <div><h1 id="emp-title" className="page-title">Quản lý nhân viên</h1><p className="sub">{members.length} nhân viên</p></div>
+        <div><h1 id="emp-title" className="page-title">Quản lý nhân viên</h1><p className="sub">{members.length} nhân viên{historyMonth ? ` · ${formatMonth(historyMonth).toLowerCase()}` : ''}</p></div>
         {canEdit && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setOpen(true); }} data-testid="button-add-member"><Plus size={15} />Thêm nhân viên</button>}
       </div>
       {membersLoading ? <Skeleton rows={5} label="Đang tải nhân viên" /> : membersError ? <ErrorBanner text="Không tải được danh sách nhân viên." onRetry={retryMembers} /> : list.length === 0 ? (
-        <div className="empty"><Users size={22} /><p>{members.length ? 'Không có nhân viên khớp tìm kiếm.' : 'Chưa có nhân viên nào.'}</p>
+        <div className="empty"><Users size={22} /><p>{members.length ? 'Không có nhân viên khớp tìm kiếm.' : historyMonth ? `Không có nhân viên nào trong ${formatMonth(historyMonth).toLowerCase()}.` : 'Chưa có nhân viên nào.'}</p>{historyMonth && !members.length && <Link href="/employees" className="btn" data-testid="link-empty-current">Về danh sách hiện tại</Link>}
           {canEdit && !members.length && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setOpen(true); }}><Plus size={15} />Thêm nhân viên đầu tiên</button>}</div>
       ) : (
         <ul className="emp-list">
           {list.map((m) => (
             <li key={m.id} className="emp-item">
-              <button type="button" className="emp-row as-row" onClick={() => setChoice(m)} aria-haspopup="dialog" data-testid={`button-employee-${m.id}`}>
+              <button type="button" className="emp-row as-row" onClick={() => { if (historyMonth) navigate(withHistory(`/employees/${m.id}`)); else setChoice(m); }} aria-haspopup="dialog" data-testid={`button-employee-${m.id}`}>
                 <span className="initials big">{initial(m.name)}</span>
-                <span className="grow"><strong>{m.name}</strong><span className="muted">Chấm công · Chi tiết</span></span>
+                <span className="grow"><strong>{m.name}<MemberTags member={m} /></strong><span className="muted">{historyMonth ? 'Lương, lịch sử ca trong tháng' : 'Chấm công · Chi tiết'}</span></span>
                 <ChevronRight size={18} />
               </button>
               {canEdit && <button type="button" className="icon-btn danger" disabled={del.isPending} onClick={() => askDelete(m)} aria-label={`Xóa nhân viên ${m.name}`} data-testid={`button-delete-member-${m.id}`}><Trash2 size={15} /></button>}
@@ -77,7 +89,7 @@ export default function EmployeesPage() {
               onClick={() => { if (!canEdit) return; setDialogError(''); setQuickDate(localDate()); setQuick(choice); setChoice(null); }} data-testid="button-choice-attendance">
               <ClipboardCheck size={18} /><span className="grow"><strong>Chấm công</strong><span className="muted">Hôm nay</span></span><ChevronRight size={16} />
             </button>
-            <button type="button" className="choice-row" onClick={() => { const id = choice.id; setChoice(null); navigate(`/employees/${id}`); }} data-testid="button-choice-detail">
+            <button type="button" className="choice-row" onClick={() => { const id = choice.id; setChoice(null); navigate(withHistory(`/employees/${id}`)); }} data-testid="button-choice-detail">
               <Eye size={18} /><span className="grow"><strong>Xem chi tiết</strong><span className="muted">Lương, lịch sử ca</span></span><ChevronRight size={16} />
             </button>
           </div>

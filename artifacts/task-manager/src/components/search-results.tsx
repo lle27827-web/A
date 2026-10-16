@@ -4,8 +4,8 @@ import { ArrowRight, CreditCard, Search, X } from 'lucide-react';
 import { Link } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { ErrorBanner, Skeleton } from '@/components/modal';
-import { formatShortDate, initial, localDate, normalize } from '@/lib/attendance';
-import { SESSION_FRESHNESS, cardMatches, formatMinutes, formatMonth, monthOf } from '@/lib/massage';
+import { formatShortDate, initial, normalize } from '@/lib/attendance';
+import { SESSION_FRESHNESS, cardMatches, formatMinutes, formatMonth } from '@/lib/massage';
 
 /** Shared global search results, rendered first in AppShell main whenever the shared query is non-empty. */
 export function SearchResults() {
@@ -13,7 +13,8 @@ export function SearchResults() {
   const { query, setQuery, members, membersLoading, membersError, retryMembers, hasManageAccess, employeeMode } = shell;
   const raw = query.trim();
   const searching = raw.length > 0;
-  const month = monthOf(localDate());
+  const month = shell.period.month;
+  const { withHistory } = shell;
   const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), enabled: searching && hasManageAccess, refetchOnWindowFocus: true } });
   const sessionParams = useMemo(() => ({ month }), [month]);
   const sessionsQuery = useListServiceSessions(sessionParams, { query: { queryKey: getListServiceSessionsQueryKey(sessionParams), enabled: searching && hasManageAccess, ...SESSION_FRESHNESS } });
@@ -44,7 +45,7 @@ export function SearchResults() {
       <div key="members">
         <h3 className="group-title">Nhân viên</h3>
         {membersLoading ? <Skeleton rows={2} label="Đang tải nhân viên" /> : membersError ? <ErrorBanner text="Không tải được nhân viên." onRetry={retryMembers} /> : memberHits.length === 0 ? <p className="muted small">Không có nhân viên khớp.</p> : (
-          <ul className="hit-list">{memberHits.map((m) => <li key={m.id}><Link href={`/employees/${m.id}`} onClick={leave} className="hit" data-testid={`link-search-member-${m.id}`}><span className="initials">{initial(m.name)}</span><span className="grow">{m.name}</span><ArrowRight size={14} /></Link></li>)}</ul>
+          <ul className="hit-list">{memberHits.map((m) => <li key={m.id}><Link href={withHistory(`/employees/${m.id}`)} onClick={leave} className="hit" data-testid={`link-search-member-${m.id}`}><span className="initials">{initial(m.name)}</span><span className="grow">{m.name}</span><ArrowRight size={14} /></Link></li>)}</ul>
         )}
       </div>
     ) },
@@ -55,7 +56,7 @@ export function SearchResults() {
           <ul className="hit-list">{sessionHits.slice(0, 40).map((s) => (
             <li key={s.id}>
               {s.memberId !== null ? (
-                <Link href={`/employees/${s.memberId}?date=${s.workDate}`} onClick={leave} className="hit" data-testid={`link-search-session-${s.id}`}><span className="mono">{formatShortDate(s.workDate)}</span><span className="grow">{s.employeeName} · {s.customerName || 'Khách lẻ'} · {s.serviceType}</span><span className="mono">{formatMinutes(s.minutes)}</span></Link>
+                <Link href={withHistory(`/employees/${s.memberId}?date=${s.workDate}`)} onClick={leave} className="hit" data-testid={`link-search-session-${s.id}`}><span className="mono">{formatShortDate(s.workDate)}</span><span className="grow">{s.employeeName} · {s.customerName || 'Khách lẻ'} · {s.serviceType}</span><span className="mono">{formatMinutes(s.minutes)}</span></Link>
               ) : <div className="hit"><span className="mono">{formatShortDate(s.workDate)}</span><span className="grow">{s.employeeName} (đã xóa) · {s.customerName || 'Khách lẻ'} · {s.serviceType}</span><span className="mono">{formatMinutes(s.minutes)}</span></div>}
             </li>
           ))}</ul>

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { ClerkProvider, useAuth, useClerk } from '@clerk/react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { Route, Switch, Router as WouterRouter, Redirect, useLocation } from 'wouter';
+import { Route, Switch, Router as WouterRouter, Redirect, useLocation, useSearch } from 'wouter';
 import { getGetAuthStatusQueryKey, useGetAuthStatus } from '@workspace/api-client-react';
 import { AppShell, useShell } from '@/components/app-shell';
 import { EmployeeDetail } from '@/components/employee-detail';
@@ -31,6 +31,17 @@ function stripBase(path: string): string {
 function EmployeeModeView() {
   const { prefs } = useShell();
   return <EmployeeDetail key={prefs.employeeId ?? 0} memberId={prefs.employeeId} readOnly />;
+}
+
+function GuestEmployeesRedirect() {
+  const search = useSearch();
+  const month = new URLSearchParams(search).get('month');
+  const date = new URLSearchParams(search).get('date');
+  const qs = new URLSearchParams();
+  if (month) qs.set('month', month);
+  if (date) qs.set('date', date);
+  const s = qs.toString();
+  return <Redirect to={s ? `/employees?${s}` : '/employees'} replace />;
 }
 
 function ClerkQueryClientCacheInvalidator() {
@@ -100,7 +111,7 @@ function RoleApplication({
               <Route path="/employees" component={EmployeesPage} />
               <Route path="/employees/:id" component={EmployeePage} />
               <Route path="/">
-                <Redirect to="/employees" replace />
+                <GuestEmployeesRedirect />
               </Route>
               <Route>
                 <Redirect to="/employees" replace />

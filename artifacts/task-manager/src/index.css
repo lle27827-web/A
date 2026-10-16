@@ -470,3 +470,11 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   .date-picker-option > span:first-child { gap: 8px; }
   .employee-management-actions .btn { flex: 1; }
 }
+
+/* ---- history month mode ---- */
+.history-banner { flex-wrap: wrap; }
+.history-banner .history-month { margin-left: auto; }
+.history-banner input[type="month"] { min-height: 30px; padding: 0 8px; border: 1px solid hsl(var(--border)); border-radius: 7px; background: hsl(var(--card)); color: hsl(var(--foreground)); color-scheme: dark; font-size: 12px; }
+.tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 99px; border: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground)); font-size: 11px; font-weight: 700; white-space: nowrap; }
+.tag.warn { border-color: hsl(var(--warn) / .5); color: hsl(var(--warn)); }
+.name-tags { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-left: 6px; vertical-align: middle; }

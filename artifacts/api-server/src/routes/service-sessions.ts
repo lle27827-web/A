@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
-import { db, membersTable, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
+import { db, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
 import {
   CreateServiceSessionBody, CreateServiceSessionResponse, DeleteServiceSessionParams,
   GetMassageSummaryQueryParams, GetMassageSummaryResponse, GetMemberPayrollQueryParams, GetMemberPayrollResponse,
@@ -10,6 +10,7 @@ import {
 import { deleteSession, MassageError, monthBounds, saveSession, sessionResponse, validDate } from "../lib/massage";
 import { massageHandler, parseInput } from "./massage-errors";
 import { getFacilityRevenue } from "../lib/facility-revenue";
+import { listMembersForPeriod } from "../lib/employee-history";
 
 const router: IRouter = Router();
 router.get("/service-sessions", massageHandler(async (req, res) => {
@@ -49,7 +50,7 @@ router.get("/massage-summary", massageHandler(async (req, res) => {
 router.get("/member-payroll", massageHandler(async (req, res) => {
   const { memberId, month } = parseInput(GetMemberPayrollQueryParams, req.query);
   const { start, end } = monthBounds(month);
-  const [member] = await db.select().from(membersTable).where(eq(membersTable.id, memberId));
+  const [member] = await listMembersForPeriod(month, memberId);
   if (!member) throw new MassageError(404, "Không tìm thấy nhân viên.");
   const [row] = await db.select({
     minutes: sql<number>`coalesce(sum(${serviceSessionsTable.minutes}), 0)`,
@@ -61,7 +62,7 @@ router.get("/member-payroll", massageHandler(async (req, res) => {
         and ${treatmentCardsTable.deletedAt} is null
     ))`));
   res.json(GetMemberPayrollResponse.parse({
-    month, member: { ...member, createdAt: member.createdAt.toISOString() },
+    month, member,
     totalMinutes: Number(row.minutes), totalSalary: Number(row.salary),
   }));
 }));

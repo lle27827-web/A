@@ -96,6 +96,11 @@ paths:
       operationId: listMembers
       tags: [members]
       summary: Xem danh sách thành viên
+      parameters:
+        - in: query
+          name: month
+          description: Tháng lịch sử; bỏ trống để xem danh sách nhân viên hiện tại.
+          schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
       responses:
         "200":
           description: Danh sách thành viên
@@ -557,6 +562,13 @@ components:
         createdAt:
           type: string
           format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+        historicalNameSource:
+          type: string
+          enum: [version, session, unverified]
       required: [id, name, hourlyRate, createdAt]
     MemberInput:
       type: object

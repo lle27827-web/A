@@ -31,6 +31,7 @@ import type {
   GetMemberPayrollParams,
   HealthStatus,
   ListAttendanceParams,
+  ListMembersParams,
   ListServiceSessionsParams,
   MassageSummary,
   MemberInput,
@@ -532,20 +533,27 @@ export function useGetAuthStatus<TData = Awaited<ReturnType<typeof getAuthStatus
 
 
 
-export const getListMembersUrl = () => {
+export const getListMembersUrl = (params?: ListMembersParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/members`
+  return stringifiedParams.length > 0 ? `/api/members?${stringifiedParams}` : `/api/members`
 }
 
 /**
  * @summary Xem danh sách thành viên
  */
-export const listMembers = async ( options?: Parameters<typeof customFetch>[1]): Promise<MemberRecord[]> => {
+export const listMembers = async (params?: ListMembersParams, options?: Parameters<typeof customFetch>[1]): Promise<MemberRecord[]> => {
 
-  return customFetch<MemberRecord[]>(getListMembersUrl(),
+  return customFetch<MemberRecord[]>(getListMembersUrl(params),
   {
     ...options,
     method: 'GET'
@@ -558,23 +566,23 @@ export const listMembers = async ( options?: Parameters<typeof customFetch>[1]):
 
 
 
-export const getListMembersQueryKey = () => {
+export const getListMembersQueryKey = (params?: ListMembersParams,) => {
     return [
-    `/api/members`
+    `/api/members`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListMembersQueryOptions = <TData = Awaited<ReturnType<typeof listMembers>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListMembersQueryOptions = <TData = Awaited<ReturnType<typeof listMembers>>, TError = ErrorType<unknown>>(params?: ListMembersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListMembersQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListMembersQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMembers>>> = ({ signal }) => listMembers({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMembers>>> = ({ signal }) => listMembers(params, { signal, ...requestOptions });
 
 
 
@@ -592,11 +600,11 @@ export type ListMembersQueryError = ErrorType<unknown>
  */
 
 export function useListMembers<TData = Awaited<ReturnType<typeof listMembers>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: ListMembersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListMembersQueryOptions(options)
+  const queryOptions = getListMembersQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

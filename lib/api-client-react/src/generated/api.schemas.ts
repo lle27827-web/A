@@ -116,12 +116,23 @@ export interface AttendanceSummary {
   checkedOut: number;
 }
 
+export type MemberRecordHistoricalNameSource = typeof MemberRecordHistoricalNameSource[keyof typeof MemberRecordHistoricalNameSource];
+
+
+export const MemberRecordHistoricalNameSource = {
+  version: 'version',
+  session: 'session',
+  unverified: 'unverified',
+} as const;
+
 export interface MemberRecord {
   id: number;
   name: string;
   /** @minimum 0 */
   hourlyRate: number;
   createdAt: string;
+  deletedAt?: string | null;
+  historicalNameSource?: MemberRecordHistoricalNameSource;
 }
 
 export interface MemberInput {
@@ -376,6 +387,14 @@ export interface MemberPayroll {
   totalMinutes: number;
   totalSalary: number;
 }
+
+export type ListMembersParams = {
+/**
+ * Tháng lịch sử; bỏ trống để xem danh sách nhân viên hiện tại.
+ * @pattern ^\d{4}-(0[1-9]|1[0-2])$
+ */
+month?: string;
+};
 
 export type ListAttendanceParams = {
 /**

@@ -1,14 +1,23 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useListMembers } from '@workspace/api-client-react';
+import { getListMembersQueryKey, useListMembers } from '@workspace/api-client-react';
 import type { MemberRecord } from '@workspace/api-client-react';
-import { AlertCircle, ArrowLeft, Check, Hand, Home, Search, X } from 'lucide-react';
-import { Link, useLocation } from 'wouter';
+import { AlertCircle, ArrowLeft, Check, Hand, History, Home, Search, X } from 'lucide-react';
+import { Link, useLocation, useSearch } from 'wouter';
 import { SearchResults } from '@/components/search-results';
 import { ViewSettings, useViewPrefs, type ViewPrefs } from '@/components/view-settings';
-import { errorText } from '@/lib/massage';
+import { errorText, formatMonth, SESSION_FRESHNESS } from '@/lib/massage';
+import { periodHref, resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
 
 type ShellCtx = {
+  /** Owner AND not viewing a historical month. */
   canEdit: boolean;
+  isOwner: boolean;
+  /** YYYY-MM when viewing a past month read-only, else null. */
+  historyMonth: string | null;
+  selectedHistoryDate: string | null;
+  /** Month/date currently selected (current month when not in history). */
+  period: { month: string; date: string; currentMonth: string; today: string };
+  withHistory: (path: string) => string;
   hasManageAccess: boolean;
   employeeMode: boolean;
   prefs: ViewPrefs;
@@ -52,7 +61,16 @@ export function AppShell({
   const [location, navigate] = useLocation();
   const [prefs, setPrefs] = useViewPrefs();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const membersQuery = useListMembers();
+  const search = useSearch();
+  const today = useMemo(() => vietnamToday(), []);
+  const resolved = resolveRevenuePeriod(search, today);
+  const historyMonth = resolved.month < resolved.currentMonth ? resolved.month : null;
+  const selectedHistoryDate = historyMonth ? resolved.date : null;
+  const withHistory = (path: string) => periodHref(path, historyMonth, selectedHistoryDate);
+  const memberParams = useMemo(() => (historyMonth ? { month: historyMonth } : undefined), [historyMonth]);
+  const membersQuery = useListMembers(memberParams, { query: { queryKey: getListMembersQueryKey(memberParams), ...SESSION_FRESHNESS } });
+  const fullLocation = search ? `${location}?${search}` : location;
+  const employeeRoute = /^\/employees(?:\/|$)/.test(location);
   const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
   const [query, setQuery] = useState('');
   const [notice, setNotice] = useState('');
@@ -60,28 +78,31 @@ export function AppShell({
   const showResults = query.trim().length > 0;
   const employeeMode = isOwner && prefs.mode === 'employee';
 
-  const lastLocation = useRef(location);
-  const routeHistory = useRef<string[]>([location]);
+  const lastLocation = useRef(fullLocation);
+  const lastPath = useRef(location);
+  const routeHistory = useRef<string[]>([fullLocation]);
   useEffect(() => {
-    if (lastLocation.current === location) return;
-    const existingIndex = routeHistory.current.lastIndexOf(location);
+    if (lastLocation.current === fullLocation) return;
+    const existingIndex = routeHistory.current.lastIndexOf(fullLocation);
     if (existingIndex >= 0) routeHistory.current.length = existingIndex + 1;
-    else routeHistory.current.push(location);
-    lastLocation.current = location;
+    else routeHistory.current.push(fullLocation);
+    lastLocation.current = fullLocation;
+    if (lastPath.current === location) return;
+    lastPath.current = location;
     if (location === '/' || location === '/attendance') setQuery('');
     requestAnimationFrame(() => {
       const main = document.getElementById('main');
       const target = main?.querySelector<HTMLElement>('h1, h2') ?? main;
       target?.focus({ preventScroll: false });
     });
-  }, [location]);
+  }, [fullLocation, location]);
 
   function goBack() {
     setQuery('');
     if (routeHistory.current.length > 1) {
       routeHistory.current.pop();
       navigate(routeHistory.current[routeHistory.current.length - 1], { replace: true });
-    } else navigate('/', { replace: true });
+    } else navigate(withHistory('/'), { replace: true });
   }
   function applyView(next: ViewPrefs) {
     setNotice('');
@@ -91,7 +112,12 @@ export function AppShell({
   }
 
   const ctx: ShellCtx = {
-    canEdit: isOwner,
+    canEdit: isOwner && !historyMonth,
+    isOwner,
+    historyMonth,
+    selectedHistoryDate,
+    period: { month: resolved.month, date: resolved.date, currentMonth: resolved.currentMonth, today },
+    withHistory,
     hasManageAccess: isOwner,
     employeeMode,
     prefs,
@@ -113,7 +139,7 @@ export function AppShell({
       <div className="app">
         <header className="topbar">
           <div className="topbar-inner">
-            <Link href="/" onClick={() => setQuery('')} className="brand" data-testid="link-home">
+            <Link href={withHistory('/')} onClick={() => setQuery('')} className="brand" data-testid="link-home">
               <span className="brand-mark"><Hand size={15} strokeWidth={2.4} /></span><span>SỔ CÔNG</span>
             </Link>
             <form role="search" className="search" onSubmit={(event) => event.preventDefault()}>
@@ -158,13 +184,25 @@ export function AppShell({
           {authStatusMessage && <div className="banner danger" role="status">{authStatusMessage}</div>}
           {location !== '/' && location !== '/attendance' && !showResults && (
             <nav className="screen-nav" aria-label="Điều hướng trang">
-              <Link href="/" onClick={() => setQuery('')} className="btn ghost" data-testid="link-return-home">
+              <Link href={withHistory('/')} onClick={() => setQuery('')} className="btn ghost" data-testid="link-return-home">
                 <Home size={15} aria-hidden="true" />Trở về trang chính
               </Link>
               <button type="button" className="btn ghost" onClick={goBack} data-testid="button-return-previous">
                 <ArrowLeft size={15} aria-hidden="true" />Trở về
               </button>
             </nav>
+          )}
+          {historyMonth && employeeRoute && (
+            <div className="banner soft history-banner" role="status" data-testid="status-history-mode">
+              <History size={15} aria-hidden="true" />
+              <span><strong>Lịch sử {formatMonth(historyMonth).toLowerCase()}</strong> · chỉ xem, không thể thêm, sửa hay xóa.</span>
+              <label className="history-month">
+                <span className="sr-only">Chọn tháng lịch sử</span>
+                <input type="month" value={historyMonth} max={resolved.currentMonth} data-testid="input-history-month"
+                  onChange={(e) => { const v = e.target.value; if (!v) return; navigate(v >= resolved.currentMonth ? location : `${location}?month=${v}`); }} />
+              </label>
+              <Link href={location} className="link-strong" data-testid="link-exit-history">Về dữ liệu hiện tại</Link>
+            </div>
           )}
           {showResults && <SearchResults />}
           {error && <div className="banner danger" role="alert" data-testid="status-mutation-error">

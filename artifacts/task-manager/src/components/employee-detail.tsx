@@ -13,18 +13,17 @@ import { ConfirmDialog, ErrorBanner, Skeleton, type ConfirmState } from '@/compo
 import { DatePickerDialog } from '@/components/date-picker-dialog';
 import { SessionDialog } from '@/components/session-dialog';
 import { SessionTable } from '@/components/session-table';
-import { formatDate, formatShortDate, localDate } from '@/lib/attendance';
+import { formatDate, formatShortDate } from '@/lib/attendance';
+import { MemberTags } from '@/pages/employees';
 import { SESSION_FRESHNESS, errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth, useRefreshMassage } from '@/lib/massage';
 
-export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: number | null; readOnly: boolean; initialDate?: string | null }) {
+export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null; readOnly: boolean }) {
   const shell = useShell();
   const { members, membersLoading, membersError, retryMembers, notify, fail } = shell;
   const canEdit = shell.canEdit && !readOnly;
-  const [, navigate] = useLocation();
-  const today = localDate();
-  const validInitial = initialDate && /^\d{4}-\d{2}-\d{2}$/.test(initialDate) ? initialDate : null;
-  const [month, setMonth] = useState(monthOf(validInitial ?? today));
-  const [day, setDay] = useState(validInitial ?? today);
+  const [location, navigate] = useLocation();
+  const { historyMonth, withHistory } = shell;
+  const { month, date: day, currentMonth, today } = shell.period;
   const [sessionDialog, setSessionDialog] = useState<{ session: ServiceSession | null } | null>(null);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [memberDialog, setMemberDialog] = useState(false);
@@ -58,14 +57,18 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
   }, [daySessions]);
   const dayEarnings = daySessions.reduce((a, s) => a + s.earnings, 0);
 
-  function changeMonth(next: string) {
-    setMonth(next);
-    setDay(next === monthOf(today) ? today : `${next}-01`);
+  // Month/day live in the URL so history survives reload, back and direct links.
+  function goPeriod(nextMonth: string, nextDay?: string) {
+    if (nextMonth >= currentMonth) {
+      navigate(nextDay && nextDay < today && monthOf(nextDay) === currentMonth ? `${location}?date=${nextDay}` : location);
+    } else {
+      navigate(`${location}?month=${nextMonth}${nextDay && monthOf(nextDay) === nextMonth ? `&date=${nextDay}` : ''}`);
+    }
   }
+  function changeMonth(next: string) { goPeriod(next); }
   function chooseDay(next: string) {
-    setMonth(monthOf(next));
-    setDay(next);
     setDatePickerOpen(false);
+    goPeriod(monthOf(next), next);
   }
 
   function submitSession(input: ServiceSessionInput) {
@@ -91,14 +94,14 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
     if (!canEdit || !member) return;
     setConfirm({
       title: `Xóa nhân viên ${member.name}?`,
-      body: <p>Nhân viên sẽ bị gỡ khỏi danh sách. Toàn bộ ca phục vụ, lương đã lưu và chấm công cũ của {member.name} vẫn được giữ trong dữ liệu và hiển thị là “đã xóa”. Không thể hoàn tác.</p>,
+      body: <p>{member.name} sẽ được ẩn khỏi danh sách nhân viên hiện tại. Các ca phục vụ cũ, giờ đã trừ trên thẻ khách và tiền lương đã ghi vẫn được giữ nguyên, vẫn xem được trong lịch sử từng tháng. Không ca nào bị xóa.</p>,
       confirmLabel: 'Xóa nhân viên',
       onConfirm: () => deleteMember.mutate({ id: member.id }, { onSuccess: () => { refresh({ members: true }); setConfirm(null); notify(`Đã xóa ${member.name}. Lịch sử phục vụ vẫn được giữ.`); navigate('/employees'); }, onError: (e) => { setConfirm(null); fail(e); } }),
     });
   }
 
   const back = readOnly
-    ? <button type="button" className="back as-button" onClick={() => { shell.setView({ mode: 'owner', employeeId: shell.prefs.employeeId }); navigate('/employees'); }} data-testid="link-back"><ArrowLeft size={15} />Trở về</button>
+    ? <button type="button" className="back as-button" onClick={() => { shell.setView({ mode: 'owner', employeeId: shell.prefs.employeeId }); navigate(withHistory('/employees')); }} data-testid="link-back"><ArrowLeft size={15} />Trở về</button>
     : null;
 
   if (memberId === null) {
@@ -107,7 +110,13 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
   if (membersLoading) return <section className="panel page">{back}<Skeleton rows={6} label="Đang tải nhân viên" /></section>;
   if (membersError) return <section className="panel page">{back}<ErrorBanner text="Không tải được thông tin nhân viên." onRetry={retryMembers} /></section>;
   if (!member) {
-    return <section className="panel page">{back}<div className="empty"><UserX size={22} /><p>Nhân viên này không tồn tại hoặc đã bị xóa.</p>{readOnly ? <button type="button" className="btn" onClick={shell.openSettings}>Chọn nhân viên khác</button> : <Link href="/employees" className="btn">Về danh sách</Link>}</div></section>;
+    return <section className="panel page">{back}<div className="empty"><UserX size={22} /><p>{historyMonth ? `Không có dữ liệu của nhân viên này trong ${formatMonth(historyMonth).toLowerCase()}.` : 'Nhân viên này không tồn tại hoặc đã bị xóa.'}</p>
+      {readOnly ? <button type="button" className="btn" onClick={shell.openSettings}>Chọn nhân viên khác</button> : (
+        <div className="head-actions">
+          <Link href={withHistory('/employees')} className="btn" data-testid="link-empty-roster">Về danh sách{historyMonth ? ' tháng này' : ''}</Link>
+          {historyMonth && <Link href={`/employees/${memberId}`} className="btn ghost" data-testid="link-empty-current">Xem dữ liệu hiện tại</Link>}
+        </div>
+      )}</div></section>;
   }
 
   const p = payroll.data;
@@ -142,10 +151,13 @@ export function EmployeeDetail({ memberId, readOnly, initialDate }: { memberId: 
       <section className="salary-hero compact" aria-labelledby="salary-title" data-testid="section-salary">
         <div className="month-nav">
           <button type="button" className="icon-btn" onClick={() => changeMonth(shiftMonth(month, -1))} aria-label="Tháng trước" data-testid="button-prev-month"><ChevronLeft size={16} /></button>
-          <h1 id="salary-title" className="salary-label">Tổng lương {formatMonth(month).toLowerCase()} · <span data-testid="text-member-name">{member.name}</span></h1>
-          <button type="button" className="icon-btn" onClick={() => changeMonth(shiftMonth(month, 1))} aria-label="Tháng sau" data-testid="button-next-month"><ChevronRight size={16} /></button>
-          {month !== monthOf(today) && <button type="button" className="link-soft as-button" onClick={() => changeMonth(monthOf(today))}>Tháng này</button>}
+          <h1 id="salary-title" className="salary-label">Tổng lương {formatMonth(month).toLowerCase()} · <span data-testid="text-member-name">{member.name}</span><MemberTags member={member} /></h1>
+          <button type="button" className="icon-btn" disabled={month >= currentMonth} onClick={() => changeMonth(shiftMonth(month, 1))} aria-label="Tháng sau" data-testid="button-next-month"><ChevronRight size={16} /></button>
+          {month !== currentMonth && <button type="button" className="link-soft as-button" onClick={() => changeMonth(currentMonth)} data-testid="button-current-month">Tháng này</button>}
         </div>
+        {historyMonth && member.historicalNameSource === 'unverified' && (
+          <p className="hint warn" role="note" data-testid="text-name-unverified">Tên trong tháng này chưa được ghi lại; đang hiển thị tên hiện tại, có thể khác tên lúc đó.</p>
+        )}
         {payroll.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải lương" /> : payroll.isError ? <ErrorBanner text="Không tải được lương." onRetry={() => void payroll.refetch()} /> : (
           <p className="rev-value mono" data-testid="text-total-salary">{formatVnd(p?.totalSalary ?? 0)}</p>
         )}

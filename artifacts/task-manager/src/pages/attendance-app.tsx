@@ -45,7 +45,7 @@ export default function AttendanceApp() {
   const employeeMode = prefs.mode === 'employee';
   const canEdit = prefs.mode === 'owner';
 
-  const membersQuery = useListMembers({ query: { queryKey: getListMembersQueryKey() } });
+  const membersQuery = useListMembers(undefined, { query: { queryKey: getListMembersQueryKey() } });
   const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
 
   const dayParams = useMemo<ListAttendanceParams>(() => (statusFilter ? { date, status: statusFilter } : { date }), [date, statusFilter]);

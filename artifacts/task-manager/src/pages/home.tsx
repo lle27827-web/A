@@ -10,7 +10,7 @@ import { resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
 import './revenue-history.css';
 
 export default function HomePage() {
-  const { query } = useShell();
+  const { query, withHistory } = useShell();
   const today = useMemo(() => vietnamToday(), []);
   const search = useSearch();
   const [, navigate] = useLocation();
@@ -25,7 +25,7 @@ export default function HomePage() {
   return (
     <div className="home">
       <div className="tiles">
-        <Link href="/employees" className="tile" data-testid="link-employees">
+        <Link href={withHistory('/employees')} className="tile" data-testid="link-employees">
           <Users size={28} aria-hidden="true" />
           <span className="tile-kicker">Kỹ thuật viên · lương theo giờ phục vụ</span>
           <strong>Quản lý nhân viên</strong>

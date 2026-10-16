@@ -103,6 +103,13 @@ export const GetAuthStatusResponse = zod.object({
 /**
  * @summary Xem danh sách thành viên
  */
+export const listMembersQueryMonthRegExp = new RegExp('^\\d{4}-(0[1-9]|1[0-2])$');
+
+
+export const ListMembersQueryParams = zod.object({
+  "month": zod.coerce.string().regex(listMembersQueryMonthRegExp).optional().describe('Tháng lịch sử; bỏ trống để xem danh sách nhân viên hiện tại.')
+})
+
 export const listMembersResponseHourlyRateMin = 0;
 
 
@@ -111,7 +118,9 @@ export const ListMembersResponseItem = zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
   "hourlyRate": zod.number().int().min(listMembersResponseHourlyRateMin),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "deletedAt": zod.coerce.date().nullish(),
+  "historicalNameSource": zod.enum(['version', 'session', 'unverified']).optional()
 })
 export const ListMembersResponse = zod.array(ListMembersResponseItem)
 
@@ -139,7 +148,9 @@ export const CreateMemberResponse = zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
   "hourlyRate": zod.number().int().min(createMemberResponseHourlyRateMin),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "deletedAt": zod.coerce.date().nullish(),
+  "historicalNameSource": zod.enum(['version', 'session', 'unverified']).optional()
 })
 
 
@@ -170,7 +181,9 @@ export const UpdateMemberResponse = zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
   "hourlyRate": zod.number().int().min(updateMemberResponseHourlyRateMin),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "deletedAt": zod.coerce.date().nullish(),
+  "historicalNameSource": zod.enum(['version', 'session', 'unverified']).optional()
 })
 
 
@@ -726,7 +739,9 @@ export const GetMemberPayrollResponse = zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
   "hourlyRate": zod.number().int().min(getMemberPayrollResponseMemberHourlyRateMin),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "deletedAt": zod.coerce.date().nullish(),
+  "historicalNameSource": zod.enum(['version', 'session', 'unverified']).optional()
 }),
   "month": zod.string(),
   "totalMinutes": zod.number(),

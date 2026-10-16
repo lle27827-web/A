@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, asc, count, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import {
   CreateAttendanceBody,
   CreateAttendanceResponse,
@@ -130,7 +130,7 @@ router.post("/attendance", async (req, res): Promise<void> => {
     return;
   }
   const [member] = await db.select().from(membersTable)
-    .where(eq(membersTable.id, values.memberId)).limit(1);
+    .where(and(eq(membersTable.id, values.memberId), isNull(membersTable.deletedAt))).limit(1);
   if (!member) {
     res.status(400).json({ error: "Không tìm thấy thành viên được chọn." });
     return;
@@ -163,7 +163,7 @@ router.patch("/attendance/:id", async (req, res): Promise<void> => {
     update.memberId = memberId;
     if (memberId !== null) {
       const [member] = await db.select().from(membersTable)
-        .where(eq(membersTable.id, memberId)).limit(1);
+        .where(and(eq(membersTable.id, memberId), isNull(membersTable.deletedAt))).limit(1);
       if (!member) {
         res.status(400).json({ error: "Không tìm thấy thành viên được chọn." });
         return;

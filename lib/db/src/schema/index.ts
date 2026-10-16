@@ -19,6 +19,7 @@
 
 export * from "./tasks";
 export * from "./members";
+export * from "./member-versions";
 export * from "./attendance";
 export * from "./treatment-cards";
 export * from "./card-topups";

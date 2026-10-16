@@ -11,7 +11,8 @@
     "test:auth": "esbuild src/lib/owner-auth.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-auth-tests.cjs && node --test /tmp/so-cong-auth-tests.cjs",
     "test:massage": "esbuild src/lib/massage.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/cung-lam-massage-tests.cjs && node --test /tmp/cung-lam-massage-tests.cjs",
     "test:revenue": "esbuild src/lib/facility-revenue.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-revenue-tests.cjs && node --test /tmp/so-cong-revenue-tests.cjs",
-    "test:card-topups": "esbuild src/lib/card-topups.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-card-topup-tests.cjs && node --test /tmp/so-cong-card-topup-tests.cjs"
+    "test:card-topups": "esbuild src/lib/card-topups.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-card-topup-tests.cjs && node --test /tmp/so-cong-card-topup-tests.cjs",
+    "test:employee-history": "esbuild src/lib/employee-history.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-employee-history-tests.cjs && node --test /tmp/so-cong-employee-history-tests.cjs"
   },
   "dependencies": {
     "@clerk/backend": "^3.23.2",
