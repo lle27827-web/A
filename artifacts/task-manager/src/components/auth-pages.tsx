@@ -60,7 +60,7 @@ export function WelcomePage() {
       <WelcomeHeading />
       <div className="welcome-actions">
         <Link href="/sign-in" className="btn primary" data-testid="link-welcome-sign-in"><LogIn size={15} aria-hidden="true" />Đăng nhập</Link>
-        <Link href="/sign-up" className="btn" data-testid="link-welcome-sign-up"><UserPlus size={15} aria-hidden="true" />Tạo tài khoản</Link>
+        <Link href="/sign-up" className="btn" data-testid="link-welcome-sign-up"><UserPlus size={15} aria-hidden="true" />Đăng ký</Link>
       </div>
     </main>
   );
@@ -79,7 +79,7 @@ export function SignInPage({ available }: { available: boolean }) {
         signUpUrl={`${basePath}/sign-up${ret.qs}`}
         {...ret.redirect}
       />
-      <p className="muted small">Chưa có tài khoản? <Link href={`/sign-up${ret.qs}`} className="link-strong" data-testid="link-to-sign-up">Tạo tài khoản</Link></p>
+      <p className="muted small">Chưa có tài khoản? <Link href={`/sign-up${ret.qs}`} className="link-strong" data-testid="link-to-sign-up">Đăng ký</Link></p>
     </main>
   );
 }
