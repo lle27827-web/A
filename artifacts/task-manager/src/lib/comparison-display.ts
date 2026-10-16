@@ -28,3 +28,10 @@ export function visitGroups(rows: PersonalComparisonVisit[], detailed = false) {
   }
   return [...groups.values()];
 }
+
+export function discrepancyPairs(personal: PersonalComparisonVisit[], reference: PersonalComparisonVisit[]) {
+  return Array.from({ length: Math.max(personal.length, reference.length) }, (_, index) => ({
+    personal: personal[index] ?? null,
+    reference: reference[index] ?? null,
+  }));
+}

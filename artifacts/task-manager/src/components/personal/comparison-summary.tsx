@@ -9,7 +9,7 @@ export function ComparisonSummary({ title, visits, detailed = false }: { title: 
     <div className="cmp-col">
       <h4>{title}: {visits.length} ca</h4>
       <p className="mono">{formatMinutes(minutes)} · <strong>{formatVnd(pay)}</strong></p>
-      {visits.length === 0 ? <span className="cmp-none">Không còn ca chưa khớp</span> : (
+      {visits.length === 0 ? <span className="cmp-none">Không có ca</span> : (
         <ul className="p-list">
           {visitGroups(visits, detailed).map((group, i) => (
             <li key={i} className="cmp-visit">

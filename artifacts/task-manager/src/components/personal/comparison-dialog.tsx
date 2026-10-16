@@ -8,8 +8,8 @@ import type { PersonalComparisonVisit } from '@workspace/api-client-react';
 import { AlertCircle, AlertTriangle, ArrowLeft, Check, CheckCircle2, LoaderCircle, RefreshCw, Scale, Users } from 'lucide-react';
 import { Modal, ErrorBanner, Skeleton } from '@/components/modal';
 import { formatShortDate, localDate } from '@/lib/attendance';
-import { errorText, formatMonth, formatVnd } from '@/lib/massage';
-import { comparisonMemberParams, comparisonRoster } from '@/lib/comparison-display';
+import { errorText, formatMinutes, formatMonth, formatVnd } from '@/lib/massage';
+import { comparisonMemberParams, comparisonRoster, discrepancyPairs } from '@/lib/comparison-display';
 import { ComparisonSummary } from './comparison-summary';
 
 type Scope = 'day' | 'month';
@@ -25,9 +25,23 @@ function CompactDifference({ personal, reference }: { personal: PersonalComparis
   return (
     <>
       <h4>{visit.serviceName} · {formatShortDate(visit.workDate)}</h4>
-      <div className="cmp-cols">
-        <ComparisonSummary title="Cơ sở còn" visits={reference} detailed />
-        <ComparisonSummary title="Cá nhân còn" visits={personal} detailed />
+      <div className="cmp-pairs">
+        {discrepancyPairs(personal, reference).map((pair, index) => (
+          <div className="cmp-pair" key={index}>
+            <strong className="cmp-pair-title">Cặp lệch {index + 1}</strong>
+            <div className="cmp-cols">
+              {[{ title: 'Cơ sở', row: pair.reference }, { title: 'Cá nhân', row: pair.personal }].map(({ title, row }) => (
+                <div className="cmp-shift" key={title}>
+                  <strong>{title}</strong>
+                  {row ? <>
+                    <span>{formatMinutes(row.minutes)} · Tiền công {formatVnd(row.earnings)}</span>
+                    {row.customerName && <span>Khách: {row.customerName}</span>}
+                  </> : <span className="cmp-none">Không có ca bên {title === 'Cơ sở' ? 'cơ sở' : 'cá nhân'}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </>
   );

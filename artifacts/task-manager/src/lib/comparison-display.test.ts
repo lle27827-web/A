@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { MemberRecord, PersonalComparisonVisit } from '@workspace/api-client-react';
-import { comparisonMemberParams, comparisonRoster, visitGroups } from './comparison-display';
+import { comparisonMemberParams, comparisonRoster, discrepancyPairs, visitGroups } from './comparison-display';
 
 test('current comparison uses the same active roster query as facility; history stays period-scoped', () => {
   assert.equal(comparisonMemberParams('2026-10', '2026-10'), undefined);
@@ -22,4 +22,11 @@ test('summary keeps real occurrence counts and separates unmatched durations and
   assert.equal(visitGroups(rows).length, 1);
   assert.deepEqual(visitGroups(rows).map((g) => [g.count, g.minutes, g.earnings]), [[3, 210, 210000]]);
   assert.deepEqual(visitGroups(rows, true).map((g) => [g.count, g.eachMinutes, g.eachPay]), [[2, 60, 60000], [1, 90, 90000]]);
+});
+test('discrepancy display pairs one-hour facility shifts with longer personal shifts and states missing sides', () => {
+  const row = { id: 1, serviceName: 'Trị liệu', customerName: '', workDate: '2022-11-11', minutes: 60, hourlyRate: 60000, earnings: 60000, note: '' } satisfies PersonalComparisonVisit;
+  const longer = { ...row, id: 2, minutes: 90, earnings: 90000 };
+  assert.deepEqual(discrepancyPairs([longer], [row]).map((pair) => [pair.reference?.minutes, pair.personal?.minutes]), [[60, 90]]);
+  assert.deepEqual(discrepancyPairs([], [row]), [{ personal: null, reference: row }]);
+  assert.deepEqual(discrepancyPairs([row], []).map((pair) => [pair.reference, pair.personal]), [[null, row]]);
 });
