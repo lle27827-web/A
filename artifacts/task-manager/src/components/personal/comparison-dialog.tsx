@@ -10,14 +10,8 @@ import { Modal, ErrorBanner, Skeleton } from '@/components/modal';
 import { formatShortDate, localDate } from '@/lib/attendance';
 import { errorText, formatMinutes, formatMonth, formatVnd } from '@/lib/massage';
 import { comparisonMemberParams, comparisonRoster, discrepancyPairs } from '@/lib/comparison-display';
-import { ComparisonSummary } from './comparison-summary';
 
 type Scope = 'day' | 'month';
-
-function Diff({ value, testId }: { value: number; testId: string }) {
-  const cls = value > 0 ? 'pos' : value < 0 ? 'neg' : '';
-  return <strong className={`mono diff ${cls}`} data-testid={testId}>{value > 0 ? '+' : ''}{formatVnd(value)}</strong>;
-}
 
 function CompactDifference({ personal, reference }: { personal: PersonalComparisonVisit[]; reference: PersonalComparisonVisit[] }) {
   const visit = personal[0] ?? reference[0];
@@ -28,7 +22,7 @@ function CompactDifference({ personal, reference }: { personal: PersonalComparis
       <div className="cmp-pairs">
         {discrepancyPairs(personal, reference).map((pair, index) => (
           <div className="cmp-pair" key={index}>
-            <strong className="cmp-pair-title">Cặp lệch {index + 1}</strong>
+            <strong className="cmp-pair-title">Lần chấm công lệch {index + 1}</strong>
             <div className="cmp-cols">
               {[{ title: 'Cơ sở', row: pair.reference }, { title: 'Cá nhân', row: pair.personal }].map(({ title, row }) => (
                 <div className="cmp-shift" key={title}>
@@ -78,10 +72,6 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
   const reference = (d?.referenceVisits ?? []).filter(inScope);
   const discrepancies = (d?.discrepancies ?? []).filter((x) => scope === 'month' || [...x.personal, ...x.reference].some((v) => v.workDate === date));
   const rangeLabel = scope === 'day' ? `ngày ${formatShortDate(date)}` : formatMonth(month).toLowerCase();
-  const unmatchedPersonal = discrepancies.flatMap((x) => x.personal);
-  const unmatchedReference = discrepancies.flatMap((x) => x.reference);
-  const matchedCount = personal.length - unmatchedPersonal.length;
-
   function pick(id: number | null) { setMemberId(id); setConfirming(false); setSyncError(''); setNotice(''); }
   function runSync() {
     if (!d || !selectedMember || memberId === null || syncing.current || sync.isPending) return;
@@ -150,13 +140,6 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
                 </div>
               </div>
             ) : (<>
-              <section className="cmp-section" aria-label="Tổng ca đối chiếu" data-testid="section-comparison-totals">
-                <div className="cmp-cols">
-                  <ComparisonSummary title="Cơ sở" visits={reference} />
-                  <ComparisonSummary title="Cá nhân" visits={personal} />
-                </div>
-                <p role="status">Đã khớp: {matchedCount} cặp · Còn lại: cơ sở {unmatchedReference.length} ca, cá nhân {unmatchedPersonal.length} ca</p>
-              </section>
               <section className="cmp-section" aria-labelledby="cmp-disc" data-testid="section-cmp-discrepancies">
                 <h3 id="cmp-disc">Ca chưa khớp</h3>
                 {discrepancies.length === 0
@@ -167,14 +150,6 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
                     </div>
                   ))}
               </section>
-              <table className="data-table compare-table" data-testid="table-comparison">
-                <thead><tr><th scope="col"></th><th scope="col">{scope === 'day' ? `Ngày ${formatShortDate(date)}` : formatMonth(month)}</th></tr></thead>
-                <tbody>
-                  <tr><th scope="row">Sổ của tôi</th><td className="mono" data-testid="text-cmp-personal">{formatVnd(scope === 'day' ? d.personalDay : d.personalMonth)}</td></tr>
-                  <tr><th scope="row">Cơ sở · {selectedMember?.label}</th><td className="mono" data-testid="text-cmp-ref">{formatVnd(scope === 'day' ? d.referenceDay : d.referenceMonth)}</td></tr>
-                  <tr className="diff-row"><th scope="row">Chênh lệch</th><td><Diff value={scope === 'day' ? d.differenceDay : d.differenceMonth} testId="text-cmp-diff" /></td></tr>
-                </tbody>
-              </table>
               <button type="button" className="btn" disabled={sync.isPending || cmp.isFetching} onClick={() => { setSyncError(''); setNotice(''); setConfirming(true); }} data-testid="button-open-sync">
                 <RefreshCw size={14} />Cập nhật dữ liệu từ cơ sở
               </button>

@@ -16,19 +16,6 @@ export function comparisonRoster(rows: MemberRecord[]) {
   }));
 }
 
-export function visitGroups(rows: PersonalComparisonVisit[], detailed = false) {
-  const groups = new Map<string, { service: string; customer: string; count: number; minutes: number; earnings: number; eachMinutes: number; eachPay: number }>();
-  for (const row of rows) {
-    const key = JSON.stringify([normalize(row.serviceName), ...(detailed ? [row.minutes, row.earnings, normalize(row.customerName)] : [])]);
-    const group = groups.get(key) ?? { service: row.serviceName, customer: detailed ? row.customerName : '', count: 0, minutes: 0, earnings: 0, eachMinutes: row.minutes, eachPay: row.earnings };
-    group.count++;
-    group.minutes += row.minutes;
-    group.earnings += row.earnings;
-    groups.set(key, group);
-  }
-  return [...groups.values()];
-}
-
 export function discrepancyPairs(personal: PersonalComparisonVisit[], reference: PersonalComparisonVisit[]) {
   return Array.from({ length: Math.max(personal.length, reference.length) }, (_, index) => ({
     personal: personal[index] ?? null,
