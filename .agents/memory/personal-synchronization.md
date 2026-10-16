@@ -26,3 +26,9 @@ Display each remaining unmatched occurrence as an explicit facility-versus-perso
 **Why:** the user requested visible pairs when a facility shift has a different duration from its personal counterpart and an explicit “no shift” label when the other side has not recorded it.
 
 **How to apply:** after exact matches are removed, pair leftover occurrences within their date/service group one to one; display every extra occurrence with an explicit empty counterpart.
+
+When the selected range contains shifts and every occurrence matches, hide the discrepancy history and show a concise “Dữ liệu đã khớp” status. When neither side has any shifts, report that there are no shifts to compare instead of claiming a match.
+
+**Why:** the user asked not to show old comparison history after complete matching and to report clearly that the data matches.
+
+**How to apply:** render only current unmatched occurrences; do not treat an empty range as a successful match.

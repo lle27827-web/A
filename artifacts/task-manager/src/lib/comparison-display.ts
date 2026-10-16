@@ -22,3 +22,9 @@ export function discrepancyPairs(personal: PersonalComparisonVisit[], reference:
     reference: reference[index] ?? null,
   }));
 }
+
+export function comparisonResult(personalCount: number, referenceCount: number, unmatchedCount: number) {
+  if (unmatchedCount > 0) return 'mismatches' as const;
+  if (personalCount === 0 && referenceCount === 0) return 'empty' as const;
+  return 'matched' as const;
+}

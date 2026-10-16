@@ -9,7 +9,7 @@ import { AlertCircle, AlertTriangle, ArrowLeft, Check, CheckCircle2, LoaderCircl
 import { Modal, ErrorBanner, Skeleton } from '@/components/modal';
 import { formatShortDate, localDate } from '@/lib/attendance';
 import { errorText, formatMinutes, formatMonth } from '@/lib/massage';
-import { comparisonMemberParams, comparisonRoster, discrepancyPairs } from '@/lib/comparison-display';
+import { comparisonMemberParams, comparisonResult, comparisonRoster, discrepancyPairs } from '@/lib/comparison-display';
 
 type Scope = 'day' | 'month';
 
@@ -66,6 +66,7 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
   const reference = (d?.referenceVisits ?? []).filter(inScope);
   const discrepancies = (d?.discrepancies ?? []).filter((x) => scope === 'month' || [...x.personal, ...x.reference].some((v) => v.workDate === date));
   const unmatchedPairs = discrepancies.flatMap((x) => discrepancyPairs(x.personal, x.reference));
+  const result = comparisonResult(personal.length, reference.length, unmatchedPairs.length);
   const rangeLabel = scope === 'day' ? `ngày ${formatShortDate(date)}` : formatMonth(month).toLowerCase();
   function pick(id: number | null) { setMemberId(id); setConfirming(false); setSyncError(''); setNotice(''); }
   function runSync() {
@@ -115,7 +116,7 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
             <button type="button" role="tab" aria-selected={scope === 'day'} className={scope === 'day' ? 'active' : ''} disabled={sync.isPending} onClick={() => { setScope('day'); setConfirming(false); }} data-testid="tab-cmp-day">Đối chiếu ngày</button>
             <button type="button" role="tab" aria-selected={scope === 'month'} className={scope === 'month' ? 'active' : ''} disabled={sync.isPending} onClick={() => { setScope('month'); setConfirming(false); }} data-testid="tab-cmp-month">Đối chiếu tháng</button>
           </div>
-          {notice && <div className="banner success" role="status" data-testid="status-sync-success"><Check size={15} /><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Đóng">Đóng</button></div>}
+          {notice && result !== 'matched' && <div className="banner success" role="status" data-testid="status-sync-success"><Check size={15} /><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Đóng">Đóng</button></div>}
           {syncError && <div className="banner danger" role="alert" data-testid="status-sync-error"><AlertCircle size={15} /><span>{syncError}</span></div>}
           {cmp.isLoading ? <Skeleton rows={4} label="Đang đối chiếu" />
             : cmp.isError || !d ? <ErrorBanner text="Không đối chiếu được. Hãy thử lại." onRetry={() => void cmp.refetch()} />
@@ -135,14 +136,18 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
                 </div>
               </div>
             ) : (<>
-              <section className="cmp-section" aria-labelledby="cmp-disc" data-testid="section-cmp-discrepancies">
-                <h3 id="cmp-disc">Ca chưa khớp</h3>
-                {unmatchedPairs.length === 0
-                  ? <div className="cmp-ok" data-testid="status-cmp-match"><CheckCircle2 size={16} />Không có khác biệt trong {rangeLabel}.</div>
-                  : unmatchedPairs.map((pair, i) => (
+              {result === 'matched' ? (
+                <div className="cmp-ok" role="status" aria-live="polite" data-testid="status-cmp-match"><CheckCircle2 size={16} />Dữ liệu đã khớp trong {rangeLabel}.</div>
+              ) : result === 'empty' ? (
+                <div className="cmp-ok" role="status" data-testid="status-cmp-empty">Chưa có ca chấm công trong {rangeLabel} để đối chiếu.</div>
+              ) : (
+                <section className="cmp-section" aria-labelledby="cmp-disc" data-testid="section-cmp-discrepancies">
+                  <h3 id="cmp-disc">Ca chưa khớp</h3>
+                  {unmatchedPairs.map((pair, i) => (
                     <CompactDifference key={`${pair.reference?.id ?? 'none'}-${pair.personal?.id ?? 'none'}`} personal={pair.personal} reference={pair.reference} index={i} />
                   ))}
-              </section>
+                </section>
+              )}
               <button type="button" className="btn" disabled={sync.isPending || cmp.isFetching} onClick={() => { setSyncError(''); setNotice(''); setConfirming(true); }} data-testid="button-open-sync">
                 <RefreshCw size={14} />Cập nhật dữ liệu từ cơ sở
               </button>

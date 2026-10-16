@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { MemberRecord, PersonalComparisonVisit } from '@workspace/api-client-react';
-import { comparisonMemberParams, comparisonRoster, discrepancyPairs } from './comparison-display';
+import { comparisonMemberParams, comparisonResult, comparisonRoster, discrepancyPairs } from './comparison-display';
 
 test('current comparison uses the same active roster query as facility; history stays period-scoped', () => {
   assert.equal(comparisonMemberParams('2026-10', '2026-10'), undefined);
@@ -24,4 +24,10 @@ test('discrepancy display pairs one-hour facility shifts with longer personal sh
   assert.deepEqual(discrepancyPairs([row], []).map((pair) => [pair.reference, pair.personal]), [[null, row]]);
   const another = { ...longer, id: 3, minutes: 120, earnings: 120000 };
   assert.deepEqual(discrepancyPairs([longer, another], [row]).map((pair) => [pair.reference?.minutes ?? null, pair.personal?.minutes ?? null]), [[60, 90], [null, 120]]);
+});
+
+test('matched data replaces discrepancy history; an empty range is not reported as matched', () => {
+  assert.equal(comparisonResult(4, 4, 0), 'matched');
+  assert.equal(comparisonResult(1, 1, 1), 'mismatches');
+  assert.equal(comparisonResult(0, 0, 0), 'empty');
 });
