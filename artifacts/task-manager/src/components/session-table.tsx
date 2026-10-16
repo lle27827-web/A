@@ -4,8 +4,8 @@ import { Link } from 'wouter';
 import { formatShortDate } from '@/lib/attendance';
 import { formatMinutes, formatVnd } from '@/lib/massage';
 
-export function SessionTable({ sessions, caption, canEdit, showDate, showTime, showEmployee, linkCards, visibleActions, busy, onEdit, onDelete, testId }: {
-  sessions: ServiceSession[]; caption: string; canEdit: boolean; showDate?: boolean; showTime?: boolean; showEmployee?: boolean; linkCards?: boolean; visibleActions?: boolean; busy?: boolean;
+export function SessionTable({ sessions, caption, canEdit, showDate, showTime, showEmployee, linkCards, visibleActions, cardHistory, busy, onEdit, onDelete, testId }: {
+  sessions: ServiceSession[]; caption: string; canEdit: boolean; showDate?: boolean; showTime?: boolean; showEmployee?: boolean; linkCards?: boolean; visibleActions?: boolean; cardHistory?: boolean; busy?: boolean;
   onEdit: (s: ServiceSession) => void; onDelete: (s: ServiceSession) => void; testId: string;
 }) {
   return (
@@ -15,11 +15,11 @@ export function SessionTable({ sessions, caption, canEdit, showDate, showTime, s
         <caption>{caption}</caption>
         <thead>
           <tr>
-            {showDate && <th scope="col">Ngày</th>}
+            {showDate && <th scope="col">{cardHistory && showTime ? 'Ngày / giờ ghi' : 'Ngày'}</th>}
             {showEmployee && <th scope="col">Kỹ thuật viên</th>}
-            <th scope="col">Khách / dịch vụ</th>
-            <th scope="col">Thời lượng</th>
-            <th scope="col">Tiền dịch vụ / lương</th>
+            {!cardHistory && <th scope="col">Khách / dịch vụ</th>}
+            <th scope="col">{cardHistory ? 'Số giờ' : 'Thời lượng'}</th>
+            {!cardHistory && <th scope="col">Tiền dịch vụ / lương</th>}
             <th scope="col">Ghi chú</th>
             {canEdit && !visibleActions && <th scope="col"><span className="sr-only">Thao tác</span></th>}
           </tr>
@@ -38,17 +38,17 @@ export function SessionTable({ sessions, caption, canEdit, showDate, showTime, s
                   })()}
                 </td>}
                 {showEmployee && <td className="nowrap">{orphan ? <span className="orphan"><UserX size={13} />{s.employeeName} (đã xóa)</span> : s.employeeName}</td>}
-                <td>
+                {!cardHistory && <td>
                   <div className="cell-stack">
                     <strong>{s.customerName || 'Khách lẻ'}</strong>
                     <span className="muted">{s.serviceType}{s.cardId !== null && (linkCards ? <> · <Link href={`/cards/${s.cardId}`} className="link-strong">Thẻ #{s.cardId}</Link></> : <> · Thẻ #{s.cardId}</>)}</span>
                   </div>
-                </td>
+                </td>}
                 <td className="mono nowrap">{formatMinutes(s.minutes)}</td>
-                <td className="mono nowrap"><div className="cell-stack">
+                {!cardHistory && <td className="mono nowrap"><div className="cell-stack">
                    <strong>{s.cardId !== null ? 'Đã tính khi bán thẻ' : `Tiền dịch vụ ${formatVnd(s.customerCharge)}`}</strong>
                   <span className="muted">Lương {formatVnd(s.earnings)} · {formatVnd(s.hourlyRate)}/giờ</span>
-                </div></td>
+                </div></td>}
                 <td className="note-cell">{s.note || '—'}</td>
                 {canEdit && !visibleActions && (
                   <td>

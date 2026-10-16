@@ -1,22 +1,22 @@
 import { useMemo } from 'react';
 import { getGetMassageSummaryQueryKey, useGetMassageSummary } from '@workspace/api-client-react';
 import { ArrowRight, CreditCard, Users } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link, useLocation, useSearch } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { ErrorBanner } from '@/components/modal';
 import { formatShortDate, statusCode } from '@/lib/attendance';
-import { formatMinutes, formatMonth, formatVnd, monthOf } from '@/lib/massage';
+import { formatMonth, formatVnd } from '@/lib/massage';
+import { resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
+import './revenue-history.css';
 
 export default function HomePage() {
   const { query } = useShell();
-  const today = useMemo(() => {
-    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit',
-    }).formatToParts(new Date()).map((part) => [part.type, part.value]));
-    return `${parts.year}-${parts.month}-${parts.day}`;
-  }, []);
-  const month = monthOf(today);
-  const summaryParams = useMemo(() => ({ month, date: today }), [month, today]);
+  const today = useMemo(() => vietnamToday(), []);
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const { month, date, maxDate, currentMonth, isHistory } = resolveRevenuePeriod(search, today);
+  const dayLabel = date === today ? 'hôm nay' : `ngày ${formatShortDate(date)}`;
+  const summaryParams = useMemo(() => ({ month, date }), [month, date]);
   const summary = useGetMassageSummary(summaryParams, { query: { queryKey: getGetMassageSummaryQueryKey(summaryParams), refetchOnWindowFocus: true, staleTime: 20_000, refetchInterval: 60_000 } });
 
   // While searching, the shared SearchResults (mounted in AppShell) replaces the home tiles and report.
@@ -39,6 +39,22 @@ export default function HomePage() {
         </Link>
       </div>
       <section className="revenue" aria-labelledby="rev-title" data-testid="section-revenue">
+        {isHistory && (
+          <div className="revenue-history-controls" data-testid="section-revenue-history">
+            <h2>Lịch sử doanh thu</h2>
+            <div className="form-grid">
+              <label className="field">Tháng
+                <input type="month" value={month} max={currentMonth} data-testid="input-revenue-month"
+                  onChange={(event) => { if (event.target.value) navigate(`/?month=${event.target.value}`); }} />
+              </label>
+              <label className="field">Ngày
+                <input type="date" value={date} min={`${month}-01`} max={maxDate} data-testid="input-revenue-date"
+                  onChange={(event) => { if (event.target.value) navigate(`/?month=${month}&date=${event.target.value}`); }} />
+              </label>
+            </div>
+            <Link href="/" className="btn ghost" data-testid="link-current-revenue">Về tháng hiện tại</Link>
+          </div>
+        )}
         <h1 id="rev-title" className="rev-label">Tổng doanh thu cơ sở · {formatMonth(month)}</h1>
         {summary.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải doanh thu" /> : summary.isError
           ? statusCode(summary.error) === 401 || statusCode(summary.error) === 403
@@ -50,17 +66,15 @@ export default function HomePage() {
             <dl className="rev-breakdown">
               <div><dt>Doanh thu khách lẻ (tháng)</dt><dd className="mono" data-testid="text-service-revenue">{formatVnd(summary.data?.serviceRevenue ?? 0)}</dd></div>
               <div><dt>Doanh thu bán và nạp thẻ (tháng)</dt><dd className="mono" data-testid="text-card-revenue">{formatVnd(summary.data?.cardRevenue ?? 0)}</dd></div>
-              <div className="net-revenue-row"><dt>Tiền công nhân viên (tháng)</dt><dd className="net-revenue-values"><strong className="mono" data-testid="text-payroll">{formatVnd(summary.data?.payroll ?? 0)}</strong><span>Gồm ca khách lẻ và ca dùng thẻ</span></dd></div>
               <div className="net-revenue-row"><dt>Doanh thu đã khấu trừ trong tháng</dt><dd className="mono" data-testid="text-net-revenue"><strong>{formatVnd(summary.data?.netRevenue ?? 0)}</strong></dd></div>
               <div><dt>Khách lẻ (tháng)</dt><dd className="mono" data-testid="text-walk-in-visits">{summary.data?.walkInVisits ?? 0} lượt</dd></div>
               <div><dt>Khách thẻ (tháng)</dt><dd className="mono" data-testid="text-card-visits">{summary.data?.cardVisits ?? 0} lượt</dd></div>
-              <div className="today-heading"><dt>Doanh thu hôm nay · {formatShortDate(today)}</dt><dd className="mono" data-testid="text-today-revenue">{formatVnd(summary.data?.today.revenue ?? 0)}</dd></div>
-              <div><dt>Khách lẻ hôm nay</dt><dd className="mono" data-testid="text-today-service-revenue">{formatVnd(summary.data?.today.serviceRevenue ?? 0)}</dd></div>
-              <div><dt>Bán và nạp thẻ hôm nay</dt><dd className="mono" data-testid="text-today-card-revenue">{formatVnd(summary.data?.today.cardRevenue ?? 0)}</dd></div>
-              <div className="net-revenue-row"><dt>Tiền công nhân viên hôm nay</dt><dd className="net-revenue-values"><strong className="mono" data-testid="text-today-payroll">{formatVnd(summary.data?.today.payroll ?? 0)}</strong><span>Gồm ca khách lẻ và ca dùng thẻ</span></dd></div>
-              <div className="net-revenue-row"><dt>Doanh thu đã khấu trừ hôm nay</dt><dd className="mono" data-testid="text-today-net-revenue"><strong>{formatVnd(summary.data?.today.netRevenue ?? 0)}</strong></dd></div>
-              <div><dt>Khách lẻ hôm nay</dt><dd className="mono" data-testid="text-today-walk-in-visits">{summary.data?.today.walkInVisits ?? 0} lượt</dd></div>
-              <div><dt>Khách thẻ hôm nay</dt><dd className="mono" data-testid="text-today-card-visits">{summary.data?.today.cardVisits ?? 0} lượt</dd></div>
+              <div className="today-heading"><dt>Doanh thu {dayLabel}{date === today ? ` · ${formatShortDate(date)}` : ''}</dt><dd className="mono" data-testid="text-today-revenue">{formatVnd(summary.data?.today.revenue ?? 0)}</dd></div>
+              <div><dt>Khách lẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-service-revenue">{formatVnd(summary.data?.today.serviceRevenue ?? 0)}</dd></div>
+              <div><dt>Bán và nạp thẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-card-revenue">{formatVnd(summary.data?.today.cardRevenue ?? 0)}</dd></div>
+              <div className="net-revenue-row"><dt>Doanh thu đã khấu trừ {dayLabel}</dt><dd className="mono" data-testid="text-today-net-revenue"><strong>{formatVnd(summary.data?.today.netRevenue ?? 0)}</strong></dd></div>
+              <div><dt>Khách lẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-walk-in-visits">{summary.data?.today.walkInVisits ?? 0} lượt</dd></div>
+              <div><dt>Khách thẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-card-visits">{summary.data?.today.cardVisits ?? 0} lượt</dd></div>
             </dl>
             <p className="hint">Tiền bán và nạp thẻ tính theo ngày giao dịch; lượt dùng thẻ không cộng doanh thu lần nữa. Doanh thu đã khấu trừ = tổng doanh thu − tiền công nhân viên.</p>
           </>

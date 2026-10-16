@@ -135,7 +135,7 @@ export default function CardDetailPage() {
         {sessionsQuery.isLoading ? <Skeleton rows={3} label="Đang tải lịch sử" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được lịch sử sử dụng." onRetry={() => void sessionsQuery.refetch()} /> : sessions.length === 0 ? (
           <div className="empty small"><CreditCard size={18} /><p>Thẻ chưa được sử dụng.</p></div>
         ) : (
-          <SessionTable sessions={sessions} caption="Lịch sử dùng thẻ. Ngày là ngày phục vụ; giờ ghi là lúc lưu ca." canEdit={canEdit} showDate showTime showEmployee busy={deleteSession.isPending}
+          <SessionTable sessions={sessions} caption="Lịch sử dùng thẻ. Ngày là ngày phục vụ; giờ ghi là lúc lưu ca." canEdit={canEdit} cardHistory showDate showTime showEmployee busy={deleteSession.isPending}
             onEdit={(s) => { setDialogError(''); setSessionDialog({ session: s }); }} onDelete={askDeleteSession} testId="card-usages" />
         )}
       </section>

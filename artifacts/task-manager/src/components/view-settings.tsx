@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { MemberRecord } from '@workspace/api-client-react';
-import { AlertCircle, ArrowLeft, ChevronRight, Home, Settings, Sparkles, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ChevronRight, History, Home, Settings, Sparkles, X } from 'lucide-react';
 import { Link } from 'wouter';
+import { previousRevenueMonth } from '@/lib/revenue-period';
 
 export type ViewMode = 'owner' | 'employee';
 export type ViewPrefs = { mode: ViewMode; employeeId: number | null };
@@ -83,6 +84,11 @@ export function ViewSettings({ prefs, members, membersLoading, open, onOpenChang
             <button type="button" className="btn ghost" onClick={() => onOpenChange(false)} data-testid="button-settings-back"><ArrowLeft size={14} aria-hidden="true" />Trở về</button>
           </nav>
           <Link href="/services" className="settings-link" onClick={() => { onApply({ mode: 'owner', employeeId: prefs.employeeId }); onOpenChange(false); }} data-testid="link-services"><Sparkles size={15} /><span className="grow"><strong>Dịch vụ &amp; giá trả công</strong><span className="muted">Thêm, sửa, xóa loại massage và giá theo giờ</span></span><ChevronRight size={16} /></Link>
+          <Link href={`/?month=${previousRevenueMonth()}`} className="settings-link"
+            onClick={() => { onApply({ mode: 'owner', employeeId: prefs.employeeId }); onOpenChange(false); }}
+            data-testid="link-previous-month-history">
+            <History size={15} aria-hidden="true" /><strong className="grow">Xem lịch sử tháng trước</strong><ChevronRight size={16} aria-hidden="true" />
+          </Link>
           <form onSubmit={(e) => { e.preventDefault(); apply(); }}>
             <fieldset>
               <legend>Bố cục</legend>

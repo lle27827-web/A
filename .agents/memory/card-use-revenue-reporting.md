@@ -3,7 +3,7 @@ name: Card-use revenue reporting
 description: The business rule for the owner-facing monthly and daily totals when a customer uses a treatment card.
 ---
 
-Keep customer service prices separate from employee pay for every service type. Report gross customer revenue as walk-in service charges plus card purchases on their purchase dates; a card redemption must not add revenue again. Report employee payroll separately from session wages, including active card-linked sessions, while continuing to exclude archived-card records from active totals. Never infer historical customer prices from the old employee-pay rates.
+Keep customer service prices separate from employee pay for every service type. Calculate gross customer revenue as walk-in service charges plus card purchases on their purchase dates; a card redemption must not add revenue again. Keep employee payroll distinct in the underlying data, including active card-linked sessions, while continuing to exclude archived-card records from active totals. Never infer historical customer prices from the old employee-pay rates.
 
 **Why:** the user chose separate customer prices and employee pay. Earlier records stored employee pay but not customer charges, and the app does not record cash value per card redemption.
 
@@ -24,3 +24,15 @@ Monthly and daily “Doanh thu đã khấu trừ” means walk-in customer charg
 **Why:** the user explicitly requested paid top-ups, automatic duplicate-card credits with history, and owner revenue after employee pay without double-counting card usage.
 
 **How to apply:** credit balance and payment history atomically; protect concurrent new-card matches as well as existing-card credits. Exclude archived cards and their payments/wages from active reports. Keep owner-only financial access.
+
+Keep both the original gross “Tổng doanh thu cơ sở” and the separate “Doanh thu đã khấu trừ” rows in monthly and daily reports. Remove only the separate employee-pay rows; keep the wage deduction in net calculations. Settings should open the previous month's revenue history.
+
+**Why:** the user clarified that both original totals must remain, rather than replacing gross revenue with net revenue; only the payroll display is to be removed.
+
+**How to apply:** retain gross component values and payroll in calculations; hiding payroll must never remove its deduction. Historical month/day selections must request the matching dated report and survive reloads.
+
+The card-use history table should show only service date/recorded time, technician, hours and notes, plus owner edit/delete controls. Do not repeat customer identity, service or amounts in that table.
+
+**Why:** the user requested a compact card-use history without customer and payment lines.
+
+**How to apply:** limit this presentation change to card-use history; retain stored identity, payment history, wage calculations and the employee-attendance view.
