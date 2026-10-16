@@ -540,3 +540,31 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .text-actions { gap: 6px; flex-wrap: nowrap; }
 .text-actions .btn { white-space: nowrap; }
 @media (max-width: 520px) { .text-actions { flex-direction: column; align-items: stretch; } }
+
+/* Keep the employee name form inside narrow phone viewports. */
+.settings-dialog[data-testid="dialog-member"] {
+  width: min(360px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  padding: 16px;
+  box-sizing: border-box;
+}
+.settings-dialog[data-testid="dialog-member"] .form-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+.settings-dialog[data-testid="dialog-member"] .field,
+.settings-dialog[data-testid="dialog-member"] .field input {
+  min-width: 0;
+  max-width: 100%;
+}
+.settings-dialog[data-testid="dialog-member"] .field input {
+  font-size: 16px; /* Prevent mobile Safari zooming the form on focus. */
+}
+.settings-dialog[data-testid="dialog-member"] .dialog-head { gap: 8px; }
+.settings-dialog[data-testid="dialog-member"] .dialog-head h2 {
+  min-width: 0;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.settings-dialog[data-testid="dialog-member"] .dialog-head .icon-btn { flex-shrink: 0; }
+.emp-row.as-row .grow > strong { overflow-wrap: anywhere; }

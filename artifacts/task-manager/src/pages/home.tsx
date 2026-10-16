@@ -25,15 +25,15 @@ export default function HomePage() {
   return (
     <div className="home">
       <div className="tiles">
-        <Link href={withHistory('/employees')} className="tile" data-testid="link-employees">
+        <Link href={withHistory('/employees')} className="tile" aria-labelledby="employees-link-title" data-testid="link-employees">
           <Users size={28} aria-hidden="true" />
-          <strong>Quản lý nhân viên</strong>
-          <span className="tile-go">Mở <ArrowRight size={16} /></span>
+          <strong id="employees-link-title">Quản lý nhân viên</strong>
+          <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>
         </Link>
-        <Link href="/cards" className="tile alt" data-testid="link-cards">
+        <Link href="/cards" className="tile alt" aria-labelledby="cards-link-title" data-testid="link-cards">
           <CreditCard size={28} aria-hidden="true" />
-          <strong>Quản lý thẻ</strong>
-          <span className="tile-go">Mở <ArrowRight size={16} /></span>
+          <strong id="cards-link-title">Quản lý thẻ</strong>
+          <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>
         </Link>
       </div>
       <section className="revenue" aria-labelledby="rev-title" data-testid="section-revenue">
