@@ -11,16 +11,14 @@ export function ServiceList({ services, busy, useFacility, settingBusy, settingE
   return (
     <section className="p-card" aria-labelledby="p-services" data-testid="section-personal-services">
       <div className="panel-head wrap">
-        <div><h2 id="p-services"><Sparkles size={16} aria-hidden="true" />Dịch vụ &amp; giá của tôi <span className="count">{services.length}</span></h2>
-          <p className="sub">{useFacility ? 'Đang dùng tên dịch vụ và tiền công nhân viên của cơ sở.' : 'Giá công riêng của bạn, không phải bảng giá cơ sở.'}</p></div>
+        <div><h2 id="p-services"><Sparkles size={16} aria-hidden="true" />Dịch vụ &amp; giá của tôi <span className="count">{services.length}</span></h2></div>
         {!useFacility && <button type="button" className="btn small" onClick={onAdd} data-testid="button-add-personal-service"><Plus size={14} />Thêm dịch vụ</button>}
       </div>
       <label className="p-switch" data-testid="label-use-facility-rates">
-        <input type="checkbox" role="switch" checked={useFacility} disabled={settingBusy} aria-busy={settingBusy}
+        <input type="checkbox" role="switch" aria-label="Dùng dịch vụ và tiền công của cơ sở" checked={useFacility} disabled={settingBusy} aria-busy={settingBusy}
           onChange={(e) => onToggleFacility(e.target.checked)} data-testid="switch-use-facility-rates" />
         <span className="p-switch-track" aria-hidden="true"><span /></span>
-        <span className="grow"><strong>Dùng dịch vụ và tiền công của cơ sở</strong>
-          <span className="muted small">{settingBusy ? 'Đang lưu…' : useFacility ? 'Tắt để quay về dịch vụ riêng; dịch vụ riêng vẫn được giữ.' : 'Ca cũ luôn giữ giá đã ghi.'}</span></span>
+        <span className="grow"><strong>Dùng dịch vụ và tiền công của cơ sở</strong></span>
       </label>
       {settingError && <p className="form-error" role="alert" data-testid="text-facility-setting-error">{settingError}</p>}
       {services.length === 0 ? (

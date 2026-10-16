@@ -39,6 +39,20 @@ function Cols({ personal, reference, refName, side }: { personal: PersonalCompar
   );
 }
 
+function CompactDifference({ personal, reference }: { personal: PersonalComparisonVisit[]; reference: PersonalComparisonVisit[] }) {
+  const visit = personal[0] ?? reference[0];
+  if (!visit) return null;
+  const total = (visits: PersonalComparisonVisit[]) => visits.reduce((sum, v) => sum + v.earnings, 0);
+  return (
+    <>
+      <h4>{visit.serviceName} · {formatShortDate(visit.workDate)}{visit.customerName ? ` · ${visit.customerName}` : ''}</h4>
+      <p>Cá nhân: {personal.length} ca · <strong className="mono">{formatVnd(total(personal))}</strong></p>
+      <p>Cơ sở: {reference.length} ca · <strong className="mono">{formatVnd(total(reference))}</strong></p>
+      <p>Chênh lệch: <strong className="mono">{formatVnd(Math.abs(total(personal) - total(reference)))}</strong></p>
+    </>
+  );
+}
+
 const isConflict = (e: unknown) => !!e && typeof e === 'object' && (e as { status?: unknown }).status === 409;
 
 export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: string; date: string; onClose: () => void; onUpdated?: () => void }) {
@@ -88,7 +102,7 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
   }
 
   return (
-    <Modal title="Đối chiếu tiền công" description={`So sánh từng ca trong sổ của bạn với một nhân viên cơ sở · ${formatMonth(month)}, ngày ${formatShortDate(date)}.`} onClose={onClose} testId="dialog-comparison">
+    <Modal title="Đối chiếu tiền công" onClose={onClose} testId="dialog-comparison">
       {memberId === null ? (
         members.isLoading ? <Skeleton rows={5} label="Đang tải danh sách nhân viên" />
           : members.isError ? <ErrorBanner text="Không tải được danh sách nhân viên cơ sở." onRetry={() => void members.refetch()} />
@@ -135,8 +149,7 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
                   ? <div className="cmp-ok" data-testid="status-cmp-match"><CheckCircle2 size={16} />Không có khác biệt trong {rangeLabel}.</div>
                   : discrepancies.map((x, i) => (
                     <div className="cmp-disc" key={i} data-testid={`row-cmp-discrepancy-${i}`}>
-                      <strong>{x.reason}</strong>
-                      <Cols personal={x.personal} reference={x.reference} refName={d.memberName} side={`d${i}`} />
+                      <CompactDifference personal={x.personal} reference={x.reference} />
                     </div>
                   ))}
               </section>
@@ -148,11 +161,10 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
                   <tr className="diff-row"><th scope="row">Chênh lệch</th><td><Diff value={scope === 'day' ? d.differenceDay : d.differenceMonth} testId="text-cmp-diff" /></td></tr>
                 </tbody>
               </table>
-              <p className="hint" data-testid="text-cmp-explainer">Chênh lệch = sổ của tôi − cơ sở. Số dương: sổ của bạn ghi nhiều hơn.</p>
-              <section className="cmp-section" aria-labelledby="cmp-all" data-testid="section-cmp-visits">
-                <h3 id="cmp-all">Tất cả ca trong {rangeLabel}</h3>
+              <details className="cmp-section" data-testid="section-cmp-visits">
+                <summary>Xem tất cả ca trong {rangeLabel}</summary>
                 <Cols personal={personal} reference={reference} refName={d.memberName} side="all" />
-              </section>
+              </details>
               <button type="button" className="btn" disabled={sync.isPending || cmp.isFetching} onClick={() => { setSyncError(''); setNotice(''); setConfirming(true); }} data-testid="button-open-sync">
                 <RefreshCw size={14} />Cập nhật dữ liệu từ cơ sở
               </button>

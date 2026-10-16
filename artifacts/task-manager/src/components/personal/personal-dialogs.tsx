@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PersonalService, PersonalServiceInput, PersonalSession, PersonalSessionInput } from '@workspace/api-client-react';
-import { AlertCircle, LoaderCircle } from 'lucide-react';
+import { AlertCircle, CalendarDays, LoaderCircle } from 'lucide-react';
 import { Modal } from '@/components/modal';
+import { DatePickerDialog } from '@/components/date-picker-dialog';
+import { formatShortDate } from '@/lib/attendance';
 import { formatMinutes, formatVnd, parseMoney } from '@/lib/massage';
 
 export function PersonalServiceDialog({ service, busy, serverError, onClose, onSubmit }: {
@@ -21,7 +23,7 @@ export function PersonalServiceDialog({ service, busy, serverError, onClose, onS
     onSubmit({ name: n, hourlyRate: r });
   }
   return (
-    <Modal title={service ? 'Sửa dịch vụ của tôi' : 'Thêm dịch vụ của tôi'} description="Giá công theo giờ chỉ dùng cho sổ cá nhân của bạn." onClose={onClose} testId="dialog-personal-service">
+    <Modal title={service ? 'Sửa dịch vụ của tôi' : 'Thêm dịch vụ của tôi'} onClose={onClose} testId="dialog-personal-service">
       <form className="form-grid" onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <label className="field">Tên dịch vụ
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoFocus placeholder="VD: Massage body đá nóng" data-testid="input-personal-service-name" />
@@ -30,7 +32,6 @@ export function PersonalServiceDialog({ service, busy, serverError, onClose, onS
           <input value={rate} onChange={(e) => setRate(e.target.value)} inputMode="numeric" placeholder="VD: 85.000" data-testid="input-personal-service-rate" />
           {parseMoney(rate) !== null && <span className="hint">= {formatVnd(parseMoney(rate) ?? 0)} / giờ</span>}
         </label>
-        {service && <p className="hint">Đổi giá chỉ áp dụng cho ca mới; ca cũ giữ giá đã ghi.</p>}
         {(error || serverError) && <p className="form-error" role="alert" data-testid="text-dialog-error"><AlertCircle size={14} />{error || serverError}</p>}
         <div className="dialog-actions">
           <button type="button" className="btn ghost" onClick={onClose}>Hủy</button>
@@ -52,6 +53,7 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
   const options = archived ? [archived, ...services] : services;
   const [serviceId, setServiceId] = useState(String(session?.serviceId ?? services[0]?.id ?? ''));
   const [date, setDate] = useState(session?.workDate ?? defaultDate);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [hours, setHours] = useState(session ? String(Math.floor(session.minutes / 60)) : '1');
   const [mins, setMins] = useState(session ? String(session.minutes % 60) : '0');
   const [note, setNote] = useState(session?.note ?? '');
@@ -80,16 +82,19 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
     onSubmit({ serviceId: chosen.id, workDate: date, minutes: total, note: note.trim(), customerName: customerName.trim(), ...(requestId ? { requestId } : {}) });
   }
   return (
-    <Modal title={session ? 'Sửa ca của tôi' : 'Ghi ca của tôi'} description="Chỉ lưu vào sổ cá nhân, không ảnh hưởng dữ liệu cơ sở." onClose={onClose} testId="dialog-personal-shift">
+    <Modal title={session ? 'Sửa ca của tôi' : 'Ghi ca của tôi'} onClose={onClose} testId="dialog-personal-shift">
       <form className="form-grid" onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <label className="field">Dịch vụ
           <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} data-testid="select-personal-service">
             {options.map((o) => <option key={o.id} value={o.id}>{o.name}{archived && o.id === archived.id ? ' (đã lưu trữ)' : ''} · {formatVnd(o.hourlyRate)}/giờ</option>)}
           </select>
         </label>
-        <label className="field">Ngày làm
-          <input type="date" value={date} max={maxDate} onChange={(e) => { setDate(e.target.value); setError(''); }} data-testid="input-personal-date" />
-        </label>
+        <div className="field">
+          <span id="personal-date-label">Ngày làm</span>
+          <button type="button" className="btn date-picker-trigger" aria-labelledby="personal-date-label personal-date-value" onClick={() => setDatePickerOpen(true)} data-testid="input-personal-date">
+            <CalendarDays size={15} aria-hidden="true" /><span id="personal-date-value">{formatShortDate(date)}</span>
+          </button>
+        </div>
         <div className="field-row">
           <label className="field">Giờ<input inputMode="numeric" value={hours} onChange={(e) => setHours(e.target.value)} data-testid="input-personal-hours" /></label>
           <label className="field">Phút<input inputMode="numeric" value={mins} onChange={(e) => setMins(e.target.value)} data-testid="input-personal-minutes" /></label>
@@ -113,6 +118,8 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
           <button type="submit" className="btn primary" disabled={busy} aria-busy={busy} data-testid="button-save-personal-shift">{busy && <LoaderCircle size={14} className="spin" />}Lưu ca</button>
         </div>
       </form>
+      {datePickerOpen && <DatePickerDialog value={date} title="Chọn ngày chấm công" immediate maxDate={maxDate} onClose={() => setDatePickerOpen(false)}
+        onSelect={(next) => { setDate(next); setError(''); setDatePickerOpen(false); }} />}
     </Modal>
   );
 }

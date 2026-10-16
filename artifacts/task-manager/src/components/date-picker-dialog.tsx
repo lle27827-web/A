@@ -4,9 +4,10 @@ import { Modal } from '@/components/modal';
 import { formatShortDate, localDate } from '@/lib/attendance';
 import { daysInMonth, formatMonth, weekday } from '@/lib/massage';
 
-export function DatePickerDialog({ value, title = 'Chọn ngày', immediate = false, onClose, onSelect }: {
+export function DatePickerDialog({ value, title = 'Chọn ngày', immediate = false, maxDate, onClose, onSelect }: {
   value: string;
   immediate?: boolean;
+  maxDate?: string;
   title?: string;
   onClose: () => void;
   onSelect: (date: string) => void;
@@ -26,17 +27,17 @@ export function DatePickerDialog({ value, title = 'Chọn ngày', immediate = fa
   }
 
   return (
-    <Modal title={title} description="Ngày theo định dạng ngày/tháng/năm. Hôm nay luôn ở đầu danh sách của tháng hiện tại." onClose={onClose} testId="dialog-date-picker">
+    <Modal title={title} onClose={onClose} testId="dialog-date-picker">
       <div className="date-picker-controls">
         <label className="field" htmlFor="date-picker-month">Tháng
-          <input id="date-picker-month" type="month" value={month} onChange={(e) => changeMonth(e.target.value)} data-testid="input-date-picker-month" />
+          <input id="date-picker-month" type="month" value={month} max={maxDate?.slice(0, 7)} onChange={(e) => changeMonth(e.target.value)} data-testid="input-date-picker-month" />
         </label>
         <p className="selected-date-preview" role="status"><CalendarDays size={15} aria-hidden="true" />Đang chọn <strong>{formatShortDate(selectedDate)}</strong></p>
       </div>
       <ul className="date-picker-list" aria-label={`Các ngày ${formatMonth(month)}`} data-testid="list-date-picker">
         {dates.map((date) => (
           <li key={date}>
-            <button type="button" className={`date-picker-option ${date === selectedDate ? 'selected' : ''}`} aria-pressed={date === selectedDate}
+            <button type="button" disabled={!!maxDate && date > maxDate} className={`date-picker-option ${date === selectedDate ? 'selected' : ''}`} aria-pressed={date === selectedDate}
               aria-current={date === today ? 'date' : undefined} onClick={() => { if (immediate) onSelect(date); else setSelectedDate(date); }} data-testid={`button-date-picker-${date}`}>
               <span><strong>{formatShortDate(date)}</strong><span className="muted">{weekday(date)}</span></span>
               <span className="date-picker-badge">{date === today ? 'Hôm nay' : date === selectedDate ? 'Đã chọn' : ''}</span>

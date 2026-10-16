@@ -12,7 +12,7 @@ export function Modal({ title, description, onClose, children, testId }: { title
     <D.Root open onOpenChange={(o) => { if (!o) onClose(); }}>
       <D.Portal>
         <D.Overlay className="settings-overlay" />
-        <D.Content className="settings-dialog" data-testid={testId} onCloseAutoFocus={(event) => {
+        <D.Content className="settings-dialog" aria-describedby={undefined} data-testid={testId} onCloseAutoFocus={(event) => {
           event.preventDefault();
           requestAnimationFrame(() => {
             const target = opener.current?.isConnected ? opener.current : document.getElementById('main');
@@ -23,7 +23,7 @@ export function Modal({ title, description, onClose, children, testId }: { title
             <D.Title asChild><h2>{title}</h2></D.Title>
             <D.Close asChild><button type="button" className="icon-btn" aria-label="Đóng"><X size={18} /></button></D.Close>
           </div>
-          {description && <D.Description className="sub" style={{ marginBottom: 14 }}>{description}</D.Description>}
+          {description && <p className="sub" aria-hidden="true" style={{ marginBottom: 14 }}>{description}</p>}
           {children}
           <nav className="window-nav bottom" aria-label="Điều hướng cửa sổ">
             <Link href="/" onClick={onClose} className="btn ghost" data-testid="link-window-home"><Home size={14} aria-hidden="true" />Trang chính</Link>
