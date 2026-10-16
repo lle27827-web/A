@@ -27,13 +27,11 @@ export default function HomePage() {
       <div className="tiles">
         <Link href={withHistory('/employees')} className="tile" data-testid="link-employees">
           <Users size={28} aria-hidden="true" />
-          <span className="tile-kicker">Kỹ thuật viên · lương theo giờ phục vụ</span>
           <strong>Quản lý nhân viên</strong>
           <span className="tile-go">Mở <ArrowRight size={16} /></span>
         </Link>
         <Link href="/cards" className="tile alt" data-testid="link-cards">
           <CreditCard size={28} aria-hidden="true" />
-          <span className="tile-kicker">Thẻ liệu trình · giờ còn lại</span>
           <strong>Quản lý thẻ</strong>
           <span className="tile-go">Mở <ArrowRight size={16} /></span>
         </Link>
@@ -76,7 +74,6 @@ export default function HomePage() {
               <div><dt>Khách lẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-walk-in-visits">{summary.data?.today.walkInVisits ?? 0} lượt</dd></div>
               <div><dt>Khách thẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-card-visits">{summary.data?.today.cardVisits ?? 0} lượt</dd></div>
             </dl>
-            <p className="hint">Doanh thu đã khấu trừ = tiền dịch vụ khách lẻ + tiền bán, nạp thẻ − tiền công ca khách lẻ. Ca dùng thẻ chỉ ghi tiền công vào lương nhân viên, không làm thay đổi dòng doanh thu này.</p>
           </>
         )}
       </section>

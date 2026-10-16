@@ -219,11 +219,6 @@ export function AppShell({
             </nav>
           )}
         </main>
-        <footer className="footer">
-          <span>SỔ CÔNG · tiệm massage</span>
-          {isOwner && <span>Lương tính theo tiền công nhân viên · Doanh thu gồm dịch vụ khách lẻ và tiền bán thẻ; dùng thẻ không cộng doanh thu lần nữa.</span>}
-          {!isOwner && <span>Khách chỉ xem được phần quản lý nhân viên.</span>}
-        </footer>
       </div>
     </Ctx.Provider>
   );
