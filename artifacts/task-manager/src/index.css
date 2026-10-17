@@ -695,9 +695,6 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .auth-google-button:focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
 .auth-google-button:disabled { cursor: wait; opacity: .72; }
 .auth-google-error { margin: 0; color: hsl(var(--destructive)); font-size: .875rem; text-align: center; }
-.auth-email-divider { width: min(400px, 100%); display: flex; align-items: center; gap: 12px; color: hsl(var(--muted-foreground)); font-size: .8rem; }
-.auth-email-divider::before, .auth-email-divider::after { content: ""; height: 1px; flex: 1; background: hsl(var(--border)); }
-.auth-sign-in-methods .cl-rootBox { width: 100%; }
 .no-access { width: min(480px, 100%); display: grid; gap: 14px; }
 .no-access h1 { margin: 0; font-family: var(--app-font-display); font-size: 22px; font-weight: 800; }
 .no-access p { margin: 0; line-height: 1.6; }

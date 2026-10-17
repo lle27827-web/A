@@ -118,15 +118,13 @@ export function SignInPage({ available }: { available: boolean }) {
       <WelcomeHeading />
       <div className="auth-sign-in-methods">
         <GoogleAccountChooserButton personal={ret.personal} />
-        <div className="auth-email-divider"><span>Hoặc đăng nhập bằng email</span></div>
         <SignIn
           routing="path"
           path={`${basePath}/sign-in`}
           signUpUrl={`${basePath}/sign-up${ret.qs}`}
           appearance={{
             elements: {
-              socialButtonsRoot: { display: "none" },
-              dividerRow: { display: "none" },
+              socialButtonsBlockButton__google: { display: "none" },
             },
           }}
           {...ret.redirect}

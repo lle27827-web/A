@@ -39,6 +39,12 @@ Authentication pages must explicitly leave the sign-in/sign-up form after server
 
 **How to apply:** keep the verification gate active on authentication routes too; redirect verified accounts to a whitelisted local destination. Never fix a blank login state by granting owner access or bypassing server verification.
 
+Clerk sign-in and sign-up interface text must use Vietnamese. Google sign-in must request the `select_account` OIDC prompt so the user can choose a Google account before continuing.
+
+**Why:** the user requested Vietnamese login-method labels and an account chooser when signing in with Google.
+
+**How to apply:** use Clerk's Vietnamese localization for the full auth widgets and set `oidcPrompt: "select_account"` on the Google sign-in redirect; keep the existing server-side session and permission checks.
+
 Do not rely solely on cookies for authenticated API calls in the embedded Replit preview, even when the frontend and API share the same public origin.
 
 **Why:** a Clerk session can exist in the frontend while the API sees an anonymous request inside the iframe. Explicit SDK session-token transport allowed the existing server-side owner checks to recognize that session.
