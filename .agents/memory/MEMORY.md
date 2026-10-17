@@ -4,7 +4,7 @@
 - [Archived treatment cards](archived-cards.md) — keep archived cards in storage; exclude their visits, wages, sales and balances from active views.
 - [Card-use revenue reporting](card-use-revenue-reporting.md) — separate service price/pay, label customer charges “Tiền dịch vụ,” and count card revenue only on purchase.
 - [OpenAPI date query strings](openapi-date-query-strings.md) — keep URL dates as validated `YYYY-MM-DD` strings; Express query values arrive as text.
-- [Vercel database access](vercel-database-access.md) — Replit's internal `DATABASE_URL` is scoped to Replit; external deployments need a remote database URL.
+- [Vercel database access](vercel-database-access.md) — Vercel uses a Neon source; synchronize its separate `DATABASE_URL_1` standby before enabling failover.
 - [Account access](owner-guest-access.md) — mandatory login, owner-delegated employee/card/revenue rights, isolated notebooks and embedded session verification.
 - [Appointment access](appointment-access.md) — appointment records need a dedicated manager grant; editing requires viewing and never comes from other facility permissions.
 - [Vercel SPA routing](vercel-spa-routing.md) — use raw route regex and an index destination; path transforms alone cannot resolve static SPA pages.
