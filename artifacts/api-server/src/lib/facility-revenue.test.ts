@@ -151,7 +151,7 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     const removedReport = await getFacilityRevenue(month, date);
     assert.equal(removedReport.topSoldCardService, null);
     assert.equal(removedReport.mostUsedCardService, null);
-    assert.deepEqual(removedReport.mostUsedWalkInService, { serviceType: `${popularService}_walkin`, visits: 2 });
+    assert.deepEqual(removedReport.mostUsedWalkInService, { serviceType: `${popularService}_walkin`, visits: 1 });
     assert.equal(removedReport.cardRevenue, updated.cardRevenue - 800);
     assert.equal(removedReport.serviceRevenue, updated.serviceRevenue);
     assert.equal(removedReport.payroll, updated.payroll - 200);

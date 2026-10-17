@@ -42,3 +42,9 @@ For monthly package popularity, rank sales by the number of active cards purchas
 **Why:** the user requested monthly counts of the most-sold and most-used card services; purchase and redemption records have separate dates, and top-ups are separate transactions rather than new cards.
 
 **How to apply:** use purchase date for sales and work date for usage, group by the stored service type, and exclude archived cards and their visits.
+
+The monthly home report also shows the most-used service type for walk-in customers and for active-card customers separately in one row. Count service sessions by their recorded service type; do not combine the two customer groups.
+
+**Why:** the user wants to see which service type walk-in customers bought most and which type card customers used most, while retaining the existing package sale and usage rows.
+
+**How to apply:** rank each channel independently by monthly session count, break ties consistently by service name, and exclude archived-card sessions from the card side.
