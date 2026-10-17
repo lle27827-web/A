@@ -9,9 +9,22 @@ import { FcGoogle } from "react-icons/fc";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-function getPasswordResetErrorMessage(error: unknown): string {
-  if (error && typeof error === "object") {
-    const clerkError = error as { code?: unknown; longMessage?: unknown };
+function getPasswordResetErrorMessage(
+  error: unknown,
+  fallback = "Không thể đặt mật khẩu mới. Hãy thử mật khẩu khác.",
+): string {
+  if (!error || typeof error !== "object") return fallback;
+
+  const root = error as {
+    code?: unknown;
+    longMessage?: unknown;
+    message?: unknown;
+    errors?: unknown;
+  };
+  const nestedErrors = Array.isArray(root.errors) ? root.errors : [];
+  for (const item of [...nestedErrors, root]) {
+    if (!item || typeof item !== "object") continue;
+    const clerkError = item as { code?: unknown; longMessage?: unknown; message?: unknown };
     if (typeof clerkError.code === "string") {
       const localizedMessages = viVN.unstable__errors as unknown as Record<string, unknown>;
       const localized = localizedMessages[clerkError.code];
@@ -20,8 +33,11 @@ function getPasswordResetErrorMessage(error: unknown): string {
     if (typeof clerkError.longMessage === "string" && clerkError.longMessage.trim()) {
       return clerkError.longMessage;
     }
+    if (typeof clerkError.message === "string" && clerkError.message.trim()) {
+      return clerkError.message;
+    }
   }
-  return "Không thể đặt mật khẩu mới. Hãy thử mật khẩu khác.";
+  return fallback;
 }
 
 /** Only one whitelisted return target is supported: ?next=personal. */
@@ -177,6 +193,7 @@ function ForgotPasswordFlow() {
     setError(null);
     setNotice(null);
     try {
+      await signIn.reset();
       const created = await signIn.create({ identifier: email.trim() });
       if (created.error) {
         setError("Không thể bắt đầu khôi phục. Hãy kiểm tra email và thử lại.");
@@ -211,6 +228,22 @@ function ForgotPasswordFlow() {
     }
   };
 
+  const resendCode = async () => {
+    if (pending) return;
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await signIn.resetPasswordEmailCode.sendCode();
+      if (result.error) {
+        setError(getPasswordResetErrorMessage(result.error, "Không gửi lại được mã. Hãy thử lại sau."));
+        return;
+      }
+      setNotice("Nếu email thuộc tài khoản đã đăng ký, mã khôi phục mới sẽ được gửi đến email đó.");
+    } catch (caughtError) {
+      setError(getPasswordResetErrorMessage(caughtError, "Không gửi lại được mã. Hãy thử lại sau."));
+    }
+  };
+
   const submitNewPassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (pending) return;
@@ -226,8 +259,32 @@ function ForgotPasswordFlow() {
         setError(getPasswordResetErrorMessage(result.error));
         return;
       }
-      await signIn.reset();
+
+      if (signIn.status === "complete") {
+        const finalized = await signIn.finalize({
+          navigate: async ({ session, decorateUrl }) => {
+            if (session?.currentTask) {
+              setStep("complete");
+              setNotice("Mật khẩu đã đổi. Hãy hoàn tất bước xác thực bổ sung khi đăng nhập.");
+              return;
+            }
+            const destination = ret.personal ? `${basePath}/personal` : `${basePath}/`;
+            window.location.assign(decorateUrl(destination));
+          },
+        });
+        if (finalized.error) {
+          setStep("complete");
+          setNotice("Mật khẩu đã được cập nhật. Hãy đăng nhập bằng mật khẩu mới.");
+        }
+        return;
+      }
+
       setStep("complete");
+      setNotice(
+        signIn.status === "needs_second_factor"
+          ? "Mật khẩu đã đổi. Tài khoản cần xác thực bổ sung; hãy đăng nhập để hoàn tất."
+          : "Mật khẩu đã được cập nhật. Hãy đăng nhập bằng mật khẩu mới.",
+      );
     } catch (caughtError) {
       setError(getPasswordResetErrorMessage(caughtError));
     }
@@ -235,11 +292,15 @@ function ForgotPasswordFlow() {
 
   const changeEmail = async () => {
     if (pending) return;
-    await signIn.reset();
-    setCode("");
-    setError(null);
-    setNotice(null);
-    setStep("email");
+    try {
+      await signIn.reset();
+      setCode("");
+      setError(null);
+      setNotice(null);
+      setStep("email");
+    } catch (caughtError) {
+      setError(getPasswordResetErrorMessage(caughtError, "Không thể đổi email lúc này. Hãy thử lại."));
+    }
   };
 
   return (
@@ -287,6 +348,9 @@ function ForgotPasswordFlow() {
             </button>
             <button type="button" className="btn ghost" onClick={() => void changeEmail()} disabled={pending}>
               Dùng email khác
+            </button>
+            <button type="button" className="btn ghost" onClick={() => void resendCode()} disabled={pending}>
+              Gửi lại mã
             </button>
           </form>
         )}
