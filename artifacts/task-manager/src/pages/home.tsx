@@ -95,11 +95,11 @@ export default function HomePage() {
                   ? `${summary.data.topSoldCardService.serviceType} · ${summary.data.topSoldCardService.cardsSold} thẻ`
                   : 'Chưa có thẻ bán trong tháng'}</dd>
               </div>
-              <div data-testid="row-most-used-card-service">
-                <dt>Gói thẻ được dùng nhiều nhất tháng</dt>
-                <dd className="mono">{summary.data?.mostUsedCardService
-                  ? `${summary.data.mostUsedCardService.serviceType} · ${summary.data.mostUsedCardService.visits} lượt · ${formatMinutes(summary.data.mostUsedCardService.minutes)}`
-                  : 'Chưa có lượt dùng thẻ trong tháng'}</dd>
+              <div data-testid="row-most-used-service">
+                <dt>Loại dịch vụ được sử dụng nhiều nhất tháng</dt>
+                <dd className="mono">{summary.data?.mostUsedService
+                  ? `${summary.data.mostUsedService.serviceType} · ${summary.data.mostUsedService.visits} lượt · ${formatMinutes(summary.data.mostUsedService.minutes)} · khách lẻ và thẻ`
+                  : 'Chưa có lượt sử dụng trong tháng'}</dd>
               </div>
               <div className="today-heading rev-key"><dt>Doanh thu {dayLabel}{date === today ? ` · ${formatShortDate(date)}` : ''}</dt><dd className="mono" data-testid="text-today-revenue">{formatVnd(summary.data?.today.revenue ?? 0)}</dd></div>
               <div><dt>Khách lẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-service-revenue">{formatVnd(summary.data?.today.serviceRevenue ?? 0)}</dd></div>

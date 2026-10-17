@@ -48,3 +48,9 @@ The monthly home report also shows the most-used service type for walk-in custom
 **Why:** the user wants to see which service type walk-in customers bought most and which type card customers used most, while retaining the existing package sale and usage rows.
 
 **How to apply:** rank each channel independently by monthly session count, break ties consistently by service name, and exclude archived-card sessions from the card side.
+
+The overall monthly most-used service ranks walk-in sessions and sessions on active cards together by service type, while the adjacent channel-specific row keeps their leaders separate. Exclude archived-card sessions; show the overall visit count and minutes.
+
+**Why:** the user asked to replace the card-only most-used row with one overall service ranking that includes both walk-in and card use.
+
+**How to apply:** count monthly service sessions by recorded service type across both channels, use the same archived-card filter as other active reports, and break ties consistently.

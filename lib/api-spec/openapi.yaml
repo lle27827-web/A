@@ -1090,7 +1090,7 @@ components:
         note: { type: string, maxLength: 2000 }
     MassageSummary:
       type: object
-      required: [month, revenue, netRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits, topSoldCardService, mostUsedCardService, mostUsedWalkInService, today]
+      required: [month, revenue, netRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits, topSoldCardService, mostUsedCardService, mostUsedWalkInService, mostUsedService, today]
       properties:
         month: { type: string }
         revenue: { type: number, description: "Tổng doanh thu gộp: tiền dịch vụ khách lẻ cộng tiền bán thẻ trong tháng; không cộng lại khi dùng thẻ." }
@@ -1123,6 +1123,13 @@ components:
           properties:
             serviceType: { type: string }
             visits: { type: integer }
+        mostUsedService:
+          type: ["object", "null"]
+          required: [serviceType, visits, minutes]
+          properties:
+            serviceType: { type: string }
+            visits: { type: integer }
+            minutes: { type: integer }
         today: { $ref: "#/components/schemas/DailyRevenue" }
     DailyRevenue:
       type: object

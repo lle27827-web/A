@@ -44,6 +44,7 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     assert.equal(validatedServiceOnly.topSoldCardService, null);
     assert.equal(validatedServiceOnly.mostUsedCardService, null);
     assert.deepEqual(validatedServiceOnly.mostUsedWalkInService, { serviceType: popularService, visits: 1 });
+    assert.deepEqual(validatedServiceOnly.mostUsedService, { serviceType: popularService, visits: 1, minutes: 30 });
     const cards = await db.insert(treatmentCardsTable).values([
       { customerName: "__facility_report_test", phone: "", serviceType: popularService, totalMinutes: 120, purchaseAmount: 800, purchaseDate: "2099-02-01", note: "" },
       { customerName: "__facility_report_test", phone: "", serviceType: popularService, totalMinutes: 60, purchaseAmount: 1200, purchaseDate: "2099-02-28", note: "" },
@@ -61,6 +62,7 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     assert.deepEqual(after.topSoldCardService, { serviceType: popularService, cardsSold: 2 });
     assert.deepEqual(after.mostUsedCardService, { serviceType: popularService, visits: 2, minutes: 90 });
     assert.deepEqual(after.mostUsedWalkInService, { serviceType: `${popularService}_walkin`, visits: 1 });
+    assert.deepEqual(after.mostUsedService, { serviceType: popularService, visits: 2, minutes: 90 });
     assert.equal(after.walkInVisits, baseline.walkInVisits + 1);
     assert.equal(after.cardVisits, baseline.cardVisits + 2);
     assert.equal(after.today.walkInVisits, baseline.today.walkInVisits);
@@ -102,6 +104,7 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
       .where(eq(serviceSessionsTable.serviceType, `${popularService}_walkin`))).length, 2);
     const mixed = GetMassageSummaryResponse.parse(await getFacilityRevenue(month, date));
     assert.deepEqual(mixed.mostUsedWalkInService, { serviceType: `${popularService}_walkin`, visits: 2 });
+    assert.deepEqual(mixed.mostUsedService, { serviceType: popularService, visits: 2, minutes: 90 });
     assert.equal(mixed.netRevenue - after.netRevenue, 200000);
     assert.equal(mixed.today.netRevenue - after.today.netRevenue, 200000);
     assert.equal(mixed.today.revenue - after.today.revenue, 300000);
@@ -152,6 +155,7 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     assert.equal(removedReport.topSoldCardService, null);
     assert.equal(removedReport.mostUsedCardService, null);
     assert.deepEqual(removedReport.mostUsedWalkInService, { serviceType: `${popularService}_walkin`, visits: 1 });
+    assert.deepEqual(removedReport.mostUsedService, { serviceType: `${popularService}_walkin`, visits: 1, minutes: 30 });
     assert.equal(removedReport.cardRevenue, updated.cardRevenue - 800);
     assert.equal(removedReport.serviceRevenue, updated.serviceRevenue);
     assert.equal(removedReport.payroll, updated.payroll - 200);

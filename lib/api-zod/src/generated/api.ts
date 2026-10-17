@@ -1328,6 +1328,11 @@ export const GetMassageSummaryResponse = zod.object({
   "serviceType": zod.string(),
   "visits": zod.number().int()
 }).nullable(),
+  "mostUsedService": zod.object({
+  "serviceType": zod.string(),
+  "visits": zod.number().int(),
+  "minutes": zod.number().int()
+}).nullable(),
   "today": zod.object({
   "date": zod.coerce.date(),
   "revenue": zod.number(),

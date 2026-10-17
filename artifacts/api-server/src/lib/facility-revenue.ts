@@ -52,6 +52,21 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
     order by count(*) desc, ${serviceSessionsTable.serviceType} asc
     limit 1
   )`;
+  const mostUsedServiceType = sql<string | null>`(
+    select ${serviceSessionsTable.serviceType}
+    from ${serviceSessionsTable}
+    where ${serviceSessionsTable.workDate} >= ${start}
+      and ${serviceSessionsTable.workDate} < ${end}
+      and ${serviceSessionsTable.serviceType} <> ''
+      and (${serviceSessionsTable.cardId} is null or exists (
+        select 1 from ${treatmentCardsTable}
+        where ${treatmentCardsTable.id} = ${serviceSessionsTable.cardId}
+          and ${treatmentCardsTable.deletedAt} is null
+      ))
+    group by ${serviceSessionsTable.serviceType}
+    order by count(*) desc, ${serviceSessionsTable.serviceType} asc
+    limit 1
+  )`;
   // One SQL snapshot, with independent subqueries to avoid multiplying
   // card sales, service charges, or payroll when multiple visits use a card. The
   // singleton keeps a row even when no active cards were purchased this month.
@@ -98,6 +113,25 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
         and ${serviceSessionsTable.workDate} < ${end}
         and ${serviceSessionsTable.cardId} is null
         and ${serviceSessionsTable.serviceType} = ${mostUsedWalkInServiceType}), 0)`,
+    mostUsedServiceType,
+    mostUsedServiceVisits: sql<number>`coalesce((select count(*) from ${serviceSessionsTable}
+      where ${serviceSessionsTable.workDate} >= ${start}
+        and ${serviceSessionsTable.workDate} < ${end}
+        and ${serviceSessionsTable.serviceType} = ${mostUsedServiceType}
+        and (${serviceSessionsTable.cardId} is null or exists (
+          select 1 from ${treatmentCardsTable}
+          where ${treatmentCardsTable.id} = ${serviceSessionsTable.cardId}
+            and ${treatmentCardsTable.deletedAt} is null
+        ))), 0)`,
+    mostUsedServiceMinutes: sql<number>`coalesce((select sum(${serviceSessionsTable.minutes}) from ${serviceSessionsTable}
+      where ${serviceSessionsTable.workDate} >= ${start}
+        and ${serviceSessionsTable.workDate} < ${end}
+        and ${serviceSessionsTable.serviceType} = ${mostUsedServiceType}
+        and (${serviceSessionsTable.cardId} is null or exists (
+          select 1 from ${treatmentCardsTable}
+          where ${treatmentCardsTable.id} = ${serviceSessionsTable.cardId}
+            and ${treatmentCardsTable.deletedAt} is null
+        ))), 0)`,
     serviceRevenue: sql<number>`coalesce((
       select sum(${serviceSessionsTable.customerCharge}) from ${serviceSessionsTable}
       where ${serviceSessionsTable.workDate} >= ${start}
@@ -202,12 +236,17 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
     serviceType: row.mostUsedWalkInServiceType,
     visits: Number(row.mostUsedWalkInServiceVisits),
   } : null;
+  const mostUsedService = row.mostUsedServiceType ? {
+    serviceType: row.mostUsedServiceType,
+    visits: Number(row.mostUsedServiceVisits),
+    minutes: Number(row.mostUsedServiceMinutes),
+  } : null;
   return {
     month, ...revenueTotals(walkInServiceRevenue, cardRevenue, walkInPayroll),
     serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, payroll,
     revenueExcludingCardSessions: walkInServiceRevenue + cardRevenue, cardRevenue, cardsSold: Number(row.cardsSold),
     walkInVisits: Number(row.walkInVisits), cardVisits: Number(row.cardVisits),
-    topSoldCardService, mostUsedCardService, mostUsedWalkInService,
+    topSoldCardService, mostUsedCardService, mostUsedWalkInService, mostUsedService,
     today: {
       date, ...revenueTotals(dayWalkInServiceRevenue, dayCardRevenue, dayWalkInPayroll),
       serviceRevenue: dayServiceRevenue,
