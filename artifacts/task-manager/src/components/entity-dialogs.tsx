@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { MemberRecord, TreatmentCard, TreatmentCardInput } from '@workspace/api-client-react';
 import { getListServiceTypesQueryKey, useListServiceTypes } from '@workspace/api-client-react';
-import { AlertCircle, GitMerge, LoaderCircle } from 'lucide-react';
+import { AlertCircle, GitMerge, LoaderCircle, Phone } from 'lucide-react';
 import { Link } from 'wouter';
 import { Modal } from '@/components/modal';
 import { VoiceInput } from '@/components/voice-input';
 import { SESSION_FRESHNESS, formatMinutes, formatVnd, hoursValue, parseHoursToMinutes, parseMoney } from '@/lib/massage';
+import { phoneCallHref } from '@/lib/phone';
 
 /** Server answers 409 { error, mergeTargetId } when the card duplicates an existing one. */
 export function mergeConflictTarget(e: unknown): number | null {
@@ -37,6 +38,7 @@ export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId
   const legacy = card && card.serviceType && !catalog.some((s) => s.name === card.serviceType) ? card.serviceType : null;
   const totalMinutes = parseHoursToMinutes(hours);
   const money = parseMoney(amount);
+  const callHref = phoneCallHref(phone);
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -77,7 +79,11 @@ export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId
       <form hidden={pending} className="form-grid" onSubmit={submit} noValidate>
         <div className="field-row">
           <label className="field" htmlFor="c-name">Tên khách<VoiceInput id="c-name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={120} required data-testid="input-card-customer" /></label>
-          <label className="field" htmlFor="c-phone">Số điện thoại<input id="c-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={32} required data-testid="input-card-phone" /></label>
+          <div className="field">
+            <label htmlFor="c-phone">Số điện thoại</label>
+            <input id="c-phone" type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={40} required data-testid="input-card-phone" />
+            {callHref && <a href={callHref} className="appointment-phone" aria-label={`Gọi ${phone.trim()}`} data-testid="link-card-phone-draft"><Phone size={13} aria-hidden="true" />Gọi {phone.trim()}</a>}
+          </div>
         </div>
         <label className="field" htmlFor="c-service">Loại dịch vụ
           <select id="c-service" value={serviceType} onChange={(e) => setServiceType(e.target.value)} required disabled={servicesQuery.isLoading || (servicesQuery.isError && !legacy)} aria-busy={servicesQuery.isLoading} data-testid="select-card-service">

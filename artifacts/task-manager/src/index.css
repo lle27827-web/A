@@ -365,6 +365,7 @@ a.hit:hover, .emp-row:hover, .card-row:hover { border-color: hsl(var(--primary) 
 /* ---- SỔ CÔNG: service catalog + employee choice ---- */
 .emp-row.as-row { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 .emp-row .grow, .choice-row .grow, .settings-link .grow { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.employee-summary { display: flex; flex-direction: column; gap: 2px; color: hsl(var(--muted-foreground)); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
 .choice-list { display: grid; gap: 10px; margin-top: 12px; }
 .choice-row, .settings-link { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--muted) / .35); color: hsl(var(--foreground)); font: inherit; font-size: 14px; text-align: left; text-decoration: none; cursor: pointer; transition: border-color .15s, background .15s; }
 .choice-row:hover:not(:disabled), .settings-link:hover { border-color: hsl(var(--primary) / .55); background: hsl(var(--primary) / .06); }

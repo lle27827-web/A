@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react';
-import { getListTreatmentCardsQueryKey, useCreateMember, useCreateServiceSession, useDeleteMember, useListTreatmentCards } from '@workspace/api-client-react';
+import {
+  getListServiceSessionsQueryKey, getListTreatmentCardsQueryKey,
+  useCreateMember, useCreateServiceSession, useDeleteMember, useListServiceSessions, useListTreatmentCards,
+} from '@workspace/api-client-react';
 import type { MemberRecord, ServiceSessionInput } from '@workspace/api-client-react';
 import { ChevronRight, ClipboardCheck, Eye, Plus, Trash2, Users } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
@@ -7,8 +10,9 @@ import { useShell } from '@/components/app-shell';
 import { MemberDialog } from '@/components/entity-dialogs';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
 import { SessionDialog } from '@/components/session-dialog';
-import { initial, localDate, normalize } from '@/lib/attendance';
-import { errorText, formatMonth, useRefreshMassage } from '@/lib/massage';
+import { initial, localDate, normalize, formatShortDate } from '@/lib/attendance';
+import { errorText, formatMonth, formatVnd, SESSION_FRESHNESS, useRefreshMassage } from '@/lib/massage';
+import { summarizeEmployeeSessions } from '@/lib/employee-list-summary';
 
 export function MemberTags({ member }: { member: MemberRecord }) {
   const deleted = !!member.deletedAt;
@@ -23,7 +27,7 @@ export function MemberTags({ member }: { member: MemberRecord }) {
 }
 
 export default function EmployeesPage() {
-  const { members, membersLoading, membersError, retryMembers, canEditEmployees: canEdit, canAddEmployees, canEditCards, query, notify, fail, historyMonth, withHistory } = useShell();
+  const { members, membersLoading, membersError, retryMembers, canViewEmployees, canEditEmployees: canEdit, canAddEmployees, canEditCards, query, notify, fail, historyMonth, period, withHistory } = useShell();
   const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
   const [dialogError, setDialogError] = useState('');
@@ -32,6 +36,17 @@ export default function EmployeesPage() {
   const [quickDate, setQuickDate] = useState(localDate());
   const create = useCreateMember();
   const del = useDeleteMember();
+  const sessionParams = useMemo(() => ({ month: period.month }), [period.month]);
+  const sessionsQuery = useListServiceSessions(sessionParams, {
+    query: {
+      queryKey: getListServiceSessionsQueryKey(sessionParams),
+      enabled: canViewEmployees,
+      ...SESSION_FRESHNESS,
+    },
+  });
+  const summaries = useMemo(() => summarizeEmployeeSessions(sessionsQuery.data ?? [], period.date), [sessionsQuery.data, period.date]);
+  const dayLabel = period.date === period.today ? 'Hôm nay' : `Ngày ${formatShortDate(period.date)}`;
+  const monthLabel = historyMonth ? formatMonth(period.month) : 'Tháng này';
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const createSession = useCreateServiceSession();
   const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), enabled: canEdit && canEditCards && quick !== null } });
@@ -68,18 +83,35 @@ export default function EmployeesPage() {
         <div className="empty"><Users size={22} /><p>{members.length ? 'Không có nhân viên khớp tìm kiếm.' : historyMonth ? `Không có nhân viên nào trong ${formatMonth(historyMonth).toLowerCase()}.` : 'Chưa có nhân viên nào.'}</p>{historyMonth && !members.length && <Link href="/employees" className="btn" data-testid="link-empty-current">Về danh sách hiện tại</Link>}
           {canAddEmployees && !members.length && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setOpen(true); }}><Plus size={15} />Thêm nhân viên đầu tiên</button>}</div>
       ) : (
-        <ul className="emp-list">
-          {list.map((m) => (
-            <li key={m.id} className="emp-item">
-              <button type="button" className="emp-row as-row" onClick={() => { if (historyMonth) navigate(withHistory(`/employees/${m.id}`)); else setChoice(m); }} aria-haspopup="dialog" data-testid={`button-employee-${m.id}`}>
-                <span className="initials big">{initial(m.name)}</span>
-                <span className="grow"><strong>{m.name}<MemberTags member={m} /></strong><span className="muted">{historyMonth ? 'Lương, lịch sử ca trong tháng' : 'Chấm công · Chi tiết'}</span></span>
-                <ChevronRight size={18} />
-              </button>
-              {canEdit && <button type="button" className="icon-btn danger" disabled={del.isPending} onClick={() => askDelete(m)} aria-label={`Xóa nhân viên ${m.name}`} data-testid={`button-delete-member-${m.id}`}><Trash2 size={15} /></button>}
-            </li>
-          ))}
-        </ul>
+        <>
+          {sessionsQuery.isError && <ErrorBanner text="Không tải được tổng lương và ca dịch vụ." onRetry={() => void sessionsQuery.refetch()} />}
+          <ul className="emp-list">
+            {list.map((m) => {
+              const summary = summaries.get(m.id);
+              const serviceText = (services: { serviceType: string; count: number }[]) =>
+                services.length ? services.map((service) => `${service.serviceType} ×${service.count}`).join(', ') : 'Chưa có ca';
+              return (
+                <li key={m.id} className="emp-item">
+                  <button type="button" className="emp-row as-row" onClick={() => { if (historyMonth) navigate(withHistory(`/employees/${m.id}`)); else setChoice(m); }} aria-haspopup="dialog" data-testid={`button-employee-${m.id}`}>
+                    <span className="initials big">{initial(m.name)}</span>
+                    <span className="grow">
+                      <strong>{m.name}<MemberTags member={m} /></strong>
+                      <span className="muted">{historyMonth ? 'Lương, lịch sử ca trong tháng' : 'Chấm công · Chi tiết'}</span>
+                      {sessionsQuery.isLoading ? <span className="employee-summary muted">Đang tải lương và ca…</span> : !sessionsQuery.isError && (
+                        <span className="employee-summary" data-testid={`summary-employee-${m.id}`}>
+                          <span>{monthLabel}: {formatVnd(summary?.monthEarnings ?? 0)} · {summary?.monthSessionCount ?? 0} ca ({serviceText(summary?.monthServices ?? [])})</span>
+                          <span>{dayLabel}: {formatVnd(summary?.dayEarnings ?? 0)} · {summary?.daySessionCount ?? 0} ca ({serviceText(summary?.dayServices ?? [])})</span>
+                        </span>
+                      )}
+                    </span>
+                    <ChevronRight size={18} />
+                  </button>
+                  {canEdit && <button type="button" className="icon-btn danger" disabled={del.isPending} onClick={() => askDelete(m)} aria-label={`Xóa nhân viên ${m.name}`} data-testid={`button-delete-member-${m.id}`}><Trash2 size={15} /></button>}
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
       {choice && (
         <Modal title={choice.name} onClose={() => setChoice(null)} testId="dialog-employee-choice">

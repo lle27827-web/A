@@ -19,21 +19,22 @@ function render(cardHistory: boolean, row = session) {
     onEdit: () => {}, onDelete: () => {}, testId: 'card-usages',
   }));
 }
-test('card history keeps date/time, employee, hours, notes and owner actions only', () => {
+test('card history keeps date/time, employee, hours and owner actions without customer or notes', () => {
   const html = render(true);
-  for (const value of ['Ngày / giờ ghi', 'TEST_TECHNICIAN', 'Số giờ', 'TEST_NOTE', 'Ghi 10:00', 'button-edit-session-1', 'button-delete-session-1']) {
+  for (const value of ['Ngày / giờ ghi', 'TEST_TECHNICIAN', 'Số giờ', 'Ghi 10:00', 'button-edit-session-1', 'button-delete-session-1']) {
     assert.ok(html.includes(value), `Missing ${value}`);
   }
-  for (const value of ['HIDDEN_CUSTOMER', 'HIDDEN_SERVICE', 'Tiền dịch vụ', 'Lương', 'Đã tính khi bán thẻ']) {
+  for (const value of ['HIDDEN_CUSTOMER', 'HIDDEN_SERVICE', 'TEST_NOTE', 'Tiền dịch vụ', 'Lương', 'Đã tính khi bán thẻ']) {
     assert.ok(!html.includes(value), `Unexpected ${value}`);
   }
-  assert.equal((html.match(/<th scope="col">/g) ?? []).length, 5);
+  assert.equal((html.match(/<th scope="col">/g) ?? []).length, 4);
 });
 test('regular employee session tables retain customer and financial information', () => {
   const html = render(false);
   for (const value of ['HIDDEN_CUSTOMER', 'HIDDEN_SERVICE', 'Tiền dịch vụ / lương', 'Lương']) {
     assert.ok(html.includes(value));
   }
+  assert.ok(!html.includes('TEST_NOTE'));
 });
 test('editable employee rows contain exactly one edit/delete pair in the same row', () => {
   const html = renderToStaticMarkup(createElement(SessionTable, {
@@ -53,7 +54,7 @@ test('read-only employee rows never expose edit/delete controls', () => {
     onEdit: () => {}, onDelete: () => {}, testId: 'employee-history',
   }));
   assert.ok(!html.includes('button-edit-session-') && !html.includes('button-delete-session-'));
-  assert.ok(html.includes('TEST_NOTE'));
+  assert.ok(!html.includes('TEST_NOTE'));
 });
 test('deleted technicians remain visible without an invalid edit action', () => {
   const html = render(true, { ...session, memberId: null });
