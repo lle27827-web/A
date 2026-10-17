@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
-import { AlertCircle, ArrowLeft, BookHeart, ChevronRight, History, Home, KeyRound, Settings, X } from 'lucide-react';
+import { ArrowLeft, BookHeart, ChevronRight, History, Home, KeyRound, Settings, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { AccessGrantsDialog } from '@/components/access-grants';
@@ -19,9 +19,10 @@ function readPrefs(): ViewPrefs {
     const v: unknown = JSON.parse(raw);
     if (!v || typeof v !== 'object') return DEFAULT;
     const o = v as Record<string, unknown>;
-    const mode: ViewMode = o.mode === 'employee' ? 'employee' : 'owner';
     const id = typeof o.employeeId === 'number' && Number.isInteger(o.employeeId) && o.employeeId > 0 ? o.employeeId : null;
-    return { mode, employeeId: id };
+    // Retire the old "view as employee" setting while keeping the saved
+    // employee selection available for ordinary detail-page navigation.
+    return { mode: 'owner', employeeId: id };
   } catch {
     return DEFAULT;
   }
@@ -36,10 +37,9 @@ export function useViewPrefs() {
   return [prefs, update] as const;
 }
 
-export function ViewSettings({ prefs, members, membersLoading, open, onOpenChange, onApply, isOwner, permissions, canManageGrants }: {
+export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOwner, permissions, canManageGrants }: {
   prefs: ViewPrefs;
   members: MemberRecord[];
-  membersLoading: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onApply: (prefs: ViewPrefs) => void;
@@ -51,29 +51,7 @@ export function ViewSettings({ prefs, members, membersLoading, open, onOpenChang
   const canHistory = canViewEmployees || permissions.viewRevenue;
   const [grantsOpen, setGrantsOpen] = useState(false);
   const [, navigate] = useLocation();
-  const [mode, setMode] = useState<ViewMode>(prefs.mode);
-  const [employeeId, setEmployeeId] = useState<string>(prefs.employeeId ? String(prefs.employeeId) : '');
-  const [error, setError] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setMode(prefs.mode);
-      setEmployeeId(prefs.employeeId === null ? '' : String(prefs.employeeId));
-      setError('');
-    }
-  }, [open, prefs.mode, prefs.employeeId]);
-
-  function apply() {
-    if (mode === 'employee') {
-      const id = Number(employeeId);
-      if (!employeeId || !members.some((m) => m.id === id)) { setError('Hãy chọn một nhân viên để xem.'); return; }
-      onApply({ mode, employeeId: id });
-    } else {
-      onApply({ mode: 'owner', employeeId: prefs.employeeId });
-    }
-    onOpenChange(false);
-  }
 
   function pickHistory(month: string, date: string) {
     setHistoryOpen(false);
@@ -111,42 +89,10 @@ export function ViewSettings({ prefs, members, membersLoading, open, onOpenChang
 
           {canManageGrants && (
             <button type="button" className="settings-link" onClick={() => { onOpenChange(false); setGrantsOpen(true); }} data-testid="button-open-access-grants">
-              <KeyRound size={15} aria-hidden="true" /><span className="grow"><strong>Cấp quyền quản lý</strong><span className="muted">{isOwner ? 'Chọn phạm vi xem và sửa cho quản lý' : 'Chỉ cấp trong phạm vi quyền của bạn'}</span></span><ChevronRight size={16} aria-hidden="true" />
+              <KeyRound size={15} aria-hidden="true" /><span className="grow"><strong>Cấp quyền quản lý</strong><span className="muted">{isOwner ? 'Danh sách và quyền của nhiều tài khoản' : 'Xem và cấp trong phạm vi quyền của bạn'}</span></span><ChevronRight size={16} aria-hidden="true" />
             </button>
           )}
 
-          {isOwner && (
-            <>
-              <form onSubmit={(e) => { e.preventDefault(); apply(); }}>
-                <fieldset>
-                  <legend>Bố cục cơ sở</legend>
-                  <div className="mode-options">
-                    <label className="mode-option">
-                      <input type="radio" name="view-mode" value="owner" checked={mode === 'owner'} onChange={() => { setMode('owner'); setError(''); }} data-testid="radio-mode-owner" />
-                      <strong>Chủ</strong><span>Tổng quan theo ngày và danh sách Nhân viên.</span>
-                    </label>
-                    <label className="mode-option">
-                      <input type="radio" name="view-mode" value="employee" checked={mode === 'employee'} onChange={() => setMode('employee')} data-testid="radio-mode-employee" />
-                      <strong>Xem như nhân viên (cơ sở)</strong><span>Chỉ xem dữ liệu cơ sở của một nhân viên. Không phải sổ cá nhân.</span>
-                    </label>
-                  </div>
-                </fieldset>
-                {mode === 'employee' && (
-                  <label className="field" htmlFor="view-employee" style={{ marginTop: 14 }}>Nhân viên cơ sở được xem
-                    <select id="view-employee" value={employeeId} onChange={(e) => { setEmployeeId(e.target.value); setError(''); }} aria-invalid={!!error} aria-describedby={error ? 'view-employee-error' : undefined} disabled={membersLoading} data-testid="select-view-employee">
-                      <option value="">{membersLoading ? 'Đang tải…' : members.length ? 'Chọn Nhân viên' : 'Chưa có Nhân viên'}</option>
-                      {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-                    </select>
-                  </label>
-                )}
-                {error && <p id="view-employee-error" className="form-error" role="alert" style={{ marginTop: 8 }}><AlertCircle size={14} />{error}</p>}
-                <div className="dialog-actions" style={{ marginTop: 18 }}>
-                  <DialogPrimitive.Close asChild><button type="button" className="btn ghost">Hủy</button></DialogPrimitive.Close>
-                  <button type="submit" className="btn primary" data-testid="button-apply-view">Áp dụng</button>
-                </div>
-              </form>
-            </>
-          )}
           <nav className="window-nav bottom" aria-label="Điều hướng cửa sổ">
             <Link href="/" onClick={() => onOpenChange(false)} className="btn ghost" data-testid="link-settings-home"><Home size={14} aria-hidden="true" />Trang chính</Link>
             <button type="button" className="btn ghost" onClick={() => onOpenChange(false)} data-testid="button-settings-back"><ArrowLeft size={14} aria-hidden="true" />Trở về</button>

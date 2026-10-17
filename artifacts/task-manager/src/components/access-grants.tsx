@@ -4,7 +4,7 @@ import {
   getListAccessGrantsQueryKey, useDeleteAccessGrant, useListAccessGrants, useSaveAccessGrant,
 } from '@workspace/api-client-react';
 import type { AccessGrant, FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
-import { AlertCircle, KeyRound, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronRight, KeyRound, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
 import { errorText } from '@/lib/massage';
 
@@ -62,6 +62,23 @@ function summary(p: FacilityPermissions, members: MemberRecord[]): string {
   return parts.length ? parts.join(' · ') : 'Không có quyền';
 }
 
+function permissionDetails(p: FacilityPermissions, members: MemberRecord[]): string[] {
+  const details: string[] = [];
+  if (p.allEmployees) details.push('Xem tất cả nhân viên');
+  else if (p.employeeIds.length) {
+    const names = p.employeeIds.map((id) => members.find((m) => m.id === id)?.name ?? `#${id}`);
+    details.push(`Xem nhân viên: ${names.join(', ')}`);
+  } else details.push('Không có quyền xem nhân viên');
+  if (p.editEmployees) details.push('Sửa nhân viên và ca');
+  if (p.viewCards || p.editCards) details.push('Xem thẻ khách');
+  if (p.editCards) details.push('Sửa thẻ khách');
+  if (p.viewRevenue) details.push('Xem doanh thu');
+  if (p.editServices) details.push('Sửa dịch vụ và giá');
+  if (p.viewAppointments || p.editAppointments) details.push('Xem lịch hẹn');
+  if (p.editAppointments) details.push('Tạo, sửa và xóa lịch hẹn');
+  return details;
+}
+
 export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
   members: MemberRecord[];
   isOwner: boolean;
@@ -76,6 +93,7 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [notice, setNotice] = useState('');
+  const [selectedGrantId, setSelectedGrantId] = useState<number | null>(null);
   const assignableMembers = useMemo(
     () => isOwner || permissions.allEmployees ? members : members.filter((member) => permissions.employeeIds.includes(member.id)),
     [isOwner, members, permissions.allEmployees, permissions.employeeIds],
@@ -118,6 +136,7 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
         onSuccess: () => {
           void cache.invalidateQueries({ queryKey: getListAccessGrantsQueryKey() });
           setConfirm(null);
+          if (selectedGrantId === g.id) setSelectedGrantId(null);
           if (draft?.id === g.id) setDraft(null);
           setNotice(`Đã thu hồi quyền của ${g.email}.`);
         },
@@ -225,12 +244,12 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
             </div>
           </form>
         ) : (
-          <button type="button" className="btn primary grant-add" onClick={() => { setNotice(''); setError(''); setDraft({ ...EMPTY }); }} data-testid="button-add-grant">
-            <Plus size={14} aria-hidden="true" />Cấp quyền cho email
+          <button type="button" className="btn primary grant-add" onClick={() => { setNotice(''); setError(''); setSelectedGrantId(null); setDraft({ ...EMPTY }); }} data-testid="button-add-grant">
+            <Plus size={14} aria-hidden="true" />Cấp quyền cho email mới
           </button>
         )}
 
-        <h3 className="group-title">Đã cấp</h3>
+        <h3 className="group-title">Đã cấp quyền · {list.length}</h3>
         {grants.isLoading ? <Skeleton rows={3} label="Đang tải quyền" /> : grants.isError ? (
           <ErrorBanner text="Không tải được danh sách quyền." onRetry={() => void grants.refetch()} />
         ) : list.length === 0 ? (
@@ -239,18 +258,35 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
           <ul className="grant-list">
             {list.map((g) => (
               <li key={g.id} className="grant-row" data-testid={`row-grant-${g.id}`}>
-                <span className="grow">
-                  <strong data-testid={`text-grant-email-${g.id}`}>{g.email}</strong>
-                  <span className="muted">{summary(g.permissions, members)}</span>
-                </span>
-                <span className="row-actions text-actions">
-                  <button type="button" className="btn small" onClick={() => { setNotice(''); setError(''); setDraft(fromGrant(g)); }} aria-label={`Sửa quyền ${g.email}`} data-testid={`button-edit-grant-${g.id}`}><Pencil size={14} aria-hidden="true" />Sửa</button>
-                  <button type="button" className="btn small danger" disabled={remove.isPending} onClick={() => askRevoke(g)} aria-label={`Thu hồi quyền ${g.email}`} data-testid={`button-revoke-grant-${g.id}`}><Trash2 size={14} aria-hidden="true" />Thu hồi</button>
-                </span>
+                <button type="button" className={`grant-account${selectedGrantId === g.id ? ' selected' : ''}`}
+                  onClick={() => setSelectedGrantId((selected) => selected === g.id ? null : g.id)}
+                  disabled={!!draft}
+                  aria-expanded={selectedGrantId === g.id}
+                  aria-controls={selectedGrantId === g.id ? `grant-details-${g.id}` : undefined}
+                  data-testid={`button-select-grant-${g.id}`}>
+                  <span className="grow">
+                    <strong data-testid={`text-grant-email-${g.id}`}>{g.email}</strong>
+                    <span className="muted">{summary(g.permissions, members)}</span>
+                  </span>
+                  {selectedGrantId === g.id ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
+                </button>
               </li>
             ))}
           </ul>
         )}
+        {!draft && list.map((g) => selectedGrantId === g.id && (
+          <section key={g.id} className="grant-details" id={`grant-details-${g.id}`} aria-labelledby={`grant-details-title-${g.id}`} data-testid={`details-grant-${g.id}`}>
+            <h3 id={`grant-details-title-${g.id}`} className="group-title">Quyền của tài khoản</h3>
+            <p className="grant-detail-email">{g.email}</p>
+            <ul className="grant-permission-list">
+              {permissionDetails(g.permissions, members).map((detail) => <li key={detail}>{detail}</li>)}
+            </ul>
+            <div className="row-actions text-actions">
+              <button type="button" className="btn small" onClick={() => { setNotice(''); setError(''); setDraft(fromGrant(g)); }} aria-label={`Sửa quyền ${g.email}`} data-testid={`button-edit-grant-${g.id}`}><Pencil size={14} aria-hidden="true" />Sửa quyền</button>
+              <button type="button" className="btn small danger" disabled={remove.isPending} onClick={() => askRevoke(g)} aria-label={`Thu hồi quyền ${g.email}`} data-testid={`button-revoke-grant-${g.id}`}><Trash2 size={14} aria-hidden="true" />Thu hồi</button>
+            </div>
+          </section>
+        ))}
       </Modal>
       {confirm && <ConfirmDialog state={confirm} busy={remove.isPending} onClose={() => setConfirm(null)} />}
     </>

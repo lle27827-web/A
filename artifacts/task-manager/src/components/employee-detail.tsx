@@ -93,9 +93,9 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
     if (!canEdit || !member) return;
     setConfirm({
       title: `Xóa nhân viên ${member.name}?`,
-      body: <p>{member.name} sẽ được ẩn khỏi danh sách nhân viên hiện tại. Các ca phục vụ cũ, giờ đã trừ trên thẻ khách và tiền lương đã ghi vẫn được giữ nguyên, vẫn xem được trong lịch sử từng tháng. Không ca nào bị xóa.</p>,
+      body: <p>Nhân viên sẽ bị ẩn khỏi danh sách hiện tại. Dữ liệu các tháng trước được giữ nguyên. Trong tháng hiện tại, lịch chấm công và ca khách lẻ của nhân viên sẽ bị xóa; lịch sử dùng thẻ vẫn được giữ nhưng tiền công của các ca này bị xóa. Số giờ đã dùng trên thẻ không được hoàn lại. Sổ cá nhân theo tài khoản riêng không bị ảnh hưởng.</p>,
       confirmLabel: 'Xóa nhân viên',
-      onConfirm: () => deleteMember.mutate({ id: member.id }, { onSuccess: () => { refresh({ members: true }); setConfirm(null); notify(`Đã xóa ${member.name}. Lịch sử phục vụ vẫn được giữ.`); navigate('/employees'); }, onError: (e) => { setConfirm(null); fail(e); } }),
+      onConfirm: () => deleteMember.mutate({ id: member.id }, { onSuccess: () => { refresh({ members: true }); setConfirm(null); notify(`Đã ẩn nhân viên ${member.name}. Dữ liệu các tháng trước được giữ nguyên; giờ đã dùng trên thẻ không đổi.`); navigate('/employees'); }, onError: (e) => { setConfirm(null); fail(e); } }),
     });
   }
 

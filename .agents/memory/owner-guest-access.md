@@ -21,6 +21,12 @@ Every signed-in account may keep a separate personal employee notebook: own atte
 
 **How to apply:** derive identity only from the verified session; scope all personal data by account, including owner accounts. Personal writes never change facility data. Comparison requires permission to view the selected central employee; it shows their daily/monthly **pay** and service/customer-name details, not facility cash revenue, phone numbers or another account's private notebook. Revoking facility rights must not erase the account's own notebook.
 
+Do not offer the facility “Xem như nhân viên” view mode in Settings. Keep personal attendance as a separate account-scoped notebook.
+
+**Why:** the user explicitly asked to remove “Xem như nhân viên” from Settings while keeping multi-account facility grants.
+
+**How to apply:** do not restore the old view-mode control to Settings; retain the separate personal notebook entry and its identity isolation.
+
 Valid sessions must be restored automatically when the app starts or the page reloads, without requiring another reload. Do not turn a temporarily unverified signed-in session into a guest and redirect away from the user's page.
 
 **Why:** the user requested automatic restoration of an existing valid session during application initialization.

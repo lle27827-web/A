@@ -67,9 +67,9 @@ export default function EmployeesPage() {
     if (!canEdit) return;
     setConfirm({
       title: `Xóa nhân viên ${m.name}?`,
-      body: <p>{m.name} sẽ được ẩn khỏi danh sách nhân viên hiện tại. Các ca phục vụ cũ, giờ đã trừ trên thẻ khách và tiền lương đã ghi vẫn được giữ nguyên, vẫn xem được trong lịch sử từng tháng. Không ca nào bị xóa.</p>,
+      body: <p>Không thể hoàn tác. Hồ sơ, lịch chấm công, các ca khách lẻ và doanh thu của chúng sẽ bị xóa. Lịch sử dùng thẻ của khách vẫn giữ tên kỹ thuật viên, dịch vụ, ngày, thời lượng và ghi chú; tiền công của các ca này bị xóa và số giờ đã dùng không được hoàn lại. Sổ cá nhân theo tài khoản riêng không bị ảnh hưởng.</p>,
       confirmLabel: 'Xóa nhân viên',
-      onConfirm: () => del.mutate({ id: m.id }, { onSuccess: () => { refresh({ members: true }); setConfirm(null); notify(`Đã ẩn ${m.name} khỏi danh sách. Lịch sử ca và lương vẫn được giữ.`); }, onError: (e) => { setConfirm(null); fail(e); } }),
+      onConfirm: () => del.mutate({ id: m.id }, { onSuccess: () => { refresh({ members: true }); setConfirm(null); notify(`Đã xóa dữ liệu nhân viên ${m.name}. Lịch sử dùng thẻ vẫn được giữ, số giờ đã dùng không thay đổi.`); }, onError: (e) => { setConfirm(null); fail(e); } }),
     });
   }
 

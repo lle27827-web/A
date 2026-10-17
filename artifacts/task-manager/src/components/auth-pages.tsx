@@ -1,6 +1,6 @@
 import { SignIn, SignUp, useSignIn as useClerkSignIn } from "@clerk/react";
 import { useSignIn } from "@clerk/react/legacy";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type Ref } from "react";
 import { Link, useSearch } from "wouter";
 import { shadcn } from "@clerk/themes";
 import { viVN } from "@clerk/localizations";
@@ -8,6 +8,14 @@ import { BookHeart, Hand, LogIn, LogOut, UserPlus } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function useFocusOnMount<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    ref.current?.focus();
+  }, []);
+  return ref;
+}
 
 function getPasswordResetErrorMessage(
   error: unknown,
@@ -75,7 +83,7 @@ function GoogleAccountChooserButton({ personal }: { personal: boolean }) {
   };
 
   return (
-    <div className="auth-google-option">
+    <div className="auth-google-option" aria-busy={pending}>
       <button
         type="button"
         className="auth-google-button"
@@ -86,6 +94,9 @@ function GoogleAccountChooserButton({ personal }: { personal: boolean }) {
         <FcGoogle size={20} aria-hidden="true" />
         <span>{pending ? "Đang mở tài khoản Google…" : "Đăng nhập bằng Google"}</span>
       </button>
+      <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {pending ? "Đang mở danh sách tài khoản Google." : ""}
+      </span>
       {error && <p className="auth-google-error" role="alert">{error}</p>}
     </div>
   );
@@ -118,21 +129,26 @@ export const clerkAppearance = {
 
 export const WELCOME_TITLE = "Chào mừng bạn đến với Sổ Công";
 
-function WelcomeHeading({ level = 1 }: { level?: 1 | 2 }) {
+function WelcomeHeading({ level = 1, headingId = "welcome-title", headingRef }: {
+  level?: 1 | 2;
+  headingId?: string;
+  headingRef?: Ref<HTMLHeadingElement>;
+}) {
   const Heading = level === 1 ? "h1" : "h2";
   return (
     <div className="welcome">
       <span className="brand-mark"><Hand size={22} strokeWidth={2.4} aria-hidden="true" /></span>
-      <Heading data-testid="text-welcome-title">{WELCOME_TITLE}</Heading>
-      <p data-testid="text-welcome-subtitle">Hãy đăng nhập để sử dụng dịch vụ</p>
+      <Heading id={headingId} ref={headingRef} tabIndex={headingRef ? -1 : undefined} data-testid="text-welcome-title">{WELCOME_TITLE}</Heading>
+      <p id="welcome-instructions" data-testid="text-welcome-subtitle">Hãy đăng nhập để sử dụng dịch vụ</p>
     </div>
   );
 }
 
 export function WelcomePage() {
+  const headingRef = useFocusOnMount<HTMLHeadingElement>();
   return (
-    <main className="auth-page" data-testid="page-welcome">
-      <WelcomeHeading />
+    <main className="auth-page" aria-labelledby="welcome-title" data-testid="page-welcome">
+      <WelcomeHeading headingId="welcome-title" headingRef={headingRef} />
       <div className="welcome-actions">
         <Link href="/sign-in" className="btn primary" data-testid="link-welcome-sign-in"><LogIn size={15} aria-hidden="true" />Đăng nhập</Link>
         <Link href="/sign-up" className="btn" data-testid="link-welcome-sign-up"><UserPlus size={15} aria-hidden="true" />Đăng ký</Link>
@@ -143,11 +159,12 @@ export function WelcomePage() {
 
 export function SignInPage({ available }: { available: boolean }) {
   const ret = usePersonalReturn();
+  const headingRef = useFocusOnMount<HTMLHeadingElement>();
   if (!available) return <AuthSetupPage />;
 
   return (
-    <main className="auth-page">
-      <WelcomeHeading />
+    <main className="auth-page" aria-labelledby="sign-in-title" aria-describedby="welcome-instructions">
+      <WelcomeHeading headingId="sign-in-title" headingRef={headingRef} />
       <div className="auth-sign-in-methods">
         <GoogleAccountChooserButton personal={ret.personal} />
         <SignIn
@@ -162,7 +179,7 @@ export function SignInPage({ available }: { available: boolean }) {
           {...ret.redirect}
         />
       </div>
-      <p className="muted small">
+      <p id="sign-in-instructions" className="muted small">
         <a href={`${basePath}/sign-in/forgot-password${ret.qs}`} className="link-strong" data-testid="link-forgot-password">Quên mật khẩu?</a>
       </p>
       <p className="muted small">Chưa có tài khoản? <Link href={`/sign-up${ret.qs}`} className="link-strong" data-testid="link-to-sign-up">Đăng ký</Link></p>
@@ -186,6 +203,21 @@ function ForgotPasswordFlow() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const pending = fetchStatus === "fetching";
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, [step, headingRef]);
+
+  const stepTitle = {
+    email: "Khôi phục mật khẩu",
+    code: "Nhập mã xác minh",
+    password: "Tạo mật khẩu mới",
+    complete: "Đã đổi mật khẩu",
+  }[step];
+  const pendingMessage = step === "email" ? "Đang gửi mã khôi phục."
+    : step === "code" ? "Đang xác minh mã."
+      : step === "password" ? "Đang cập nhật mật khẩu."
+        : "";
 
   const sendCode = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -304,22 +336,24 @@ function ForgotPasswordFlow() {
   };
 
   return (
-    <main className="auth-page" data-testid="page-forgot-password">
-      <WelcomeHeading level={2} />
-      <section className="panel auth-notice auth-reset-panel">
-        <h1>{step === "complete" ? "Đã đổi mật khẩu" : "Khôi phục mật khẩu"}</h1>
+    <main className="auth-page" aria-labelledby="recovery-title" data-testid="page-forgot-password">
+      <WelcomeHeading level={2} headingId="recovery-welcome-title" />
+      <section className="panel auth-notice auth-reset-panel" aria-labelledby="recovery-title">
+        <h1 id="recovery-title" ref={headingRef} tabIndex={-1}>{stepTitle}</h1>
         {step === "email" && (
-          <form className="auth-reset-form" onSubmit={(event) => void sendCode(event)}>
+          <form className="auth-reset-form" onSubmit={(event) => void sendCode(event)} aria-busy={pending}>
             <p>Nhập email đã đăng ký để nhận mã khôi phục.</p>
-            <label className="field">
+            <label className="field" htmlFor="recovery-email">
               Email
               <input
+                id="recovery-email"
                 type="email"
                 autoComplete="email"
                 required
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="Nhập địa chỉ email"
+                aria-describedby={error ? "recovery-error" : undefined}
                 data-testid="input-recovery-email"
               />
             </label>
@@ -329,17 +363,19 @@ function ForgotPasswordFlow() {
           </form>
         )}
         {step === "code" && (
-          <form className="auth-reset-form" onSubmit={(event) => void verifyCode(event)}>
+          <form className="auth-reset-form" onSubmit={(event) => void verifyCode(event)} aria-busy={pending}>
             <p>Nhập mã xác minh được gửi đến email của bạn.</p>
-            <label className="field">
+            <label className="field" htmlFor="recovery-code">
               Mã xác minh
               <input
+                id="recovery-code"
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 required
                 value={code}
                 onChange={(event) => setCode(event.target.value)}
+                aria-describedby={error ? "recovery-error" : undefined}
                 data-testid="input-recovery-code"
               />
             </label>
@@ -355,32 +391,37 @@ function ForgotPasswordFlow() {
           </form>
         )}
         {step === "password" && (
-          <form className="auth-reset-form" onSubmit={(event) => void submitNewPassword(event)}>
+          <form className="auth-reset-form" onSubmit={(event) => void submitNewPassword(event)} aria-busy={pending}>
             <p>Tạo mật khẩu mới cho tài khoản.</p>
-            <label className="field">
+            <label className="field" htmlFor="recovery-new-password">
               Mật khẩu mới
               <input
+                id="recovery-new-password"
                 type="password"
                 autoComplete="new-password"
                 required
                 minLength={8}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
+                aria-describedby={`recovery-password-hint${error ? " recovery-error" : ""}`}
                 data-testid="input-new-password"
               />
             </label>
-            <label className="field">
+            <label className="field" htmlFor="recovery-confirm-password">
               Nhập lại mật khẩu mới
               <input
+                id="recovery-confirm-password"
                 type="password"
                 autoComplete="new-password"
                 required
                 minLength={8}
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
+                aria-describedby={error ? "recovery-error" : undefined}
                 data-testid="input-confirm-new-password"
               />
             </label>
+            <span id="recovery-password-hint" className="sr-only">Mật khẩu phải có ít nhất 8 ký tự.</span>
             <button type="submit" className="btn primary" disabled={pending} data-testid="button-save-new-password">
               {pending ? "Đang cập nhật…" : "Đặt mật khẩu mới"}
             </button>
@@ -392,8 +433,9 @@ function ForgotPasswordFlow() {
             <Link href={`/sign-in${ret.qs}`} className="btn primary" data-testid="link-recovery-sign-in">Đăng nhập</Link>
           </>
         )}
-        {notice && <p className="auth-reset-notice" role="status">{notice}</p>}
-        {error && <p className="auth-reset-error" role="alert">{error}</p>}
+        {pending && <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{pendingMessage}</p>}
+        {notice && <p className="auth-reset-notice" role="status" aria-live="polite">{notice}</p>}
+        {error && <p id="recovery-error" className="auth-reset-error" role="alert">{error}</p>}
         {step !== "complete" && (
           <Link href={`/sign-in${ret.qs}`} className="link-strong" data-testid="link-back-to-sign-in">Quay lại đăng nhập</Link>
         )}
@@ -404,10 +446,12 @@ function ForgotPasswordFlow() {
 
 export function SignUpPage({ available }: { available: boolean }) {
   const ret = usePersonalReturn();
+  const headingRef = useFocusOnMount<HTMLHeadingElement>();
   if (!available) return <AuthSetupPage />;
 
   return (
-    <main className="auth-page">
+    <main className="auth-page" aria-label="Đăng ký tài khoản">
+      <h1 className="sr-only" ref={headingRef} tabIndex={-1}>Đăng ký tài khoản</h1>
       <SignUp
         routing="path"
         path={`${basePath}/sign-up`}
@@ -420,10 +464,11 @@ export function SignUpPage({ available }: { available: boolean }) {
 }
 
 export function AuthSetupPage() {
+  const headingRef = useFocusOnMount<HTMLHeadingElement>();
   return (
-    <main className="auth-page">
+    <main className="auth-page" aria-labelledby="auth-setup-title">
       <section className="panel auth-notice">
-        <h1>Đăng nhập chưa được cấu hình</h1>
+        <h1 id="auth-setup-title" ref={headingRef} tabIndex={-1}>Đăng nhập chưa được cấu hình</h1>
         <p>Cần cấu hình Clerk trước khi tài khoản có thể đăng nhập.</p>
         <p className="muted small">Thiết lập các biến APP_CLERK_SECRET_KEY, APP_CLERK_PUBLISHABLE_KEY, VITE_APP_CLERK_PUBLISHABLE_KEY và ADMIN_EMAIL.</p>
         <Link href="/" className="btn primary">Trang chào mừng</Link>
@@ -433,10 +478,11 @@ export function AuthSetupPage() {
 }
 
 export function NoFacilityAccessPage({ onSignOut }: { onSignOut?: () => void }) {
+  const headingRef = useFocusOnMount<HTMLHeadingElement>();
   return (
-    <main className="auth-page" data-testid="page-no-facility-access">
+    <main className="auth-page" aria-labelledby="no-facility-title" data-testid="page-no-facility-access">
       <section className="panel no-access">
-        <h1>Chưa có quyền truy cập cơ sở</h1>
+        <h1 id="no-facility-title" ref={headingRef} tabIndex={-1}>Chưa có quyền truy cập cơ sở</h1>
         <p>Tài khoản của bạn chưa được chủ sở hữu cấp quyền xem dữ liệu cơ sở. Bạn vẫn dùng được sổ chấm công cá nhân.</p>
         <div className="welcome-actions">
           <Link href="/personal" className="btn primary" data-testid="link-no-access-personal"><BookHeart size={15} aria-hidden="true" />Chấm công cá nhân</Link>
@@ -448,9 +494,13 @@ export function NoFacilityAccessPage({ onSignOut }: { onSignOut?: () => void }) 
 }
 
 export function AuthLoadingPage() {
+  const headingRef = useFocusOnMount<HTMLHeadingElement>();
   return (
-    <main className="auth-page">
-      <section className="panel auth-notice" role="status" data-testid="status-restoring-session">Đang khôi phục phiên và kiểm tra quyền truy cập…</section>
+    <main className="auth-page" aria-labelledby="session-loading-title">
+      <section className="panel auth-notice" aria-busy="true" data-testid="status-restoring-session">
+        <h1 id="session-loading-title" ref={headingRef} tabIndex={-1}>Đang khôi phục phiên</h1>
+        <p role="status" aria-live="polite">Đang kiểm tra phiên đăng nhập và quyền truy cập…</p>
+      </section>
     </main>
   );
 }
@@ -460,10 +510,11 @@ export function AuthRestoreErrorPage({ pending, onRetry, onSignIn }: {
   onRetry: () => void;
   onSignIn: () => void;
 }) {
+  const headingRef = useFocusOnMount<HTMLHeadingElement>();
   return (
-    <main className="auth-page">
+    <main className="auth-page" aria-labelledby="session-error-title">
       <section className="panel auth-notice" role="alert" data-testid="status-session-error">
-        <h1>Chưa thể xác minh phiên đăng nhập</h1>
+        <h1 id="session-error-title" ref={headingRef} tabIndex={-1}>Chưa thể xác minh phiên đăng nhập</h1>
         <p>Không cần tải lại trang. Hãy thử kết nối lại; nếu phiên đã hết hạn, hãy đăng nhập lại.</p>
         <button type="button" className="btn primary" onClick={onRetry} disabled={pending}>
           {pending ? 'Đang xác minh…' : 'Thử lại'}

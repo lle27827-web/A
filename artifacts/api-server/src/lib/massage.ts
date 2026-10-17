@@ -1,5 +1,5 @@
-import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
-import { appointmentsTable, cardTopUpsTable, db, membersTable, serviceSessionsTable, treatmentCardsTable, serviceTypesTable, type CardTopUpRow } from "@workspace/db";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { appointmentsTable, attendanceTable, cardTopUpsTable, db, membersTable, memberVersionsTable, serviceSessionsTable, treatmentCardsTable, serviceTypesTable, type CardTopUpRow } from "@workspace/db";
 import type { FacilityPermissions, ServiceSessionInput, TreatmentCardInput, TreatmentCardUpdate } from "@workspace/api-zod";
 import { canEditEmployee } from "./facility-permissions";
 
@@ -175,10 +175,41 @@ export async function deleteCard(id: number) {
 
 export async function deleteMember(id: number) {
   await db.transaction(async (tx) => {
-    const [member] = await tx.select({ id: membersTable.id, deletedAt: membersTable.deletedAt }).from(membersTable)
-      .where(eq(membersTable.id, id)).for("update");
+    // Follow saveSession's session-before-member lock order to avoid deadlocks
+    // with an edit already holding a visit row.
+    await tx.select({ id: serviceSessionsTable.id }).from(serviceSessionsTable)
+      .where(eq(serviceSessionsTable.memberId, id)).orderBy(asc(serviceSessionsTable.id)).for("update");
+    const [member] = await tx.select({ id: membersTable.id }).from(membersTable)
+      .where(and(eq(membersTable.id, id), isNull(membersTable.deletedAt))).for("update");
     if (!member) throw new MassageError(404, "Không tìm thấy nhân viên.");
-    if (!member.deletedAt) await tx.update(membersTable).set({ deletedAt: sql`clock_timestamp()` }).where(eq(membersTable.id, id));
+    // Scope deletion to the current business month. Earlier months are immutable
+    // history, including card usage, walk-in revenue, attendance and payroll.
+    const currentMonthStart = `${currentBusinessDate().slice(0, 7)}-01`;
+    // Keep current-month customer card-use history and its consumed minutes, but
+    // detach the deleted employee and remove current-month wage associations.
+    await tx.update(serviceSessionsTable).set({
+      memberId: null,
+      hourlyRate: 0,
+      earnings: 0,
+    }).where(and(
+      eq(serviceSessionsTable.memberId, id),
+      isNotNull(serviceSessionsTable.cardId),
+      gte(serviceSessionsTable.workDate, currentMonthStart),
+    ));
+    // Remove only current-month walk-in sessions, preserving prior-month revenue.
+    await tx.delete(serviceSessionsTable).where(and(
+      eq(serviceSessionsTable.memberId, id),
+      isNull(serviceSessionsTable.cardId),
+      gte(serviceSessionsTable.workDate, currentMonthStart),
+    ));
+    await tx.delete(attendanceTable).where(and(
+      eq(attendanceTable.memberId, id),
+      gte(attendanceTable.workDate, currentMonthStart),
+    ));
+    // Soft delete the profile so prior-month names, pay rates and visit details
+    // remain available in historical views. No card totals or visit minutes change.
+    await tx.update(membersTable).set({ deletedAt: new Date() })
+      .where(and(eq(membersTable.id, id), isNull(membersTable.deletedAt)));
   });
 }
 

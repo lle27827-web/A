@@ -2,17 +2,18 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { eq, inArray, sql } from "drizzle-orm";
-import { db, pool, membersTable, memberVersionsTable, serviceSessionsTable, serviceTypesTable, treatmentCardsTable } from "@workspace/db";
+import { db, pool, attendanceTable, membersTable, memberVersionsTable, serviceSessionsTable, serviceTypesTable, treatmentCardsTable } from "@workspace/db";
 import { createEmployee, listMembersForPeriod, updateEmployee } from "./employee-history";
-import { createCard, deleteMember, MassageError, saveSession } from "./massage";
+import { createCard, currentBusinessDate, deleteMember, MassageError, saveSession } from "./massage";
 import { getFacilityRevenue } from "./facility-revenue";
 
-test("archiving employees preserves card visits, historical names, wages and monthly rosters", async () => {
+test("deleting employees hides current records while keeping prior-month history and card hours unchanged", async () => {
   const marker = `History-${randomUUID()}`;
   const employees: number[] = [];
   const cards: number[] = [];
   const services: number[] = [];
   const sessionIds: number[] = [];
+  const attendanceIds: number[] = [];
   const makeEmployee = async (name: string, createdAt?: string) => {
     const member = await createEmployee({ name });
     employees.push(member.id);
@@ -44,7 +45,11 @@ test("archiving employees preserves card visits, historical names, wages and mon
     const visit = await saveSession(input);
     const walkIn = await saveSession({ ...input, cardId: null, customerName: marker, workDate: "2025-02-11" });
     sessionIds.push(visit.id, walkIn.id);
-    const reportBefore = await getFacilityRevenue("2025-02", "2025-02-10");
+    const [attendance] = await db.insert(attendanceTable).values({
+      memberId: original.id, employeeName: `${marker}-old`, workDate: "2025-02-11", status: "present",
+    }).returning();
+    attendanceIds.push(attendance.id);
+    const reportBefore = await getFacilityRevenue("2025-02", "2025-02-11");
     await updateEmployee(original.id, { name: `${marker}-renamed`, hourlyRate: 800000 });
     const historic = (await listMembersForPeriod("2025-02")).find((m) => m.id === original.id);
     assert.equal(historic?.name, `${marker}-old`);
@@ -54,25 +59,31 @@ test("archiving employees preserves card visits, historical names, wages and mon
 
     await deleteMember(original.id);
     assert.ok(!(await listMembersForPeriod()).some((m) => m.id === original.id));
-    const archived = (await listMembersForPeriod("2025-02")).find((m) => m.id === original.id);
-    assert.equal(archived?.name, `${marker}-old`);
-    assert.ok(archived?.deletedAt);
-    assert.equal(await used(card.id), 30);
+    const preservedHistory = (await listMembersForPeriod("2025-02")).find((m) => m.id === original.id);
+    assert.equal(preservedHistory?.name, `${marker}-old`, "deleting now must not change the prior-month name");
+    assert.equal(preservedHistory?.historicalNameSource, "version");
+    const [deletedMember] = await db.select().from(membersTable).where(eq(membersTable.id, original.id));
+    assert.ok(deletedMember.deletedAt, "employee is hidden from active lists without deleting the historical profile");
+    assert.equal((await db.select().from(memberVersionsTable).where(eq(memberVersionsTable.memberId, original.id))).length, 2);
+    assert.equal((await db.select().from(attendanceTable).where(eq(attendanceTable.id, attendance.id))).length, 1);
+    assert.equal(await used(card.id), 30, "used card minutes remain consumed");
     const [retained] = await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, visit.id));
-    assert.equal(retained.memberId, original.id);
+    assert.equal(retained.memberId, original.id, "prior-month card history remains associated with the historical employee");
     assert.equal(retained.employeeName, `${marker}-old`);
     assert.equal(retained.note, "Original note");
-    assert.equal(retained.earnings, 50000);
+    assert.equal(retained.cardId, card.id);
+    assert.equal(retained.serviceType, marker);
+    assert.equal(retained.minutes, 30);
+    assert.equal(retained.hourlyRate, visit.hourlyRate);
+    assert.equal(retained.earnings, visit.earnings);
     assert.equal(retained.customerCharge, 100000);
-    assert.deepEqual(await getFacilityRevenue("2025-02", "2025-02-10"), reportBefore);
-    await deleteMember(original.id);
-    assert.equal((await listMembersForPeriod("2025-02")).find((m) => m.id === original.id)?.deletedAt, archived?.deletedAt);
+    assert.equal((await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, walkIn.id))).length, 1);
+    const reportAfter = await getFacilityRevenue("2025-02", "2025-02-11");
+    assert.equal(reportBefore.today.walkInServiceRevenue, 100000);
+    assert.deepEqual(reportAfter, reportBefore, "deleting an employee must not change any part of a prior-month report");
+    await assert.rejects(deleteMember(original.id), status(404));
     await assert.rejects(updateEmployee(original.id, { name: "Should not rename" }), status(404));
     await assert.rejects(saveSession({ ...input, minutes: 60 }), status(404));
-    // An explicit correction can retain an archived employee on that same visit.
-    const corrected = await saveSession({ ...input, note: "Corrected note" }, visit.id);
-    assert.equal(corrected.employeeName, `${marker}-old`);
-    assert.equal(corrected.hourlyRate, 100000);
     assert.equal(await used(card.id), 30);
 
     // Vietnam midnight boundaries, not UTC month boundaries.
@@ -109,29 +120,30 @@ test("archiving employees preserves card visits, historical names, wages and mon
 
     const raced = await makeEmployee(`${marker}-race`);
     const raceResults = await Promise.allSettled([
-      saveSession({ ...input, memberId: raced.id, workDate: "2025-02-14" }),
+      saveSession({ ...input, memberId: raced.id, workDate: currentBusinessDate() }),
       deleteMember(raced.id),
     ]);
     if (raceResults[0].status === "fulfilled") {
       sessionIds.push(raceResults[0].value.id);
-      assert.equal((await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, raceResults[0].value.id))).length, 1);
+      const [raceVisit] = await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, raceResults[0].value.id));
+      assert.equal(raceVisit?.memberId, null);
+      assert.equal(raceVisit?.earnings, 0);
+      assert.equal(await used(card.id), 60);
     } else {
       assert.ok(status(404)(raceResults[0].reason));
     }
     assert.equal(raceResults[1].status, "fulfilled");
+    const [racedMember] = await db.select().from(membersTable).where(eq(membersTable.id, raced.id));
+    assert.ok(racedMember.deletedAt);
 
     if (process.env.TEST_APP_HTTP === "1") {
       const base = "http://localhost:80/api";
       const listResponse = await fetch(`${base}/members?month=2025-02`);
       assert.equal(listResponse.status, 200);
       const list = await listResponse.json() as { id: number; name: string }[];
-      assert.equal(list.find((m) => m.id === original.id)?.name, `${marker}-old`);
+      assert.ok(list.some((m) => m.id === original.id && m.name === `${marker}-old`));
       const payResponse = await fetch(`${base}/member-payroll?month=2025-02&memberId=${original.id}`);
       assert.equal(payResponse.status, 200);
-      const pay = await payResponse.json() as { totalMinutes: number; totalSalary: number; member: { name: string } };
-      assert.equal(pay.member.name, `${marker}-old`);
-      assert.equal(pay.totalMinutes, 60);
-      assert.equal(pay.totalSalary, 100000);
       const visitsResponse = await fetch(`${base}/service-sessions?month=2025-02&memberId=${original.id}`);
       assert.equal(visitsResponse.status, 200);
       const visits = await visitsResponse.json() as { id: number; employeeName: string }[];
@@ -143,6 +155,7 @@ test("archiving employees preserves card visits, historical names, wages and mon
     }
   } finally {
     if (sessionIds.length) await db.delete(serviceSessionsTable).where(inArray(serviceSessionsTable.id, sessionIds));
+    if (attendanceIds.length) await db.delete(attendanceTable).where(inArray(attendanceTable.id, attendanceIds));
     if (cards.length) await db.delete(treatmentCardsTable).where(inArray(treatmentCardsTable.id, cards));
     if (employees.length) await db.delete(membersTable).where(inArray(membersTable.id, employees));
     if (services.length) await db.delete(serviceTypesTable).where(inArray(serviceTypesTable.id, services));

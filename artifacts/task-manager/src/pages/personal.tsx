@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetPersonalComparisonQueryKey, getGetPersonalNotebookQueryKey,
@@ -19,16 +19,26 @@ import { errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth }
 import { resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
 
 function PersonalFrame({ children, onSignOut }: { children: ReactNode; onSignOut?: () => void }) {
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const main = document.getElementById('main');
+      const target = main?.querySelector<HTMLElement>('h1, h2') ?? main;
+      if (target && !target.hasAttribute('tabindex')) target.tabIndex = -1;
+      target?.focus({ preventScroll: false });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
   return (
     <div className="personal">
+      <a className="skip-link" href="#main" data-testid="link-personal-skip-main">Bỏ qua đến nội dung chính</a>
       <header className="p-top">
         <div className="p-top-inner">
-          <Link href="/" className="brand" data-testid="link-personal-brand"><span className="brand-mark p-mark"><BookHeart size={15} strokeWidth={2.4} /></span><span>SỔ CỦA TÔI</span></Link>
+          <Link href="/" className="brand" data-testid="link-personal-brand"><span className="brand-mark p-mark"><BookHeart size={15} strokeWidth={2.4} aria-hidden="true" /></span><span>SỔ CỦA TÔI</span></Link>
           <span className="p-pill" data-testid="status-personal">Riêng tư · chỉ bạn thấy</span>
           {onSignOut && <button type="button" className="link-soft as-button p-logout" onClick={onSignOut} data-testid="button-personal-sign-out">Đăng xuất</button>}
         </div>
       </header>
-      <main className="p-main" id="main">
+      <main className="p-main" id="main" tabIndex={-1}>
         {children}
         <nav className="screen-nav" aria-label="Điều hướng trang">
           <Link href="/" className="btn ghost" data-testid="link-personal-home"><Home size={15} aria-hidden="true" />Về sổ cơ sở</Link>

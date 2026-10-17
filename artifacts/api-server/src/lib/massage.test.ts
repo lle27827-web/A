@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { eq, inArray, sql } from "drizzle-orm";
 import { db, pool, membersTable, serviceSessionsTable, treatmentCardsTable, serviceTypesTable } from "@workspace/db";
-import { addCardHours, cardResponse, createCard, deleteCard, deleteMember, deleteSession, MassageError, saveSession, updateCard } from "./massage";
+import { addCardHours, cardResponse, createCard, currentBusinessDate, deleteCard, deleteMember, deleteSession, MassageError, saveSession, updateCard } from "./massage";
 
 test("card balance and service payroll stay consistent through edits and concurrent use", async () => {
   const marker = `Verify-${randomUUID()}`;
@@ -20,6 +20,10 @@ test("card balance and service payroll stay consistent through edits and concurr
     const [row] = await db.select({ used: sql<number>`coalesce(sum(${serviceSessionsTable.minutes}), 0)` })
       .from(serviceSessionsTable).where(eq(serviceSessionsTable.cardId, cardId));
     return Number(row.used);
+  };
+  const remaining = async (cardId: number) => {
+    const [card] = await db.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, cardId));
+    return cardResponse(card, await balance(cardId)).remainingMinutes;
   };
   const fails = (status: number) => (error: unknown) => error instanceof MassageError && error.status === status;
   try {
@@ -63,7 +67,7 @@ test("card balance and service payroll stay consistent through edits and concurr
     assert.equal(await balance(topupCard.id), 90);
     await deleteSession(topupVisit.id);
     assert.equal(await balance(topupCard.id), 0, "deleting a visit refunds its hours");
-    const input = { memberId, serviceTypeId: service.id, cardId: a.id, workDate: "2026-10-13", minutes: 60, note: marker };
+    const input = { memberId, serviceTypeId: service.id, cardId: a.id, workDate: currentBusinessDate(), minutes: 60, note: marker };
     const first = await record(input);
     assert.equal(first.earnings, 100000);
     assert.equal(first.customerHourlyRate, 200000);
@@ -168,10 +172,30 @@ test("card balance and service payroll stay consistent through edits and concurr
     await assert.rejects(record({ ...input, cardId: removedCard.id, minutes: 90, workDate: "2099-12-01" }, linkedSession.id), fails(404));
     await assert.rejects(addCardHours(removedCard.id, 60, 0), fails(404));
     await assert.rejects(updateCard(removedCard.id, { customerName: marker }), fails(404));
+    const cardMinutesBeforeRemoval = await balance(b.id);
+    const removedCardMinutesBeforeRemoval = await balance(removedCard.id);
+    const cardRemainingBeforeRemoval = await remaining(b.id);
+    const removedCardRemainingBeforeRemoval = await remaining(removedCard.id);
     await deleteMember(memberId);
     const [retained] = await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, first.id));
-    assert.equal(retained?.memberId, memberId);
-    assert.equal((await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, linkedSession.id))).length, 1);
+    assert.equal(retained?.memberId, null);
+    assert.equal(retained?.employeeName, marker);
+    assert.equal(retained?.minutes, 90);
+    assert.equal(retained?.hourlyRate, 0);
+    assert.equal(retained?.earnings, 0);
+    const [retainedLinked] = await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, linkedSession.id));
+    assert.equal(retainedLinked?.memberId, null);
+    assert.equal(retainedLinked?.hourlyRate, 0);
+    assert.equal(retainedLinked?.earnings, 0);
+    assert.equal(await balance(b.id), cardMinutesBeforeRemoval);
+    assert.equal(await balance(removedCard.id), removedCardMinutesBeforeRemoval);
+    assert.equal(await remaining(b.id), cardRemainingBeforeRemoval, "employee deletion must not refund minutes to the customer's card");
+    assert.equal(await remaining(removedCard.id), removedCardRemainingBeforeRemoval, "even retained/future card visits cannot increase the balance");
+    const priorMonthSessions = await db.select({ id: serviceSessionsTable.id }).from(serviceSessionsTable)
+      .where(eq(serviceSessionsTable.memberId, memberId));
+    assert.deepEqual(new Set(priorMonthSessions.map((session) => session.id)), new Set([standalone.id, legacyEdit.id]),
+      "deleting this month must not remove sessions from prior months");
+    assert.equal((await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, standalone.id))).length, 1);
   } finally {
     if (sessions.length) await db.delete(serviceSessionsTable).where(inArray(serviceSessionsTable.id, sessions));
     if (cards.length) await db.delete(treatmentCardsTable).where(inArray(treatmentCardsTable.id, cards));

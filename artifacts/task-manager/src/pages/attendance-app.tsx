@@ -104,13 +104,13 @@ export default function AttendanceApp() {
   }
   function removeMember(member: MemberRecord) {
     if (!canEdit) return;
-    if (!window.confirm(`Xóa Nhân viên “${member.name}”?\n\nLịch sử chấm công trước đây của ${member.name} vẫn được giữ nguyên và vẫn tìm kiếm được. Thao tác xóa Nhân viên không thể hoàn tác.`)) return;
+    if (!window.confirm(`Xóa Nhân viên “${member.name}”?\n\nKhông thể hoàn tác. Hồ sơ, lịch chấm công, các ca khách lẻ và doanh thu của chúng sẽ bị xóa. Lịch sử dùng thẻ vẫn giữ thông tin lượt dùng nhưng bỏ tiền công; số giờ đã dùng không được hoàn lại. Sổ cá nhân theo tài khoản riêng không bị ảnh hưởng.`)) return;
     deleteMember.mutate({ id: member.id }, {
       onSuccess: () => {
         void cache.invalidateQueries({ queryKey: getListMembersQueryKey() });
         invalidateAttendance();
         if (selectedMemberId === member.id) setSelectedMemberId(null);
-        success(`Đã xóa ${member.name}. Lịch sử ca vẫn được giữ.`);
+        success(`Đã xóa dữ liệu nhân viên ${member.name}. Lịch sử dùng thẻ vẫn được giữ, số giờ đã dùng không thay đổi.`);
       },
       onError: handleError,
     });
@@ -149,7 +149,7 @@ export default function AttendanceApp() {
           </form>
           <div className="account">
             <span className="mode-pill" data-testid="status-view-mode">{employeeMode ? 'Nhân viên' : 'Chủ'}</span>
-            <ViewSettings prefs={prefs} members={members} membersLoading={membersQuery.isLoading} open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView} isOwner={false} canManageGrants={false} permissions={{ allEmployees: false, employeeIds: [], viewCards: false, viewRevenue: false, editEmployees: false, editCards: false, editServices: false, viewAppointments: false, editAppointments: false }} />
+            <ViewSettings prefs={prefs} members={members} open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView} isOwner={false} canManageGrants={false} permissions={{ allEmployees: false, employeeIds: [], viewCards: false, viewRevenue: false, editEmployees: false, editCards: false, editServices: false, viewAppointments: false, editAppointments: false }} />
           </div>
         </div>
       </header>

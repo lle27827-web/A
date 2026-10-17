@@ -124,6 +124,7 @@ export function AppShell({
     requestAnimationFrame(() => {
       const main = document.getElementById('main');
       const target = main?.querySelector<HTMLElement>('h1, h2') ?? main;
+      if (target && target.tabIndex < 0 && !target.hasAttribute('tabindex')) target.tabIndex = -1;
       target?.focus({ preventScroll: false });
     });
   }, [fullLocation, location]);
@@ -173,10 +174,11 @@ export function AppShell({
   return (
     <Ctx.Provider value={ctx}>
       <div className="app">
+        <a className="skip-link" href="#main" data-testid="link-skip-main">Bỏ qua đến nội dung chính</a>
         <header className="topbar">
           <div className="topbar-inner">
             <Link href={withHistory('/')} onClick={() => setQuery('')} className="brand" data-testid="link-home">
-              <span className="brand-mark"><Hand size={15} strokeWidth={2.4} /></span><span>SỔ CÔNG</span>
+              <span className="brand-mark"><Hand size={15} strokeWidth={2.4} aria-hidden="true" /></span><span>SỔ CÔNG</span>
             </Link>
             <form role="search" className="search" onSubmit={(event) => event.preventDefault()}>
               <Search size={16} aria-hidden="true" />
@@ -192,14 +194,14 @@ export function AppShell({
               {employeeMode && <span className="mode-pill" data-testid="status-view-mode">Xem NV cơ sở · chỉ xem</span>}
               <span className={isOwner ? 'mode-pill' : 'mode-pill guest-pill'} data-testid={isOwner ? 'status-owner-role' : 'status-manager-role'}>{isOwner ? 'Chủ sở hữu' : 'Quản lý được cấp quyền'}</span>
               <button type="button" className="link-soft as-button" onClick={onSignOut} data-testid="button-sign-out">Đăng xuất</button>
-              <ViewSettings prefs={prefs} members={members} membersLoading={membersQuery.isLoading}
+              <ViewSettings prefs={prefs} members={members}
                 open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView}
                 isOwner={isOwner} permissions={permissions}
                 canManageGrants={isOwner || hasFacilityAccess(permissions)} />
             </div>
           </div>
         </header>
-        <main className="main" id="main">
+        <main className="main" id="main" tabIndex={-1}>
           {authStatusMessage && <div className="banner danger" role="status">{authStatusMessage}</div>}
           {historyMonth && employeeRoute && (
             <div className="banner soft history-banner" role="status" data-testid="status-history-mode">
