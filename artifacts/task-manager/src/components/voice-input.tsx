@@ -10,6 +10,7 @@ type SpeechRecognitionLike = {
   interimResults: boolean;
   onresult: ((event: SpeechEvent) => void) | null;
   onerror: ((event: SpeechErrorEvent) => void) | null;
+  onspeechend: (() => void) | null;
   onend: (() => void) | null;
   start: () => void;
   stop: () => void;
@@ -41,6 +42,7 @@ function useVoiceEntry(ref: RefObject<HTMLInputElement | HTMLTextAreaElement | n
     if (!active) return;
     active.onresult = null;
     active.onerror = null;
+    active.onspeechend = null;
     active.onend = null;
     active.stop();
     recognition.current = null;
@@ -58,12 +60,13 @@ function useVoiceEntry(ref: RefObject<HTMLInputElement | HTMLTextAreaElement | n
     const initialValue = element.value;
     const selectionStart = element.selectionStart ?? initialValue.length;
     const selectionEnd = element.selectionEnd ?? selectionStart;
+    let finalCaret = selectionStart;
     const instance = new Recognition();
     recognition.current = instance;
     instance.lang = 'vi-VN';
-    instance.continuous = true;
+    instance.continuous = false;
     instance.interimResults = false;
-    setStatus('Đang nghe tiếng Việt. Chạm micro để dừng.');
+    setStatus('');
     setListening(true);
 
     instance.onresult = (event) => {
@@ -86,9 +89,8 @@ function useVoiceEntry(ref: RefObject<HTMLInputElement | HTMLTextAreaElement | n
       )?.set;
       setter?.call(element, value);
       element.dispatchEvent(new Event('input', { bubbles: true }));
-      const caret = before.length + insertion.length;
-      element.focus();
-      element.setSelectionRange(caret, caret);
+      finalCaret = before.length + insertion.length;
+      element.setSelectionRange(finalCaret, finalCaret);
     };
     instance.onerror = (event) => {
       const messages: Record<string, string> = {
@@ -99,10 +101,12 @@ function useVoiceEntry(ref: RefObject<HTMLInputElement | HTMLTextAreaElement | n
       };
       setStatus(messages[event.error] ?? 'Không thể nhập giọng nói. Anh thử lại nhé.');
     };
+    instance.onspeechend = () => instance.stop();
     instance.onend = () => {
       recognition.current = null;
       setListening(false);
-      setStatus((current) => current.startsWith('Đang nghe') ? '' : current);
+      element.focus();
+      element.setSelectionRange(finalCaret, finalCaret);
     };
 
     try {
@@ -128,7 +132,7 @@ function VoiceButton({ listening, supported, onClick }: {
       className={`voice-input-button${listening ? ' is-listening' : ''}`}
       onClick={onClick}
       disabled={!supported}
-      aria-label={!supported ? 'Trình duyệt không hỗ trợ nhập giọng nói' : listening ? 'Dừng nhập giọng nói' : 'Nhập bằng giọng nói'}
+      aria-label={!supported ? 'Trình duyệt không hỗ trợ nhập giọng nói' : 'Nhập bằng giọng nói'}
       aria-pressed={listening}
       title={!supported ? 'Trình duyệt không hỗ trợ nhập giọng nói' : listening ? 'Dừng nhập giọng nói' : 'Nhập bằng giọng nói'}
       data-testid="button-voice-input"
@@ -155,7 +159,7 @@ export const VoiceInput = forwardRef<HTMLInputElement, VoiceInputProps>(function
         className={className}
       />
       <VoiceButton listening={listening} supported={supported} onClick={toggle} />
-      <span className="sr-only" aria-live="polite">{status}</span>
+      <span className="sr-only" aria-live={listening ? 'off' : 'polite'} aria-atomic="true">{status}</span>
     </div>
   );
 });
@@ -176,7 +180,7 @@ export const VoiceTextarea = forwardRef<HTMLTextAreaElement, VoiceTextareaProps>
         className={className}
       />
       <VoiceButton listening={listening} supported={supported} onClick={toggle} />
-      <span className="sr-only" aria-live="polite">{status}</span>
+      <span className="sr-only" aria-live={listening ? 'off' : 'polite'} aria-atomic="true">{status}</span>
     </div>
   );
 });

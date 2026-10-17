@@ -83,7 +83,7 @@
 .topbar-inner { width: min(1200px, 100% - 32px); margin: 0 auto; min-height: 60px; display: flex; align-items: center; gap: 16px; }
 .brand { display: inline-flex; align-items: center; gap: 8px; color: hsl(var(--foreground)); text-decoration: none; font-family: var(--app-font-display); font-weight: 800; font-size: 16px; letter-spacing: -.04em; white-space: nowrap; }
 .brand-mark { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 9px 9px 9px 3px; color: hsl(var(--primary-foreground)); background: hsl(var(--primary)); }
-.search { flex: 1; display: flex; align-items: center; gap: 8px; max-width: 620px; min-height: 40px; padding: 0 6px 0 12px; border: 1px solid hsl(var(--border)); border-radius: 10px; color: hsl(var(--muted-foreground)); background: hsl(var(--muted) / .45); transition: border-color .15s, background .15s; }
+.search { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; max-width: 620px; min-height: 40px; padding: 0 6px 0 12px; border: 1px solid hsl(var(--border)); border-radius: 10px; color: hsl(var(--muted-foreground)); background: hsl(var(--muted) / .45); transition: border-color .15s, background .15s; }
 .search:focus-within { border-color: hsl(var(--primary) / .55); background: hsl(var(--card)); box-shadow: 0 0 0 3px hsl(var(--primary) / .08); }
 .search input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: hsl(var(--foreground)); font-size: 14px; }
 .search input::-webkit-search-cancel-button { display: none; }
@@ -202,20 +202,23 @@
 .field input, .field select, .field textarea { box-sizing: border-box; width: 100%; min-width: 0; min-height: 38px; padding: 8px 10px; border: 1px solid hsl(var(--border)); border-radius: 8px; outline: none; background: hsl(var(--card)); color: hsl(var(--foreground)); font-size: 13px; font-weight: 400; }
 .field textarea { resize: vertical; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: hsl(var(--primary) / .6); box-shadow: 0 0 0 3px hsl(var(--primary) / .08); }
-.voice-input-shell { display: flex; align-items: stretch; width: 100%; min-width: 0; }
+.voice-input-shell { box-sizing: border-box; display: flex; align-items: stretch; width: 100%; min-width: 0; max-width: 100%; overflow: hidden; }
 .field .voice-input-shell { overflow: hidden; border: 1px solid hsl(var(--border)); border-radius: 8px; background: hsl(var(--card)); }
 .field .voice-input-shell:focus-within { border-color: hsl(var(--primary) / .6); box-shadow: 0 0 0 3px hsl(var(--primary) / .08); }
 .field .voice-input-shell > input, .field .voice-input-shell > textarea { flex: 1; width: 0; min-width: 0; border: 0; border-radius: 0; outline: none; box-shadow: none; background: transparent; }
 .field .voice-input-shell > textarea { min-height: 78px; resize: vertical; }
-.voice-input-button { display: inline-flex; flex: 0 0 38px; align-items: center; justify-content: center; align-self: stretch; min-width: 38px; padding: 0; border: 0; border-left: 1px solid hsl(var(--border)); background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer; }
+.voice-input-button { box-sizing: border-box; display: inline-flex; flex: 0 0 38px; align-items: center; justify-content: center; align-self: stretch; min-width: 38px; padding: 0; border: 0; border-left: 1px solid hsl(var(--border)); background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer; }
 .voice-input-button:hover:not(:disabled), .voice-input-button:focus-visible { color: hsl(var(--primary)); background: hsl(var(--muted) / .65); }
 .voice-input-button:focus-visible { outline: 2px solid hsl(var(--primary)); outline-offset: -2px; }
 .voice-input-button.is-listening { color: hsl(var(--destructive)); }
 .voice-input-button:disabled { cursor: not-allowed; opacity: .45; }
-.search .voice-input-shell { flex: 1; }
-.search .voice-input-shell > input { flex: 1; width: 0; min-width: 0; border: 0; outline: none; background: transparent; color: hsl(var(--foreground)); font-size: 14px; }
+.search .voice-input-shell, .card-search-box .voice-input-shell { flex: 1 1 0; width: 0; }
+.search .voice-input-shell > input, .card-search-box .voice-input-shell > input { box-sizing: border-box; flex: 1 1 0; width: 0; min-width: 0; max-width: 100%; border: 0; outline: none; background: transparent; color: hsl(var(--foreground)); font-size: 14px; }
 .search .voice-input-button { flex-basis: 34px; min-width: 34px; border-left: 0; }
 .voice-textarea-shell .voice-input-button { align-self: flex-start; min-height: 38px; }
+.member-form .voice-input-shell { flex: 1 1 160px; width: auto; min-width: 0; border: 1px solid hsl(var(--border)); border-radius: 7px; background: hsl(var(--muted)); }
+.member-form .voice-input-shell input { box-sizing: border-box; flex: 1 1 0; width: 0; min-width: 0; border: 0; border-radius: 0; background: transparent; }
+.member-form .voice-input-button { flex-basis: 34px; min-width: 34px; }
 .field-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .form-error { margin: 0; color: hsl(var(--destructive)); font-size: 12px; }
 .dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
@@ -375,7 +378,7 @@ a.hit:hover, .emp-row:hover, .card-row:hover { border-color: hsl(var(--primary) 
 .rev-breakdown .hint { margin: 0 0 6px; }
 .card-search { display: grid; gap: 6px; margin: 0 0 14px; font-size: 13px; }
 .card-search label { font-weight: 600; }
-.card-search-box { display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid hsl(var(--border)); border-radius: 10px; background: hsl(var(--muted) / .35); }
+.card-search-box { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 10px; border: 1px solid hsl(var(--border)); border-radius: 10px; background: hsl(var(--muted) / .35); }
 .card-search-box input { flex: 1; min-width: 0; padding: 10px 0; border: 0; background: transparent; color: inherit; font: inherit; outline: none; }
 .card-search-box:focus-within { border-color: hsl(var(--primary)); }
 .day-actions { display: grid; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid hsl(var(--border)); }
