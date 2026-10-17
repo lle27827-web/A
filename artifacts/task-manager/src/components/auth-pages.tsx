@@ -3,10 +3,26 @@ import { useSignIn } from "@clerk/react/legacy";
 import { useState, type FormEvent } from "react";
 import { Link, useSearch } from "wouter";
 import { shadcn } from "@clerk/themes";
+import { viVN } from "@clerk/localizations";
 import { BookHeart, Hand, LogIn, LogOut, UserPlus } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function getPasswordResetErrorMessage(error: unknown): string {
+  if (error && typeof error === "object") {
+    const clerkError = error as { code?: unknown; longMessage?: unknown };
+    if (typeof clerkError.code === "string") {
+      const localizedMessages = viVN.unstable__errors as unknown as Record<string, unknown>;
+      const localized = localizedMessages[clerkError.code];
+      if (typeof localized === "string" && localized.trim()) return localized;
+    }
+    if (typeof clerkError.longMessage === "string" && clerkError.longMessage.trim()) {
+      return clerkError.longMessage;
+    }
+  }
+  return "Không thể đặt mật khẩu mới. Hãy thử mật khẩu khác.";
+}
 
 /** Only one whitelisted return target is supported: ?next=personal. */
 function usePersonalReturn() {
@@ -207,13 +223,13 @@ function ForgotPasswordFlow() {
     try {
       const result = await signIn.resetPasswordEmailCode.submitPassword({ password });
       if (result.error) {
-        setError("Không thể đặt mật khẩu này. Hãy thử mật khẩu khác.");
+        setError(getPasswordResetErrorMessage(result.error));
         return;
       }
       await signIn.reset();
       setStep("complete");
-    } catch {
-      setError("Không thể cập nhật mật khẩu lúc này. Hãy thử lại.");
+    } catch (caughtError) {
+      setError(getPasswordResetErrorMessage(caughtError));
     }
   };
 
