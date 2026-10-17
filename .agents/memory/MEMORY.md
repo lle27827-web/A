@@ -11,6 +11,6 @@
 - [Migration baselines](database-migration-baseline.md) — existing tables may have an empty migration journal; do not replay or invent a baseline blindly.
 - [Drizzle nested selects](drizzle-nested-selects.md) — raw selected SQL may strip column qualifiers; explicitly qualify joined subqueries.
 - [Employee history](employee-history.md) — staff removal preserves visits and wages; month history applies across employee management, not just revenue.
-- [Navigation placement](navigation-placement.md) — back/home controls belong after content and lists, including search and employee-view mode.
+- [Navigation placement](navigation-placement.md) — keep service pricing on the home screen; preserve its manager grant while keeping it out of Settings.
 - [Personal synchronization](personal-synchronization.md) — importing replaces only the confirmed day/month; optional facility rates use employee pay and preserve historical wages.
 - [Concise accessibility](concise-accessibility.md) — short titles and discrepancy summaries; keep controls, financial data, errors and destructive warnings accessible.
