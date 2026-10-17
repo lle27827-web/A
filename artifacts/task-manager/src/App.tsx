@@ -15,7 +15,7 @@ import CardDetailPage from '@/pages/card-detail';
 import ServicesPage from '@/pages/services';
 import PersonalPage from '@/pages/personal';
 import AppointmentsPage from '@/pages/appointments';
-import { AuthLoadingPage, AuthRestoreErrorPage, AuthSetupPage, clerkAppearance, NoFacilityAccessPage, SignInPage, SignUpPage, WelcomePage } from '@/components/auth-pages';
+import { AuthLoadingPage, AuthRestoreErrorPage, AuthSetupPage, clerkAppearance, ForgotPasswordPage, NoFacilityAccessPage, SignInPage, SignUpPage, WelcomePage } from '@/components/auth-pages';
 import { postAuthPath, retrySessionCheck, sessionScreen, validateRestoredSession } from '@/lib/auth-session';
 import { createWebSessionTokenGetter } from '@/lib/web-session-token';
 import { playSaveChime } from '@/lib/save-chime';
@@ -79,6 +79,7 @@ function SessionApplication() {
 function SignedOutApplication({ authConfigured }: { authConfigured: boolean }) {
   return (
     <Switch>
+      <Route path="/sign-in/forgot-password"><ForgotPasswordPage available={authConfigured} /></Route>
       <Route path="/sign-in/*?"><SignInPage available={authConfigured} /></Route>
       <Route path="/sign-up/*?"><SignUpPage available={authConfigured} /></Route>
       <Route><WelcomePage /></Route>

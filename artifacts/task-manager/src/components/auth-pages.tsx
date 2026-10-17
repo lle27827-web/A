@@ -1,6 +1,6 @@
-import { SignIn, SignUp } from "@clerk/react";
+import { SignIn, SignUp, useSignIn as useClerkSignIn } from "@clerk/react";
 import { useSignIn } from "@clerk/react/legacy";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Link, useSearch } from "wouter";
 import { shadcn } from "@clerk/themes";
 import { BookHeart, Hand, LogIn, LogOut, UserPlus } from "lucide-react";
@@ -134,6 +134,190 @@ export function SignInPage({ available }: { available: boolean }) {
         <Link href={`/sign-in/forgot-password${ret.qs}`} className="link-strong" data-testid="link-forgot-password">Quên mật khẩu?</Link>
       </p>
       <p className="muted small">Chưa có tài khoản? <Link href={`/sign-up${ret.qs}`} className="link-strong" data-testid="link-to-sign-up">Đăng ký</Link></p>
+    </main>
+  );
+}
+
+export function ForgotPasswordPage({ available }: { available: boolean }) {
+  if (!available) return <AuthSetupPage />;
+  return <ForgotPasswordFlow />;
+}
+
+function ForgotPasswordFlow() {
+  const ret = usePersonalReturn();
+  const { signIn, fetchStatus } = useClerkSignIn();
+  const [step, setStep] = useState<"email" | "code" | "password" | "complete">("email");
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const pending = fetchStatus === "fetching";
+
+  const sendCode = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (pending) return;
+    setError(null);
+    setNotice(null);
+    try {
+      const created = await signIn.create({ identifier: email.trim() });
+      if (created.error) {
+        setError("Không thể bắt đầu khôi phục. Hãy kiểm tra email và thử lại.");
+        return;
+      }
+      const sent = await signIn.resetPasswordEmailCode.sendCode();
+      if (sent.error) {
+        setError("Không gửi được mã khôi phục. Hãy kiểm tra email hoặc thử lại sau.");
+        return;
+      }
+      setStep("code");
+      setNotice("Nếu email thuộc tài khoản đã đăng ký, mã khôi phục sẽ được gửi đến email đó.");
+    } catch {
+      setError("Không thể gửi mã khôi phục lúc này. Hãy thử lại sau.");
+    }
+  };
+
+  const verifyCode = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (pending) return;
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await signIn.resetPasswordEmailCode.verifyCode({ code: code.trim() });
+      if (result.error) {
+        setError("Mã xác minh không đúng hoặc đã hết hạn. Hãy kiểm tra lại mã.");
+        return;
+      }
+      setStep("password");
+    } catch {
+      setError("Không xác minh được mã. Hãy thử lại.");
+    }
+  };
+
+  const submitNewPassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (pending) return;
+    if (password !== confirmPassword) {
+      setError("Mật khẩu xác nhận chưa khớp.");
+      return;
+    }
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await signIn.resetPasswordEmailCode.submitPassword({ password });
+      if (result.error) {
+        setError("Không thể đặt mật khẩu này. Hãy thử mật khẩu khác.");
+        return;
+      }
+      await signIn.reset();
+      setStep("complete");
+    } catch {
+      setError("Không thể cập nhật mật khẩu lúc này. Hãy thử lại.");
+    }
+  };
+
+  const changeEmail = async () => {
+    if (pending) return;
+    await signIn.reset();
+    setCode("");
+    setError(null);
+    setNotice(null);
+    setStep("email");
+  };
+
+  return (
+    <main className="auth-page" data-testid="page-forgot-password">
+      <WelcomeHeading level={2} />
+      <section className="panel auth-notice auth-reset-panel">
+        <h1>{step === "complete" ? "Đã đổi mật khẩu" : "Khôi phục mật khẩu"}</h1>
+        {step === "email" && (
+          <form className="auth-reset-form" onSubmit={(event) => void sendCode(event)}>
+            <p>Nhập email đã đăng ký để nhận mã khôi phục.</p>
+            <label className="field">
+              Email
+              <input
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="Nhập địa chỉ email"
+                data-testid="input-recovery-email"
+              />
+            </label>
+            <button type="submit" className="btn primary" disabled={pending} data-testid="button-send-recovery-code">
+              {pending ? "Đang gửi…" : "Gửi mã khôi phục"}
+            </button>
+          </form>
+        )}
+        {step === "code" && (
+          <form className="auth-reset-form" onSubmit={(event) => void verifyCode(event)}>
+            <p>Nhập mã xác minh được gửi đến email của bạn.</p>
+            <label className="field">
+              Mã xác minh
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                required
+                value={code}
+                onChange={(event) => setCode(event.target.value)}
+                data-testid="input-recovery-code"
+              />
+            </label>
+            <button type="submit" className="btn primary" disabled={pending} data-testid="button-verify-recovery-code">
+              {pending ? "Đang xác minh…" : "Xác minh mã"}
+            </button>
+            <button type="button" className="btn ghost" onClick={() => void changeEmail()} disabled={pending}>
+              Dùng email khác
+            </button>
+          </form>
+        )}
+        {step === "password" && (
+          <form className="auth-reset-form" onSubmit={(event) => void submitNewPassword(event)}>
+            <p>Tạo mật khẩu mới cho tài khoản.</p>
+            <label className="field">
+              Mật khẩu mới
+              <input
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                data-testid="input-new-password"
+              />
+            </label>
+            <label className="field">
+              Nhập lại mật khẩu mới
+              <input
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                data-testid="input-confirm-new-password"
+              />
+            </label>
+            <button type="submit" className="btn primary" disabled={pending} data-testid="button-save-new-password">
+              {pending ? "Đang cập nhật…" : "Đặt mật khẩu mới"}
+            </button>
+          </form>
+        )}
+        {step === "complete" && (
+          <>
+            <p>Mật khẩu đã được cập nhật. Hãy đăng nhập bằng mật khẩu mới.</p>
+            <Link href={`/sign-in${ret.qs}`} className="btn primary" data-testid="link-recovery-sign-in">Đăng nhập</Link>
+          </>
+        )}
+        {notice && <p className="auth-reset-notice" role="status">{notice}</p>}
+        {error && <p className="auth-reset-error" role="alert">{error}</p>}
+        {step !== "complete" && (
+          <Link href={`/sign-in${ret.qs}`} className="link-strong" data-testid="link-back-to-sign-in">Quay lại đăng nhập</Link>
+        )}
+      </section>
     </main>
   );
 }

@@ -101,6 +101,11 @@
 .auth-notice h1 { margin: 0; font-family: var(--app-font-display); font-size: 22px; font-weight: 800; }
 .auth-notice p { margin: 0; line-height: 1.6; }
 .auth-notice .btn { justify-self: start; }
+.auth-reset-panel { width: min(440px, 100%); }
+.auth-reset-form { display: grid; gap: 12px; }
+.auth-reset-form .btn { justify-self: stretch; justify-content: center; }
+.auth-reset-error { color: hsl(var(--destructive)); font-size: 13px; }
+.auth-reset-notice { color: hsl(var(--muted-foreground)); font-size: 13px; }
 .layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 18px; align-items: start; }
 .side { position: sticky; top: 78px; }
 .content { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; min-width: 0; }
