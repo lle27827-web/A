@@ -9,25 +9,21 @@ import { AlertCircle, AlertTriangle, ArrowLeft, Check, CheckCircle2, LoaderCircl
 import { Modal, ErrorBanner, Skeleton } from '@/components/modal';
 import { formatShortDate, localDate } from '@/lib/attendance';
 import { errorText, formatMinutes, formatMonth } from '@/lib/massage';
-import { comparisonMemberParams, comparisonResult, comparisonRoster, discrepancyPairs } from '@/lib/comparison-display';
+import { compareServiceHours, comparisonMemberParams, comparisonResult, comparisonRoster } from '@/lib/comparison-display';
 
 type Scope = 'day' | 'month';
 
-function CompactDifference({ personal, reference, index }: { personal: PersonalComparisonVisit | null; reference: PersonalComparisonVisit | null; index: number }) {
-  const visit = personal ?? reference;
-  if (!visit) return null;
+function CompactDifference({ serviceName, personalMinutes, referenceMinutes, index }: { serviceName: string; personalMinutes: number; referenceMinutes: number; index: number }) {
+  const formatServiceHours = (minutes: number) => minutes === 0 ? '0 giờ' : formatMinutes(minutes);
   return (
     <div className="cmp-disc" data-testid={`row-cmp-discrepancy-${index}`}>
-      <strong className="cmp-pair-title">Lần chấm công chưa khớp {index + 1}</strong>
-      <h4>{visit.serviceName} · {formatShortDate(visit.workDate)}</h4>
+      <strong className="cmp-pair-title">Dịch vụ chưa khớp {index + 1}</strong>
+      <h4>{serviceName}</h4>
       <div className="cmp-cols">
-        {[{ title: 'Cơ sở', row: reference }, { title: 'Cá nhân', row: personal }].map(({ title, row }) => (
+        {[{ title: 'Cơ sở', minutes: referenceMinutes }, { title: 'Cá nhân', minutes: personalMinutes }].map(({ title, minutes }) => (
           <div className="cmp-shift" key={title}>
             <strong>{title}</strong>
-            {row ? <>
-              <span>{formatMinutes(row.minutes)}</span>
-              {row.customerName && <span>Khách: {row.customerName}</span>}
-            </> : <span className="cmp-none">Không có ca bên {title === 'Cơ sở' ? 'cơ sở' : 'cá nhân'}</span>}
+            <span>{formatServiceHours(minutes)}</span>
           </div>
         ))}
       </div>
@@ -73,9 +69,8 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
   const inScope = (v: PersonalComparisonVisit) => scope === 'month' || v.workDate === date;
   const personal = (d?.personalVisits ?? []).filter(inScope);
   const reference = (d?.referenceVisits ?? []).filter(inScope);
-  const discrepancies = (d?.discrepancies ?? []).filter((x) => scope === 'month' || [...x.personal, ...x.reference].some((v) => v.workDate === date));
-  const unmatchedPairs = discrepancies.flatMap((x) => discrepancyPairs(x.personal, x.reference));
-  const result = comparisonResult(personal.length, reference.length, unmatchedPairs.length);
+  const serviceDifferences = compareServiceHours(personal, reference);
+  const result = comparisonResult(personal.length, reference.length, serviceDifferences.length);
   const rangeLabel = scope === 'day' ? `ngày ${formatShortDate(date)}` : formatMonth(month).toLowerCase();
   function pick(id: number | null) { setMemberId(id); setConfirming(false); setSyncError(''); setNotice(''); }
   function runSync() {
@@ -151,9 +146,9 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
                 <div className="cmp-ok" role="status" data-testid="status-cmp-empty">Chưa có ca chấm công trong {rangeLabel} để đối chiếu.</div>
               ) : (
                 <section className="cmp-section" aria-labelledby="cmp-disc" data-testid="section-cmp-discrepancies">
-                  <h3 id="cmp-disc">Ca chưa khớp</h3>
-                  {unmatchedPairs.map((pair, i) => (
-                    <CompactDifference key={`${pair.reference?.id ?? 'none'}-${pair.personal?.id ?? 'none'}`} personal={pair.personal} reference={pair.reference} index={i} />
+                  <h3 id="cmp-disc">Tổng giờ chưa khớp theo dịch vụ</h3>
+                  {serviceDifferences.map((difference, i) => (
+                    <CompactDifference key={difference.serviceName} {...difference} index={i} />
                   ))}
                 </section>
               )}

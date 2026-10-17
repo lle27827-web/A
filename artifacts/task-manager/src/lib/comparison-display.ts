@@ -16,11 +16,35 @@ export function comparisonRoster(rows: MemberRecord[]) {
   }));
 }
 
-export function discrepancyPairs(personal: PersonalComparisonVisit[], reference: PersonalComparisonVisit[]) {
-  return Array.from({ length: Math.max(personal.length, reference.length) }, (_, index) => ({
-    personal: personal[index] ?? null,
-    reference: reference[index] ?? null,
-  }));
+export type ServiceHoursDifference = {
+  serviceName: string;
+  personalMinutes: number;
+  referenceMinutes: number;
+};
+
+export function compareServiceHours(personal: PersonalComparisonVisit[], reference: PersonalComparisonVisit[]): ServiceHoursDifference[] {
+  const aggregate = (visits: PersonalComparisonVisit[]) => {
+    const groups = new Map<string, { serviceName: string; minutes: number }>();
+    for (const visit of visits) {
+      const serviceName = visit.serviceName.normalize('NFC').trim().replace(/\s+/g, ' ');
+      const key = serviceName.toLocaleLowerCase('vi');
+      const group = groups.get(key) ?? { serviceName, minutes: 0 };
+      group.minutes += visit.minutes;
+      groups.set(key, group);
+    }
+    return groups;
+  };
+
+  const personalGroups = aggregate(personal);
+  const referenceGroups = aggregate(reference);
+  return [...new Set([...personalGroups.keys(), ...referenceGroups.keys()])]
+    .map((key) => ({
+      serviceName: personalGroups.get(key)?.serviceName ?? referenceGroups.get(key)!.serviceName,
+      personalMinutes: personalGroups.get(key)?.minutes ?? 0,
+      referenceMinutes: referenceGroups.get(key)?.minutes ?? 0,
+    }))
+    .filter((group) => group.personalMinutes !== group.referenceMinutes)
+    .sort((a, b) => a.serviceName.localeCompare(b.serviceName, 'vi'));
 }
 
 export function comparisonResult(personalCount: number, referenceCount: number, unmatchedCount: number) {
