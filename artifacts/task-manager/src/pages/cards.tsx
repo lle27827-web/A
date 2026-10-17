@@ -54,18 +54,20 @@ export default function CardsPage() {
             return (
               <li key={c.id}>
                 <div className="card-list-item">
-                  <Link href={`/cards/${c.id}`} onClick={() => setQuery('')} className="card-row" data-testid={`link-card-${c.id}`}>
-                    <span className="grow">
-                      <strong>{c.customerName}</strong>
-                      <span className="muted">{c.serviceType} · mua {formatShortDate(c.purchaseDate)} · đã trả {formatVnd(c.totalPaidAmount)}</span>
+                  <div className="card-list-copy">
+                    <strong className="card-list-customer" data-testid={`text-card-list-customer-${c.id}`}>{c.customerName}</strong>
+                    <a href={`tel:${c.phone}`} className="card-list-phone" aria-label={`Số điện thoại ${c.phone}`} data-testid={`link-card-phone-${c.id}`}>
+                      <Phone size={14} aria-hidden="true" />{c.phone}
+                    </a>
+                    <Link href={`/cards/${c.id}`} onClick={() => setQuery('')} className="card-list-meta" data-testid={`link-card-details-${c.id}`}>
+                      <span>Thẻ {c.serviceType} · mua {formatShortDate(c.purchaseDate)} · đã trả {formatVnd(c.totalPaidAmount)}</span>
                       <span className="meter" aria-hidden="true"><span style={{ transform: `scaleX(${pct / 100})` }} /></span>
-                    </span>
+                    </Link>
+                  </div>
+                  <Link href={`/cards/${c.id}`} onClick={() => setQuery('')} className="card-list-balance" aria-label={`Mở thẻ của ${c.customerName}, còn ${formatMinutes(c.remainingMinutes)}`} data-testid={`link-card-balance-${c.id}`}>
                     <span className="remain mono"><strong>{formatMinutes(c.remainingMinutes)}</strong><span className="muted">/ {formatMinutes(c.totalMinutes)}</span></span>
-                    <ChevronRight size={18} />
+                    <ChevronRight size={18} aria-hidden="true" />
                   </Link>
-                  <a href={`tel:${c.phone}`} className="card-list-phone" aria-label={`Gọi ${c.customerName}, ${c.phone}`} data-testid={`link-card-phone-${c.id}`}>
-                    <Phone size={14} aria-hidden="true" />{c.phone}
-                  </a>
                 </div>
               </li>
             );

@@ -19,7 +19,7 @@ export function formatMinutes(min: number) {
   if (!h) return `${m} phút`;
   return m ? `${h} giờ ${m} phút` : `${h} giờ`;
 }
-export const QUICK_DURATION_MINUTES = [30, 60, 120, 180] as const;
+export const QUICK_DURATION_MINUTES = [15, 30, 60, 120, 180] as const;
 
 export function parseHoursAndMinutes(hoursText: string, minutesText: string): number | null {
   const hours = hoursText.trim();

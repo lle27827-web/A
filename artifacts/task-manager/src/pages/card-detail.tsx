@@ -100,10 +100,10 @@ export default function CardDetailPage() {
           <span className="initials big"><CreditCard size={20} /></span>
           <div className="grow"><h1 id="card-title" className="page-title" data-testid="text-card-customer">{card.customerName}</h1>
             <p className="sub card-phone-details" data-testid="text-card-phone">
-              <a href={`tel:${card.phone}`} className="appointment-phone" aria-label={`Gọi ${card.customerName}, ${card.phone}`} data-testid="link-card-phone">
+              <a href={`tel:${card.phone}`} className="appointment-phone" aria-label={`Số điện thoại ${card.phone}`} data-testid="link-card-phone">
                 <Phone size={13} aria-hidden="true" />{card.phone}
               </a>
-              <span>· {card.serviceType}</span>
+              <span>· Thẻ {card.serviceType}</span>
             </p></div>
           {canEdit && (
             <div className="head-actions">
