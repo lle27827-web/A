@@ -130,6 +130,9 @@ export function SignInPage({ available }: { available: boolean }) {
           {...ret.redirect}
         />
       </div>
+      <p className="muted small">
+        <Link href={`/sign-in/forgot-password${ret.qs}`} className="link-strong" data-testid="link-forgot-password">Quên mật khẩu?</Link>
+      </p>
       <p className="muted small">Chưa có tài khoản? <Link href={`/sign-up${ret.qs}`} className="link-strong" data-testid="link-to-sign-up">Đăng ký</Link></p>
     </main>
   );
