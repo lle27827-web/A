@@ -4,6 +4,7 @@ import type { FacilityPermissions, MemberRecord } from '@workspace/api-client-re
 import { AlertCircle, ArrowLeft, Check, Hand, History, Home, Search, X } from 'lucide-react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { SearchResults } from '@/components/search-results';
+import { VoiceInput } from '@/components/voice-input';
 import { ViewSettings, useViewPrefs, type ViewPrefs } from '@/components/view-settings';
 import { errorText, formatMonth, SESSION_FRESHNESS } from '@/lib/massage';
 import { periodHref, resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
@@ -169,7 +170,7 @@ export function AppShell({
             <form role="search" className="search" onSubmit={(event) => event.preventDefault()}>
               <Search size={16} aria-hidden="true" />
               <label htmlFor="global-search" className="sr-only">Tìm kiếm</label>
-              <input id="global-search" type="search" value={query}
+              <VoiceInput id="global-search" type="search" value={query}
                 onChange={(event) => setQuery(event.target.value)} autoComplete="off"
                 data-testid="input-global-search"
                 placeholder={employeeMode ? 'Tìm khách, dịch vụ trong tháng...' : permissions.viewCards && canViewEmployees ? 'Tìm nhân viên, khách, số điện thoại, dịch vụ...' : permissions.viewCards ? 'Tìm khách, số điện thoại...' : 'Tìm nhân viên, khách, dịch vụ...'} />

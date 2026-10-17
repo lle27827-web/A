@@ -5,6 +5,7 @@ import { AlertCircle, LoaderCircle, Plus, Trash2, Users, X } from 'lucide-react'
 import { Form } from '@/components/ui/form';
 import { initial } from '@/lib/attendance';
 import { AttendanceTable, TableSkeleton } from '@/components/attendance-table';
+import { VoiceInput } from '@/components/voice-input';
 
 export function MemberList({ members, selectedId, canEdit, loading, error, busy, onRetry, onSelect, onCreate, onDelete }: {
   members: MemberRecord[];
@@ -31,7 +32,7 @@ export function MemberList({ members, selectedId, canEdit, loading, error, busy,
         <Form {...form}>
           <form className="member-form" onSubmit={form.handleSubmit((values) => onCreate({ name: values.name.trim() }, () => { form.reset({ name: '' }); setAdding(false); }))}>
             <label className="sr-only" htmlFor="member-name">Tên Nhân viên</label>
-            <input id="member-name" autoFocus maxLength={120} placeholder="Tên Nhân viên" {...form.register('name', { validate: (v) => v.trim().length > 0 || 'Hãy nhập tên Nhân viên.' })} data-testid="input-member-name" />
+            <VoiceInput id="member-name" autoFocus maxLength={120} placeholder="Tên Nhân viên" {...form.register('name', { validate: (v) => v.trim().length > 0 || 'Hãy nhập tên Nhân viên.' })} data-testid="input-member-name" />
             <button type="submit" className="btn primary small" disabled={busy} data-testid="button-save-member">{busy ? <LoaderCircle className="spin" size={14} /> : 'Lưu'}</button>
             <button type="button" className="icon-btn" onClick={() => setAdding(false)} aria-label="Hủy thêm Nhân viên"><X size={15} /></button>
             {form.formState.errors.name && <p className="form-error" role="alert">{form.formState.errors.name.message}</p>}

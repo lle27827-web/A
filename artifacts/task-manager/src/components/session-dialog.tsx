@@ -4,6 +4,7 @@ import type { MemberRecord, ServiceSession, ServiceSessionInput, TreatmentCard }
 import { AlertCircle, CalendarDays, Check, ChevronRight, LoaderCircle, Sparkles } from 'lucide-react';
 import { Link } from 'wouter';
 import { Modal } from '@/components/modal';
+import { VoiceInput } from '@/components/voice-input';
 import { DatePickerDialog } from '@/components/date-picker-dialog';
 import { formatShortDate, normalize } from '@/lib/attendance';
 import { formatMinutes, formatVnd, hoursValue, parseHoursToMinutes } from '@/lib/massage';
@@ -177,7 +178,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
               <p className="hint card-hint" data-testid="text-session-card">Thẻ của <strong>{card.customerName}</strong> · {card.serviceType} · còn {formatMinutes(card.remainingMinutes + ownCardMinutes)}. Khách và số dư lấy theo thẻ.</p>
             ) : (
               <label className="field" htmlFor="s-customer">Tên khách
-                <input id="s-customer" value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={120} data-testid="input-session-customer" />
+                <VoiceInput id="s-customer" value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={120} data-testid="input-session-customer" />
               </label>
             )}
           </div>

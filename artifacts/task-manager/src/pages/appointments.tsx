@@ -7,6 +7,7 @@ import {
 import type { Appointment, AppointmentInput } from '@workspace/api-client-react';
 import { CalendarDays, Clock3, LoaderCircle, Pencil, Phone, Plus, Trash2, UserRound } from 'lucide-react';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
+import { VoiceInput, VoiceTextarea } from '@/components/voice-input';
 import { useShell } from '@/components/app-shell';
 import { errorText } from '@/lib/massage';
 
@@ -212,7 +213,7 @@ export default function AppointmentsPage() {
         <Modal title={editing ? 'Sửa lịch hẹn' : 'Thêm lịch hẹn'} onClose={closeForm} testId="dialog-appointment">
           <form className="appointment-form" onSubmit={submit} noValidate data-testid="form-appointment">
             <label className="field" htmlFor="appointment-customer">Tên khách
-              <input id="appointment-customer" value={draft.customerName} maxLength={160} autoComplete="name"
+              <VoiceInput id="appointment-customer" value={draft.customerName} maxLength={160} autoComplete="name"
                 onChange={(event) => { setFormError(''); setDraft({ ...draft, customerName: event.target.value }); }}
                 required aria-required="true" data-testid="input-appointment-customer" />
             </label>
@@ -227,7 +228,7 @@ export default function AppointmentsPage() {
                 required aria-required="true" data-testid="input-appointment-date" />
             </label>
             <label className="field" htmlFor="appointment-note">Yêu cầu / ghi chú <span className="hint">Không bắt buộc</span>
-              <textarea id="appointment-note" value={draft.note} maxLength={2000} rows={3}
+              <VoiceTextarea id="appointment-note" value={draft.note} maxLength={2000} rows={3}
                 onChange={(event) => { setFormError(''); setDraft({ ...draft, note: event.target.value }); }}
                 data-testid="input-appointment-note" />
             </label>

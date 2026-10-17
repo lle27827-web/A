@@ -4,6 +4,7 @@ import { getListServiceTypesQueryKey, useListServiceTypes } from '@workspace/api
 import { AlertCircle, GitMerge, LoaderCircle } from 'lucide-react';
 import { Link } from 'wouter';
 import { Modal } from '@/components/modal';
+import { VoiceInput } from '@/components/voice-input';
 import { SESSION_FRESHNESS, formatMinutes, formatVnd, hoursValue, parseHoursToMinutes, parseMoney } from '@/lib/massage';
 
 /** Server answers 409 { error, mergeTargetId } when the card duplicates an existing one. */
@@ -75,7 +76,7 @@ export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId
       )}
       <form hidden={pending} className="form-grid" onSubmit={submit} noValidate>
         <div className="field-row">
-          <label className="field" htmlFor="c-name">Tên khách<input id="c-name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={120} required data-testid="input-card-customer" /></label>
+          <label className="field" htmlFor="c-name">Tên khách<VoiceInput id="c-name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={120} required data-testid="input-card-customer" /></label>
           <label className="field" htmlFor="c-phone">Số điện thoại<input id="c-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={32} required data-testid="input-card-phone" /></label>
         </div>
         <label className="field" htmlFor="c-service">Loại dịch vụ
@@ -124,7 +125,7 @@ export function MemberDialog({ member, busy, serverError, onClose, onSubmit }: {
   return (
     <Modal title={member ? 'Sửa nhân viên' : 'Thêm nhân viên'} onClose={onClose} testId="dialog-member">
       <form className="form-grid" onSubmit={submit} noValidate>
-        <label className="field" htmlFor="m-name">Tên nhân viên<input id="m-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} required data-testid="input-member-name" /></label>
+        <label className="field" htmlFor="m-name">Tên nhân viên<VoiceInput id="m-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} required data-testid="input-member-name" /></label>
         {shown && <p className="form-error" role="alert"><AlertCircle size={13} /> {shown}</p>}
         <div className="dialog-actions">
           <button type="button" className="btn ghost" onClick={onClose}>Hủy</button>
