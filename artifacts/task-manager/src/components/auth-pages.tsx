@@ -147,7 +147,7 @@ export function SignInPage({ available }: { available: boolean }) {
         />
       </div>
       <p className="muted small">
-        <Link href={`/sign-in/forgot-password${ret.qs}`} className="link-strong" data-testid="link-forgot-password">Quên mật khẩu?</Link>
+        <a href={`${basePath}/sign-in/forgot-password${ret.qs}`} className="link-strong" data-testid="link-forgot-password">Quên mật khẩu?</a>
       </p>
       <p className="muted small">Chưa có tài khoản? <Link href={`/sign-up${ret.qs}`} className="link-strong" data-testid="link-to-sign-up">Đăng ký</Link></p>
     </main>
