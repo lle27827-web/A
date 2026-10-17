@@ -8,31 +8,26 @@ import { MassageError, monthBounds, validDate } from "./massage";
 import { lockPersonal, personalSettings, refreshFacilityServices, type PersonalTx } from "./personal-data";
 
 type Visit = PersonalComparisonVisit;
-const normalize = (s: string) => s.normalize("NFC").trim().replace(/\s+/g, " ").toLowerCase();
+const normalize = (s: string) => s.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
 const groupKey = (v: Visit) => JSON.stringify([v.workDate, normalize(v.serviceName)]);
-// The user defines a match by service and duration. Pay, rate, customer and note
-// are deliberately not match criteria; retain duplicate visits as occurrences.
-const sameDuration = (a: Visit, b: Visit) => a.minutes === b.minutes;
 
-/** Match identical occurrences first and emit each remaining shift as its own discrepancy. */
+/** Compare total hours per service and date; return the full rows behind each differing total. */
 export function comparePersonalVisits(personal: Visit[], reference: Visit[]): PersonalDiscrepancy[] {
   const keys = new Set([...personal, ...reference].map(groupKey));
   const result: PersonalDiscrepancy[] = [];
   for (const key of keys) {
     const left = personal.filter((v) => groupKey(v) === key);
     const right = reference.filter((v) => groupKey(v) === key);
-    for (let i = left.length - 1; i >= 0; i--) {
-      const match = right.findIndex((r) => sameDuration(r, left[i]));
-      if (match >= 0) { left.splice(i, 1); right.splice(match, 1); }
-    }
-    const count = Math.max(left.length, right.length);
-    for (let i = 0; i < count; i++) result.push({
-      reason: "Ca chưa khớp: thời lượng",
-      personal: left[i] ? [left[i]] : [],
-      reference: right[i] ? [right[i]] : [],
-    });
+    const personalMinutes = left.reduce((sum, visit) => sum + visit.minutes, 0);
+    const referenceMinutes = right.reduce((sum, visit) => sum + visit.minutes, 0);
+    if (personalMinutes === referenceMinutes) continue;
+    result.push({ reason: "Tổng thời lượng dịch vụ chưa khớp", personal: left, reference: right });
   }
-  return result.sort((a, b) => (b.personal[0] ?? b.reference[0]).workDate.localeCompare((a.personal[0] ?? a.reference[0]).workDate));
+  return result.sort((a, b) => {
+    const left = a.personal[0] ?? a.reference[0];
+    const right = b.personal[0] ?? b.reference[0];
+    return left.workDate.localeCompare(right.workDate) || normalize(left.serviceName).localeCompare(normalize(right.serviceName), "vi");
+  });
 }
 async function comparisonSnapshot(tx: PersonalTx, userId: string, memberId: number, month: string, date: string) {
   const { start, end } = monthBounds(month);

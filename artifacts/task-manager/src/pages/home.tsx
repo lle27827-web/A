@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { getGetMassageSummaryQueryKey, useGetMassageSummary } from '@workspace/api-client-react';
-import { ArrowRight, CreditCard, Sparkles, Users } from 'lucide-react';
+import { ArrowRight, CalendarDays, CreditCard, Sparkles, Users } from 'lucide-react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { ErrorBanner } from '@/components/modal';
@@ -33,6 +33,11 @@ export default function HomePage() {
         {permissions.viewCards && <Link href="/cards" className="tile alt" aria-labelledby="cards-link-title" data-testid="link-cards">
           <CreditCard size={28} aria-hidden="true" />
           <strong id="cards-link-title">Quản lý thẻ</strong>
+          <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>
+        </Link>}
+        {(permissions.viewAppointments || permissions.editAppointments) && <Link href="/appointments" className="tile alt" aria-labelledby="appointments-link-title" data-testid="link-appointments">
+          <CalendarDays size={28} aria-hidden="true" />
+          <strong id="appointments-link-title">Lịch hẹn cơ sở</strong>
           <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>
         </Link>}
         {canEditServices && <Link href="/services" className="tile" aria-labelledby="services-link-title" data-testid="link-services-tile">

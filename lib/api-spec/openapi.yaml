@@ -266,6 +266,68 @@ paths:
           schema: { type: integer, minimum: 1 }
       responses:
         "204": { description: Đã thu hồi }
+  /appointments:
+    get:
+      operationId: listAppointments
+      tags: [appointments]
+      summary: Xem lịch hẹn của cơ sở
+      responses:
+        "200":
+          description: Danh sách lịch hẹn, sắp xếp theo thời gian
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Appointment" }
+    post:
+      operationId: createAppointment
+      tags: [appointments]
+      summary: Tạo lịch hẹn cho khách
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AppointmentInput" }
+      responses:
+        "201":
+          description: Đã tạo lịch hẹn
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Appointment" }
+  /appointments/{id}:
+    patch:
+      operationId: updateAppointment
+      tags: [appointments]
+      summary: Sửa lịch hẹn
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AppointmentInput" }
+      responses:
+        "200":
+          description: Đã cập nhật lịch hẹn
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Appointment" }
+        "404": { description: Không tìm thấy lịch hẹn }
+    delete:
+      operationId: deleteAppointment
+      tags: [appointments]
+      summary: Xóa lịch hẹn
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "204": { description: Đã xóa lịch hẹn }
+        "404": { description: Không tìm thấy lịch hẹn }
   /members:
     get:
       operationId: listMembers
@@ -732,7 +794,7 @@ components:
       required: [authConfigured, authenticated, isOwner, permissions]
     FacilityPermissions:
       type: object
-      required: [allEmployees, employeeIds, viewCards, viewRevenue, editEmployees, editCards, editServices]
+      required: [allEmployees, employeeIds, viewCards, viewRevenue, editEmployees, editCards, editServices, viewAppointments, editAppointments]
       properties:
         allEmployees: { type: boolean }
         employeeIds:
@@ -745,6 +807,8 @@ components:
         editEmployees: { type: boolean }
         editCards: { type: boolean }
         editServices: { type: boolean }
+        viewAppointments: { type: boolean }
+        editAppointments: { type: boolean }
     AccessGrantInput:
       type: object
       required: [email, permissions]
@@ -758,6 +822,25 @@ components:
           required: [id]
           properties:
             id: { type: integer }
+    Appointment:
+      type: object
+      required: [id, customerName, phone, scheduledAt, note, createdAt, updatedAt]
+      properties:
+        id: { type: integer, minimum: 1 }
+        customerName: { type: string, minLength: 1, maxLength: 160 }
+        phone: { type: string, minLength: 1, maxLength: 40 }
+        scheduledAt: { type: string, format: date-time }
+        note: { type: string, maxLength: 2000 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    AppointmentInput:
+      type: object
+      required: [customerName, phone, scheduledAt]
+      properties:
+        customerName: { type: string, minLength: 1, maxLength: 160 }
+        phone: { type: string, minLength: 1, maxLength: 40 }
+        scheduledAt: { type: string, format: date-time }
+        note: { type: string, maxLength: 2000 }
     AttendanceStatus:
       type: string
       enum: [present, late, absent, leave]

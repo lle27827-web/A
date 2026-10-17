@@ -6,6 +6,7 @@
 - [OpenAPI date query strings](openapi-date-query-strings.md) — keep URL dates as validated `YYYY-MM-DD` strings; Express query values arrive as text.
 - [Vercel database access](vercel-database-access.md) — Replit's internal `DATABASE_URL` is scoped to Replit; external deployments need a remote database URL.
 - [Account access](owner-guest-access.md) — mandatory login, owner-delegated employee/card/revenue rights, isolated notebooks and embedded session verification.
+- [Appointment access](appointment-access.md) — appointment records need a dedicated manager grant; editing requires viewing and never comes from other facility permissions.
 - [Vercel SPA routing](vercel-spa-routing.md) — use raw route regex and an index destination; path transforms alone cannot resolve static SPA pages.
 - [Migration baselines](database-migration-baseline.md) — existing tables may have an empty migration journal; do not replay or invent a baseline blindly.
 - [Drizzle nested selects](drizzle-nested-selects.md) — raw selected SQL may strip column qualifiers; explicitly qualify joined subqueries.

@@ -18,6 +18,7 @@
     "migrate:personal-notebook": "node ./scripts/apply-personal-notebook.mjs",
     "migrate:personal-sync": "node ./scripts/apply-personal-sync.mjs",
     "migrate:facility-permissions": "node ./scripts/apply-facility-permissions.mjs",
+    "migrate:appointments": "node ./scripts/apply-appointments.mjs",
     "push": "drizzle-kit push --config ./drizzle.config.ts",
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts"
   },

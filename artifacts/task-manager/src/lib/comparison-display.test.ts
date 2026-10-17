@@ -27,10 +27,18 @@ test('comparison totals hours per service and displays only services with a tota
   const personal = [{ ...base, id: 1, minutes: 180 }, { ...base, id: 2, serviceName: 'Massage', minutes: 60 }];
   const reference = [{ ...base, id: 3, minutes: 300 }, { ...base, id: 4, serviceName: ' massage ', minutes: 60 }];
   assert.deepEqual(compareServiceHours(personal, reference), [
-    { serviceName: 'Trị liệu', personalMinutes: 180, referenceMinutes: 300 },
+    { serviceName: 'Trị liệu', workDate: '2026-10-17', personalMinutes: 180, referenceMinutes: 300 },
   ]);
   assert.deepEqual(compareServiceHours([{ ...base, minutes: 60 }, { ...base, id: 2, minutes: 120 }], [{ ...base, minutes: 180 }]), []);
   assert.deepEqual(compareServiceHours([], [base]), [
-    { serviceName: 'Trị liệu', personalMinutes: 0, referenceMinutes: 60 },
+    { serviceName: 'Trị liệu', workDate: '2026-10-17', personalMinutes: 0, referenceMinutes: 60 },
+  ]);
+  const nextDay = { ...base, workDate: '2026-10-18' };
+  assert.deepEqual(compareServiceHours(
+    [{ ...base, minutes: 120 }, { ...nextDay, minutes: 60 }],
+    [{ ...base, minutes: 60 }, { ...nextDay, minutes: 120 }],
+  ), [
+    { serviceName: 'Trị liệu', workDate: '2026-10-17', personalMinutes: 120, referenceMinutes: 60 },
+    { serviceName: 'Trị liệu', workDate: '2026-10-18', personalMinutes: 60, referenceMinutes: 120 },
   ]);
 });

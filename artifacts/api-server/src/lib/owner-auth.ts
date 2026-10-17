@@ -165,6 +165,7 @@ export async function managerRequestAllowed(req: Request, p: FacilityPermissions
   const read = req.method === "GET" || req.method === "HEAD";
   const path = req.path;
   if (read) {
+    if (path === "/appointments") return p.viewAppointments;
     if (path === "/members" || path === "/history-months" || path === "/attendance" || path === "/attendance/summary") return true; // rows filtered at source
     if (path === "/massage-summary") return p.viewRevenue;
     if (path === "/service-types") return p.allEmployees || p.employeeIds.length > 0 || p.viewCards || p.editServices;
@@ -176,6 +177,10 @@ export async function managerRequestAllowed(req: Request, p: FacilityPermissions
     }
     if (/^\/treatment-cards(?:\/[1-9]\d*(?:\/hours)?)?$/.test(path)) return p.viewCards;
     return false;
+  }
+  if (path === "/appointments" && req.method === "POST") return p.editAppointments && p.viewAppointments;
+  if (/^\/appointments\/[1-9]\d*$/.test(path) && ["PATCH", "DELETE"].includes(req.method)) {
+    return p.editAppointments && p.viewAppointments;
   }
   if (path === "/members" && req.method === "POST") return p.allEmployees && p.editEmployees;
   if (/^\/members\/[1-9]\d*$/.test(path) && ["PATCH", "DELETE"].includes(req.method)) return canEditEmployee(p, positiveId(path.split("/")[2]));

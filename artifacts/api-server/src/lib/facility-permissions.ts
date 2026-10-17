@@ -7,14 +7,21 @@ import { eq } from "drizzle-orm";
 export const noPermissions = (): FacilityPermissions => ({
   allEmployees: false, employeeIds: [], viewCards: false, viewRevenue: false,
   editEmployees: false, editCards: false, editServices: false,
+  viewAppointments: false, editAppointments: false,
 });
 export const ownerPermissions = (): FacilityPermissions => ({
   allEmployees: true, employeeIds: [], viewCards: true, viewRevenue: true,
   editEmployees: true, editCards: true, editServices: true,
+  viewAppointments: true, editAppointments: true,
 });
 const storedPermissions = GetAuthStatusResponse.shape.permissions;
 export function safePermissions(value: unknown): FacilityPermissions {
-  const result = storedPermissions.safeParse(value);
+  // Existing grants predate appointment access. Keep their established rights
+  // and default only the new appointment permissions to denied.
+  const compatibleValue = value && typeof value === "object" && !Array.isArray(value)
+    ? { viewAppointments: false, editAppointments: false, ...value }
+    : value;
+  const result = storedPermissions.safeParse(compatibleValue);
   return result.success ? result.data : noPermissions();
 }
 export function canViewEmployee(p: FacilityPermissions, id: number): boolean {

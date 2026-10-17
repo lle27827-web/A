@@ -16,7 +16,8 @@
     "test:employee-history": "esbuild src/lib/employee-history.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-employee-history-tests.cjs && node --test /tmp/so-cong-employee-history-tests.cjs",
     "test:personal": "esbuild src/lib/personal-notebook.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-personal-tests.cjs && node --test /tmp/so-cong-personal-tests.cjs",
     "test:personal-sync": "esbuild src/lib/personal-sync.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-personal-sync-tests.cjs && node --test /tmp/so-cong-personal-sync-tests.cjs",
-    "test:card-merge": "esbuild src/lib/card-merge.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-card-merge-tests.cjs && node --test /tmp/so-cong-card-merge-tests.cjs"
+    "test:card-merge": "esbuild src/lib/card-merge.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-card-merge-tests.cjs && node --test /tmp/so-cong-card-merge-tests.cjs",
+    "test:appointments": "esbuild src/routes/appointments.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-appointments-tests.cjs && node --test /tmp/so-cong-appointments-tests.cjs"
   },
   "dependencies": {
     "@clerk/backend": "^3.23.2",

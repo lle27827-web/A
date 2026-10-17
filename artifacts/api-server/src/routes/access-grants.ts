@@ -18,6 +18,7 @@ router.post("/access-grants", massageHandler(async (req, res) => {
   if (input.email === process.env.ADMIN_EMAIL?.trim().toLowerCase()) throw new MassageError(400, "Chủ sở hữu luôn có đầy đủ quyền, không cần cấp quyền.");
   const permissions = { ...input.permissions, employeeIds: [...new Set(input.permissions.employeeIds)].sort((a, b) => a - b) };
   if (permissions.editCards && !permissions.viewCards) throw new MassageError(400, "Cần quyền xem thẻ trước khi cho phép sửa thẻ.");
+  if (permissions.editAppointments && !permissions.viewAppointments) throw new MassageError(400, "Cần quyền xem lịch hẹn trước khi cho phép quản lý lịch hẹn.");
   if (permissions.editEmployees && !permissions.allEmployees && !permissions.employeeIds.length) throw new MassageError(400, "Hãy chọn nhân viên được xem và chỉnh sửa.");
   if (permissions.employeeIds.length) {
     const valid = await db.select({ id: membersTable.id }).from(membersTable).where(inArray(membersTable.id, permissions.employeeIds));

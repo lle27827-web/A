@@ -18,17 +18,18 @@ export function comparisonRoster(rows: MemberRecord[]) {
 
 export type ServiceHoursDifference = {
   serviceName: string;
+  workDate: string;
   personalMinutes: number;
   referenceMinutes: number;
 };
 
 export function compareServiceHours(personal: PersonalComparisonVisit[], reference: PersonalComparisonVisit[]): ServiceHoursDifference[] {
   const aggregate = (visits: PersonalComparisonVisit[]) => {
-    const groups = new Map<string, { serviceName: string; minutes: number }>();
+    const groups = new Map<string, { serviceName: string; workDate: string; minutes: number }>();
     for (const visit of visits) {
       const serviceName = visit.serviceName.normalize('NFC').trim().replace(/\s+/g, ' ');
-      const key = serviceName.toLocaleLowerCase('vi');
-      const group = groups.get(key) ?? { serviceName, minutes: 0 };
+      const key = JSON.stringify([visit.workDate, serviceName.toLocaleLowerCase('vi')]);
+      const group = groups.get(key) ?? { serviceName, workDate: visit.workDate, minutes: 0 };
       group.minutes += visit.minutes;
       groups.set(key, group);
     }
@@ -40,11 +41,12 @@ export function compareServiceHours(personal: PersonalComparisonVisit[], referen
   return [...new Set([...personalGroups.keys(), ...referenceGroups.keys()])]
     .map((key) => ({
       serviceName: personalGroups.get(key)?.serviceName ?? referenceGroups.get(key)!.serviceName,
+      workDate: personalGroups.get(key)?.workDate ?? referenceGroups.get(key)!.workDate,
       personalMinutes: personalGroups.get(key)?.minutes ?? 0,
       referenceMinutes: referenceGroups.get(key)?.minutes ?? 0,
     }))
     .filter((group) => group.personalMinutes !== group.referenceMinutes)
-    .sort((a, b) => a.serviceName.localeCompare(b.serviceName, 'vi'));
+    .sort((a, b) => a.workDate.localeCompare(b.workDate) || a.serviceName.localeCompare(b.serviceName, 'vi'));
 }
 
 export function comparisonResult(personalCount: number, referenceCount: number, unmatchedCount: number) {

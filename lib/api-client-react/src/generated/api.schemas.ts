@@ -144,6 +144,8 @@ export interface FacilityPermissions {
   editEmployees: boolean;
   editCards: boolean;
   editServices: boolean;
+  viewAppointments: boolean;
+  editAppointments: boolean;
 }
 
 export interface AuthStatus {
@@ -162,6 +164,42 @@ export interface AccessGrantInput {
 export type AccessGrant = AccessGrantInput & {
   id: number;
 };
+
+export interface Appointment {
+  /** @minimum 1 */
+  id: number;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  customerName: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  phone: string;
+  scheduledAt: string;
+  /** @maxLength 2000 */
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AppointmentInput {
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  customerName: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  phone: string;
+  scheduledAt: string;
+  /** @maxLength 2000 */
+  note?: string;
+}
 
 export type AttendanceStatus = typeof AttendanceStatus[keyof typeof AttendanceStatus];
 

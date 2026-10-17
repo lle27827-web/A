@@ -12,9 +12,10 @@ type Scope = 'none' | 'all' | 'selected';
 type Draft = {
   id: number | null; email: string; scope: Scope; employeeIds: number[];
   viewCards: boolean; editCards: boolean; viewRevenue: boolean; editEmployees: boolean; editServices: boolean;
+  viewAppointments: boolean; editAppointments: boolean;
 };
 
-const EMPTY: Draft = { id: null, email: '', scope: 'none', employeeIds: [], viewCards: false, editCards: false, viewRevenue: false, editEmployees: false, editServices: false };
+const EMPTY: Draft = { id: null, email: '', scope: 'none', employeeIds: [], viewCards: false, editCards: false, viewRevenue: false, editEmployees: false, editServices: false, viewAppointments: false, editAppointments: false };
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function fromGrant(g: AccessGrant): Draft {
@@ -24,10 +25,11 @@ function fromGrant(g: AccessGrant): Draft {
     scope: p.allEmployees ? 'all' : p.employeeIds.length ? 'selected' : 'none',
     employeeIds: [...p.employeeIds], viewCards: p.viewCards || p.editCards, editCards: p.editCards,
     viewRevenue: p.viewRevenue, editEmployees: p.editEmployees, editServices: p.editServices,
+    viewAppointments: p.viewAppointments || p.editAppointments, editAppointments: p.editAppointments,
   };
 }
 
-/** Normalised: editCards implies viewCards; editEmployees requires an employee scope. */
+/** Normalised: edit rights imply viewing; employee edits require an employee scope. */
 function toPermissions(d: Draft): FacilityPermissions {
   const hasScope = d.scope === 'all' || (d.scope === 'selected' && d.employeeIds.length > 0);
   return {
@@ -38,6 +40,8 @@ function toPermissions(d: Draft): FacilityPermissions {
     viewRevenue: d.viewRevenue,
     editEmployees: hasScope && d.editEmployees,
     editServices: d.editServices,
+    viewAppointments: d.viewAppointments || d.editAppointments,
+    editAppointments: d.editAppointments,
   };
 }
 
@@ -53,6 +57,8 @@ function summary(p: FacilityPermissions, members: MemberRecord[]): string {
   else if (p.viewCards) parts.push('xem thẻ');
   if (p.viewRevenue) parts.push('xem doanh thu');
   if (p.editServices) parts.push('sửa dịch vụ');
+  if (p.editAppointments) parts.push('xem và sửa lịch hẹn');
+  else if (p.viewAppointments) parts.push('xem lịch hẹn');
   return parts.length ? parts.join(' · ') : 'Không có quyền';
 }
 
@@ -180,6 +186,22 @@ export function AccessGrantsDialog({ members, onClose }: { members: MemberRecord
               </label>
             </fieldset>
 
+            <fieldset className="grant-group">
+              <legend>Lịch hẹn cơ sở</legend>
+              <label className="grant-check">
+                <input type="checkbox" checked={draft.viewAppointments || draft.editAppointments}
+                  onChange={(e) => { setError(''); setDraft((d) => d ? { ...d, viewAppointments: e.target.checked, editAppointments: e.target.checked ? d.editAppointments : false } : d); }}
+                  data-testid="checkbox-grant-view-appointments" />
+                <span>Xem lịch hẹn</span>
+              </label>
+              <label className="grant-check">
+                <input type="checkbox" checked={draft.editAppointments}
+                  onChange={(e) => { setError(''); setDraft((d) => d ? { ...d, editAppointments: e.target.checked, viewAppointments: e.target.checked || d.viewAppointments } : d); }}
+                  data-testid="checkbox-grant-edit-appointments" />
+                <span>Tạo, sửa và xóa lịch hẹn</span>
+              </label>
+            </fieldset>
+
             {error && <p id="grant-error" className="form-error" role="alert"><AlertCircle size={14} aria-hidden="true" />{error}</p>}
             <div className="dialog-actions">
               <button type="button" className="btn ghost" onClick={() => { setDraft(null); setError(''); }} data-testid="button-grant-cancel">Hủy</button>
@@ -222,5 +244,5 @@ export function AccessGrantsDialog({ members, onClose }: { members: MemberRecord
 }
 
 function hasAny(p: FacilityPermissions) {
-  return p.allEmployees || p.employeeIds.length > 0 || p.viewCards || p.viewRevenue || p.editServices;
+  return p.allEmployees || p.employeeIds.length > 0 || p.viewCards || p.viewRevenue || p.editServices || p.viewAppointments || p.editAppointments;
 }

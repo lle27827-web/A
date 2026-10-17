@@ -10,14 +10,14 @@ import { periodHref, resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-pe
 
 export const NO_PERMISSIONS: FacilityPermissions = {
   allEmployees: false, employeeIds: [], viewCards: false, viewRevenue: false,
-  editEmployees: false, editCards: false, editServices: false,
+  editEmployees: false, editCards: false, editServices: false, viewAppointments: false, editAppointments: false,
 };
 export const ALL_PERMISSIONS: FacilityPermissions = {
   allEmployees: true, employeeIds: [], viewCards: true, viewRevenue: true,
-  editEmployees: true, editCards: true, editServices: true,
+  editEmployees: true, editCards: true, editServices: true, viewAppointments: true, editAppointments: true,
 };
 export function hasFacilityAccess(p: FacilityPermissions): boolean {
-  return p.allEmployees || p.employeeIds.length > 0 || p.viewCards || p.viewRevenue || p.editServices;
+  return p.allEmployees || p.employeeIds.length > 0 || p.viewCards || p.viewRevenue || p.editServices || p.viewAppointments || p.editAppointments;
 }
 
 type ShellCtx = {

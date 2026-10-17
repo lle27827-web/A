@@ -466,7 +466,9 @@ export const GetAuthStatusResponse = zod.object({
   "viewRevenue": zod.boolean(),
   "editEmployees": zod.boolean(),
   "editCards": zod.boolean(),
-  "editServices": zod.boolean()
+  "editServices": zod.boolean(),
+  "viewAppointments": zod.boolean(),
+  "editAppointments": zod.boolean()
 })
 })
 
@@ -490,7 +492,9 @@ export const ListAccessGrantsResponseItem = zod.object({
   "viewRevenue": zod.boolean(),
   "editEmployees": zod.boolean(),
   "editCards": zod.boolean(),
-  "editServices": zod.boolean()
+  "editServices": zod.boolean(),
+  "viewAppointments": zod.boolean(),
+  "editAppointments": zod.boolean()
 })
 }).and(zod.object({
   "id": zod.number().int()
@@ -517,7 +521,9 @@ export const SaveAccessGrantBody = zod.object({
   "viewRevenue": zod.boolean(),
   "editEmployees": zod.boolean(),
   "editCards": zod.boolean(),
-  "editServices": zod.boolean()
+  "editServices": zod.boolean(),
+  "viewAppointments": zod.boolean(),
+  "editAppointments": zod.boolean()
 })
 })
 
@@ -537,7 +543,9 @@ export const SaveAccessGrantResponse = zod.object({
   "viewRevenue": zod.boolean(),
   "editEmployees": zod.boolean(),
   "editCards": zod.boolean(),
-  "editServices": zod.boolean()
+  "editServices": zod.boolean(),
+  "viewAppointments": zod.boolean(),
+  "editAppointments": zod.boolean()
 })
 }).and(zod.object({
   "id": zod.number().int()
@@ -555,6 +563,126 @@ export const DeleteAccessGrantParams = zod.object({
 })
 
 export const DeleteAccessGrantResponse = zod.void()
+
+
+/**
+ * @summary Xem lịch hẹn của cơ sở
+ */
+
+export const listAppointmentsResponseCustomerNameMax = 160;
+
+export const listAppointmentsResponsePhoneMax = 40;
+
+export const listAppointmentsResponseNoteMax = 2000;
+
+
+
+export const ListAppointmentsResponseItem = zod.object({
+  "id": zod.number().int().min(1),
+  "customerName": zod.string().min(1).max(listAppointmentsResponseCustomerNameMax),
+  "phone": zod.string().min(1).max(listAppointmentsResponsePhoneMax),
+  "scheduledAt": zod.coerce.date(),
+  "note": zod.string().max(listAppointmentsResponseNoteMax),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListAppointmentsResponse = zod.array(ListAppointmentsResponseItem)
+
+
+/**
+ * @summary Tạo lịch hẹn cho khách
+ */
+export const createAppointmentBodyCustomerNameMax = 160;
+
+export const createAppointmentBodyPhoneMax = 40;
+
+export const createAppointmentBodyNoteMax = 2000;
+
+
+
+export const CreateAppointmentBody = zod.object({
+  "customerName": zod.string().min(1).max(createAppointmentBodyCustomerNameMax),
+  "phone": zod.string().min(1).max(createAppointmentBodyPhoneMax),
+  "scheduledAt": zod.coerce.date(),
+  "note": zod.string().max(createAppointmentBodyNoteMax).optional()
+})
+
+
+export const createAppointmentResponseCustomerNameMax = 160;
+
+export const createAppointmentResponsePhoneMax = 40;
+
+export const createAppointmentResponseNoteMax = 2000;
+
+
+
+export const CreateAppointmentResponse = zod.object({
+  "id": zod.number().int().min(1),
+  "customerName": zod.string().min(1).max(createAppointmentResponseCustomerNameMax),
+  "phone": zod.string().min(1).max(createAppointmentResponsePhoneMax),
+  "scheduledAt": zod.coerce.date(),
+  "note": zod.string().max(createAppointmentResponseNoteMax),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Sửa lịch hẹn
+ */
+
+
+
+export const UpdateAppointmentParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const updateAppointmentBodyCustomerNameMax = 160;
+
+export const updateAppointmentBodyPhoneMax = 40;
+
+export const updateAppointmentBodyNoteMax = 2000;
+
+
+
+export const UpdateAppointmentBody = zod.object({
+  "customerName": zod.string().min(1).max(updateAppointmentBodyCustomerNameMax),
+  "phone": zod.string().min(1).max(updateAppointmentBodyPhoneMax),
+  "scheduledAt": zod.coerce.date(),
+  "note": zod.string().max(updateAppointmentBodyNoteMax).optional()
+})
+
+
+export const updateAppointmentResponseCustomerNameMax = 160;
+
+export const updateAppointmentResponsePhoneMax = 40;
+
+export const updateAppointmentResponseNoteMax = 2000;
+
+
+
+export const UpdateAppointmentResponse = zod.object({
+  "id": zod.number().int().min(1),
+  "customerName": zod.string().min(1).max(updateAppointmentResponseCustomerNameMax),
+  "phone": zod.string().min(1).max(updateAppointmentResponsePhoneMax),
+  "scheduledAt": zod.coerce.date(),
+  "note": zod.string().max(updateAppointmentResponseNoteMax),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Xóa lịch hẹn
+ */
+
+
+
+export const DeleteAppointmentParams = zod.object({
+  "id": zod.coerce.number().int().min(1)
+})
+
+export const DeleteAppointmentResponse = zod.void()
 
 
 /**

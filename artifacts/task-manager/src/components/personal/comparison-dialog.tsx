@@ -13,12 +13,12 @@ import { compareServiceHours, comparisonMemberParams, comparisonResult, comparis
 
 type Scope = 'day' | 'month';
 
-function CompactDifference({ serviceName, personalMinutes, referenceMinutes, index }: { serviceName: string; personalMinutes: number; referenceMinutes: number; index: number }) {
+function CompactDifference({ serviceName, workDate, personalMinutes, referenceMinutes, index }: { serviceName: string; workDate: string; personalMinutes: number; referenceMinutes: number; index: number }) {
   const formatServiceHours = (minutes: number) => minutes === 0 ? '0 giờ' : formatMinutes(minutes);
   return (
     <div className="cmp-disc" data-testid={`row-cmp-discrepancy-${index}`}>
       <strong className="cmp-pair-title">Dịch vụ chưa khớp {index + 1}</strong>
-      <h4>{serviceName}</h4>
+      <h4>{serviceName} · {formatShortDate(workDate)}</h4>
       <div className="cmp-cols">
         {[{ title: 'Cơ sở', minutes: referenceMinutes }, { title: 'Cá nhân', minutes: personalMinutes }].map(({ title, minutes }) => (
           <div className="cmp-shift" key={title}>

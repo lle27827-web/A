@@ -48,6 +48,18 @@ test("permission policy denies by default; employee, card, revenue and edit righ
   assert.equal(await managerRequestAllowed(req("POST", "/treatment-cards/9/hours"), { ...cards, editCards: true }), true);
   assert.equal(await managerRequestAllowed(req("POST", "/service-types"), { ...none, editServices: true }), true);
   assert.equal(await managerRequestAllowed(req("GET", "/massage-summary"), { ...none, viewRevenue: true }), true);
+  assert.equal(await managerRequestAllowed(req("GET", "/appointments"), none), false);
+  assert.equal(await managerRequestAllowed(req("GET", "/appointments"), { ...none, viewAppointments: true }), true);
+  assert.equal(await managerRequestAllowed(req("POST", "/appointments"), { ...none, viewAppointments: true }), false);
+  assert.equal(await managerRequestAllowed(req("PATCH", "/appointments/1"), { ...none, viewAppointments: true }), false);
+  assert.equal(await managerRequestAllowed(req("DELETE", "/appointments/1"), { ...none, viewAppointments: true }), false);
+  const appointmentManager = { ...none, viewAppointments: true, editAppointments: true };
+  assert.equal(await managerRequestAllowed(req("POST", "/appointments"), appointmentManager), true);
+  assert.equal(await managerRequestAllowed(req("PATCH", "/appointments/1"), appointmentManager), true);
+  assert.equal(await managerRequestAllowed(req("DELETE", "/appointments/1"), appointmentManager), true);
+  assert.equal(await managerRequestAllowed(req("GET", "/appointments/1"), appointmentManager), false);
+  const legacy = { allEmployees: true, employeeIds: [7], viewCards: true, viewRevenue: true, editEmployees: true, editCards: false, editServices: false };
+  assert.deepEqual(safePermissions(legacy), { ...legacy, viewAppointments: false, editAppointments: false });
 });
 
 test("scoped reads, grants and revocation are enforced using persisted permissions", async () => {

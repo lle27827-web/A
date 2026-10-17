@@ -13,6 +13,7 @@ import CardsPage from '@/pages/cards';
 import CardDetailPage from '@/pages/card-detail';
 import ServicesPage from '@/pages/services';
 import PersonalPage from '@/pages/personal';
+import AppointmentsPage from '@/pages/appointments';
 import { AuthLoadingPage, AuthRestoreErrorPage, AuthSetupPage, clerkAppearance, NoFacilityAccessPage, SignInPage, SignUpPage, WelcomePage } from '@/components/auth-pages';
 import { postAuthPath, retrySessionCheck, sessionScreen, validateRestoredSession } from '@/lib/auth-session';
 import { createWebSessionTokenGetter } from '@/lib/web-session-token';
@@ -93,6 +94,7 @@ function FacilityRoutes({ permissions }: { permissions: FacilityPermissions }) {
       {permissions.viewCards && <Route path="/cards" component={CardsPage} />}
       {permissions.viewCards && <Route path="/cards/:id" component={CardDetailPage} />}
       {permissions.editServices && <Route path="/services" component={ServicesPage} />}
+      {(permissions.viewAppointments || permissions.editAppointments) && <Route path="/appointments" component={AppointmentsPage} />}
       <Route>
         <Redirect to="/" replace />
       </Route>
@@ -136,7 +138,7 @@ function SignedInApplication({
 
 function permissionKey(p: FacilityPermissions | undefined, owner: boolean): string {
   if (!p) return 'none';
-  return JSON.stringify([owner, p.allEmployees, [...p.employeeIds].sort((a, b) => a - b), p.viewCards, p.viewRevenue, p.editEmployees, p.editCards, p.editServices]);
+  return JSON.stringify([owner, p.allEmployees, [...p.employeeIds].sort((a, b) => a - b), p.viewCards, p.viewRevenue, p.editEmployees, p.editCards, p.editServices, p.viewAppointments, p.editAppointments]);
 }
 
 function AuthenticatedApplication() {

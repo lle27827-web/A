@@ -15,17 +15,17 @@ Facility-library mode uses facility service names and EMPLOYEE pay rates, not cu
 
 **How to apply:** keep the choice account-specific, do not synchronize private data back into the facility, and compare detailed occurrences rather than collapsing legitimate same-day visits.
 
-Compare total recorded minutes per normalized service name within the selected date or month. Hide services whose totals match; display only service types with a different total, with the facility and personal totals side by side. Pay, rate, customer text and notes do not affect hour totals.
+Compare total recorded minutes by normalized service name and calendar date. In month view, keep each date separate so opposing daily differences cannot cancel each other. Hide groups whose totals match; show only unequal service/date totals side by side. Pay, rate, customer text and notes do not affect hour totals.
 
-**Why:** the user later clarified that comparison should total hours by service for the selected day, such as facility 5 hours versus personal 3 hours. This replaces the earlier per-occurrence matching rule.
+**Why:** the user selected date-and-service comparison for the month view, specifically to prevent one day's excess from cancelling another day's shortfall. This replaces earlier per-occurrence and full-month-per-service rules.
 
-**How to apply:** aggregate each side independently by service, compare minutes, and show only unequal service totals. The employee selector must use the same current roster as facility management for the current month and historical identities for past months. Distinct employee identities that genuinely share a name must remain distinct and clearly labelled; never silently merge their work by name.
+**How to apply:** aggregate each side independently by date and service, compare minutes, and show only unequal totals. The employee selector must use the same current roster as facility management for the current month and historical identities for past months. Distinct employee identities that genuinely share a name must remain distinct and clearly labelled; never silently merge their work by name.
 
-For a service recorded on only one side, display zero hours on the missing side. Keep the selected day or month visible so the aggregate is clearly scoped.
+For a date/service recorded on only one side, display zero hours on the missing side. Keep the date visible in each row and the selected month in the view heading.
 
-**Why:** service-hour comparison requires showing the size of the discrepancy, including a zero total when no shifts exist on one side.
+**Why:** date/service comparison requires showing the size and day of the discrepancy, including a zero total when one side has no shifts that day.
 
-**How to apply:** do not pair or list individual shifts in this comparison view; show one summary row per service with unequal totals.
+**How to apply:** do not pair or list individual shifts in this comparison view; show one summary row per date/service with unequal totals.
 
 When the selected range contains shifts and every occurrence matches, hide the discrepancy history and show a concise “Dữ liệu đã khớp” status. When neither side has any shifts, report that there are no shifts to compare instead of claiming a match.
 

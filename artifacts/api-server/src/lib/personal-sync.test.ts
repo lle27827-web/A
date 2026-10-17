@@ -9,38 +9,51 @@ import { comparePersonalVisits, getPersonalComparison, syncPersonalNotebook } fr
 import { createEmployee } from "./employee-history";
 import { MassageError } from "./massage";
 
-test("comparison matches by date/service/duration and shows only unmatched occurrences", () => {
+test("comparison totals hours by date and service and shows only differing groups", () => {
   const row = { id: 1, serviceName: "Trị liệu", customerName: "", workDate: "2022-11-11", minutes: 60, hourlyRate: 60000, earnings: 60000, note: "" };
   const reference = Array.from({ length: 5 }, (_, i) => ({ ...row, id: i + 1 }));
   const personal = Array.from({ length: 4 }, (_, i) => ({ ...row, id: i + 11 }));
   personal.push({ ...row, id: 15, minutes: 90, earnings: 90000 });
   const differences = comparePersonalVisits(personal, reference);
   assert.equal(differences.length, 1);
-  assert.deepEqual(differences[0].personal.map((v) => [v.minutes, v.earnings]), [[90, 90000]]);
-  assert.deepEqual(differences[0].reference.map((v) => [v.minutes, v.earnings]), [[60, 60000]]);
+  assert.equal(differences[0].personal.reduce((sum, visit) => sum + visit.minutes, 0), 330);
+  assert.equal(differences[0].reference.reduce((sum, visit) => sum + visit.minutes, 0), 300);
+  assert.equal(differences[0].personal.length, 5);
+  assert.equal(differences[0].reference.length, 5);
   assert.equal(reference.length, 5, "input rows are never mutated");
   assert.equal(comparePersonalVisits([{ ...row, customerName: "Different", hourlyRate: 99999, earnings: 1000, note: "Old note" }], [row]).length, 0,
-    "same service and duration match despite different pay, notes or customer text");
+    "same service and daily hours match despite different pay, notes or customer text");
   assert.equal(comparePersonalVisits([{ ...row, minutes: 90 }], [row]).length, 1, "same pay but different duration does not match");
   assert.equal(comparePersonalVisits([{ ...row, workDate: "2022-11-12" }], [row]).length, 2, "never match across dates");
   assert.equal(comparePersonalVisits([{ ...row, serviceName: "Massage" }], [row]).length, 2, "never match across services");
-  assert.equal(comparePersonalVisits([row, { ...row, id: 2 }], [row])[0].personal.length, 1, "matching consumes each occurrence only once");
-  assert.equal(comparePersonalVisits([row], [{ ...row, earnings: 90000 }]).length, 0, "pay differences do not change service/duration matching");
+  assert.equal(comparePersonalVisits([row, { ...row, id: 2 }], [row])[0].personal.length, 2, "totals include every shift in a service/day group");
+  assert.equal(comparePersonalVisits([row, { ...row, id: 2, minutes: 120 }], [{ ...row, minutes: 180 }]).length, 0,
+    "different shift splits match when service/day totals are equal");
+  assert.equal(comparePersonalVisits([row], [{ ...row, earnings: 90000 }]).length, 0, "pay differences do not change hour totals");
+  const offsettingDays = comparePersonalVisits(
+    [{ ...row, minutes: 120 }, { ...row, id: 3, workDate: "2022-11-12", minutes: 60 }],
+    [{ ...row, minutes: 60 }, { ...row, id: 4, workDate: "2022-11-12", minutes: 120 }],
+  );
+  assert.equal(offsettingDays.length, 2, "opposite daily differences must not cancel in a month view");
+  assert.deepEqual(offsettingDays.map((group) => [group.personal[0]?.workDate ?? group.reference[0]?.workDate,
+    group.personal.reduce((sum, visit) => sum + visit.minutes, 0), group.reference.reduce((sum, visit) => sum + visit.minutes, 0)]),
+  [["2022-11-11", 120, 60], ["2022-11-12", 60, 120]]);
 });
 
-test("comparison keeps repeated service visits as independent occurrence matches", () => {
+test("comparison groups repeated visits by date and service totals", () => {
   const row = { id: 1, serviceName: "Massage", customerName: "", workDate: "2022-11-11", minutes: 60, hourlyRate: 75000, earnings: 75000, note: "" };
   const facility = Array.from({ length: 4 }, (_, i) => ({ ...row, id: i + 1 }));
   const personalTwoMatches = [{ ...row, id: 10 }, { ...row, id: 11 }, { ...row, id: 12, minutes: 90 }, { ...row, id: 13, minutes: 120 }];
   const mismatches = comparePersonalVisits(personalTwoMatches, facility);
-  assert.equal(mismatches.length, 2, "each of the two unmatched occurrences is its own discrepancy");
-  assert.ok(mismatches.every((item) => item.personal.length === 1 && item.reference.length === 1));
-  assert.deepEqual(mismatches.map((item) => [item.reference[0].minutes, item.personal[0].minutes]), [[60, 90], [60, 120]]);
+  assert.equal(mismatches.length, 1, "one service/date produces one total discrepancy");
+  assert.equal(mismatches[0].personal.reduce((sum, visit) => sum + visit.minutes, 0), 330);
+  assert.equal(mismatches[0].reference.reduce((sum, visit) => sum + visit.minutes, 0), 240);
   const noneAdded = comparePersonalVisits([], facility);
-  assert.equal(noneAdded.length, 4, "all four facility shifts remain individually visible");
-  assert.ok(noneAdded.every((item) => item.personal.length === 0 && item.reference.length === 1));
-  assert.equal(comparePersonalVisits(personalTwoMatches.slice(0, 2), facility.slice(0, 2)).length, 0,
-    "matching duplicate shifts are consumed one-to-one and do not appear");
+  assert.equal(noneAdded.length, 1, "an absent side produces one service/date discrepancy");
+  assert.equal(noneAdded[0].personal.length, 0);
+  assert.equal(noneAdded[0].reference.length, 4);
+  assert.equal(comparePersonalVisits([{ ...row, minutes: 60 }, { ...row, id: 2, minutes: 60 }], [{ ...row, minutes: 120 }]).length, 0,
+    "different counts match when the service/date totals are equal");
 });
 
 test("personal live rates, idempotency, scope replacement, detailed mismatches and account isolation", async () => {
