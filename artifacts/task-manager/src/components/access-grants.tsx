@@ -113,7 +113,7 @@ export function AccessGrantsDialog({ members, onClose }: { members: MemberRecord
 
   return (
     <>
-      <Modal title="Quyền truy cập" onClose={onClose} testId="dialog-access-grants">
+      <Modal title="Cấp quyền quản lý" onClose={onClose} testId="dialog-access-grants">
         {notice && <p className="banner success" role="status" data-testid="status-grant-notice">{notice}</p>}
         {!draft && error && <p className="form-error" role="alert"><AlertCircle size={14} aria-hidden="true" />{error}</p>}
 

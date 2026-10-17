@@ -95,7 +95,7 @@ export function ViewSettings({ prefs, members, membersLoading, open, onOpenChang
             <DialogPrimitive.Close asChild><button type="button" className="icon-btn" aria-label="Đóng cài đặt"><X size={18} /></button></DialogPrimitive.Close>
           </div>
           <DialogPrimitive.Description className="sub">
-            {isOwner ? 'Lịch sử, dịch vụ, quyền truy cập và sổ cá nhân.' : 'Lịch sử tháng và sổ cá nhân.'}
+            {isOwner ? 'Lịch sử, dịch vụ, cấp quyền quản lý và sổ cá nhân.' : 'Lịch sử tháng và sổ cá nhân.'}
           </DialogPrimitive.Description>
 
           <Link href="/personal" className="settings-link personal-entry" onClick={() => onOpenChange(false)} data-testid="link-personal-notebook">
@@ -114,7 +114,7 @@ export function ViewSettings({ prefs, members, membersLoading, open, onOpenChang
 
           {isOwner && (
             <button type="button" className="settings-link" onClick={() => { onOpenChange(false); setGrantsOpen(true); }} data-testid="button-open-access-grants">
-              <KeyRound size={15} aria-hidden="true" /><span className="grow"><strong>Quyền truy cập</strong><span className="muted">Cấp quyền chi tiết cho từng email</span></span><ChevronRight size={16} aria-hidden="true" />
+              <KeyRound size={15} aria-hidden="true" /><span className="grow"><strong>Cấp quyền quản lý</strong><span className="muted">Chọn nhân viên và quyền xem, sửa</span></span><ChevronRight size={16} aria-hidden="true" />
             </button>
           )}
 
