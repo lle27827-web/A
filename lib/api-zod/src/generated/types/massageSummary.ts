@@ -7,6 +7,7 @@
  */
 import type { DailyRevenue } from './dailyRevenue';
 import type { MassageSummaryMostUsedCardService } from './massageSummaryMostUsedCardService';
+import type { MassageSummaryMostUsedWalkInService } from './massageSummaryMostUsedWalkInService';
 import type { MassageSummaryTopSoldCardService } from './massageSummaryTopSoldCardService';
 
 export interface MassageSummary {
@@ -36,5 +37,7 @@ export interface MassageSummary {
   topSoldCardService: MassageSummaryTopSoldCardService;
   /** @nullable */
   mostUsedCardService: MassageSummaryMostUsedCardService;
+  /** @nullable */
+  mostUsedWalkInService: MassageSummaryMostUsedWalkInService;
   today: DailyRevenue;
 }

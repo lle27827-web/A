@@ -77,6 +77,18 @@ export default function HomePage() {
               <div className="net-revenue-row rev-key"><dt>Doanh thu đã khấu trừ trong tháng</dt><dd className="mono" data-testid="text-net-revenue"><strong>{formatVnd(summary.data?.netRevenue ?? 0)}</strong></dd></div>
               <div><dt>Khách lẻ (tháng)</dt><dd className="mono" data-testid="text-walk-in-visits">{summary.data?.walkInVisits ?? 0} lượt</dd></div>
               <div><dt>Khách thẻ (tháng)</dt><dd className="mono" data-testid="text-card-visits">{summary.data?.cardVisits ?? 0} lượt</dd></div>
+              <div data-testid="row-top-service-by-customer-type">
+                <dt>Dịch vụ bán chạy nhất tháng</dt>
+                <dd className="mono">
+                  Khách lẻ: {summary.data?.mostUsedWalkInService
+                    ? `${summary.data.mostUsedWalkInService.serviceType} · ${summary.data.mostUsedWalkInService.visits} lượt`
+                    : 'chưa có lượt'}
+                  {' · '}
+                  Khách thẻ: {summary.data?.mostUsedCardService
+                    ? `${summary.data.mostUsedCardService.serviceType} · ${summary.data.mostUsedCardService.visits} lượt`
+                    : 'chưa có lượt'}
+                </dd>
+              </div>
               <div data-testid="row-top-sold-card-service">
                 <dt>Gói thẻ bán nhiều nhất tháng</dt>
                 <dd className="mono">{summary.data?.topSoldCardService

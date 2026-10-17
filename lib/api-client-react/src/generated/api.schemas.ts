@@ -562,6 +562,14 @@ export type MassageSummaryMostUsedCardService = {
   minutes: number;
 } | null;
 
+/**
+ * @nullable
+ */
+export type MassageSummaryMostUsedWalkInService = {
+  serviceType: string;
+  visits: number;
+} | null;
+
 export interface DailyRevenue {
   date: string;
   revenue: number;
@@ -605,6 +613,8 @@ export interface MassageSummary {
   topSoldCardService: MassageSummaryTopSoldCardService;
   /** @nullable */
   mostUsedCardService: MassageSummaryMostUsedCardService;
+  /** @nullable */
+  mostUsedWalkInService: MassageSummaryMostUsedWalkInService;
   today: DailyRevenue;
 }
 

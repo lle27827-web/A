@@ -32,6 +32,7 @@ export * from './listMembersParams';
 export * from './listServiceSessionsParams';
 export * from './massageSummary';
 export * from './massageSummaryMostUsedCardService';
+export * from './massageSummaryMostUsedWalkInService';
 export * from './massageSummaryTopSoldCardService';
 export * from './memberInput';
 export * from './memberPayroll';

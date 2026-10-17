@@ -21,7 +21,7 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     const noSalesDay = "2098-03-12";
     const [walkIn] = await db.insert(serviceSessionsTable).values({
       memberId: null, employeeName: "__no_sales_month_test", cardId: null, customerName: "",
-      serviceType: "test", workDate: noSalesDay, minutes: 30, customerHourlyRate: 20000, customerCharge: 10000, hourlyRate: 10000,
+      serviceType: popularService, workDate: noSalesDay, minutes: 30, customerHourlyRate: 20000, customerCharge: 10000, hourlyRate: 10000,
       earnings: 5000, note: "",
     }).returning();
     sessionIds.push(walkIn.id);
@@ -43,6 +43,7 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     assert.equal(serviceOnly.walkInVisits, 1);
     assert.equal(validatedServiceOnly.topSoldCardService, null);
     assert.equal(validatedServiceOnly.mostUsedCardService, null);
+    assert.deepEqual(validatedServiceOnly.mostUsedWalkInService, { serviceType: popularService, visits: 1 });
     const cards = await db.insert(treatmentCardsTable).values([
       { customerName: "__facility_report_test", phone: "", serviceType: popularService, totalMinutes: 120, purchaseAmount: 800, purchaseDate: "2099-02-01", note: "" },
       { customerName: "__facility_report_test", phone: "", serviceType: popularService, totalMinutes: 60, purchaseAmount: 1200, purchaseDate: "2099-02-28", note: "" },
@@ -52,13 +53,14 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     const rows = await db.insert(serviceSessionsTable).values([
       { memberId: null, employeeName: "__facility_report_test", cardId: cards[0].id, customerName: "", serviceType: popularService, workDate: "2099-02-01", minutes: 60, customerHourlyRate: 200, customerCharge: 200, hourlyRate: 150, earnings: 150, note: "" },
       { memberId: null, employeeName: "__facility_report_test", cardId: cards[0].id, customerName: "", serviceType: popularService, workDate: "2099-02-02", minutes: 30, customerHourlyRate: 200, customerCharge: 100, hourlyRate: 100, earnings: 50, note: "" },
-      { memberId: null, employeeName: "__facility_report_test", cardId: null, customerName: "", serviceType: "test", workDate: "2099-02-28", minutes: 30, customerHourlyRate: 200, customerCharge: 100, hourlyRate: 100, earnings: 50, note: "" },
+      { memberId: null, employeeName: "__facility_report_test", cardId: null, customerName: "", serviceType: `${popularService}_walkin`, workDate: "2099-02-28", minutes: 30, customerHourlyRate: 200, customerCharge: 100, hourlyRate: 100, earnings: 50, note: "" },
       { memberId: null, employeeName: "__facility_report_test", cardId: null, customerName: "", serviceType: "test", workDate: "2099-01-31", minutes: 60, customerHourlyRate: 20000, customerCharge: 20000, hourlyRate: 10000, earnings: 10000, note: "" },
     ]).returning();
     sessionIds.push(...rows.map((s) => s.id));
     const after = await getFacilityRevenue(month, date);
     assert.deepEqual(after.topSoldCardService, { serviceType: popularService, cardsSold: 2 });
     assert.deepEqual(after.mostUsedCardService, { serviceType: popularService, visits: 2, minutes: 90 });
+    assert.deepEqual(after.mostUsedWalkInService, { serviceType: `${popularService}_walkin`, visits: 1 });
     assert.equal(after.walkInVisits, baseline.walkInVisits + 1);
     assert.equal(after.cardVisits, baseline.cardVisits + 2);
     assert.equal(after.today.walkInVisits, baseline.today.walkInVisits);
@@ -92,11 +94,14 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     assert.deepEqual(await getFacilityRevenue(month, date), after);
     const [extraWalkIn] = await db.insert(serviceSessionsTable).values({
       memberId: null, employeeName: "__facility_net_test", cardId: null, customerName: "",
-      serviceType: "test", workDate: date, minutes: 60, customerHourlyRate: 300000,
+      serviceType: `${popularService}_walkin`, workDate: date, minutes: 60, customerHourlyRate: 300000,
       customerCharge: 300000, hourlyRate: 100000, earnings: 100000, note: "",
     }).returning();
     sessionIds.push(extraWalkIn.id);
+    assert.equal((await db.select().from(serviceSessionsTable)
+      .where(eq(serviceSessionsTable.serviceType, `${popularService}_walkin`))).length, 2);
     const mixed = GetMassageSummaryResponse.parse(await getFacilityRevenue(month, date));
+    assert.deepEqual(mixed.mostUsedWalkInService, { serviceType: `${popularService}_walkin`, visits: 2 });
     assert.equal(mixed.netRevenue - after.netRevenue, 200000);
     assert.equal(mixed.today.netRevenue - after.today.netRevenue, 200000);
     assert.equal(mixed.today.revenue - after.today.revenue, 300000);
@@ -146,6 +151,7 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     const removedReport = await getFacilityRevenue(month, date);
     assert.equal(removedReport.topSoldCardService, null);
     assert.equal(removedReport.mostUsedCardService, null);
+    assert.deepEqual(removedReport.mostUsedWalkInService, { serviceType: `${popularService}_walkin`, visits: 2 });
     assert.equal(removedReport.cardRevenue, updated.cardRevenue - 800);
     assert.equal(removedReport.serviceRevenue, updated.serviceRevenue);
     assert.equal(removedReport.payroll, updated.payroll - 200);
