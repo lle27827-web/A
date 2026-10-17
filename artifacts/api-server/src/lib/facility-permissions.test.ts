@@ -4,7 +4,7 @@ import express, { type Request } from "express";
 import { once } from "node:events";
 import { eq, inArray } from "drizzle-orm";
 import { attendanceTable, db, managerGrantsTable, membersTable, pool, serviceSessionsTable } from "@workspace/db";
-import { canViewEmployee, noPermissions, ownerPermissions, permissionsForEmail, safePermissions } from "./facility-permissions";
+import { canViewEmployee, noPermissions, ownerPermissions, permissionsForEmail, permissionsWithinDelegationScope, safePermissions } from "./facility-permissions";
 import { managerRequestAllowed } from "./owner-auth";
 import membersRouter from "../routes/members";
 import attendanceRouter from "../routes/attendance";
@@ -24,18 +24,25 @@ test("permission policy denies by default; employee, card, revenue and edit righ
   assert.equal(canViewEmployee(scoped, 8), false);
   assert.equal(canViewEmployee(ownerPermissions(), 0), false);
   for (const p of [none, scoped, ownerPermissions()]) {
-    for (const method of ["GET", "POST", "DELETE"]) {
-      assert.equal(await managerRequestAllowed(req(method, "/access-grants"), p), false, "only owner gate can admit grant management");
-    }
     assert.equal(await managerRequestAllowed(req("GET", "/unknown"), p), false);
   }
   assert.equal(await managerRequestAllowed(req("GET", "/member-payroll", { memberId: "7" }), scoped), true);
   assert.equal(await managerRequestAllowed(req("GET", "/member-payroll", { memberId: "8" }), scoped), false);
   assert.equal(await managerRequestAllowed(req("GET", "/service-sessions", { memberId: ["7", "8"] }), scoped), false);
   assert.equal(await managerRequestAllowed(req("GET", "/service-sessions", { memberId: "7", cardId: "9" }), scoped), false);
-  for (const path of ["/massage-summary", "/treatment-cards", "/access-grants"]) {
+  for (const path of ["/massage-summary", "/treatment-cards"]) {
     assert.equal(await managerRequestAllowed(req("GET", path), scoped), false);
   }
+  assert.equal(await managerRequestAllowed(req("GET", "/access-grants"), none), false);
+  assert.equal(await managerRequestAllowed(req("GET", "/access-grants"), scoped), true);
+  assert.equal(await managerRequestAllowed(req("POST", "/access-grants"), scoped), true);
+  assert.equal(await managerRequestAllowed(req("DELETE", "/access-grants/1"), scoped), true);
+  assert.equal(await managerRequestAllowed(req("DELETE", "/access-grants"), scoped), false);
+  const delegable = { ...none, employeeIds: [7], editEmployees: true, viewAppointments: true };
+  assert.equal(permissionsWithinDelegationScope(delegable, { ...none, employeeIds: [7], editEmployees: true, viewAppointments: true }), true);
+  assert.equal(permissionsWithinDelegationScope(delegable, { ...none, employeeIds: [8] }), false);
+  assert.equal(permissionsWithinDelegationScope(delegable, { ...none, viewRevenue: true }), false);
+  assert.equal(permissionsWithinDelegationScope(delegable, { ...none, allEmployees: true }), false);
   assert.equal(await managerRequestAllowed(req("PATCH", "/members/7"), scoped), false);
   assert.equal(await managerRequestAllowed(req("PATCH", "/members/7"), { ...scoped, editEmployees: true }), true);
   assert.equal(await managerRequestAllowed(req("DELETE", "/members/8"), { ...scoped, editEmployees: true }), false);
@@ -62,9 +69,11 @@ test("permission policy denies by default; employee, card, revenue and edit righ
   assert.deepEqual(safePermissions(legacy), { ...legacy, viewAppointments: false, editAppointments: false });
 });
 
-test("scoped reads, grants and revocation are enforced using persisted permissions", async () => {
+test("scoped reads and delegated grants stay within persisted manager permissions", async () => {
   const marker = `permissions-${Date.now()}`;
   const email = `${marker}@example.com`;
+  const delegatedEmail = `${marker}-delegated@example.com`;
+  const protectedEmail = `${marker}-protected@example.com`;
   const employees: number[] = [], visits: number[] = [], attendance: number[] = [];
   const month = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit" }).format(new Date());
   const date = `${month}-01`;
@@ -86,10 +95,13 @@ test("scoped reads, grants and revocation are enforced using persisted permissio
     const app = express();
     app.use(express.json());
     // Local test harness models the output of verified Clerk auth; production has no override.
-    app.use("/owner", (_req, res, next) => { res.locals.facilityAuth = { isOwner: true, permissions: ownerPermissions() }; next(); }, grantsRouter);
+    app.use("/owner", (_req, res, next) => {
+      res.locals.facilityAuth = { authConfigured: true, authenticated: true, isOwner: true, email: "owner@example.com", permissions: ownerPermissions() };
+      next();
+    }, grantsRouter);
     app.use("/manager", async (r, res, next) => {
       const p = await permissionsForEmail(email);
-      res.locals.facilityAuth = { authenticated: true, isOwner: false, permissions: p };
+      res.locals.facilityAuth = { authConfigured: true, authenticated: true, isOwner: false, email, permissions: p };
       if (await managerRequestAllowed(r, p)) next();
       else res.status(403).json({ error: "Forbidden" });
     }, membersRouter, attendanceRouter, sessionsRouter, grantsRouter);
@@ -98,14 +110,35 @@ test("scoped reads, grants and revocation are enforced using persisted permissio
     const address = server.address();
     assert.ok(address && typeof address === "object");
     const base = `http://127.0.0.1:${address.port}`;
-    const save = (p: typeof permissions) => fetch(`${base}/owner/access-grants`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: ` ${email.toUpperCase()} `, permissions: p }),
+    const save = (p: typeof permissions, targetEmail = email) => fetch(`${base}/owner/access-grants`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: ` ${targetEmail.toUpperCase()} `, permissions: p }),
     });
     const saved = await save(permissions);
     assert.equal(saved.status, 200);
     const grant = await saved.json() as { id: number };
     assert.deepEqual(await permissionsForEmail(email), permissions);
     assert.equal((await save({ ...permissions, editCards: true })).status, 400, "edit cards requires view cards");
+    const selfGrantList = await (await fetch(`${base}/manager/access-grants`)).json() as { email: string }[];
+    assert.equal(selfGrantList.some((row) => row.email === email), false, "a manager cannot see their own grant");
+    const delegated = await fetch(`${base}/manager/access-grants`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: delegatedEmail, permissions }),
+    });
+    assert.equal(delegated.status, 200, "a manager can delegate a grant within their own scope");
+    const delegatedGrant = await delegated.json() as { id: number };
+    assert.equal((await fetch(`${base}/manager/access-grants`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: `${marker}-outside@example.com`, permissions: { ...permissions, viewRevenue: true } }),
+    })).status, 403, "a manager cannot grant a permission they do not have");
+    assert.equal((await fetch(`${base}/manager/access-grants`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, permissions }),
+    })).status, 403, "a manager cannot change their own grant");
+    assert.equal((await save({ ...noPermissions(), viewRevenue: true }, protectedEmail)).status, 200);
+    assert.equal((await fetch(`${base}/manager/access-grants`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: protectedEmail, permissions }),
+    })).status, 403, "a manager cannot overwrite a grant outside their scope");
     const members = await (await fetch(`${base}/manager/members`)).json() as { id: number }[];
     assert.deepEqual(members.map((m) => m.id), [employees[0]]);
     const records = await (await fetch(`${base}/manager/service-sessions?month=${month}`)).json() as { memberId: number }[];
@@ -115,7 +148,11 @@ test("scoped reads, grants and revocation are enforced using persisted permissio
     assert.deepEqual(attRows.map((r) => r.memberId), [employees[0]]);
     const total = await (await fetch(`${base}/manager/attendance/summary?date=${date}`)).json() as { total: number };
     assert.equal(total.total, 1);
-    assert.equal((await fetch(`${base}/manager/access-grants`)).status, 403);
+    assert.equal((await fetch(`${base}/manager/access-grants/${grant.id}`, { method: "DELETE" })).status, 403, "a manager cannot revoke their own grant");
+    assert.equal((await fetch(`${base}/manager/access-grants`)).status, 200);
+    const visibleDelegates = await (await fetch(`${base}/manager/access-grants`)).json() as { email: string }[];
+    assert.ok(visibleDelegates.some((row) => row.email === delegatedEmail));
+    assert.equal((await fetch(`${base}/manager/access-grants/${delegatedGrant.id}`, { method: "DELETE" })).status, 204);
     assert.equal(await managerRequestAllowed(req("PATCH", `/service-sessions/${visits[1]}`, {}, { memberId: employees[0] }), permissions), false, "old employee must also be allowed");
     assert.equal(await managerRequestAllowed(req("PATCH", `/service-sessions/${visits[0]}`, {}, { memberId: employees[1] }), permissions), false, "new employee must be allowed");
     assert.equal(await managerRequestAllowed(req("PATCH", `/service-sessions/${visits[0]}`, {}, { memberId: employees[0] }), permissions), true);
@@ -131,7 +168,7 @@ test("scoped reads, grants and revocation are enforced using persisted permissio
     assert.equal((await fetch(`${base}/manager/member-payroll?memberId=${employees[0]}&month=${month}`)).status, 403);
   } finally {
     if (server) await new Promise<void>((resolve, reject) => server!.close((err) => err ? reject(err) : resolve()));
-    await db.delete(managerGrantsTable).where(eq(managerGrantsTable.email, email));
+    await db.delete(managerGrantsTable).where(inArray(managerGrantsTable.email, [email, delegatedEmail, protectedEmail]));
     if (attendance.length) await db.delete(attendanceTable).where(inArray(attendanceTable.id, attendance));
     if (visits.length) await db.delete(serviceSessionsTable).where(inArray(serviceSessionsTable.id, visits));
     if (employees.length) await db.delete(membersTable).where(inArray(membersTable.id, employees));

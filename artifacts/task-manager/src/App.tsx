@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { ClerkProvider, useAuth, useClerk } from '@clerk/react';
+import { viVN } from '@clerk/localizations';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { Route, Switch, Router as WouterRouter, Redirect, useLocation, useSearch } from 'wouter';
 import type { FacilityPermissions } from '@workspace/api-client-react';
@@ -224,8 +225,15 @@ function ClerkApplication() {
       signInFallbackRedirectUrl={basePath || '/'}
       signUpFallbackRedirectUrl={basePath || '/'}
       localization={{
-        signIn: { start: { title: 'Đăng nhập', subtitle: '' } },
-        signUp: { start: { title: 'Tạo tài khoản', subtitle: '' } },
+        ...viVN,
+        signIn: {
+          ...(viVN.signIn ?? {}),
+          start: { ...(viVN.signIn?.start ?? {}), title: 'Đăng nhập bằng email', subtitle: '' },
+        },
+        signUp: {
+          ...(viVN.signUp ?? {}),
+          start: { ...(viVN.signUp?.start ?? {}), title: 'Tạo tài khoản', subtitle: '' },
+        },
       }}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}

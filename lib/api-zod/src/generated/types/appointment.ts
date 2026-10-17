@@ -5,6 +5,7 @@
  * API công khai để quản lý dữ liệu nhân viên, chấm công, dịch vụ và thẻ liệu trình.
  * OpenAPI spec version: 0.1.0
  */
+import type { AppointmentStatus } from './appointmentStatus';
 
 export interface Appointment {
   /** @minimum 1 */
@@ -20,6 +21,7 @@ export interface Appointment {
      */
   phone: string;
   scheduledAt: Date;
+  status: AppointmentStatus;
   /** @maxLength 2000 */
   note: string;
   createdAt: Date;

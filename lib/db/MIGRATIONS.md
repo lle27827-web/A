@@ -79,9 +79,10 @@ been audited and its baseline explicitly authorized and recorded. A brand-new
 Vercel database must first be initialized with `migrate` using its confirmed
 `DATABASE_URL`; the top-up-only update cannot initialize the base tables.
 
-The facility-wide appointments table is an additive update. The Vercel API build
-runs `migrate:appointments` using the configured `DATABASE_URL`; it creates only
-the appointments table and its date index, and can safely run again on later
+The facility-wide appointments table and its status field are additive updates.
+The Vercel API build runs `migrate:appointments` using the configured
+`DATABASE_URL`; it creates the table and date index when absent, and adds a
+`scheduled`-by-default status to existing rows. It can safely run again on later
 builds. It does not select `VERCEL_DATABASE_URL` or copy data between databases.
 
 The Replit post-merge hook uses safe `migrate`, not schema `push`. An unverified

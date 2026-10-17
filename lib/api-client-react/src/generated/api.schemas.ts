@@ -165,6 +165,14 @@ export type AccessGrant = AccessGrantInput & {
   id: number;
 };
 
+export type AppointmentStatus = typeof AppointmentStatus[keyof typeof AppointmentStatus];
+
+
+export const AppointmentStatus = {
+  scheduled: 'scheduled',
+  completed: 'completed',
+} as const;
+
 export interface Appointment {
   /** @minimum 1 */
   id: number;
@@ -179,6 +187,7 @@ export interface Appointment {
      */
   phone: string;
   scheduledAt: string;
+  status: AppointmentStatus;
   /** @maxLength 2000 */
   note: string;
   createdAt: string;

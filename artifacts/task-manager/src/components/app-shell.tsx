@@ -182,7 +182,8 @@ export function AppShell({
               <button type="button" className="link-soft as-button" onClick={onSignOut} data-testid="button-sign-out">Đăng xuất</button>
               <ViewSettings prefs={prefs} members={members} membersLoading={membersQuery.isLoading}
                 open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView}
-                isOwner={isOwner} permissions={permissions} />
+                isOwner={isOwner} permissions={permissions}
+                canManageGrants={isOwner || hasFacilityAccess(permissions)} />
             </div>
           </div>
         </header>

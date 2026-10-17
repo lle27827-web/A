@@ -36,7 +36,7 @@ export function useViewPrefs() {
   return [prefs, update] as const;
 }
 
-export function ViewSettings({ prefs, members, membersLoading, open, onOpenChange, onApply, isOwner, permissions }: {
+export function ViewSettings({ prefs, members, membersLoading, open, onOpenChange, onApply, isOwner, permissions, canManageGrants }: {
   prefs: ViewPrefs;
   members: MemberRecord[];
   membersLoading: boolean;
@@ -45,6 +45,7 @@ export function ViewSettings({ prefs, members, membersLoading, open, onOpenChang
   onApply: (prefs: ViewPrefs) => void;
   isOwner: boolean;
   permissions: FacilityPermissions;
+  canManageGrants: boolean;
 }) {
   const canViewEmployees = permissions.allEmployees || permissions.employeeIds.length > 0;
   const canHistory = canViewEmployees || permissions.viewRevenue;
@@ -95,7 +96,7 @@ export function ViewSettings({ prefs, members, membersLoading, open, onOpenChang
             <DialogPrimitive.Close asChild><button type="button" className="icon-btn" aria-label="Đóng cài đặt"><X size={18} /></button></DialogPrimitive.Close>
           </div>
           <DialogPrimitive.Description className="sub">
-            {isOwner ? 'Lịch sử, dịch vụ, cấp quyền quản lý và sổ cá nhân.' : 'Lịch sử tháng và sổ cá nhân.'}
+            {isOwner ? 'Lịch sử, dịch vụ, cấp quyền quản lý và sổ cá nhân.' : canManageGrants ? 'Lịch sử tháng, quyền quản lý trong phạm vi được cấp và sổ cá nhân.' : 'Lịch sử tháng và sổ cá nhân.'}
           </DialogPrimitive.Description>
 
           <Link href="/personal" className="settings-link personal-entry" onClick={() => onOpenChange(false)} data-testid="link-personal-notebook">
@@ -112,9 +113,9 @@ export function ViewSettings({ prefs, members, membersLoading, open, onOpenChang
             <Link href="/services" className="settings-link" onClick={() => { onApply({ mode: 'owner', employeeId: prefs.employeeId }); onOpenChange(false); }} data-testid="link-services"><Sparkles size={15} aria-hidden="true" /><span className="grow"><strong>Dịch vụ &amp; giá trả công</strong><span className="muted">Thêm, sửa, xóa dịch vụ của cơ sở</span></span><ChevronRight size={16} aria-hidden="true" /></Link>
           )}
 
-          {isOwner && (
+          {canManageGrants && (
             <button type="button" className="settings-link" onClick={() => { onOpenChange(false); setGrantsOpen(true); }} data-testid="button-open-access-grants">
-              <KeyRound size={15} aria-hidden="true" /><span className="grow"><strong>Cấp quyền quản lý</strong><span className="muted">Chọn nhân viên và quyền xem, sửa</span></span><ChevronRight size={16} aria-hidden="true" />
+              <KeyRound size={15} aria-hidden="true" /><span className="grow"><strong>Cấp quyền quản lý</strong><span className="muted">{isOwner ? 'Chọn phạm vi xem và sửa cho quản lý' : 'Chỉ cấp trong phạm vi quyền của bạn'}</span></span><ChevronRight size={16} aria-hidden="true" />
             </button>
           )}
 
@@ -159,7 +160,7 @@ export function ViewSettings({ prefs, members, membersLoading, open, onOpenChang
     </DialogPrimitive.Root>
     {historyOpen && <HistoryMonthsDialog onPick={pickHistory} onClose={() => setHistoryOpen(false)}
       description={permissions.viewRevenue ? 'Chọn tháng để xem doanh thu và dữ liệu cơ sở (chỉ xem).' : 'Chọn tháng để xem danh sách nhân viên tháng đó (chỉ xem).'} />}
-    {grantsOpen && isOwner && <AccessGrantsDialog members={members} onClose={() => setGrantsOpen(false)} />}
+    {grantsOpen && canManageGrants && <AccessGrantsDialog members={members} isOwner={isOwner} permissions={permissions} onClose={() => setGrantsOpen(false)} />}
     </>
   );
 }

@@ -9,11 +9,11 @@ Guests who have not signed in must not view facility data, including employee de
 
 **How to apply:** enforce sign-in on facility reads as well as writes, not merely by hiding links. Preserve the existing app-specific Clerk authentication across Replit and Vercel.
 
-The verified owner retains full access and alone grants or revokes facility rights per account. Delegated accounts see only the employee scope chosen by the owner; card visibility, revenue visibility and editing are separate choices. New accounts receive no facility access automatically.
+The verified owner retains full access and can grant any valid facility permissions to managers. Managers may delegate rights to other accounts only within or below their own current permissions and employee scope; they cannot create, edit, or revoke their own grant. New accounts receive no facility access automatically.
 
-**Why:** the user asked to choose which employees each manager can view, whether they can view cards and revenue, and what they can edit.
+**Why:** the user chose both owner-to-manager permission grants and manager-to-account delegation limited to the manager's own authority.
 
-**How to apply:** resolve grants using the authenticated account's verified email, never client-supplied identity. Restrict lists, search, totals, comparison and writes consistently. Editing a card-linked shift also requires card-edit rights. Do not let managers grant rights to themselves or others.
+**How to apply:** resolve grants using the authenticated account's verified email, never client-supplied identity. Restrict manager grant lists and mutations to grants no broader than the manager's own. Keep owner grants unrestricted and prevent managers from changing their own permissions. Restrict lists, search, totals, comparison and writes consistently. Editing a card-linked shift also requires card-edit rights.
 
 Every signed-in account may keep a separate personal employee notebook: own attendance, own service/pay rates, own income and month history. This is not the facility's read-only employee-view filter, and it does not include personal customer/card management.
 

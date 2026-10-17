@@ -824,15 +824,19 @@ components:
             id: { type: integer }
     Appointment:
       type: object
-      required: [id, customerName, phone, scheduledAt, note, createdAt, updatedAt]
+      required: [id, customerName, phone, scheduledAt, status, note, createdAt, updatedAt]
       properties:
         id: { type: integer, minimum: 1 }
         customerName: { type: string, minLength: 1, maxLength: 160 }
         phone: { type: string, minLength: 1, maxLength: 40 }
         scheduledAt: { type: string, format: date-time }
+        status: { $ref: "#/components/schemas/AppointmentStatus" }
         note: { type: string, maxLength: 2000 }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    AppointmentStatus:
+      type: string
+      enum: [scheduled, completed]
     AppointmentInput:
       type: object
       required: [customerName, phone, scheduledAt]

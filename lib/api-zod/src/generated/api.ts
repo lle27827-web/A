@@ -582,6 +582,7 @@ export const ListAppointmentsResponseItem = zod.object({
   "customerName": zod.string().min(1).max(listAppointmentsResponseCustomerNameMax),
   "phone": zod.string().min(1).max(listAppointmentsResponsePhoneMax),
   "scheduledAt": zod.coerce.date(),
+  "status": zod.enum(['scheduled', 'completed']),
   "note": zod.string().max(listAppointmentsResponseNoteMax),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
@@ -621,6 +622,7 @@ export const CreateAppointmentResponse = zod.object({
   "customerName": zod.string().min(1).max(createAppointmentResponseCustomerNameMax),
   "phone": zod.string().min(1).max(createAppointmentResponsePhoneMax),
   "scheduledAt": zod.coerce.date(),
+  "status": zod.enum(['scheduled', 'completed']),
   "note": zod.string().max(createAppointmentResponseNoteMax),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
@@ -666,6 +668,7 @@ export const UpdateAppointmentResponse = zod.object({
   "customerName": zod.string().min(1).max(updateAppointmentResponseCustomerNameMax),
   "phone": zod.string().min(1).max(updateAppointmentResponsePhoneMax),
   "scheduledAt": zod.coerce.date(),
+  "status": zod.enum(['scheduled', 'completed']),
   "note": zod.string().max(updateAppointmentResponseNoteMax),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()

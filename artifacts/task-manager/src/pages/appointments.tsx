@@ -179,6 +179,10 @@ export default function AppointmentsPage() {
                   <div className="appointment-when">
                     <span className="appointment-date">{when.date}</span>
                     <strong><Clock3 size={14} aria-hidden="true" />{when.time}</strong>
+                    <span className={`appointment-status ${appointment.status === 'completed' ? 'is-completed' : 'is-scheduled'}`}
+                      data-testid={`status-appointment-${appointment.id}`}>
+                      {appointment.status === 'completed' ? 'Đã hoàn tất' : 'Chưa hoàn tất'}
+                    </span>
                   </div>
                   <div className="appointment-customer">
                     <strong><UserRound size={15} aria-hidden="true" />{appointment.customerName}</strong>

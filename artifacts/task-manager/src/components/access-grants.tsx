@@ -62,7 +62,12 @@ function summary(p: FacilityPermissions, members: MemberRecord[]): string {
   return parts.length ? parts.join(' · ') : 'Không có quyền';
 }
 
-export function AccessGrantsDialog({ members, onClose }: { members: MemberRecord[]; onClose: () => void }) {
+export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
+  members: MemberRecord[];
+  isOwner: boolean;
+  permissions: FacilityPermissions;
+  onClose: () => void;
+}) {
   const cache = useQueryClient();
   const grants = useListAccessGrants({ query: { queryKey: getListAccessGrantsQueryKey(), refetchOnWindowFocus: true } });
   const save = useSaveAccessGrant();
@@ -71,7 +76,13 @@ export function AccessGrantsDialog({ members, onClose }: { members: MemberRecord
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [notice, setNotice] = useState('');
+  const assignableMembers = useMemo(
+    () => isOwner || permissions.allEmployees ? members : members.filter((member) => permissions.employeeIds.includes(member.id)),
+    [isOwner, members, permissions.allEmployees, permissions.employeeIds],
+  );
   const list = useMemo(() => [...(grants.data ?? [])].sort((a, b) => a.email.localeCompare(b.email)), [grants.data]);
+  const canGrantAllEmployees = isOwner || permissions.allEmployees;
+  const canGrantSelectedEmployees = isOwner || permissions.allEmployees || permissions.employeeIds.length > 0;
 
   function set<K extends keyof Draft>(key: K, value: Draft[K]) {
     setError('');
@@ -120,6 +131,7 @@ export function AccessGrantsDialog({ members, onClose }: { members: MemberRecord
   return (
     <>
       <Modal title="Cấp quyền quản lý" onClose={onClose} testId="dialog-access-grants">
+        {!isOwner && <p className="hint">Chỉ được cấp quyền bằng hoặc thấp hơn quyền của bạn. Bạn không thể tự cấp quyền.</p>}
         {notice && <p className="banner success" role="status" data-testid="status-grant-notice">{notice}</p>}
         {!draft && error && <p className="form-error" role="alert"><AlertCircle size={14} aria-hidden="true" />{error}</p>}
 
@@ -137,6 +149,7 @@ export function AccessGrantsDialog({ members, onClose }: { members: MemberRecord
               {(['none', 'all', 'selected'] as const).map((scope) => (
                 <label key={scope} className="grant-check">
                   <input type="radio" name="grant-scope" checked={draft.scope === scope}
+                    disabled={scope === 'all' ? !canGrantAllEmployees : scope === 'selected' ? !canGrantSelectedEmployees : false}
                     onChange={() => { setError(''); setDraft((d) => d ? { ...d, scope, editEmployees: scope === 'none' ? false : d.editEmployees } : d); }}
                     data-testid={`radio-grant-scope-${scope}`} />
                   <span>{scope === 'none' ? 'Không xem nhân viên' : scope === 'all' ? 'Tất cả nhân viên' : 'Nhân viên được chọn'}</span>
@@ -144,9 +157,10 @@ export function AccessGrantsDialog({ members, onClose }: { members: MemberRecord
               ))}
               {draft.scope === 'selected' && (
                 <div className="grant-members" role="group" aria-label="Nhân viên được chọn">
-                  {members.length === 0 ? <p className="muted small">Chưa có nhân viên.</p> : members.map((m) => (
+                  {assignableMembers.length === 0 ? <p className="muted small">Chưa có nhân viên trong phạm vi của bạn.</p> : assignableMembers.map((m) => (
                     <label key={m.id} className="grant-check">
                       <input type="checkbox" checked={draft.employeeIds.includes(m.id)}
+                        disabled={!isOwner && !permissions.allEmployees && !permissions.employeeIds.includes(m.id)}
                         onChange={(e) => set('employeeIds', e.target.checked ? [...draft.employeeIds, m.id] : draft.employeeIds.filter((id) => id !== m.id))}
                         data-testid={`checkbox-grant-member-${m.id}`} />
                       <span>{m.name}</span>
@@ -155,7 +169,7 @@ export function AccessGrantsDialog({ members, onClose }: { members: MemberRecord
                 </div>
               )}
               <label className="grant-check">
-                <input type="checkbox" checked={hasScope && draft.editEmployees} disabled={!hasScope}
+                <input type="checkbox" checked={hasScope && draft.editEmployees} disabled={!hasScope || (!isOwner && !permissions.editEmployees)}
                   onChange={(e) => set('editEmployees', e.target.checked)} data-testid="checkbox-grant-edit-employees" />
                 <span>Sửa nhân viên và ca trong phạm vi trên</span>
               </label>
@@ -165,23 +179,23 @@ export function AccessGrantsDialog({ members, onClose }: { members: MemberRecord
             <fieldset className="grant-group">
               <legend>Thẻ, doanh thu, dịch vụ</legend>
               <label className="grant-check">
-                <input type="checkbox" checked={draft.viewCards || draft.editCards}
+                <input type="checkbox" checked={draft.viewCards || draft.editCards} disabled={!isOwner && !permissions.viewCards}
                   onChange={(e) => { setError(''); setDraft((d) => d ? { ...d, viewCards: e.target.checked, editCards: e.target.checked ? d.editCards : false } : d); }}
                   data-testid="checkbox-grant-view-cards" />
                 <span>Xem thẻ khách</span>
               </label>
               <label className="grant-check">
-                <input type="checkbox" checked={draft.editCards}
+                <input type="checkbox" checked={draft.editCards} disabled={!isOwner && !permissions.editCards}
                   onChange={(e) => { setError(''); setDraft((d) => d ? { ...d, editCards: e.target.checked, viewCards: e.target.checked || d.viewCards } : d); }}
                   data-testid="checkbox-grant-edit-cards" />
                 <span>Sửa thẻ khách</span>
               </label>
               <label className="grant-check">
-                <input type="checkbox" checked={draft.viewRevenue} onChange={(e) => set('viewRevenue', e.target.checked)} data-testid="checkbox-grant-view-revenue" />
+                <input type="checkbox" checked={draft.viewRevenue} disabled={!isOwner && !permissions.viewRevenue} onChange={(e) => set('viewRevenue', e.target.checked)} data-testid="checkbox-grant-view-revenue" />
                 <span>Xem doanh thu</span>
               </label>
               <label className="grant-check">
-                <input type="checkbox" checked={draft.editServices} onChange={(e) => set('editServices', e.target.checked)} data-testid="checkbox-grant-edit-services" />
+                <input type="checkbox" checked={draft.editServices} disabled={!isOwner && !permissions.editServices} onChange={(e) => set('editServices', e.target.checked)} data-testid="checkbox-grant-edit-services" />
                 <span>Sửa dịch vụ và giá</span>
               </label>
             </fieldset>
@@ -189,13 +203,13 @@ export function AccessGrantsDialog({ members, onClose }: { members: MemberRecord
             <fieldset className="grant-group">
               <legend>Lịch hẹn cơ sở</legend>
               <label className="grant-check">
-                <input type="checkbox" checked={draft.viewAppointments || draft.editAppointments}
+                <input type="checkbox" checked={draft.viewAppointments || draft.editAppointments} disabled={!isOwner && !permissions.viewAppointments}
                   onChange={(e) => { setError(''); setDraft((d) => d ? { ...d, viewAppointments: e.target.checked, editAppointments: e.target.checked ? d.editAppointments : false } : d); }}
                   data-testid="checkbox-grant-view-appointments" />
                 <span>Xem lịch hẹn</span>
               </label>
               <label className="grant-check">
-                <input type="checkbox" checked={draft.editAppointments}
+                <input type="checkbox" checked={draft.editAppointments} disabled={!isOwner && !permissions.editAppointments}
                   onChange={(e) => { setError(''); setDraft((d) => d ? { ...d, editAppointments: e.target.checked, viewAppointments: e.target.checked || d.viewAppointments } : d); }}
                   data-testid="checkbox-grant-edit-appointments" />
                 <span>Tạo, sửa và xóa lịch hẹn</span>

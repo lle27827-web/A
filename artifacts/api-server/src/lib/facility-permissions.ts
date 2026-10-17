@@ -30,6 +30,23 @@ export function canViewEmployee(p: FacilityPermissions, id: number): boolean {
 export function canEditEmployee(p: FacilityPermissions, id: number): boolean {
   return p.editEmployees && canViewEmployee(p, id);
 }
+export function permissionsWithinDelegationScope(
+  grantor: FacilityPermissions,
+  delegated: FacilityPermissions,
+): boolean {
+  if (delegated.allEmployees && !grantor.allEmployees) return false;
+  if (!grantor.allEmployees && delegated.employeeIds.some((id) => !grantor.employeeIds.includes(id))) return false;
+  const flags = [
+    "viewCards",
+    "viewRevenue",
+    "editEmployees",
+    "editCards",
+    "editServices",
+    "viewAppointments",
+    "editAppointments",
+  ] as const;
+  return flags.every((flag) => !delegated[flag] || grantor[flag]);
+}
 export async function permissionsForEmail(email: string): Promise<FacilityPermissions> {
   const [grant] = await db.select({ permissions: managerGrantsTable.permissions }).from(managerGrantsTable)
     .where(eq(managerGrantsTable.email, email)).limit(1);

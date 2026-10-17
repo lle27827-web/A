@@ -643,6 +643,9 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .appointment-when { display: grid; gap: 4px; color: hsl(var(--muted-foreground)); font-size: 12px; }
 .appointment-when strong { display: inline-flex; align-items: center; gap: 6px; color: hsl(var(--foreground)); font-size: 14px; font-variant-numeric: tabular-nums; }
 .appointment-when strong svg, .appointment-customer svg { color: hsl(var(--primary)); flex: 0 0 auto; }
+.appointment-status { display: inline-flex; width: max-content; align-items: center; border-radius: 999px; padding: 3px 8px; font-size: 11px; font-weight: 700; }
+.appointment-status.is-scheduled { color: hsl(var(--muted-foreground)); background: hsl(var(--muted) / .7); }
+.appointment-status.is-completed { color: hsl(142 68% 34%); background: hsl(142 68% 42% / .13); }
 .appointment-customer { display: grid; gap: 5px; min-width: 0; }
 .appointment-customer > strong, .appointment-phone { display: flex; align-items: center; gap: 7px; min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
 .appointment-phone { color: hsl(var(--muted-foreground)); text-decoration: none; }
@@ -685,6 +688,16 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .welcome h1 { margin: 0; font-family: var(--app-font-display); font-size: clamp(26px, 6vw, 34px); font-weight: 800; line-height: 1.15; }
 .welcome p { margin: 0; color: hsl(var(--muted-foreground)); }
 .welcome-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 6px; }
+.auth-sign-in-methods { width: min(440px, 100%); display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.auth-google-option { width: min(400px, 100%); display: grid; gap: 8px; }
+.auth-google-button { width: 100%; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 0 16px; border: 1px solid #dadce0; border-radius: 8px; background: #fff; color: #3c4043; font-family: inherit; font-size: 14px; font-weight: 500; line-height: 1.2; cursor: pointer; transition: background-color .15s ease, box-shadow .15s ease; }
+.auth-google-button:hover:not(:disabled) { background: #f8f9fa; box-shadow: 0 1px 3px rgb(60 64 67 / 30%); }
+.auth-google-button:focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
+.auth-google-button:disabled { cursor: wait; opacity: .72; }
+.auth-google-error { margin: 0; color: hsl(var(--destructive)); font-size: .875rem; text-align: center; }
+.auth-email-divider { width: min(400px, 100%); display: flex; align-items: center; gap: 12px; color: hsl(var(--muted-foreground)); font-size: .8rem; }
+.auth-email-divider::before, .auth-email-divider::after { content: ""; height: 1px; flex: 1; background: hsl(var(--border)); }
+.auth-sign-in-methods .cl-rootBox { width: 100%; }
 .no-access { width: min(480px, 100%); display: grid; gap: 14px; }
 .no-access h1 { margin: 0; font-family: var(--app-font-display); font-size: 22px; font-weight: 800; }
 .no-access p { margin: 0; line-height: 1.6; }

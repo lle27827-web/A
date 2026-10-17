@@ -1,5 +1,5 @@
-import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
-import { cardTopUpsTable, db, membersTable, serviceSessionsTable, treatmentCardsTable, serviceTypesTable, type CardTopUpRow } from "@workspace/db";
+import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import { appointmentsTable, cardTopUpsTable, db, membersTable, serviceSessionsTable, treatmentCardsTable, serviceTypesTable, type CardTopUpRow } from "@workspace/db";
 import type { FacilityPermissions, ServiceSessionInput, TreatmentCardInput, TreatmentCardUpdate } from "@workspace/api-zod";
 import { canEditEmployee } from "./facility-permissions";
 
@@ -52,6 +52,10 @@ export function currentBusinessDate() {
 }
 const identityText = (value: string) => value.normalize("NFC").trim().replace(/\s+/g, " ").toLowerCase();
 const identityPhone = (value: string) => value.replace(/\D/g, "") || identityText(value);
+function sameAppointmentCustomer(appointment: typeof appointmentsTable.$inferSelect, card: typeof treatmentCardsTable.$inferSelect) {
+  return identityText(appointment.customerName) === identityText(card.customerName)
+    || identityPhone(appointment.phone) === identityPhone(card.phone);
+}
 
 async function creditCard(tx: Tx, card: typeof treatmentCardsTable.$inferSelect, minutes: number, amount: number,
   paymentDate: string, source: string, note = "") {
@@ -248,6 +252,17 @@ export async function saveSession(input: ServiceSessionInput, id?: number, permi
     if (card && !card.firstUsedAt) {
       await tx.update(treatmentCardsTable).set({ firstUsedAt: sql`clock_timestamp()` })
         .where(eq(treatmentCardsTable.id, card.id));
+    }
+    if (card) {
+      const sameDayAppointments = await tx.select().from(appointmentsTable).where(and(
+        eq(appointmentsTable.status, "scheduled"),
+        sql`to_char(${appointmentsTable.scheduledAt} at time zone 'Asia/Ho_Chi_Minh', 'YYYY-MM-DD') = ${input.workDate}`,
+      )).for("update");
+      const matchedIds = sameDayAppointments.filter((appointment) => sameAppointmentCustomer(appointment, card)).map(({ id }) => id);
+      if (matchedIds.length) {
+        await tx.update(appointmentsTable).set({ status: "completed", updatedAt: new Date() })
+          .where(inArray(appointmentsTable.id, matchedIds));
+      }
     }
     return sessionResponse(row);
   });

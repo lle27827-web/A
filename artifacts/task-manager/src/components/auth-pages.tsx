@@ -1,7 +1,10 @@
 import { SignIn, SignUp } from "@clerk/react";
+import { useSignIn } from "@clerk/react/legacy";
+import { useState } from "react";
 import { Link, useSearch } from "wouter";
 import { shadcn } from "@clerk/themes";
 import { BookHeart, Hand, LogIn, LogOut, UserPlus } from "lucide-react";
+import { FcGoogle } from "react-icons/fc";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -14,6 +17,46 @@ function usePersonalReturn() {
     redirect: personal ? { forceRedirectUrl: `${basePath}/personal`, signUpForceRedirectUrl: `${basePath}/personal` } : {},
     redirectUp: personal ? { forceRedirectUrl: `${basePath}/personal`, signInForceRedirectUrl: `${basePath}/personal` } : {},
   };
+}
+
+function GoogleAccountChooserButton({ personal }: { personal: boolean }) {
+  const { isLoaded, signIn } = useSignIn();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const chooseGoogleAccount = async () => {
+    if (!isLoaded || !signIn || pending) return;
+
+    setPending(true);
+    setError(null);
+    try {
+      await signIn.authenticateWithRedirect({
+        strategy: "oauth_google",
+        redirectUrl: `${basePath}/sign-in/sso-callback`,
+        redirectUrlComplete: personal ? `${basePath}/personal` : basePath || "/",
+        oidcPrompt: "select_account",
+      });
+    } catch {
+      setError("Không thể mở danh sách tài khoản Google. Hãy thử lại hoặc đăng nhập bằng email.");
+      setPending(false);
+    }
+  };
+
+  return (
+    <div className="auth-google-option">
+      <button
+        type="button"
+        className="auth-google-button"
+        onClick={() => void chooseGoogleAccount()}
+        disabled={!isLoaded || pending}
+        aria-busy={pending}
+      >
+        <FcGoogle size={20} aria-hidden="true" />
+        <span>{pending ? "Đang mở tài khoản Google…" : "Đăng nhập bằng Google"}</span>
+      </button>
+      {error && <p className="auth-google-error" role="alert">{error}</p>}
+    </div>
+  );
 }
 
 export const clerkAppearance = {
@@ -73,12 +116,22 @@ export function SignInPage({ available }: { available: boolean }) {
   return (
     <main className="auth-page">
       <WelcomeHeading />
-      <SignIn
-        routing="path"
-        path={`${basePath}/sign-in`}
-        signUpUrl={`${basePath}/sign-up${ret.qs}`}
-        {...ret.redirect}
-      />
+      <div className="auth-sign-in-methods">
+        <GoogleAccountChooserButton personal={ret.personal} />
+        <div className="auth-email-divider"><span>Hoặc đăng nhập bằng email</span></div>
+        <SignIn
+          routing="path"
+          path={`${basePath}/sign-in`}
+          signUpUrl={`${basePath}/sign-up${ret.qs}`}
+          appearance={{
+            elements: {
+              socialButtonsRoot: { display: "none" },
+              dividerRow: { display: "none" },
+            },
+          }}
+          {...ret.redirect}
+        />
+      </div>
       <p className="muted small">Chưa có tài khoản? <Link href={`/sign-up${ret.qs}`} className="link-strong" data-testid="link-to-sign-up">Đăng ký</Link></p>
     </main>
   );

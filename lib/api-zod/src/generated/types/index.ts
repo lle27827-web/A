@@ -10,6 +10,7 @@ export * from './accessGrant';
 export * from './accessGrantInput';
 export * from './appointment';
 export * from './appointmentInput';
+export * from './appointmentStatus';
 export * from './attendanceInput';
 export * from './attendanceRecord';
 export * from './attendanceStatus';

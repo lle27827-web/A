@@ -19,6 +19,7 @@ export type OwnerAuthStatus = {
   authConfigured: boolean;
   authenticated: boolean;
   isOwner: boolean;
+  email: string | null;
   permissions: FacilityPermissions;
 };
 
@@ -28,12 +29,12 @@ export function ownerAuthIsConfigured(): boolean {
 
 export async function getOwnerAuthStatus(req: Request): Promise<OwnerAuthStatus> {
   if (!ownerAuthIsConfigured() || !clerk) {
-    return { authConfigured: false, authenticated: false, isOwner: false, permissions: noPermissions() };
+    return { authConfigured: false, authenticated: false, isOwner: false, email: null, permissions: noPermissions() };
   }
 
   const userId = getAuth(req).userId;
   if (!userId) {
-    return { authConfigured: true, authenticated: false, isOwner: false, permissions: noPermissions() };
+    return { authConfigured: true, authenticated: false, isOwner: false, email: null, permissions: noPermissions() };
   }
 
   const user = await clerk.users.getUser(userId);
@@ -46,7 +47,7 @@ export async function getOwnerAuthStatus(req: Request): Promise<OwnerAuthStatus>
 
   const email = primaryEmail?.verification?.status === "verified" ? primaryEmail.emailAddress.trim().toLowerCase() : null;
   const permissions = isOwner ? ownerPermissions() : email ? await permissionsForEmail(email) : noPermissions();
-  return { authConfigured: true, authenticated: true, isOwner, permissions };
+  return { authConfigured: true, authenticated: true, isOwner, email, permissions };
 }
 
 function requestHasTrustedOrigin(req: Request): boolean {
@@ -166,6 +167,7 @@ export async function managerRequestAllowed(req: Request, p: FacilityPermissions
   const path = req.path;
   if (read) {
     if (path === "/appointments") return p.viewAppointments;
+    if (path === "/access-grants") return hasGrantManagementAccess(p);
     if (path === "/members" || path === "/history-months" || path === "/attendance" || path === "/attendance/summary") return true; // rows filtered at source
     if (path === "/massage-summary") return p.viewRevenue;
     if (path === "/service-types") return p.allEmployees || p.employeeIds.length > 0 || p.viewCards || p.editServices;
@@ -178,6 +180,8 @@ export async function managerRequestAllowed(req: Request, p: FacilityPermissions
     if (/^\/treatment-cards(?:\/[1-9]\d*(?:\/hours)?)?$/.test(path)) return p.viewCards;
     return false;
   }
+  if (path === "/access-grants" && req.method === "POST") return hasGrantManagementAccess(p);
+  if (/^\/access-grants\/[1-9]\d*$/.test(path) && req.method === "DELETE") return hasGrantManagementAccess(p);
   if (path === "/appointments" && req.method === "POST") return p.editAppointments && p.viewAppointments;
   if (/^\/appointments\/[1-9]\d*$/.test(path) && ["PATCH", "DELETE"].includes(req.method)) {
     return p.editAppointments && p.viewAppointments;
@@ -209,4 +213,9 @@ export async function managerRequestAllowed(req: Request, p: FacilityPermissions
     return canEditEmployee(p, positiveId(req.body?.memberId));
   }
   return false;
+}
+
+function hasGrantManagementAccess(p: FacilityPermissions): boolean {
+  return p.allEmployees || p.employeeIds.length > 0 || p.viewCards || p.viewRevenue ||
+    p.editServices || p.viewAppointments || p.editAppointments;
 }
