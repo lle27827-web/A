@@ -189,6 +189,8 @@ export interface Appointment {
   scheduledAt: string;
   status: AppointmentStatus;
   /** @maxLength 2000 */
+  request: string;
+  /** @maxLength 2000 */
   note: string;
   createdAt: string;
   updatedAt: string;
@@ -206,6 +208,8 @@ export interface AppointmentInput {
      */
   phone: string;
   scheduledAt: string;
+  /** @maxLength 2000 */
+  request?: string;
   /** @maxLength 2000 */
   note?: string;
 }
@@ -541,6 +545,23 @@ export interface ServiceSessionInput {
   note?: string;
 }
 
+/**
+ * @nullable
+ */
+export type MassageSummaryTopSoldCardService = {
+  serviceType: string;
+  cardsSold: number;
+} | null;
+
+/**
+ * @nullable
+ */
+export type MassageSummaryMostUsedCardService = {
+  serviceType: string;
+  visits: number;
+  minutes: number;
+} | null;
+
 export interface DailyRevenue {
   date: string;
   revenue: number;
@@ -580,6 +601,10 @@ export interface MassageSummary {
   walkInVisits: number;
   /** Số ca dùng các thẻ đang hoạt động. */
   cardVisits: number;
+  /** @nullable */
+  topSoldCardService: MassageSummaryTopSoldCardService;
+  /** @nullable */
+  mostUsedCardService: MassageSummaryMostUsedCardService;
   today: DailyRevenue;
 }
 

@@ -19,5 +19,7 @@ export interface AppointmentInput {
   phone: string;
   scheduledAt: Date;
   /** @maxLength 2000 */
+  request?: string;
+  /** @maxLength 2000 */
   note?: string;
 }

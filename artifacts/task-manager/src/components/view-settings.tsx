@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
-import { AlertCircle, ArrowLeft, BookHeart, ChevronRight, History, Home, KeyRound, Settings, Sparkles, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, BookHeart, ChevronRight, History, Home, KeyRound, Settings, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { AccessGrantsDialog } from '@/components/access-grants';
@@ -96,7 +96,7 @@ export function ViewSettings({ prefs, members, membersLoading, open, onOpenChang
             <DialogPrimitive.Close asChild><button type="button" className="icon-btn" aria-label="Đóng cài đặt"><X size={18} /></button></DialogPrimitive.Close>
           </div>
           <DialogPrimitive.Description className="sub">
-            {isOwner ? 'Lịch sử, dịch vụ, cấp quyền quản lý và sổ cá nhân.' : canManageGrants ? 'Lịch sử tháng, quyền quản lý trong phạm vi được cấp và sổ cá nhân.' : 'Lịch sử tháng và sổ cá nhân.'}
+            {isOwner ? 'Lịch sử, cấp quyền quản lý và sổ cá nhân.' : canManageGrants ? 'Lịch sử tháng, quyền quản lý trong phạm vi được cấp và sổ cá nhân.' : 'Lịch sử tháng và sổ cá nhân.'}
           </DialogPrimitive.Description>
 
           <Link href="/personal" className="settings-link personal-entry" onClick={() => onOpenChange(false)} data-testid="link-personal-notebook">
@@ -107,10 +107,6 @@ export function ViewSettings({ prefs, members, membersLoading, open, onOpenChang
             <button type="button" className="settings-link" onClick={() => setHistoryOpen(true)} data-testid="button-open-history-months">
               <History size={15} aria-hidden="true" /><span className="grow"><strong>Xem lịch sử tháng</strong><span className="muted">{permissions.viewRevenue ? 'Doanh thu và dữ liệu cơ sở theo tháng' : 'Nhân viên theo tháng'}</span></span><ChevronRight size={16} aria-hidden="true" />
             </button>
-          )}
-
-          {permissions.editServices && (
-            <Link href="/services" className="settings-link" onClick={() => { onApply({ mode: 'owner', employeeId: prefs.employeeId }); onOpenChange(false); }} data-testid="link-services"><Sparkles size={15} aria-hidden="true" /><span className="grow"><strong>Dịch vụ &amp; giá trả công</strong><span className="muted">Thêm, sửa, xóa dịch vụ của cơ sở</span></span><ChevronRight size={16} aria-hidden="true" /></Link>
           )}
 
           {canManageGrants && (

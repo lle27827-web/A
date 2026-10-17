@@ -5,16 +5,16 @@ import {
   useListAppointments, useUpdateAppointment,
 } from '@workspace/api-client-react';
 import type { Appointment, AppointmentInput } from '@workspace/api-client-react';
-import { CalendarDays, Clock3, LoaderCircle, Pencil, Phone, Plus, Trash2, UserRound } from 'lucide-react';
+import { CalendarDays, LoaderCircle, Pencil, Phone, Plus, Trash2, UserRound } from 'lucide-react';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
 import { VoiceInput, VoiceTextarea } from '@/components/voice-input';
 import { useShell } from '@/components/app-shell';
 import { errorText } from '@/lib/massage';
 
-type AppointmentDraft = { customerName: string; phone: string; scheduledAt: string; note: string };
+type AppointmentDraft = { customerName: string; phone: string; scheduledAt: string; request: string; note: string };
 
 const blankDraft = (): AppointmentDraft => ({
-  customerName: '', phone: '', scheduledAt: toLocalInput(new Date(Date.now() + 60 * 60 * 1000)), note: '',
+  customerName: '', phone: '', scheduledAt: toLocalInput(new Date(Date.now() + 60 * 60 * 1000)), request: '', note: '',
 });
 
 function toLocalInput(date: Date): string {
@@ -27,16 +27,13 @@ function fromAppointment(appointment: Appointment): AppointmentDraft {
     customerName: appointment.customerName,
     phone: appointment.phone,
     scheduledAt: toLocalInput(new Date(appointment.scheduledAt)),
+    request: appointment.request ?? '',
     note: appointment.note ?? '',
   };
 }
 
 function formatAppointmentDate(value: string) {
-  const date = new Date(value);
-  return {
-    date: new Intl.DateTimeFormat('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }).format(date),
-    time: new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date),
-  };
+  return new Intl.DateTimeFormat('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value));
 }
 
 export default function AppointmentsPage() {
@@ -94,6 +91,7 @@ export default function AppointmentsPage() {
     if (customerName.length > 160) return setFormError('Tên khách không được dài quá 160 ký tự.');
     if (!phone) return setFormError('Nhập số điện thoại.');
     if (phone.length > 40) return setFormError('Số điện thoại không được dài quá 40 ký tự.');
+    if (draft.request.trim().length > 2000) return setFormError('Yêu cầu không được dài quá 2.000 ký tự.');
     const scheduled = new Date(draft.scheduledAt);
     if (!draft.scheduledAt || Number.isNaN(scheduled.getTime())) return setFormError('Chọn ngày và giờ hẹn hợp lệ.');
     if (draft.note.trim().length > 2000) return setFormError('Ghi chú không được dài quá 2.000 ký tự.');
@@ -101,6 +99,7 @@ export default function AppointmentsPage() {
       customerName,
       phone,
       scheduledAt: scheduled.toISOString(),
+      request: draft.request.trim(),
       note: draft.note.trim(),
     };
     setFormError('');
@@ -174,12 +173,11 @@ export default function AppointmentsPage() {
         ) : (
           <div className="appointment-list" data-testid="list-appointments">
             {records.map((appointment) => {
-              const when = formatAppointmentDate(appointment.scheduledAt);
+              const appointmentDate = formatAppointmentDate(appointment.scheduledAt);
               return (
                 <article className="appointment-row" key={appointment.id} data-testid={`row-appointment-${appointment.id}`}>
                   <div className="appointment-when">
-                    <span className="appointment-date">{when.date}</span>
-                    <strong><Clock3 size={14} aria-hidden="true" />{when.time}</strong>
+                    <span className="appointment-date">{appointmentDate}</span>
                     <span className={`appointment-status ${appointment.status === 'completed' ? 'is-completed' : 'is-scheduled'}`}
                       data-testid={`status-appointment-${appointment.id}`}>
                       {appointment.status === 'completed' ? 'Đã hoàn tất' : 'Chưa hoàn tất'}
@@ -191,7 +189,14 @@ export default function AppointmentsPage() {
                       <Phone size={13} aria-hidden="true" />{appointment.phone}
                     </a>
                   </div>
-                  <p className={`appointment-note${appointment.note ? '' : ' is-empty'}`}>{appointment.note || 'Chưa có ghi chú'}</p>
+                  <div className="appointment-detail-lines">
+                    <p className={`appointment-note${appointment.request ? '' : ' is-empty'}`}>
+                      {appointment.request ? <><strong>Yêu cầu:</strong> {appointment.request}</> : 'Chưa có yêu cầu'}
+                    </p>
+                    <p className={`appointment-note${appointment.note ? '' : ' is-empty'}`}>
+                      {appointment.note ? <><strong>Ghi chú:</strong> {appointment.note}</> : 'Chưa có ghi chú'}
+                    </p>
+                  </div>
                   {canEdit && <div className="row-actions appointment-actions">
                     <button type="button" className="icon-btn" aria-label={`Sửa lịch hẹn ${appointment.customerName}`}
                       onClick={() => openEdit(appointment)} data-testid={`button-edit-appointment-${appointment.id}`}>
@@ -222,12 +227,18 @@ export default function AppointmentsPage() {
                 onChange={(event) => { setFormError(''); setDraft({ ...draft, phone: event.target.value }); }}
                 required aria-required="true" data-testid="input-appointment-phone" />
             </label>
-            <label className="field" htmlFor="appointment-date">Ngày và giờ hẹn
-              <input id="appointment-date" type="datetime-local" value={draft.scheduledAt}
-                onChange={(event) => { setFormError(''); setDraft({ ...draft, scheduledAt: event.target.value }); }}
+            <label className="field" htmlFor="appointment-date">Ngày hẹn
+              <input id="appointment-date" type="date" value={draft.scheduledAt.slice(0, 10)}
+                onChange={(event) => { setFormError(''); setDraft({ ...draft, scheduledAt: event.target.value ? `${event.target.value}T${draft.scheduledAt.slice(11, 16) || '12:00'}` : draft.scheduledAt }); }}
                 required aria-required="true" data-testid="input-appointment-date" />
             </label>
-            <label className="field" htmlFor="appointment-note">Yêu cầu / ghi chú <span className="hint">Không bắt buộc</span>
+            <label className="field" htmlFor="appointment-request">Yêu cầu <span className="hint">Giờ hẹn, nhân viên khách muốn gặp · Không bắt buộc</span>
+              <VoiceTextarea id="appointment-request" value={draft.request} maxLength={2000} rows={3}
+                placeholder="Ví dụ: 15:30, muốn gặp nhân viên Lan"
+                onChange={(event) => { setFormError(''); setDraft({ ...draft, request: event.target.value }); }}
+                data-testid="input-appointment-request" />
+            </label>
+            <label className="field" htmlFor="appointment-note">Ghi chú <span className="hint">Không bắt buộc</span>
               <VoiceTextarea id="appointment-note" value={draft.note} maxLength={2000} rows={3}
                 onChange={(event) => { setFormError(''); setDraft({ ...draft, note: event.target.value }); }}
                 data-testid="input-appointment-note" />

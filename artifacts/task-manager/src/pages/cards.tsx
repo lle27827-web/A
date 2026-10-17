@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { TreatmentCard } from '@workspace/api-client-react';
 import { getListTreatmentCardsQueryKey, useCreateTreatmentCard, useListTreatmentCards } from '@workspace/api-client-react';
-import { ChevronRight, CreditCard, LockKeyhole, Plus, Search, X } from 'lucide-react';
+import { ChevronRight, CreditCard, LockKeyhole, Phone, Plus, Search, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { CardDialog, mergeConflictTarget } from '@/components/entity-dialogs';
@@ -53,15 +53,20 @@ export default function CardsPage() {
             const pct = c.totalMinutes ? Math.max(0, Math.min(100, (c.remainingMinutes / c.totalMinutes) * 100)) : 0;
             return (
               <li key={c.id}>
-                <Link href={`/cards/${c.id}`} onClick={() => setQuery('')} className="card-row" data-testid={`link-card-${c.id}`}>
-                  <span className="grow">
-                    <strong>{c.customerName}</strong>
-                    <span className="muted">{c.phone} · {c.serviceType} · mua {formatShortDate(c.purchaseDate)} · đã trả {formatVnd(c.totalPaidAmount)}</span>
-                    <span className="meter" aria-hidden="true"><span style={{ transform: `scaleX(${pct / 100})` }} /></span>
-                  </span>
-                  <span className="remain mono"><strong>{formatMinutes(c.remainingMinutes)}</strong><span className="muted">/ {formatMinutes(c.totalMinutes)}</span></span>
-                  <ChevronRight size={18} />
-                </Link>
+                <div className="card-list-item">
+                  <Link href={`/cards/${c.id}`} onClick={() => setQuery('')} className="card-row" data-testid={`link-card-${c.id}`}>
+                    <span className="grow">
+                      <strong>{c.customerName}</strong>
+                      <span className="muted">{c.serviceType} · mua {formatShortDate(c.purchaseDate)} · đã trả {formatVnd(c.totalPaidAmount)}</span>
+                      <span className="meter" aria-hidden="true"><span style={{ transform: `scaleX(${pct / 100})` }} /></span>
+                    </span>
+                    <span className="remain mono"><strong>{formatMinutes(c.remainingMinutes)}</strong><span className="muted">/ {formatMinutes(c.totalMinutes)}</span></span>
+                    <ChevronRight size={18} />
+                  </Link>
+                  <a href={`tel:${c.phone}`} className="card-list-phone" aria-label={`Gọi ${c.customerName}, ${c.phone}`} data-testid={`link-card-phone-${c.id}`}>
+                    <Phone size={14} aria-hidden="true" />{c.phone}
+                  </a>
+                </div>
               </li>
             );
           })}

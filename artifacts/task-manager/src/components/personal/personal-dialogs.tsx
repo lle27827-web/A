@@ -5,7 +5,7 @@ import { Modal } from '@/components/modal';
 import { VoiceInput } from '@/components/voice-input';
 import { DatePickerDialog } from '@/components/date-picker-dialog';
 import { formatShortDate } from '@/lib/attendance';
-import { formatMinutes, formatVnd, hoursValue, parseHoursToMinutes, parseMoney } from '@/lib/massage';
+import { formatMinutes, formatVnd, parseHoursAndMinutes, parseMoney, QUICK_DURATION_MINUTES } from '@/lib/massage';
 
 export function PersonalServiceDialog({ service, busy, serverError, onClose, onSubmit }: {
   service: PersonalService | null; busy: boolean; serverError: string;
@@ -43,8 +43,6 @@ export function PersonalServiceDialog({ service, busy, serverError, onClose, onS
   );
 }
 
-const QUICK = [30, 60, 90, 120];
-
 export function PersonalShiftDialog({ session, services, defaultDate, maxDate, busy, serverError, onClose, onSubmit }: {
   session: PersonalSession | null; services: PersonalService[]; defaultDate: string; maxDate: string; busy: boolean; serverError: string;
   onClose: () => void; onSubmit: (input: PersonalSessionInput) => void;
@@ -55,7 +53,8 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
   const [serviceId, setServiceId] = useState(String(session?.serviceId ?? services[0]?.id ?? ''));
   const [date, setDate] = useState(session?.workDate ?? defaultDate);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [hours, setHours] = useState(session ? hoursValue(session.minutes) : '1');
+  const [hours, setHours] = useState(session ? String(Math.floor(session.minutes / 60)) : '1');
+  const [extraMinutes, setExtraMinutes] = useState(session ? String(session.minutes % 60) : '0');
   const note = session?.note ?? '';
   const [customerName, setCustomerName] = useState(session?.customerName ?? '');
   const [error, setError] = useState('');
@@ -63,18 +62,21 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
   const [requestId] = useState(() => (session ? undefined : crypto.randomUUID()));
   const submitting = useRef(false);
   useEffect(() => { if (serverError) submitting.current = false; }, [serverError]);
-  const total = parseHoursToMinutes(hours);
+  const total = parseHoursAndMinutes(hours, extraMinutes);
   const chosen = options.find((o) => String(o.id) === serviceId);
   const keepsOldRate = session && chosen && chosen.id === session.serviceId;
   const rate = keepsOldRate ? session.hourlyRate : chosen?.hourlyRate ?? 0;
 
-  function setTotal(m: number) { setHours(hoursValue(m)); }
+  function setTotal(m: number) {
+    setHours(String(Math.floor(m / 60)));
+    setExtraMinutes(String(m % 60));
+  }
   function submit() {
     if (busy || submitting.current) return;
     if (!chosen) return setError('Hãy chọn dịch vụ.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setError('Hãy chọn ngày làm.');
     if (date > maxDate) return setError('Không thể ghi ca cho ngày trong tương lai.');
-    if (total === null || total < 1 || total > 1440) return setError('Số giờ phải lớn hơn 0 và không quá 24 giờ.');
+    if (total === null) return setError('Nhập số giờ từ 0 đến 24, số phút từ 0 đến 59; tổng thời lượng phải từ 1 phút đến 24 giờ.');
     if (customerName.trim().length > 160) return setError('Tên khách tối đa 160 ký tự.');
     setError('');
     submitting.current = true;
@@ -94,13 +96,25 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
             <CalendarDays size={15} aria-hidden="true" /><span id="personal-date-value">{formatShortDate(date)}</span>
           </button>
         </div>
-        <label className="field" htmlFor="personal-hours">Số giờ
-          <input id="personal-hours" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} required aria-describedby={total ? 'personal-hours-hint' : undefined} data-testid="input-personal-hours" />
-          {total && <span id="personal-hours-hint" className="hint" data-testid="text-personal-duration">{formatMinutes(total)} · Tiền công {formatVnd(Math.round(total * rate / 60))}</span>}
-        </label>
-        <div className="chip-row" role="group" aria-label="Chọn nhanh thời lượng">
-          {QUICK.map((m) => <button key={m} type="button" className={`chip pad ${total === m ? 'active' : ''}`} onClick={() => setTotal(m)} data-testid={`button-quick-${m}`}>{formatMinutes(m)}</button>)}
+        <div className="duration-input-row">
+          <label className="field" htmlFor="personal-hours">Số giờ
+            <input id="personal-hours" type="number" inputMode="numeric" min={0} max={24} step={1} value={hours}
+              onChange={(e) => { setHours(e.target.value); setError(''); }} required
+              aria-describedby={total !== null ? 'personal-duration-hint' : undefined} data-testid="input-personal-hours" />
+          </label>
+          <label className="field" htmlFor="personal-minutes">Số phút
+            <input id="personal-minutes" type="number" inputMode="numeric" min={0} max={59} step={1} value={extraMinutes}
+              onChange={(e) => { setExtraMinutes(e.target.value); setError(''); }}
+              aria-describedby={total !== null ? 'personal-duration-hint' : undefined} data-testid="input-personal-minutes" />
+          </label>
         </div>
+        <div className="chip-row" role="group" aria-label="Chọn nhanh thời lượng">
+          {QUICK_DURATION_MINUTES.map((m) => <button key={m} type="button" className={`chip pad ${total === m ? 'active' : ''}`}
+            onClick={() => { setTotal(m); setError(''); }} data-testid={`button-quick-${m}`}>{formatMinutes(m)}</button>)}
+        </div>
+        {total !== null && <span id="personal-duration-hint" className="hint" data-testid="text-personal-duration">
+          {formatMinutes(total)} · Tiền công {formatVnd(Math.round(total * rate / 60))}
+        </span>}
         <label className="field">Tên khách (không bắt buộc)
           <VoiceInput value={customerName} maxLength={160} onChange={(e) => setCustomerName(e.target.value)} placeholder="VD: Chị Lan" data-testid="input-personal-customer" />
         </label>

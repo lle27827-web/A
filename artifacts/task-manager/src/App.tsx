@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { ClerkProvider, useAuth, useClerk } from '@clerk/react';
 import { viVN } from '@clerk/localizations';
-import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { MutationCache, QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { Route, Switch, Router as WouterRouter, Redirect, useLocation, useSearch } from 'wouter';
 import type { FacilityPermissions } from '@workspace/api-client-react';
 import { getAuthStatus, getGetAuthStatusQueryKey, setAuthTokenGetter, useGetAuthStatus } from '@workspace/api-client-react';
@@ -18,9 +18,11 @@ import AppointmentsPage from '@/pages/appointments';
 import { AuthLoadingPage, AuthRestoreErrorPage, AuthSetupPage, clerkAppearance, NoFacilityAccessPage, SignInPage, SignUpPage, WelcomePage } from '@/components/auth-pages';
 import { postAuthPath, retrySessionCheck, sessionScreen, validateRestoredSession } from '@/lib/auth-session';
 import { createWebSessionTokenGetter } from '@/lib/web-session-token';
+import { playSaveChime } from '@/lib/save-chime';
 
 function createAppQueryClient() {
   return new QueryClient({
+    mutationCache: new MutationCache({ onSuccess: () => playSaveChime() }),
     defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
   });
 }

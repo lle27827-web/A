@@ -23,6 +23,8 @@ export interface Appointment {
   scheduledAt: Date;
   status: AppointmentStatus;
   /** @maxLength 2000 */
+  request: string;
+  /** @maxLength 2000 */
   note: string;
   createdAt: Date;
   updatedAt: Date;

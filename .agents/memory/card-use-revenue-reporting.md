@@ -36,3 +36,9 @@ The card-use history table should show only service date/recorded time, technici
 **Why:** the user requested a compact card-use history without customer and payment lines, then explicitly requested that older uses and payment history be opened on demand.
 
 **How to apply:** limit this presentation change to card-use history; retain stored identity, payment history, wage calculations and the employee-attendance view.
+
+For monthly package popularity, rank sales by the number of active cards purchased per service type and rank usage by the number of active-card service visits per service type. Show the total redeemed minutes alongside the usage count. Top-ups are not new card sales, and archived cards do not contribute.
+
+**Why:** the user requested monthly counts of the most-sold and most-used card services; purchase and redemption records have separate dates, and top-ups are separate transactions rather than new cards.
+
+**How to apply:** use purchase date for sales and work date for usage, group by the stored service type, and exclude archived cards and their visits.

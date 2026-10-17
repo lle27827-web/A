@@ -824,13 +824,14 @@ components:
             id: { type: integer }
     Appointment:
       type: object
-      required: [id, customerName, phone, scheduledAt, status, note, createdAt, updatedAt]
+      required: [id, customerName, phone, scheduledAt, status, request, note, createdAt, updatedAt]
       properties:
         id: { type: integer, minimum: 1 }
         customerName: { type: string, minLength: 1, maxLength: 160 }
         phone: { type: string, minLength: 1, maxLength: 40 }
         scheduledAt: { type: string, format: date-time }
         status: { $ref: "#/components/schemas/AppointmentStatus" }
+        request: { type: string, maxLength: 2000 }
         note: { type: string, maxLength: 2000 }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -844,6 +845,7 @@ components:
         customerName: { type: string, minLength: 1, maxLength: 160 }
         phone: { type: string, minLength: 1, maxLength: 40 }
         scheduledAt: { type: string, format: date-time }
+        request: { type: string, maxLength: 2000 }
         note: { type: string, maxLength: 2000 }
     AttendanceStatus:
       type: string
@@ -1088,7 +1090,7 @@ components:
         note: { type: string, maxLength: 2000 }
     MassageSummary:
       type: object
-      required: [month, revenue, netRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits, today]
+      required: [month, revenue, netRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits, topSoldCardService, mostUsedCardService, today]
       properties:
         month: { type: string }
         revenue: { type: number, description: "Tổng doanh thu gộp: tiền dịch vụ khách lẻ cộng tiền bán thẻ trong tháng; không cộng lại khi dùng thẻ." }
@@ -1102,6 +1104,19 @@ components:
         cardsSold: { type: integer }
         walkInVisits: { type: integer, description: "Số ca không dùng thẻ; mỗi ca là một lượt khách." }
         cardVisits: { type: integer, description: "Số ca dùng các thẻ đang hoạt động." }
+        topSoldCardService:
+          type: ["object", "null"]
+          required: [serviceType, cardsSold]
+          properties:
+            serviceType: { type: string }
+            cardsSold: { type: integer }
+        mostUsedCardService:
+          type: ["object", "null"]
+          required: [serviceType, visits, minutes]
+          properties:
+            serviceType: { type: string }
+            visits: { type: integer }
+            minutes: { type: integer }
         today: { $ref: "#/components/schemas/DailyRevenue" }
     DailyRevenue:
       type: object

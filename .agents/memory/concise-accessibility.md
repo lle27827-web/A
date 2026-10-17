@@ -15,8 +15,8 @@ Comparison discrepancies should briefly identify service, date, customer if pres
 
 **How to apply:** simplify presentation only; retain occurrence-level comparison, wage calculations and explicit confirmation before replacing private shifts.
 
-Do not show note inputs or note rows on the application's screens. Personal attendance uses one decimal-hour input rather than separate hours/minutes fields, with readable duration below the input, consistent with facility attendance.
+Do not show note inputs or note rows on the application's screens. Facility and personal attendance use separate whole-hour and minute inputs; new shifts default to 1 hour and 0 minutes, with quick choices for 30 minutes, 1 hour, 2 hours and 3 hours.
 
-**Why:** the user explicitly asked to remove every note row and the personal minutes field.
+**Why:** the user explicitly asked to remove every note row, then requested a separate minutes input and quick duration choices in both attendance forms.
 
-**How to apply:** removing note UI is not permission to erase previously stored notes. Preserve hidden note data when editing unrelated fields.
+**How to apply:** removing note UI is not permission to erase previously stored notes. Preserve hidden note data when editing unrelated fields; validate the combined duration from 1 minute to 24 hours and retain exact minutes when editing a shift.

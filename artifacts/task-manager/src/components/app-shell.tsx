@@ -8,6 +8,7 @@ import { VoiceInput } from '@/components/voice-input';
 import { ViewSettings, useViewPrefs, type ViewPrefs } from '@/components/view-settings';
 import { errorText, formatMonth, SESSION_FRESHNESS } from '@/lib/massage';
 import { periodHref, resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
+import { primeSaveChime } from '@/lib/save-chime';
 
 export const NO_PERMISSIONS: FacilityPermissions = {
   allEmployees: false, employeeIds: [], viewCards: false, viewRevenue: false,
@@ -97,6 +98,16 @@ export function AppShell({
   const [error, setError] = useState('');
   const showResults = query.trim().length > 0;
   const employeeMode = isOwner && prefs.mode === 'employee';
+
+  useEffect(() => {
+    const unlock = () => primeSaveChime();
+    window.addEventListener('pointerdown', unlock, { once: true, passive: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
 
   const lastLocation = useRef(fullLocation);
   const lastPath = useRef(location);

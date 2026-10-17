@@ -201,7 +201,7 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
             </fieldset>
 
             <fieldset className="grant-group">
-              <legend>Lịch hẹn cơ sở</legend>
+              <legend>Lịch hẹn</legend>
               <label className="grant-check">
                 <input type="checkbox" checked={draft.viewAppointments || draft.editAppointments} disabled={!isOwner && !permissions.viewAppointments}
                   onChange={(e) => { setError(''); setDraft((d) => d ? { ...d, viewAppointments: e.target.checked, editAppointments: e.target.checked ? d.editAppointments : false } : d); }}

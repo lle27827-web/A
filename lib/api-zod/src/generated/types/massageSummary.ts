@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DailyRevenue } from './dailyRevenue';
+import type { MassageSummaryMostUsedCardService } from './massageSummaryMostUsedCardService';
+import type { MassageSummaryTopSoldCardService } from './massageSummaryTopSoldCardService';
 
 export interface MassageSummary {
   month: string;
@@ -30,5 +32,9 @@ export interface MassageSummary {
   walkInVisits: number;
   /** Số ca dùng các thẻ đang hoạt động. */
   cardVisits: number;
+  /** @nullable */
+  topSoldCardService: MassageSummaryTopSoldCardService;
+  /** @nullable */
+  mostUsedCardService: MassageSummaryMostUsedCardService;
   today: DailyRevenue;
 }

@@ -58,11 +58,11 @@ test("appointments require explicit view/edit grants and support create, update,
       }),
     });
     assert.equal(create.status, 201);
-    const created = await create.json() as { id: number; customerName: string; phone: string; note: string; status: string };
+    const created = await create.json() as { id: number; customerName: string; phone: string; request: string; note: string; status: string };
     appointmentIds.push(created.id);
     assert.deepEqual(
-      { customerName: created.customerName, phone: created.phone, note: created.note },
-      { customerName: "Khách thử", phone: "0900000000", note: "" },
+      { customerName: created.customerName, phone: created.phone, request: created.request, note: created.note },
+      { customerName: "Khách thử", phone: "0900000000", request: "", note: "" },
     );
     assert.equal(created.status, "scheduled");
 
@@ -76,18 +76,20 @@ test("appointments require explicit view/edit grants and support create, update,
         customerName: "Khách đã sửa",
         phone: "0911111111",
         scheduledAt: "2026-11-02T10:30:00.000Z",
+        request: "15:30, muốn gặp Lan",
         note: "Yêu cầu nhẹ nhàng",
       }),
     });
     assert.equal(update.status, 200);
     const updated = await update.json() as {
       id: number; customerName: string; phone: string; scheduledAt: string;
-      note: string; status: string; createdAt: string; updatedAt: string;
+      request: string; note: string; status: string; createdAt: string; updatedAt: string;
     };
     assert.equal(updated.id, created.id);
     assert.equal(updated.customerName, "Khách đã sửa");
     assert.equal(updated.phone, "0911111111");
     assert.equal(updated.scheduledAt, "2026-11-02T10:30:00.000Z");
+    assert.equal(updated.request, "15:30, muốn gặp Lan");
     assert.equal(updated.note, "Yêu cầu nhẹ nhàng");
     assert.equal(updated.status, "scheduled", "editing appointment details does not clear its status");
     assert.equal(updated.createdAt,

@@ -20,6 +20,8 @@ function output(row: typeof appointmentsTable.$inferSelect) {
   return {
     ...row,
     scheduledAt: row.scheduledAt.toISOString(),
+    request: row.request ?? "",
+    note: row.note ?? "",
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -32,7 +34,7 @@ function normalizedInput(input: AppointmentInput) {
   if (!phone) throw new MassageError(400, "Cần nhập số điện thoại.");
   const scheduledAt = new Date(input.scheduledAt);
   if (!Number.isFinite(scheduledAt.getTime())) throw new MassageError(400, "Ngày giờ hẹn không hợp lệ.");
-  return { customerName, phone, scheduledAt, note: input.note ?? "" };
+  return { customerName, phone, scheduledAt, request: input.request?.trim() ?? "", note: input.note ?? "" };
 }
 
 router.get("/appointments", massageHandler(async (_req, res) => {

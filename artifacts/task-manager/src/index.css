@@ -220,6 +220,7 @@
 .member-form .voice-input-shell input { box-sizing: border-box; flex: 1 1 0; width: 0; min-width: 0; border: 0; border-radius: 0; background: transparent; }
 .member-form .voice-input-button { flex-basis: 34px; min-width: 34px; }
 .field-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.duration-input-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; min-width: 0; }
 .form-error { margin: 0; color: hsl(var(--destructive)); font-size: 12px; }
 .dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .dialog-actions .btn { min-width: 0; white-space: normal; }
@@ -318,6 +319,11 @@ body { background: hsl(var(--background)); color: hsl(var(--foreground)); }
 .hit, .emp-row, .card-row { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 12px; border: 1px solid hsl(var(--border)); border-radius: 12px; color: hsl(var(--foreground)); text-decoration: none; font-size: 14px; background: hsl(var(--muted) / .35); transition: border-color .15s, background .15s; }
 a.hit:hover, .emp-row:hover, .card-row:hover { border-color: hsl(var(--primary) / .55); background: hsl(var(--primary) / .06); }
 .emp-row, .card-row { padding: 14px; }
+.card-list-item { display: flex; align-items: stretch; gap: 6px; min-width: 0; }
+.card-list-item .card-row { flex: 1 1 0; min-width: 0; }
+.card-list-phone { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 6px; min-width: 0; padding: 0 10px; border: 1px solid hsl(var(--border)); border-radius: 12px; color: hsl(var(--muted-foreground)); background: hsl(var(--muted) / .35); text-decoration: none; font-size: 13px; }
+.card-list-phone:hover { border-color: hsl(var(--primary) / .55); color: hsl(var(--primary)); background: hsl(var(--primary) / .06); }
+.card-phone-details { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .initials.big { width: 44px; height: 44px; font-size: 17px; border-radius: 14px 14px 14px 4px; color: hsl(var(--primary-foreground)); background: hsl(var(--primary)); }
 .remain { display: grid; justify-items: end; font-size: 13px; white-space: nowrap; }
 .meter { display: block; height: 5px; margin-top: 6px; border-radius: 9px; background: hsl(var(--secondary)); overflow: hidden; }
@@ -666,6 +672,8 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .appointment-customer { display: grid; gap: 5px; min-width: 0; }
 .appointment-customer > strong, .appointment-phone { display: flex; align-items: center; gap: 7px; min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
 .appointment-phone { color: hsl(var(--muted-foreground)); text-decoration: none; }
+.appointment-phone:hover { color: hsl(var(--primary)); text-decoration: underline; }
+.appointment-detail-lines { display: grid; gap: 4px; min-width: 0; }
 .appointment-phone:hover { color: hsl(var(--primary)); }
 .appointment-note { min-width: 0; margin: 0; color: hsl(var(--foreground)); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; white-space: pre-wrap; }
 .appointment-note.is-empty { color: hsl(var(--muted-foreground)); }
@@ -684,7 +692,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   .appointment-when { grid-column: 1; grid-row: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .appointment-when strong { font-size: 13px; }
   .appointment-customer { grid-column: 1; grid-row: 2; }
-  .appointment-note { grid-column: 1 / -1; grid-row: 3; padding-left: 22px; }
+  .appointment-detail-lines { grid-column: 1 / -1; grid-row: 3; padding-left: 22px; }
   .appointment-actions { grid-column: 2; grid-row: 1 / span 2; }
 }
 @media (max-width: 420px) {

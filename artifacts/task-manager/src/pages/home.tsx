@@ -5,7 +5,7 @@ import { Link, useLocation, useSearch } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { ErrorBanner } from '@/components/modal';
 import { formatShortDate, statusCode } from '@/lib/attendance';
-import { formatMonth, formatVnd } from '@/lib/massage';
+import { formatMinutes, formatMonth, formatVnd } from '@/lib/massage';
 import { resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
 import './revenue-history.css';
 
@@ -37,7 +37,7 @@ export default function HomePage() {
         </Link>}
         {(permissions.viewAppointments || permissions.editAppointments) && <Link href="/appointments" className="tile alt" aria-labelledby="appointments-link-title" data-testid="link-appointments">
           <CalendarDays size={28} aria-hidden="true" />
-          <strong id="appointments-link-title">Lịch hẹn cơ sở</strong>
+          <strong id="appointments-link-title">Lịch hẹn</strong>
           <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>
         </Link>}
         {canEditServices && <Link href="/services" className="tile" aria-labelledby="services-link-title" data-testid="link-services-tile">
@@ -77,6 +77,18 @@ export default function HomePage() {
               <div className="net-revenue-row rev-key"><dt>Doanh thu đã khấu trừ trong tháng</dt><dd className="mono" data-testid="text-net-revenue"><strong>{formatVnd(summary.data?.netRevenue ?? 0)}</strong></dd></div>
               <div><dt>Khách lẻ (tháng)</dt><dd className="mono" data-testid="text-walk-in-visits">{summary.data?.walkInVisits ?? 0} lượt</dd></div>
               <div><dt>Khách thẻ (tháng)</dt><dd className="mono" data-testid="text-card-visits">{summary.data?.cardVisits ?? 0} lượt</dd></div>
+              <div data-testid="row-top-sold-card-service">
+                <dt>Gói thẻ bán nhiều nhất tháng</dt>
+                <dd className="mono">{summary.data?.topSoldCardService
+                  ? `${summary.data.topSoldCardService.serviceType} · ${summary.data.topSoldCardService.cardsSold} thẻ`
+                  : 'Chưa có thẻ bán trong tháng'}</dd>
+              </div>
+              <div data-testid="row-most-used-card-service">
+                <dt>Gói thẻ được dùng nhiều nhất tháng</dt>
+                <dd className="mono">{summary.data?.mostUsedCardService
+                  ? `${summary.data.mostUsedCardService.serviceType} · ${summary.data.mostUsedCardService.visits} lượt · ${formatMinutes(summary.data.mostUsedCardService.minutes)}`
+                  : 'Chưa có lượt dùng thẻ trong tháng'}</dd>
+              </div>
               <div className="today-heading rev-key"><dt>Doanh thu {dayLabel}{date === today ? ` · ${formatShortDate(date)}` : ''}</dt><dd className="mono" data-testid="text-today-revenue">{formatVnd(summary.data?.today.revenue ?? 0)}</dd></div>
               <div><dt>Khách lẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-service-revenue">{formatVnd(summary.data?.today.serviceRevenue ?? 0)}</dd></div>
               <div><dt>Bán và nạp thẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-card-revenue">{formatVnd(summary.data?.today.cardRevenue ?? 0)}</dd></div>

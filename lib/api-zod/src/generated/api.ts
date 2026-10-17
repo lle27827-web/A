@@ -573,6 +573,8 @@ export const listAppointmentsResponseCustomerNameMax = 160;
 
 export const listAppointmentsResponsePhoneMax = 40;
 
+export const listAppointmentsResponseRequestMax = 2000;
+
 export const listAppointmentsResponseNoteMax = 2000;
 
 
@@ -583,6 +585,7 @@ export const ListAppointmentsResponseItem = zod.object({
   "phone": zod.string().min(1).max(listAppointmentsResponsePhoneMax),
   "scheduledAt": zod.coerce.date(),
   "status": zod.enum(['scheduled', 'completed']),
+  "request": zod.string().max(listAppointmentsResponseRequestMax),
   "note": zod.string().max(listAppointmentsResponseNoteMax),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
@@ -597,6 +600,8 @@ export const createAppointmentBodyCustomerNameMax = 160;
 
 export const createAppointmentBodyPhoneMax = 40;
 
+export const createAppointmentBodyRequestMax = 2000;
+
 export const createAppointmentBodyNoteMax = 2000;
 
 
@@ -605,6 +610,7 @@ export const CreateAppointmentBody = zod.object({
   "customerName": zod.string().min(1).max(createAppointmentBodyCustomerNameMax),
   "phone": zod.string().min(1).max(createAppointmentBodyPhoneMax),
   "scheduledAt": zod.coerce.date(),
+  "request": zod.string().max(createAppointmentBodyRequestMax).optional(),
   "note": zod.string().max(createAppointmentBodyNoteMax).optional()
 })
 
@@ -612,6 +618,8 @@ export const CreateAppointmentBody = zod.object({
 export const createAppointmentResponseCustomerNameMax = 160;
 
 export const createAppointmentResponsePhoneMax = 40;
+
+export const createAppointmentResponseRequestMax = 2000;
 
 export const createAppointmentResponseNoteMax = 2000;
 
@@ -623,6 +631,7 @@ export const CreateAppointmentResponse = zod.object({
   "phone": zod.string().min(1).max(createAppointmentResponsePhoneMax),
   "scheduledAt": zod.coerce.date(),
   "status": zod.enum(['scheduled', 'completed']),
+  "request": zod.string().max(createAppointmentResponseRequestMax),
   "note": zod.string().max(createAppointmentResponseNoteMax),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
@@ -643,6 +652,8 @@ export const updateAppointmentBodyCustomerNameMax = 160;
 
 export const updateAppointmentBodyPhoneMax = 40;
 
+export const updateAppointmentBodyRequestMax = 2000;
+
 export const updateAppointmentBodyNoteMax = 2000;
 
 
@@ -651,6 +662,7 @@ export const UpdateAppointmentBody = zod.object({
   "customerName": zod.string().min(1).max(updateAppointmentBodyCustomerNameMax),
   "phone": zod.string().min(1).max(updateAppointmentBodyPhoneMax),
   "scheduledAt": zod.coerce.date(),
+  "request": zod.string().max(updateAppointmentBodyRequestMax).optional(),
   "note": zod.string().max(updateAppointmentBodyNoteMax).optional()
 })
 
@@ -658,6 +670,8 @@ export const UpdateAppointmentBody = zod.object({
 export const updateAppointmentResponseCustomerNameMax = 160;
 
 export const updateAppointmentResponsePhoneMax = 40;
+
+export const updateAppointmentResponseRequestMax = 2000;
 
 export const updateAppointmentResponseNoteMax = 2000;
 
@@ -669,6 +683,7 @@ export const UpdateAppointmentResponse = zod.object({
   "phone": zod.string().min(1).max(updateAppointmentResponsePhoneMax),
   "scheduledAt": zod.coerce.date(),
   "status": zod.enum(['scheduled', 'completed']),
+  "request": zod.string().max(updateAppointmentResponseRequestMax),
   "note": zod.string().max(updateAppointmentResponseNoteMax),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
@@ -1300,6 +1315,15 @@ export const GetMassageSummaryResponse = zod.object({
   "cardsSold": zod.number().int(),
   "walkInVisits": zod.number().int().describe('Số ca không dùng thẻ; mỗi ca là một lượt khách.'),
   "cardVisits": zod.number().int().describe('Số ca dùng các thẻ đang hoạt động.'),
+  "topSoldCardService": zod.object({
+  "serviceType": zod.string(),
+  "cardsSold": zod.number().int()
+}).nullable(),
+  "mostUsedCardService": zod.object({
+  "serviceType": zod.string(),
+  "visits": zod.number().int(),
+  "minutes": zod.number().int()
+}).nullable(),
   "today": zod.object({
   "date": zod.coerce.date(),
   "revenue": zod.number(),

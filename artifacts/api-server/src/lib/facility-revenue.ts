@@ -14,6 +14,33 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
   const date = validDate(requestedDate ?? new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(new Date()));
+  const topSoldCardServiceType = sql<string | null>`(
+    select ${treatmentCardsTable.serviceType}
+    from ${treatmentCardsTable}
+    where ${treatmentCardsTable.purchaseDate} >= ${start}
+      and ${treatmentCardsTable.purchaseDate} < ${end}
+      and ${treatmentCardsTable.deletedAt} is null
+      and ${treatmentCardsTable.serviceType} <> ''
+    group by ${treatmentCardsTable.serviceType}
+    order by count(*) desc, ${treatmentCardsTable.serviceType} asc
+    limit 1
+  )`;
+  const mostUsedCardServiceType = sql<string | null>`(
+    select ${serviceSessionsTable.serviceType}
+    from ${serviceSessionsTable}
+    where ${serviceSessionsTable.workDate} >= ${start}
+      and ${serviceSessionsTable.workDate} < ${end}
+      and ${serviceSessionsTable.cardId} is not null
+      and ${serviceSessionsTable.serviceType} <> ''
+      and exists (
+        select 1 from ${treatmentCardsTable}
+        where ${treatmentCardsTable.id} = ${serviceSessionsTable.cardId}
+          and ${treatmentCardsTable.deletedAt} is null
+      )
+    group by ${serviceSessionsTable.serviceType}
+    order by count(*) desc, ${serviceSessionsTable.serviceType} asc
+    limit 1
+  )`;
   // One SQL snapshot, with independent subqueries to avoid multiplying
   // card sales, service charges, or payroll when multiple visits use a card. The
   // singleton keeps a row even when no active cards were purchased this month.
@@ -31,6 +58,29 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
       where ${treatmentCardsTable.purchaseDate} >= ${start}
         and ${treatmentCardsTable.purchaseDate} < ${end}
         and ${treatmentCardsTable.deletedAt} is null)`,
+    topSoldCardServiceType,
+    topSoldCardCount: sql<number>`coalesce((select count(*) from ${treatmentCardsTable}
+      where ${treatmentCardsTable.purchaseDate} >= ${start}
+        and ${treatmentCardsTable.purchaseDate} < ${end}
+        and ${treatmentCardsTable.deletedAt} is null
+        and ${treatmentCardsTable.serviceType} = ${topSoldCardServiceType}), 0)`,
+    mostUsedCardServiceType,
+    mostUsedCardVisits: sql<number>`coalesce((select count(*) from ${serviceSessionsTable}
+      where ${serviceSessionsTable.workDate} >= ${start}
+        and ${serviceSessionsTable.workDate} < ${end}
+        and ${serviceSessionsTable.cardId} is not null
+        and ${serviceSessionsTable.serviceType} = ${mostUsedCardServiceType}
+        and exists (select 1 from ${treatmentCardsTable}
+          where ${treatmentCardsTable.id} = ${serviceSessionsTable.cardId}
+            and ${treatmentCardsTable.deletedAt} is null)), 0)`,
+    mostUsedCardMinutes: sql<number>`coalesce((select sum(${serviceSessionsTable.minutes}) from ${serviceSessionsTable}
+      where ${serviceSessionsTable.workDate} >= ${start}
+        and ${serviceSessionsTable.workDate} < ${end}
+        and ${serviceSessionsTable.cardId} is not null
+        and ${serviceSessionsTable.serviceType} = ${mostUsedCardServiceType}
+        and exists (select 1 from ${treatmentCardsTable}
+          where ${treatmentCardsTable.id} = ${serviceSessionsTable.cardId}
+            and ${treatmentCardsTable.deletedAt} is null)), 0)`,
     serviceRevenue: sql<number>`coalesce((
       select sum(${serviceSessionsTable.customerCharge}) from ${serviceSessionsTable}
       where ${serviceSessionsTable.workDate} >= ${start}
@@ -122,11 +172,21 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
   const dayCardRevenue = Number(row.dayCardRevenue);
   const dayPayroll = Number(row.dayPayroll);
   const dayWalkInPayroll = Number(row.dayWalkInPayroll);
+  const topSoldCardService = row.topSoldCardServiceType ? {
+    serviceType: row.topSoldCardServiceType,
+    cardsSold: Number(row.topSoldCardCount),
+  } : null;
+  const mostUsedCardService = row.mostUsedCardServiceType ? {
+    serviceType: row.mostUsedCardServiceType,
+    visits: Number(row.mostUsedCardVisits),
+    minutes: Number(row.mostUsedCardMinutes),
+  } : null;
   return {
     month, ...revenueTotals(walkInServiceRevenue, cardRevenue, walkInPayroll),
     serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, payroll,
     revenueExcludingCardSessions: walkInServiceRevenue + cardRevenue, cardRevenue, cardsSold: Number(row.cardsSold),
     walkInVisits: Number(row.walkInVisits), cardVisits: Number(row.cardVisits),
+    topSoldCardService, mostUsedCardService,
     today: {
       date, ...revenueTotals(dayWalkInServiceRevenue, dayCardRevenue, dayWalkInPayroll),
       serviceRevenue: dayServiceRevenue,

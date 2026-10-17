@@ -6,7 +6,7 @@ import {
   useUpdateServiceSession, useUpdateTreatmentCard, useAddTreatmentCardHours,
 } from '@workspace/api-client-react';
 import type { MemberRecord, ServiceSession, ServiceSessionInput, TreatmentCard } from '@workspace/api-client-react';
-import { ChevronDown, ChevronUp, CreditCard, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, CreditCard, Pencil, Phone, Plus, Trash2 } from 'lucide-react';
 import { Link, useLocation, useParams } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { CardDialog, mergeConflictTarget } from '@/components/entity-dialogs';
@@ -99,7 +99,12 @@ export default function CardDetailPage() {
         <div className="hero-top">
           <span className="initials big"><CreditCard size={20} /></span>
           <div className="grow"><h1 id="card-title" className="page-title" data-testid="text-card-customer">{card.customerName}</h1>
-            <p className="sub" data-testid="text-card-phone">{card.phone} · {card.serviceType}</p></div>
+            <p className="sub card-phone-details" data-testid="text-card-phone">
+              <a href={`tel:${card.phone}`} className="appointment-phone" aria-label={`Gọi ${card.customerName}, ${card.phone}`} data-testid="link-card-phone">
+                <Phone size={13} aria-hidden="true" />{card.phone}
+              </a>
+              <span>· {card.serviceType}</span>
+            </p></div>
           {canEdit && (
             <div className="head-actions">
               <button type="button" className="btn" onClick={() => { setDialogError(''); setCardDialog(true); }} data-testid="button-edit-card"><Pencil size={14} />Sửa thẻ</button>

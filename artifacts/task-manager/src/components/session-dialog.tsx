@@ -7,7 +7,7 @@ import { Modal } from '@/components/modal';
 import { VoiceInput } from '@/components/voice-input';
 import { DatePickerDialog } from '@/components/date-picker-dialog';
 import { formatShortDate, normalize } from '@/lib/attendance';
-import { formatMinutes, formatVnd, hoursValue, parseHoursToMinutes } from '@/lib/massage';
+import { formatMinutes, formatVnd, parseHoursAndMinutes, QUICK_DURATION_MINUTES } from '@/lib/massage';
 
 const KEEP = 'keep';
 
@@ -42,7 +42,8 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
   const [date, setDate] = useState(session?.workDate ?? defaultDate);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [servicePickerOpen, setServicePickerOpen] = useState(false);
-  const [hours, setHours] = useState(session ? hoursValue(session.minutes) : '1');
+  const [hours, setHours] = useState(session ? String(Math.floor(session.minutes / 60)) : '1');
+  const [extraMinutes, setExtraMinutes] = useState(session ? String(session.minutes % 60) : '0');
   const [serviceId, setServiceId] = useState(session ? (session.serviceTypeId !== null ? String(session.serviceTypeId) : KEEP) : '');
   const [customerName, setCustomerName] = useState(session && session.cardId === null ? session.customerName : '');
   const note = session?.note ?? '';
@@ -52,7 +53,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
   const member = members.find((m) => String(m.id) === memberId) ?? null;
   const fixedMember = fixedMemberId ? members.find((m) => m.id === fixedMemberId) ?? null : null;
   const card = cards.find((c) => String(c.id) === cardId) ?? null;
-  const minutes = parseHoursToMinutes(hours);
+  const minutes = parseHoursAndMinutes(hours, extraMinutes);
   const ownCardMinutes = session && session.cardId !== null && String(session.cardId) === cardId ? session.minutes : 0;
   const selected = catalog.find((s) => String(s.id) === serviceId) ?? null;
   const keepsSnapshot = !!session && (serviceId === KEEP || (session.serviceTypeId !== null && String(session.serviceTypeId) === serviceId));
@@ -102,7 +103,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
     if (serviceId !== KEEP && !selected && !(orphanId !== null && serviceId === String(orphanId))) return setError('Dịch vụ đã chọn không còn trong danh mục. Hãy chọn dịch vụ khác.');
     if (serviceId === KEEP && !session) return setError('Ca mới phải chọn dịch vụ trong danh mục.');
     if (!date) return setError('Hãy chọn ngày.');
-    if (minutes === null || minutes < 1 || minutes > 1440) return setError('Số giờ phải lớn hơn 0 và không quá 24 giờ.');
+    if (minutes === null) return setError('Nhập số giờ từ 0 đến 24, số phút từ 0 đến 59; tổng thời lượng phải từ 1 phút đến 24 giờ.');
     if (!cardId && customerRate <= 0 && !keepsSnapshot) return setError('Hãy cài giá khách trả cho dịch vụ trước khi ghi ca khách lẻ.');
     setError('');
     const input: ServiceSessionInput = { memberId: member.id, workDate: date, minutes, note, serviceTypeId: serviceId === KEEP ? null : Number(serviceId) };
@@ -142,12 +143,28 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
               </button>
             )}
         </fieldset>
-        <div className="field-row session-hours-row">
+        <div className="duration-input-row">
           <label className="field" htmlFor="s-hours">Số giờ
-            <input id="s-hours" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} required aria-describedby={minutes ? 's-hours-hint' : undefined} data-testid="input-session-hours" />
-            {minutes && <span id="s-hours-hint" className="hint">{formatMinutes(minutes)} · Tiền công {formatVnd(Math.round(minutes * rate / 60))}{!cardId && customerRate > 0 ? ` · Tiền dịch vụ ${formatVnd(Math.round(minutes * customerRate / 60))}` : ''}</span>}
+            <input id="s-hours" type="number" inputMode="numeric" min={0} max={24} step={1} value={hours}
+              onChange={(e) => { setHours(e.target.value); setError(''); }} required
+              aria-describedby={minutes !== null ? 's-duration-hint' : undefined} data-testid="input-session-hours" />
+          </label>
+          <label className="field" htmlFor="s-minutes">Số phút
+            <input id="s-minutes" type="number" inputMode="numeric" min={0} max={59} step={1} value={extraMinutes}
+              onChange={(e) => { setExtraMinutes(e.target.value); setError(''); }}
+              aria-describedby={minutes !== null ? 's-duration-hint' : undefined} data-testid="input-session-minutes" />
           </label>
         </div>
+        <div className="chip-row" role="group" aria-label="Chọn nhanh thời lượng ca">
+          {QUICK_DURATION_MINUTES.map((duration) => <button key={duration} type="button"
+            className={`chip pad ${minutes === duration ? 'active' : ''}`}
+            onClick={() => { setHours(String(Math.floor(duration / 60))); setExtraMinutes(String(duration % 60)); setError(''); }}
+            data-testid={`button-session-quick-${duration}`}>{formatMinutes(duration)}</button>)}
+        </div>
+        {minutes !== null && <span id="s-duration-hint" className="hint">
+          {formatMinutes(minutes)} · Tiền công {formatVnd(Math.round(minutes * rate / 60))}
+          {!cardId && customerRate > 0 ? ` · Tiền dịch vụ ${formatVnd(Math.round(minutes * customerRate / 60))}` : ''}
+        </span>}
         <div className="field session-date-control">
           <span>Ngày chấm công</span>
           <button type="button" className="btn date-picker-trigger" onClick={() => setDatePickerOpen(true)} aria-label={`Chọn ngày chấm công, hiện tại ${formatShortDate(date)}`} data-testid="button-open-session-date-picker">

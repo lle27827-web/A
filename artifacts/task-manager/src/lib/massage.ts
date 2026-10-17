@@ -19,6 +19,19 @@ export function formatMinutes(min: number) {
   if (!h) return `${m} phút`;
   return m ? `${h} giờ ${m} phút` : `${h} giờ`;
 }
+export const QUICK_DURATION_MINUTES = [30, 60, 120, 180] as const;
+
+export function parseHoursAndMinutes(hoursText: string, minutesText: string): number | null {
+  const hours = hoursText.trim();
+  const minutes = minutesText.trim();
+  if (!/^\d+$/.test(hours) || !/^\d*$/.test(minutes)) return null;
+  const wholeHours = Number(hours);
+  const extraMinutes = minutes === '' ? 0 : Number(minutes);
+  if (!Number.isSafeInteger(wholeHours) || wholeHours < 0 || wholeHours > 24
+      || !Number.isSafeInteger(extraMinutes) || extraMinutes < 0 || extraMinutes > 59) return null;
+  const total = wholeHours * 60 + extraMinutes;
+  return total >= 1 && total <= 1440 ? total : null;
+}
 export function hoursValue(min: number) { return String(Math.round((min / 60) * 100) / 100).replace('.', ','); }
 
 /** Parses "1,5" or "1.5" hours into integer minutes; returns null if invalid. */
