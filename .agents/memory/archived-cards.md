@@ -3,17 +3,17 @@ name: Archived treatment cards
 description: Why removed customer cards retain stored history and how financial reports handle it.
 ---
 
-Cards with a deletion timestamp stay in the database as audit records. Do not physically delete these rows or drop the timestamp column by default. Exclude archived-card sales, usage shifts, wages and visits from active lists and calculations.
+Cards with a deletion timestamp stay in the database as audit records. Do not physically delete these rows or drop the timestamp column by default. Hide archived cards from active card lists and exclude their purchase/top-up revenue and card-use metrics, but keep all employee shifts and wages in employee history and payroll.
 
-**Why:** a schema change that dropped the archive marker reported five existing card rows with data. Automatically dropping the column or deleting linked history would erase records unexpectedly.
+**Why:** a schema change that dropped the archive marker reported five existing card rows with data. The user also requires deleted cards' employee attendance and pay to remain unchanged.
 
-**How to apply:** when changing card deletion, balances, employee payroll or daily/monthly revenue, test that archived card data is absent from active screens and calculations, while the stored history remains intact.
+**How to apply:** when changing card deletion, balances, employee payroll or daily/monthly revenue, test that archived card sales are excluded, employee shifts/pay are retained, and all stored history remains intact.
 
-Never allow a card that has ever been used to be deleted or archived through the normal delete operation. Retain this protection even after the last visit is deleted or reassigned. Unused cards may still be archived; old archived records remain excluded by the policy above. A confirmed duplicate-card merge is a separate operation: keep all usage, payments and the ever-used protection on the surviving card; retaining the retired source for audit is not a deletion of its history.
+Allow a card to be archived only when its remaining hours are zero, or when it has had no use since its most recent purchase/top-up. Otherwise refuse deletion. Archiving is soft-only: preserve the card, top-ups, employee shifts, consumed minutes, and usage history; do not refund remaining hours or employee pay. A confirmed duplicate-card merge is a separate operation: keep all usage and payments on the surviving card, and retain the retired source for audit.
 
-**Why:** the user explicitly requested “Thẻ khách hàng khi đã dùng thì không thể xóa”.
+**Why:** the user changed the deletion rule: a card can be removed after full use or if no hours were used after its latest purchase/top-up, while historical employee shifts must remain.
 
-**How to apply:** enforce the restriction on the server as well as in the UI, serialize it with recording use, and preserve the existing card, hours, payments, wages and visit history when deletion is refused.
+**How to apply:** enforce eligibility on the server while locking the card row against concurrent use/top-ups. Keep the confirmation explicit about forfeited remaining hours and the removal of purchase/top-up revenue from active reports.
 
 Card-use history is permanent even when its associated employee work session is automatically removed after five years. The archived ledger must retain the customer, employee name, service, date, used minutes, charges, pay, and note; its minutes remain consumed and the card cannot become deletable after cleanup.
 

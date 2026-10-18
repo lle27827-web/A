@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
-import { cardUsageHistoryTable, db, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
+import { cardUsageHistoryTable, db, serviceSessionsTable } from "@workspace/db";
 import {
   CreateServiceSessionBody, CreateServiceSessionResponse, DeleteServiceSessionParams,
   GetMassageSummaryQueryParams, GetMassageSummaryResponse, GetMemberPayrollQueryParams, GetMemberPayrollResponse,
@@ -39,15 +39,10 @@ router.get("/service-sessions", massageHandler(async (req, res) => {
     archivedFilters.push(gte(cardUsageHistoryTable.workDate, start), lt(cardUsageHistoryTable.workDate, end));
   }
   if (!q.cardId && !q.date && !q.month) filters.push(gte(serviceSessionsTable.workDate, retentionCutoffDate()));
-  const visibleVisits = sql`(${serviceSessionsTable.cardId} is null or exists (
-    select 1 from ${treatmentCardsTable} where ${treatmentCardsTable.id} = ${serviceSessionsTable.cardId}
-      and ${treatmentCardsTable.deletedAt} is null
-  ))`;
-  const rows = await db.select().from(serviceSessionsTable).where(and(...filters, visibleVisits))
+  const rows = await db.select().from(serviceSessionsTable).where(and(...filters))
     .orderBy(desc(serviceSessionsTable.workDate), desc(serviceSessionsTable.id));
   const archivedRows = q.cardId ? await db.select().from(cardUsageHistoryTable).where(and(...archivedFilters,
-    sql`exists (select 1 from ${treatmentCardsTable} where ${treatmentCardsTable.id} = ${cardUsageHistoryTable.cardId}
-      and ${treatmentCardsTable.deletedAt} is null)`))
+    ))
     .orderBy(desc(cardUsageHistoryTable.workDate), desc(cardUsageHistoryTable.sourceSessionId)) : [];
   const archivedSessions = archivedRows.map((row) => ({
     id: row.sourceSessionId,
@@ -95,11 +90,7 @@ router.get("/member-payroll", massageHandler(async (req, res) => {
     minutes: sql<number>`coalesce(sum(${serviceSessionsTable.minutes}), 0)`,
     salary: sql<number>`coalesce(sum(${serviceSessionsTable.earnings}), 0)`,
   }).from(serviceSessionsTable).where(and(eq(serviceSessionsTable.memberId, memberId),
-    gte(serviceSessionsTable.workDate, start), lt(serviceSessionsTable.workDate, end),
-    sql`(${serviceSessionsTable.cardId} is null or exists (
-      select 1 from ${treatmentCardsTable} where ${treatmentCardsTable.id} = ${serviceSessionsTable.cardId}
-        and ${treatmentCardsTable.deletedAt} is null
-    ))`));
+    gte(serviceSessionsTable.workDate, start), lt(serviceSessionsTable.workDate, end)));
   res.json(GetMemberPayrollResponse.parse({
     month, member,
     totalMinutes: Number(row.minutes), totalSalary: Number(row.salary),

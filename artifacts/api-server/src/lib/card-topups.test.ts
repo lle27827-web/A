@@ -97,15 +97,20 @@ test("paid top-ups and duplicate sales retain history and recognize cash once on
     const creditedReport = await getFacilityRevenue(month, today);
     assert.equal(creditedReport.netRevenue - report.netRevenue, 10000);
     assert.equal(creditedReport.payroll, report.payroll);
-    await assert.rejects(deleteCard(original.id),
-      (error: unknown) => error instanceof MassageError && error.status === 409);
-    assert.deepEqual(await getFacilityRevenue(month, today), creditedReport);
-    // A legacy archive is seeded directly to verify old archived rows remain excluded.
-    await db.update(treatmentCardsTable).set({ deletedAt: new Date() })
+    // The latest merged sale/top-up happened after the visit, so it can be
+    // removed while the employee's earlier shift and wages remain in history.
+    await deleteCard(original.id);
+    const [deletedCard] = await db.select().from(treatmentCardsTable)
       .where(eq(treatmentCardsTable.id, original.id));
+    const [retainedVisit] = await db.select().from(serviceSessionsTable)
+      .where(eq(serviceSessionsTable.id, sessionIds[0]));
+    assert.ok(deletedCard.deletedAt);
+    assert.ok(retainedVisit);
+    assert.equal(retainedVisit.earnings, 50000);
     const archived = await getFacilityRevenue(month, today);
     assert.equal(archived.cardRevenue, baseline.cardRevenue);
     assert.equal(archived.netRevenue - baseline.netRevenue, 50000);
+    assert.equal(archived.payroll, creditedReport.payroll, "employee wages remain after card deletion");
     assert.equal((await db.select().from(cardTopUpsTable).where(eq(cardTopUpsTable.cardId, original.id))).length, 7);
     const replacement = await make({ purchaseDate: today });
     assert.notEqual(replacement.id, original.id, "archived cards cannot receive automatic merges");

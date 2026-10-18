@@ -5,9 +5,10 @@ import { AlertCircle, CalendarDays, Check, ChevronRight, LoaderCircle, Sparkles 
 import { Link } from 'wouter';
 import { Modal } from '@/components/modal';
 import { VoiceInput } from '@/components/voice-input';
+import { DurationInputs } from '@/components/duration-inputs';
 import { DatePickerDialog } from '@/components/date-picker-dialog';
 import { formatShortDate, normalize } from '@/lib/attendance';
-import { formatMinutes, formatVnd, parseHoursAndMinutes, QUICK_DURATION_MINUTES } from '@/lib/massage';
+import { formatMinutes, formatVnd, parseHoursAndMinutes } from '@/lib/massage';
 
 const KEEP = 'keep';
 
@@ -143,24 +144,11 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
               </button>
             )}
         </fieldset>
-        <div className="duration-input-row">
-          <label className="field" htmlFor="s-hours">Số giờ
-            <input id="s-hours" type="number" inputMode="numeric" min={0} max={24} step={1} value={hours}
-              onChange={(e) => { setHours(e.target.value); setError(''); }} required
-              aria-describedby={minutes !== null ? 's-duration-hint' : undefined} data-testid="input-session-hours" />
-          </label>
-          <label className="field" htmlFor="s-minutes">Số phút
-            <input id="s-minutes" type="number" inputMode="numeric" min={0} max={59} step={1} value={extraMinutes}
-              onChange={(e) => { setExtraMinutes(e.target.value); setError(''); }}
-              aria-describedby={minutes !== null ? 's-duration-hint' : undefined} data-testid="input-session-minutes" />
-          </label>
-        </div>
-        <div className="chip-row" role="group" aria-label="Chọn nhanh thời lượng ca">
-          {QUICK_DURATION_MINUTES.map((duration) => <button key={duration} type="button"
-            className={`chip pad ${minutes === duration ? 'active' : ''}`}
-            onClick={() => { setHours(String(Math.floor(duration / 60))); setExtraMinutes(String(duration % 60)); setError(''); }}
-            data-testid={`button-session-quick-${duration}`}>{formatMinutes(duration)}</button>)}
-        </div>
+        <DurationInputs hours={hours} minutes={extraMinutes}
+          onHoursChange={(value) => { setHours(value); setError(''); }}
+          onMinutesChange={(value) => { setExtraMinutes(value); setError(''); }}
+          hourId="s-hours" minuteId="s-minutes" prefix="session"
+          describedBy={minutes !== null ? 's-duration-hint' : undefined} />
         {minutes !== null && <span id="s-duration-hint" className="hint">
           {formatMinutes(minutes)} · Tiền công {formatVnd(Math.round(minutes * rate / 60))}
           {!cardId && customerRate > 0 ? ` · Tiền dịch vụ ${formatVnd(Math.round(minutes * customerRate / 60))}` : ''}

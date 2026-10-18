@@ -20,3 +20,9 @@ Do not show note inputs or note rows on the application's screens. Facility and 
 **Why:** the user explicitly asked to remove every note row, then requested a separate minutes input and quick duration choices in both attendance forms.
 
 **How to apply:** removing note UI is not permission to erase previously stored notes. Preserve hidden note data when editing unrelated fields; validate the combined duration from 1 minute to 24 hours and retain exact minutes when editing a shift.
+
+Voice-entry controls must stay inside their input fields on every screen size. Hour and minute shortcuts are independent: choosing one updates only that field and preserves the other value.
+
+**Why:** the user reported that voice buttons overflowed the screen and choosing quick minutes reset the selected hours.
+
+**How to apply:** keep width and flex-shrink constraints in the shared voice-input wrapper, use the shared duration input component for facility and personal shifts, and verify narrow layouts plus hour-then-minute selection.

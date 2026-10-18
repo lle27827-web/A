@@ -78,9 +78,13 @@ export default function CardDetailPage() {
     if (!card) return;
     setConfirm({
       title: `Xóa thẻ của ${card.customerName}?`,
-      body: <p>Thẻ chưa sử dụng sẽ bị ẩn khỏi danh sách. Tiền mua và nạp {formatVnd(card.totalPaidAmount)} sẽ không còn tính trong báo cáo. Lịch sử thanh toán vẫn được lưu trữ.</p>,
+      body: <div>
+        <p>Thẻ sẽ bị ẩn khỏi danh sách và không thể nạp thêm hoặc ghi lượt dùng. Số giờ còn lại ({formatMinutes(Math.max(0, card.remainingMinutes))}) sẽ bị hủy; không hoàn tiền tự động.</p>
+        <p>Các ca đã chấm công, giờ đã dùng và tiền công nhân viên được giữ nguyên. Tiền mua/nạp {formatVnd(card.totalPaidAmount)} không còn tính trong báo cáo doanh thu; lịch sử thanh toán vẫn được lưu.</p>
+        <p>Chỉ xóa được khi đã dùng hết giờ hoặc chưa phát sinh lượt dùng sau lần mua/nạp gần nhất. Thao tác không thể hoàn tác.</p>
+      </div>,
       confirmLabel: 'Xóa thẻ',
-      onConfirm: () => deleteCard.mutate({ id: card.id }, { onSuccess: () => { refresh(); setConfirm(null); notify('Đã xóa thẻ.'); navigate('/cards'); }, onError: (e) => { setConfirm(null); fail(e); } }),
+      onConfirm: () => deleteCard.mutate({ id: card.id }, { onSuccess: () => { refresh(); setConfirm(null); notify('Đã xóa thẻ khỏi danh sách; lịch sử ca nhân viên vẫn được giữ.'); navigate('/cards'); }, onError: (e) => { setConfirm(null); fail(e); } }),
     });
   }
 
@@ -90,7 +94,6 @@ export default function CardDetailPage() {
     return [...members, { id: session.memberId, name: `${session.employeeName} (đã nghỉ)`, hourlyRate: session.hourlyRate, createdAt: session.createdAt, deletedAt: session.createdAt }];
   }
 
-  const cardUsed = card.hasBeenUsed === true || card.usedMinutes > 0 || sessions.length > 0;
   const visibleSessions = showAllUsage ? sessions : sessions.slice(0, 1);
   const pct = card.totalMinutes ? Math.max(0, Math.min(1, card.remainingMinutes / card.totalMinutes)) : 0;
   return (
@@ -108,9 +111,7 @@ export default function CardDetailPage() {
           {canEdit && (
             <div className="head-actions">
               <button type="button" className="btn" onClick={() => { setDialogError(''); setCardDialog(true); }} data-testid="button-edit-card"><Pencil size={14} />Sửa thẻ</button>
-              {cardUsed
-                ? <span className="lock-note" data-testid="text-card-delete-locked">Thẻ đã có lần dùng nên không thể xóa.</span>
-                : <button type="button" className="icon-btn danger" disabled={sessionsQuery.isLoading || sessionsQuery.isError} onClick={askDeleteCard} aria-label="Xóa thẻ" data-testid="button-delete-card"><Trash2 size={15} /></button>}
+              <button type="button" className="icon-btn danger" onClick={askDeleteCard} aria-label="Xóa thẻ" data-testid="button-delete-card"><Trash2 size={15} /></button>
             </div>
           )}
         </div>

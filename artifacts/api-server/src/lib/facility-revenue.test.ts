@@ -158,7 +158,8 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     assert.deepEqual(removedReport.mostUsedService, { serviceType: `${popularService}_walkin`, visits: 1, minutes: 30 });
     assert.equal(removedReport.cardRevenue, updated.cardRevenue - 800);
     assert.equal(removedReport.serviceRevenue, updated.serviceRevenue);
-    assert.equal(removedReport.payroll, updated.payroll - 200);
+    assert.equal(removedReport.payroll, updated.payroll,
+      "archiving a card must not change wages from recorded employee visits");
     assert.equal(removedReport.revenueExcludingCardSessions, updated.revenueExcludingCardSessions - 800);
     assert.equal(removedReport.revenue, updated.revenue - 800);
     assert.equal(removedReport.cardVisits, updated.cardVisits - 2);

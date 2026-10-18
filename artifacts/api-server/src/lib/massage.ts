@@ -180,10 +180,41 @@ export async function deleteCard(id: number) {
   await db.transaction(async (tx) => {
     const [card] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
     if (!card || card.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
-    if (card.firstUsedAt || await usedMinutes(tx, id) > 0) {
-      throw new MassageError(409, "Thẻ đã có lượt sử dụng nên không thể xóa.");
+    const used = await usedMinutes(tx, id);
+    const remaining = card.totalMinutes - used;
+    if (remaining > 0) {
+      const latestFundingAt = sql`GREATEST(
+        ${card.createdAt}::timestamptz,
+        COALESCE(
+          (SELECT max(${cardTopUpsTable.createdAt}) FROM ${cardTopUpsTable}
+            WHERE ${cardTopUpsTable.cardId} = ${id}),
+          ${card.createdAt}::timestamptz
+        )
+      )`;
+      const [useSinceLatestFunding] = await tx.select({
+        found: sql<boolean>`(
+          (${card.firstUsedAt} IS NOT NULL AND ${card.firstUsedAt} >= ${latestFundingAt})
+          OR EXISTS (
+            SELECT 1 FROM ${serviceSessionsTable} AS card_sessions
+            WHERE card_sessions.card_id = ${id}
+              AND card_sessions.created_at >= ${latestFundingAt}
+          )
+          OR EXISTS (
+            SELECT 1 FROM ${cardUsageHistoryTable} AS archived_uses
+            WHERE archived_uses.card_id = ${id}
+              AND archived_uses.created_at >= ${latestFundingAt}
+          )
+        )`,
+      }).from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id));
+      if (useSinceLatestFunding.found) {
+        throw new MassageError(
+          409,
+          "Thẻ còn giờ và đã có lượt dùng sau lần mua hoặc nạp gần nhất. Chỉ xóa khi đã dùng hết giờ hoặc chưa dùng từ lần mua/nạp gần nhất.",
+        );
+      }
     }
-    // Preserve the audit record; live lists, balances and reports exclude it.
+    // Keep the card, payments, and every employee visit as audit history.
+    // Active card lists and card-sale revenue exclude this archived card.
     await tx.update(treatmentCardsTable).set({ deletedAt: new Date() }).where(eq(treatmentCardsTable.id, id));
   });
 }

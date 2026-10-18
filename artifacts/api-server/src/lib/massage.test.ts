@@ -144,6 +144,31 @@ test("card balance and service payroll stay consistent through edits and concurr
     await deleteSession(lastVisit.id);
     assert.equal(await balance(formerlyUsed.id), 0);
     await assert.rejects(deleteCard(formerlyUsed.id), fails(409));
+
+    const exhausted = await makeCard(30);
+    const exhaustedVisit = await record({ ...input, cardId: exhausted.id, minutes: 30 });
+    await deleteCard(exhausted.id);
+    const [exhaustedArchive] = await db.select().from(treatmentCardsTable)
+      .where(eq(treatmentCardsTable.id, exhausted.id));
+    const [keptExhaustedVisit] = await db.select().from(serviceSessionsTable)
+      .where(eq(serviceSessionsTable.id, exhaustedVisit.id));
+    assert.ok(exhaustedArchive.deletedAt, "a fully used card can be archived");
+    assert.ok(keptExhaustedVisit, "deleting the card keeps the employee's shift");
+    assert.equal(keptExhaustedVisit.earnings, exhaustedVisit.earnings);
+    assert.equal(await balance(exhausted.id), 30, "card usage minutes stay consumed");
+
+    const usedBeforeTopUp = await makeCard(120);
+    const oldUsage = await record({ ...input, cardId: usedBeforeTopUp.id, minutes: 30 });
+    await addCardHours(usedBeforeTopUp.id, 60, 10000);
+    await deleteCard(usedBeforeTopUp.id);
+    const [topUpArchive] = await db.select().from(treatmentCardsTable)
+      .where(eq(treatmentCardsTable.id, usedBeforeTopUp.id));
+    const [keptOldUsage] = await db.select().from(serviceSessionsTable)
+      .where(eq(serviceSessionsTable.id, oldUsage.id));
+    assert.ok(topUpArchive.deletedAt, "a card unused since its latest top-up can be archived");
+    assert.ok(keptOldUsage, "the earlier employee shift remains after card deletion");
+    assert.equal(keptOldUsage.earnings, oldUsage.earnings);
+
     const unused = await makeCard(60);
     await deleteCard(unused.id);
     const [unusedArchived] = await db.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, unused.id));
@@ -163,7 +188,7 @@ test("card balance and service payroll stay consistent through edits and concurr
       assert.ok(raceCard.deletedAt);
       assert.equal(await balance(racing.id), 0);
     }
-    // Existing legacy archives still retain visits and disallow further use.
+    // Existing archives still retain visits and disallow further use.
     await db.update(treatmentCardsTable).set({ deletedAt: new Date() })
       .where(eq(treatmentCardsTable.id, removedCard.id));
     const [archivedCard] = await db.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, removedCard.id));

@@ -597,9 +597,9 @@ paths:
       parameters:
         - { in: path, name: id, required: true, schema: { type: integer, minimum: 1 } }
       responses:
-        "204": { description: Đã xóa thẻ chưa có lượt sử dụng }
+        "204": { description: Đã ẩn thẻ khỏi danh sách; giữ lịch sử ca nhân viên và thanh toán }
         "404": { description: Không tìm thấy thẻ }
-        "409": { description: "Thẻ đã từng sử dụng nên không thể xóa, kể cả khi lượt dùng cũ đã được xóa" }
+        "409": { description: "Thẻ còn giờ và đã có lượt dùng kể từ lần mua hoặc nạp gần nhất" }
   /treatment-cards/{id}/hours:
     post:
       operationId: addTreatmentCardHours
@@ -1039,7 +1039,7 @@ components:
         serviceType: { type: string }
         totalMinutes: { type: integer }
         usedMinutes: { type: integer }
-        hasBeenUsed: { type: boolean, description: "Thẻ đã từng sử dụng; không được xóa kể cả khi lượt dùng cũ đã được sửa hoặc xóa." }
+        hasBeenUsed: { type: boolean, description: "Thẻ đã từng có lượt sử dụng." }
         remainingMinutes: { type: integer }
         purchaseAmount: { type: integer }
         totalPaidAmount: { type: number }

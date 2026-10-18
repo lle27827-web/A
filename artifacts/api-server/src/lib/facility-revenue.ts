@@ -154,11 +154,6 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
       select sum(${serviceSessionsTable.earnings}) from ${serviceSessionsTable}
       where ${serviceSessionsTable.workDate} >= ${start}
         and ${serviceSessionsTable.workDate} < ${end}
-        and (${serviceSessionsTable.cardId} is null or exists (
-          select 1 from ${treatmentCardsTable}
-          where ${treatmentCardsTable.id} = ${serviceSessionsTable.cardId}
-            and ${treatmentCardsTable.deletedAt} is null
-        ))
     ), 0)`,
     walkInServiceMinutes: sql<number>`coalesce((
       select sum(${serviceSessionsTable.minutes}) from ${serviceSessionsTable}
@@ -185,12 +180,7 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
       from ${serviceSessionsTable} where ${serviceSessionsTable.workDate} = ${date}
       and ${serviceSessionsTable.cardId} is null), 0)`,
     dayPayroll: sql<number>`coalesce((select sum(${serviceSessionsTable.earnings})
-      from ${serviceSessionsTable} where ${serviceSessionsTable.workDate} = ${date}
-      and (${serviceSessionsTable.cardId} is null or exists (
-        select 1 from ${treatmentCardsTable}
-        where ${treatmentCardsTable.id} = ${serviceSessionsTable.cardId}
-          and ${treatmentCardsTable.deletedAt} is null
-      ))), 0)`,
+      from ${serviceSessionsTable} where ${serviceSessionsTable.workDate} = ${date}), 0)`,
     dayWalkInServiceMinutes: sql<number>`coalesce((select sum(${serviceSessionsTable.minutes})
       from ${serviceSessionsTable} where ${serviceSessionsTable.workDate} = ${date}
       and ${serviceSessionsTable.cardId} is null), 0)`,

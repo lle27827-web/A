@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import type { PersonalService, PersonalServiceInput, PersonalSession, PersonalSessionInput } from '@workspace/api-client-react';
 import { AlertCircle, CalendarDays, LoaderCircle } from 'lucide-react';
 import { Modal } from '@/components/modal';
-import { VoiceInput } from '@/components/voice-input';
 import { DatePickerDialog } from '@/components/date-picker-dialog';
+import { VoiceInput } from '@/components/voice-input';
+import { DurationInputs } from '@/components/duration-inputs';
 import { formatShortDate } from '@/lib/attendance';
-import { formatMinutes, formatVnd, parseHoursAndMinutes, parseMoney, QUICK_DURATION_MINUTES } from '@/lib/massage';
+import { formatMinutes, formatVnd, parseHoursAndMinutes, parseMoney } from '@/lib/massage';
 
 export function PersonalServiceDialog({ service, busy, serverError, onClose, onSubmit }: {
   service: PersonalService | null; busy: boolean; serverError: string;
@@ -67,10 +68,6 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
   const keepsOldRate = session && chosen && chosen.id === session.serviceId;
   const rate = keepsOldRate ? session.hourlyRate : chosen?.hourlyRate ?? 0;
 
-  function setTotal(m: number) {
-    setHours(String(Math.floor(m / 60)));
-    setExtraMinutes(String(m % 60));
-  }
   function submit() {
     if (busy || submitting.current) return;
     if (!chosen) return setError('Hãy chọn dịch vụ.');
@@ -96,22 +93,11 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
             <CalendarDays size={15} aria-hidden="true" /><span id="personal-date-value">{formatShortDate(date)}</span>
           </button>
         </div>
-        <div className="duration-input-row">
-          <label className="field" htmlFor="personal-hours">Số giờ
-            <input id="personal-hours" type="number" inputMode="numeric" min={0} max={24} step={1} value={hours}
-              onChange={(e) => { setHours(e.target.value); setError(''); }} required
-              aria-describedby={total !== null ? 'personal-duration-hint' : undefined} data-testid="input-personal-hours" />
-          </label>
-          <label className="field" htmlFor="personal-minutes">Số phút
-            <input id="personal-minutes" type="number" inputMode="numeric" min={0} max={59} step={1} value={extraMinutes}
-              onChange={(e) => { setExtraMinutes(e.target.value); setError(''); }}
-              aria-describedby={total !== null ? 'personal-duration-hint' : undefined} data-testid="input-personal-minutes" />
-          </label>
-        </div>
-        <div className="chip-row" role="group" aria-label="Chọn nhanh thời lượng">
-          {QUICK_DURATION_MINUTES.map((m) => <button key={m} type="button" className={`chip pad ${total === m ? 'active' : ''}`}
-            onClick={() => { setTotal(m); setError(''); }} data-testid={`button-quick-${m}`}>{formatMinutes(m)}</button>)}
-        </div>
+        <DurationInputs hours={hours} minutes={extraMinutes}
+          onHoursChange={(value) => { setHours(value); setError(''); }}
+          onMinutesChange={(value) => { setExtraMinutes(value); setError(''); }}
+          hourId="personal-hours" minuteId="personal-minutes" prefix="personal"
+          describedBy={total !== null ? 'personal-duration-hint' : undefined} />
         {total !== null && <span id="personal-duration-hint" className="hint" data-testid="text-personal-duration">
           {formatMinutes(total)} · Tiền công {formatVnd(Math.round(total * rate / 60))}
         </span>}

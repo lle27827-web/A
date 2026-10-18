@@ -14,7 +14,7 @@ export interface TreatmentCard {
   serviceType: string;
   totalMinutes: number;
   usedMinutes: number;
-  /** Thẻ đã từng sử dụng; không được xóa kể cả khi lượt dùng cũ đã được sửa hoặc xóa. */
+  /** Thẻ đã từng có lượt sử dụng. */
   hasBeenUsed?: boolean;
   remainingMinutes: number;
   purchaseAmount: number;
