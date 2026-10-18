@@ -1,21 +1,6 @@
 export const DATABASE_STORAGE_LIMIT_BYTES = 1_000_000_000n;
 export const DATABASE_COMPUTE_LIMIT_SECONDS = 100 * 60 * 60;
 
-export type FailoverDecision =
-  | "stay_primary"
-  | "switch_to_fallback"
-  | "blocked_not_synchronized";
-
-export function decideFailoverAction(
-  thresholdReached: boolean,
-  standbySynchronized: boolean,
-): FailoverDecision {
-  if (!thresholdReached) return "stay_primary";
-  return standbySynchronized
-    ? "switch_to_fallback"
-    : "blocked_not_synchronized";
-}
-
 export function isDatabaseCapacityError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
 
@@ -37,25 +22,6 @@ export function parseDatabaseCapacityLimit(value: string | undefined): bigint | 
     throw new Error("DATABASE_URL_1_MAX_BYTES must be a positive integer.");
   }
   return BigInt(normalized);
-}
-
-export function parseComputeTimeLimitSeconds(
-  value: string | undefined,
-): number | null {
-  if (value === undefined || value.trim() === "") return null;
-  const normalized = value.trim();
-  if (!/^[1-9]\d*$/.test(normalized)) {
-    throw new Error(
-      "DATABASE_URL_1_COMPUTE_LIMIT_SECONDS must be a positive integer.",
-    );
-  }
-  const seconds = Number(normalized);
-  if (!Number.isSafeInteger(seconds)) {
-    throw new Error(
-      "DATABASE_URL_1_COMPUTE_LIMIT_SECONDS must be a safe positive integer.",
-    );
-  }
-  return seconds;
 }
 
 export function hasReachedDatabaseCapacity(

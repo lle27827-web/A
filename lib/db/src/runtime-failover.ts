@@ -4,26 +4,15 @@ import * as schema from "./schema";
 import {
   DATABASE_COMPUTE_LIMIT_SECONDS,
   DATABASE_STORAGE_LIMIT_BYTES,
-  decideFailoverAction,
   hasReachedDatabaseCapacity,
   hasReachedComputeTimeLimit,
   isDatabaseCapacityError,
   parseNeonComputeTimeSeconds,
   parseDatabaseCapacityLimit,
-  parseComputeTimeLimitSeconds,
 } from "./failover-utils";
 
 type Backend = "database_url_1" | "database_url" | "switching";
 type Queryable = { query: (...args: any[]) => any };
-
-export type DatabaseFailoverStatus = {
-  enabled: boolean;
-  activeBackend: Backend;
-  computeLimitSeconds: number;
-  usedComputeSeconds: number | null;
-  computeThresholdReached: boolean | null;
-  usageAvailable: boolean;
-};
 
 const sourceUrl = process.env.DATABASE_URL?.trim();
 const databaseUrl1 = process.env.DATABASE_URL_1?.trim();
@@ -45,10 +34,6 @@ if (isVercel && databaseUrl1 && !sourceUrl) {
 const capacityLimitBytes =
   parseDatabaseCapacityLimit(process.env.DATABASE_URL_1_MAX_BYTES) ??
   DATABASE_STORAGE_LIMIT_BYTES;
-const computeLimitSeconds =
-  parseComputeTimeLimitSeconds(
-    process.env.DATABASE_URL_1_COMPUTE_LIMIT_SECONDS,
-  ) ?? DATABASE_COMPUTE_LIMIT_SECONDS;
 const neonApiKey = process.env.NEON_API_KEY?.trim();
 const neonProjectId = process.env.NEON_PROJECT_ID_1?.trim();
 
@@ -142,62 +127,6 @@ async function readBackendState(): Promise<Backend> {
     );
   }
   return backend;
-}
-
-async function readNeonComputeTimeSeconds(): Promise<number> {
-  if (!neonApiKey || !neonProjectId) {
-    throw new Error("Neon compute monitoring is not configured.");
-  }
-
-  const response = await fetch(
-    `https://console.neon.tech/api/v2/projects/${encodeURIComponent(neonProjectId)}`,
-    {
-      headers: { Authorization: `Bearer ${neonApiKey}` },
-      signal: AbortSignal.timeout(5_000),
-    },
-  );
-  if (!response.ok) {
-    throw new Error(`Neon usage API returned HTTP ${response.status}.`);
-  }
-  return parseNeonComputeTimeSeconds(await response.json());
-}
-
-export async function getDatabaseFailoverStatus(): Promise<DatabaseFailoverStatus> {
-  const activeBackend = await readBackendState();
-  if (!failoverEnabled || !neonApiKey || !neonProjectId) {
-    return {
-      enabled: failoverEnabled,
-      activeBackend,
-      computeLimitSeconds,
-      usedComputeSeconds: null,
-      computeThresholdReached: null,
-      usageAvailable: false,
-    };
-  }
-
-  try {
-    const usedComputeSeconds = await readNeonComputeTimeSeconds();
-    return {
-      enabled: true,
-      activeBackend,
-      computeLimitSeconds,
-      usedComputeSeconds,
-      computeThresholdReached: hasReachedComputeTimeLimit(
-        usedComputeSeconds,
-        computeLimitSeconds,
-      ),
-      usageAvailable: true,
-    };
-  } catch {
-    return {
-      enabled: true,
-      activeBackend,
-      computeLimitSeconds,
-      usedComputeSeconds: null,
-      computeThresholdReached: null,
-      usageAvailable: false,
-    };
-  }
 }
 
 async function standbyIsCaughtUp(): Promise<boolean> {
@@ -331,9 +260,7 @@ async function performFailover(reason: string): Promise<boolean> {
   }
   if (current !== "database_url_1") return false;
 
-  const standbySynchronized = await waitForStandbyToCatchUp();
-  const failoverDecision = decideFailoverAction(true, standbySynchronized);
-  if (failoverDecision === "blocked_not_synchronized") {
+  if (!(await waitForStandbyToCatchUp())) {
     console.warn(
       "[db-failover] Kept DATABASE_URL_1 active because DATABASE_URL is not fully synchronized.",
     );
@@ -451,7 +378,17 @@ async function checkCapacityThreshold(): Promise<void> {
 
     let usedComputeSeconds: number;
     try {
-      usedComputeSeconds = await readNeonComputeTimeSeconds();
+      const response = await fetch(
+        `https://console.neon.tech/api/v2/projects/${encodeURIComponent(neonProjectId)}`,
+        {
+          headers: { Authorization: `Bearer ${neonApiKey}` },
+          signal: AbortSignal.timeout(5_000),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`Neon usage API returned HTTP ${response.status}.`);
+      }
+      usedComputeSeconds = parseNeonComputeTimeSeconds(await response.json());
     } catch {
       console.warn(
         "[db-failover] Neon compute usage could not be checked; continuing with the active database.",
@@ -462,7 +399,7 @@ async function checkCapacityThreshold(): Promise<void> {
     if (
       !hasReachedComputeTimeLimit(
         usedComputeSeconds,
-        computeLimitSeconds,
+        DATABASE_COMPUTE_LIMIT_SECONDS,
       )
     ) {
       return;
