@@ -16,6 +16,15 @@ import {
 type Backend = "database_url_1" | "database_url" | "switching";
 type Queryable = { query: (...args: any[]) => any };
 
+export type DatabaseFailoverStatus = {
+  enabled: boolean;
+  activeBackend: Backend;
+  computeLimitSeconds: number;
+  usedComputeSeconds: number | null;
+  computeThresholdReached: boolean | null;
+  usageAvailable: boolean;
+};
+
 const sourceUrl = process.env.DATABASE_URL?.trim();
 const databaseUrl1 = process.env.DATABASE_URL_1?.trim();
 const isVercel = process.env.VERCEL === "1";
@@ -133,6 +142,62 @@ async function readBackendState(): Promise<Backend> {
     );
   }
   return backend;
+}
+
+async function readNeonComputeTimeSeconds(): Promise<number> {
+  if (!neonApiKey || !neonProjectId) {
+    throw new Error("Neon compute monitoring is not configured.");
+  }
+
+  const response = await fetch(
+    `https://console.neon.tech/api/v2/projects/${encodeURIComponent(neonProjectId)}`,
+    {
+      headers: { Authorization: `Bearer ${neonApiKey}` },
+      signal: AbortSignal.timeout(5_000),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Neon usage API returned HTTP ${response.status}.`);
+  }
+  return parseNeonComputeTimeSeconds(await response.json());
+}
+
+export async function getDatabaseFailoverStatus(): Promise<DatabaseFailoverStatus> {
+  const activeBackend = await readBackendState();
+  if (!failoverEnabled || !neonApiKey || !neonProjectId) {
+    return {
+      enabled: failoverEnabled,
+      activeBackend,
+      computeLimitSeconds,
+      usedComputeSeconds: null,
+      computeThresholdReached: null,
+      usageAvailable: false,
+    };
+  }
+
+  try {
+    const usedComputeSeconds = await readNeonComputeTimeSeconds();
+    return {
+      enabled: true,
+      activeBackend,
+      computeLimitSeconds,
+      usedComputeSeconds,
+      computeThresholdReached: hasReachedComputeTimeLimit(
+        usedComputeSeconds,
+        computeLimitSeconds,
+      ),
+      usageAvailable: true,
+    };
+  } catch {
+    return {
+      enabled: true,
+      activeBackend,
+      computeLimitSeconds,
+      usedComputeSeconds: null,
+      computeThresholdReached: null,
+      usageAvailable: false,
+    };
+  }
 }
 
 async function standbyIsCaughtUp(): Promise<boolean> {
@@ -386,17 +451,7 @@ async function checkCapacityThreshold(): Promise<void> {
 
     let usedComputeSeconds: number;
     try {
-      const response = await fetch(
-        `https://console.neon.tech/api/v2/projects/${encodeURIComponent(neonProjectId)}`,
-        {
-          headers: { Authorization: `Bearer ${neonApiKey}` },
-          signal: AbortSignal.timeout(5_000),
-        },
-      );
-      if (!response.ok) {
-        throw new Error(`Neon usage API returned HTTP ${response.status}.`);
-      }
-      usedComputeSeconds = parseNeonComputeTimeSeconds(await response.json());
+      usedComputeSeconds = await readNeonComputeTimeSeconds();
     } catch {
       console.warn(
         "[db-failover] Neon compute usage could not be checked; continuing with the active database.",

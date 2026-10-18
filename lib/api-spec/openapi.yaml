@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: database
+    description: Trạng thái database
   - name: attendance
     description: Chấm công
   - name: retention
@@ -245,6 +247,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /database-failover/status:
+    get:
+      operationId: getDatabaseFailoverStatus
+      tags: [database]
+      summary: Chủ sở hữu kiểm tra database đang hoạt động và ngưỡng CU
+      responses:
+        "200":
+          description: Trạng thái database và mức sử dụng Neon
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatabaseFailoverStatus"
+        "401": { description: Cần đăng nhập }
+        "403": { description: Chỉ chủ sở hữu được phép xem }
+        "503": { description: Không thể đọc trạng thái database }
   /auth/status:
     get:
       operationId: getAuthStatus
@@ -813,6 +830,16 @@ components:
           type: string
       required:
         - status
+    DatabaseFailoverStatus:
+      type: object
+      required: [enabled, activeBackend, computeLimitSeconds, usedComputeSeconds, computeThresholdReached, usageAvailable]
+      properties:
+        enabled: { type: boolean }
+        activeBackend: { type: string, enum: [database_url_1, database_url, switching] }
+        computeLimitSeconds: { type: integer, minimum: 1 }
+        usedComputeSeconds: { type: ["number", "null"], minimum: 0 }
+        computeThresholdReached: { type: ["boolean", "null"] }
+        usageAvailable: { type: boolean }
     AuthStatus:
       type: object
       properties:

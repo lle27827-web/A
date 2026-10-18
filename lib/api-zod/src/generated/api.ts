@@ -480,6 +480,24 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Chủ sở hữu kiểm tra database đang hoạt động và ngưỡng CU
+ */
+
+export const getDatabaseFailoverStatusResponseUsedComputeSecondsMin = 0;
+
+
+
+export const GetDatabaseFailoverStatusResponse = zod.object({
+  "enabled": zod.boolean(),
+  "activeBackend": zod.enum(['database_url_1', 'database_url', 'switching']),
+  "computeLimitSeconds": zod.number().int().min(1),
+  "usedComputeSeconds": zod.number().min(getDatabaseFailoverStatusResponseUsedComputeSecondsMin).nullable(),
+  "computeThresholdReached": zod.boolean().nullable(),
+  "usageAvailable": zod.boolean()
+})
+
+
+/**
  * @summary Trạng thái đăng nhập và quyền chủ sở hữu
  */
 

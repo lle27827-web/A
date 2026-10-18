@@ -20,6 +20,8 @@ export * from './authStatus';
 export * from './cardHoursInput';
 export * from './cardTopUp';
 export * from './dailyRevenue';
+export * from './databaseFailoverStatus';
+export * from './databaseFailoverStatusActiveBackend';
 export * from './facilityPermissions';
 export * from './getAttendanceSummaryParams';
 export * from './getMassageSummaryParams';

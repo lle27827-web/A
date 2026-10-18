@@ -33,6 +33,8 @@ Chỉ khi đã sẵn sàng chuyển thật, đặt `DATABASE_URL_1_COMPUTE_LIMIT
 
 Failover thành công sẽ tắt subscription replication và lưu `database_url` làm database đang hoạt động. Chỉ đổi ngưỡng về `360000` hoặc xóa biến **không** tự chuyển ngược sang `DATABASE_URL_1`; cần đồng bộ lại dữ liệu và khôi phục replication/state theo quy trình riêng trước khi quay lại. Không chạy thử nếu chưa có kế hoạch xử lý dữ liệu phát sinh sau khi chuyển.
 
+Để kiểm tra trạng thái mà không tạo tải thử, chủ sở hữu đăng nhập rồi mở `/api/database-failover/status`. Endpoint này trả mức CU Neon báo, ngưỡng hiện áp dụng và database đang hoạt động; request cũng đi qua kiểm tra failover bình thường. Quản lý và khách không xem được endpoint này.
+
 ## Đăng nhập chủ sở hữu và quyền khách
 
 Ứng dụng dùng Clerk bên ngoài để cùng một phương thức đăng nhập hoạt động trên Replit và Vercel. Ứng dụng không dùng các biến `CLERK_*` do Replit quản lý vì chúng không xác thực được deployment Vercel.

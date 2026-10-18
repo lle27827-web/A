@@ -132,6 +132,30 @@ export interface HealthStatus {
   status: string;
 }
 
+export type DatabaseFailoverStatusActiveBackend = typeof DatabaseFailoverStatusActiveBackend[keyof typeof DatabaseFailoverStatusActiveBackend];
+
+
+export const DatabaseFailoverStatusActiveBackend = {
+  database_url_1: 'database_url_1',
+  database_url: 'database_url',
+  switching: 'switching',
+} as const;
+
+export interface DatabaseFailoverStatus {
+  enabled: boolean;
+  activeBackend: DatabaseFailoverStatusActiveBackend;
+  /** @minimum 1 */
+  computeLimitSeconds: number;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  usedComputeSeconds: number | null;
+  /** @nullable */
+  computeThresholdReached: boolean | null;
+  usageAvailable: boolean;
+}
+
 export interface FacilityPermissions {
   allEmployees: boolean;
   /**

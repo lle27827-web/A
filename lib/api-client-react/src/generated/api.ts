@@ -30,6 +30,7 @@ import type {
   AttendanceUpdate,
   AuthStatus,
   CardHoursInput,
+  DatabaseFailoverStatus,
   GetAttendanceSummaryParams,
   GetMassageSummaryParams,
   GetMemberPayrollParams,
@@ -1469,6 +1470,83 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getHealthCheckQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetDatabaseFailoverStatusUrl = () => {
+
+
+
+
+  return `/api/database-failover/status`
+}
+
+/**
+ * @summary Chủ sở hữu kiểm tra database đang hoạt động và ngưỡng CU
+ */
+export const getDatabaseFailoverStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<DatabaseFailoverStatus> => {
+
+  return customFetch<DatabaseFailoverStatus>(getGetDatabaseFailoverStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDatabaseFailoverStatusQueryKey = () => {
+    return [
+    `/api/database-failover/status`
+    ] as const;
+    }
+
+
+export const getGetDatabaseFailoverStatusQueryOptions = <TData = Awaited<ReturnType<typeof getDatabaseFailoverStatus>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDatabaseFailoverStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDatabaseFailoverStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDatabaseFailoverStatus>>> = ({ signal }) => getDatabaseFailoverStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDatabaseFailoverStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDatabaseFailoverStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getDatabaseFailoverStatus>>>
+export type GetDatabaseFailoverStatusQueryError = ErrorType<void>
+
+
+/**
+ * @summary Chủ sở hữu kiểm tra database đang hoạt động và ngưỡng CU
+ */
+
+export function useGetDatabaseFailoverStatus<TData = Awaited<ReturnType<typeof getDatabaseFailoverStatus>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDatabaseFailoverStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDatabaseFailoverStatusQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
