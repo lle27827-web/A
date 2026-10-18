@@ -201,7 +201,7 @@ export function AppShell({
             </div>
           </div>
         </header>
-        <main className="main" id="main" tabIndex={-1}>
+        <main className="main" id="main" aria-label="Nội dung chính" tabIndex={-1}>
           {authStatusMessage && <div className="banner danger" role="status">{authStatusMessage}</div>}
           {historyMonth && employeeRoute && (
             <div className="banner soft history-banner" role="status" data-testid="status-history-mode">
@@ -217,11 +217,11 @@ export function AppShell({
           )}
           {showResults && <SearchResults />}
           {error && <div className="banner danger" role="alert" data-testid="status-mutation-error">
-            <AlertCircle size={15} /><span>{error}</span>
+            <AlertCircle size={15} aria-hidden="true" /><span>{error}</span>
             <button type="button" onClick={() => setError('')} aria-label="Đóng thông báo lỗi"><X size={14} /></button>
           </div>}
           {notice && <div className="banner success" role="status" data-testid="status-success">
-            <Check size={15} /><span>{notice}</span>
+            <Check size={15} aria-hidden="true" /><span>{notice}</span>
             <button type="button" onClick={() => setNotice('')} aria-label="Đóng thông báo"><X size={14} /></button>
           </div>}
           {employeeMode ? employeeView : children}
