@@ -13,8 +13,34 @@ import {
   failoverStateConstraintSupports,
   getNextBackend,
   getReplicationEdge,
+  replicationTableSetsMatch,
   resolveDatabaseNodes,
 } from "../../../../lib/db/src/failover-topology";
+import {
+  planSequenceSync,
+  type SequenceSnapshot,
+} from "../../../../lib/db/src/failover-sequences";
+
+function sequenceSnapshot(
+  overrides: Partial<SequenceSnapshot> = {},
+): SequenceSnapshot {
+  return {
+    sequenceSchema: "public",
+    sequenceName: "members_id_seq",
+    tableSchema: "public",
+    tableName: "members",
+    columnName: "id",
+    startValue: "1",
+    incrementBy: "1",
+    minValue: "1",
+    maxValue: "2147483647",
+    cycle: false,
+    lastValue: "5",
+    isCalled: true,
+    tableMaxValue: "5",
+    ...overrides,
+  };
+}
 
 test("database full SQLSTATE is recognized", () => {
   assert.equal(isDatabaseCapacityError({ code: "53100" }), true);
@@ -58,8 +84,11 @@ test("four-database failover order preserves the existing DATABASE_URL slot", ()
   const nodes = resolveDatabaseNodes({
     DATABASE_URL_1: "postgres://primary",
     DATABASE_URL: "postgres://fallback",
+    DATABASE_URL_DIRECT: "postgres://fallback-direct",
     DATABASE_URL_3: "postgres://replica3",
     DATABASE_URL_4: "postgres://replica4",
+    NEON_PROJECT_ID_3: "project-3",
+    NEON_PROJECT_ID_4: "project-4",
   });
 
   assert.deepEqual(
@@ -74,6 +103,9 @@ test("four-database failover order preserves the existing DATABASE_URL slot", ()
     getNextBackend("database_url_3", nodes)?.backend,
     "database_url_4",
   );
+  assert.equal(nodes[1]?.adminUrl, "postgres://fallback-direct");
+  assert.equal(nodes[2]?.projectId, "project-3");
+  assert.equal(nodes[3]?.projectId, "project-4");
 });
 
 test("additional replica cannot skip a missing link in the failover order", () => {
@@ -113,6 +145,23 @@ test("replication checks use fixed names for each sequential link", () => {
   );
 });
 
+test("replication table validation requires the exact application table set", () => {
+  const expected = [
+    { schemaName: "public", tableName: "members" },
+    { schemaName: "public", tableName: "attendance" },
+  ];
+  assert.equal(replicationTableSetsMatch(expected, [...expected]), true);
+  assert.equal(
+    replicationTableSetsMatch(expected, [expected[0]!, { schemaName: "public", tableName: "other" }]),
+    false,
+  );
+  assert.equal(replicationTableSetsMatch(expected, [expected[0]!]), false);
+  assert.equal(
+    replicationTableSetsMatch(expected, [expected[0]!, expected[0]!]),
+    false,
+  );
+});
+
 test("failover-state migration must allow a promoted backend", () => {
   assert.equal(
     failoverStateConstraintSupports(
@@ -127,6 +176,56 @@ test("failover-state migration must allow a promoted backend", () => {
       ["database_url_4"],
     ),
     false,
+  );
+});
+
+test("sequence promotion plans choose the greatest source or target cursor", () => {
+  const plan = planSequenceSync(
+    [sequenceSnapshot({ lastValue: "12", tableMaxValue: "9" })],
+    [sequenceSnapshot({ lastValue: "8", tableMaxValue: "15" })],
+  );
+  assert.deepEqual(plan, [
+    {
+      sequenceSchema: "public",
+      sequenceName: "members_id_seq",
+      value: "15",
+      isCalled: true,
+    },
+  ]);
+});
+
+test("unused sequences keep their first value and missing sequences block promotion", () => {
+  assert.deepEqual(
+    planSequenceSync(
+      [sequenceSnapshot({ lastValue: null, isCalled: false, tableMaxValue: null })],
+      [sequenceSnapshot({ lastValue: null, isCalled: false, tableMaxValue: null })],
+    ),
+    [
+      {
+        sequenceSchema: "public",
+        sequenceName: "members_id_seq",
+        value: "1",
+        isCalled: false,
+      },
+    ],
+  );
+  assert.equal(planSequenceSync([sequenceSnapshot()], []), null);
+});
+
+test("sequence configurations that cannot be safely synchronized block promotion", () => {
+  assert.equal(
+    planSequenceSync(
+      [sequenceSnapshot()],
+      [sequenceSnapshot({ incrementBy: "2" })],
+    ),
+    null,
+  );
+  assert.equal(
+    planSequenceSync(
+      [sequenceSnapshot({ cycle: true })],
+      [sequenceSnapshot({ cycle: true })],
+    ),
+    null,
   );
 });
 

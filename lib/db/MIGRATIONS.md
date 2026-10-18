@@ -38,7 +38,7 @@ rows. Its changes and any pending migration batch are transactional.
 On a confirmed empty target, run:
 
 ```sh
-pnpm --filter @workspace/db run migrate
+DATABASE_URL='<direct URL for this target>' pnpm --filter @workspace/db run migrate
 ```
 
 This applies all migrations in order and creates the normal Drizzle journal.
@@ -94,10 +94,10 @@ an external production target.
 
 The `migrate:database-failover-state` command runs only when invoked explicitly.
 For the four-node failover chain, run it with `DATABASE_URL` set to the Vercel
-control database (the existing second node), not the Replit database. It updates
-the state table's allowed backend values; the runtime refuses promotion to a
-new node until this constraint accepts that node. Do not add the migration to a
-Vercel build hook.
+control database (the existing second node) **using its direct endpoint**, not
+the Replit database. It updates the state table's allowed backend values; the
+runtime refuses promotion to a new node until this constraint accepts that node.
+Do not add the migration to a Vercel build hook.
 
 ## Verification
 

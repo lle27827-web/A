@@ -9,6 +9,7 @@ export type PersistedDatabaseBackend = DatabaseBackend | "switching";
 export type DatabaseNodeConfig = {
   backend: DatabaseBackend;
   url: string;
+  adminUrl?: string;
   projectId?: string;
   maxBytes: string | undefined;
   applicationName: string;
@@ -21,10 +22,16 @@ export type ReplicationEdge = {
   subscriptionName: string;
 };
 
+export type ReplicationTableIdentity = {
+  schemaName: string;
+  tableName: string;
+};
+
 const DATABASE_ENV = [
   {
     backend: "database_url_1",
     urlKey: "DATABASE_URL_1",
+    adminUrlKey: "DATABASE_URL_1_DIRECT",
     projectIdKey: "NEON_PROJECT_ID_1",
     maxBytesKey: "DATABASE_URL_1_MAX_BYTES",
     applicationName: "so-cong-db-primary",
@@ -32,6 +39,7 @@ const DATABASE_ENV = [
   {
     backend: "database_url",
     urlKey: "DATABASE_URL",
+    adminUrlKey: "DATABASE_URL_DIRECT",
     projectIdKey: "NEON_PROJECT_ID",
     maxBytesKey: "DATABASE_URL_MAX_BYTES",
     applicationName: "so-cong-db-fallback",
@@ -39,6 +47,7 @@ const DATABASE_ENV = [
   {
     backend: "database_url_3",
     urlKey: "DATABASE_URL_3",
+    adminUrlKey: "DATABASE_URL_3_DIRECT",
     projectIdKey: "NEON_PROJECT_ID_3",
     maxBytesKey: "DATABASE_URL_3_MAX_BYTES",
     applicationName: "so-cong-db-replica-3",
@@ -46,6 +55,7 @@ const DATABASE_ENV = [
   {
     backend: "database_url_4",
     urlKey: "DATABASE_URL_4",
+    adminUrlKey: "DATABASE_URL_4_DIRECT",
     projectIdKey: "NEON_PROJECT_ID_4",
     maxBytesKey: "DATABASE_URL_4_MAX_BYTES",
     applicationName: "so-cong-db-replica-4",
@@ -79,6 +89,7 @@ export function resolveDatabaseNodes(
   const configured = DATABASE_ENV.map((entry) => ({
     backend: entry.backend,
     url: env[entry.urlKey]?.trim() ?? "",
+    adminUrl: env[entry.adminUrlKey]?.trim() || undefined,
     projectId: env[entry.projectIdKey]?.trim() || undefined,
     maxBytes: env[entry.maxBytesKey],
     applicationName: entry.applicationName,
@@ -120,6 +131,24 @@ export function getReplicationEdge(
   return REPLICATION_EDGES.find(
     (edge) => edge.publisher === publisher && edge.subscriber === subscriber,
   );
+}
+
+export function replicationTableSetsMatch(
+  expected: readonly ReplicationTableIdentity[],
+  actual: readonly ReplicationTableIdentity[],
+): boolean {
+  if (expected.length === 0 || expected.length !== actual.length) return false;
+  const expectedKeys = new Set(
+    expected.map(({ schemaName, tableName }) => `${schemaName}\u0000${tableName}`),
+  );
+  if (expectedKeys.size !== expected.length) return false;
+  const actualKeys = new Set(
+    actual.map(({ schemaName, tableName }) => `${schemaName}\u0000${tableName}`),
+  );
+  if (actualKeys.size !== actual.length || actualKeys.size !== expectedKeys.size) {
+    return false;
+  }
+  return [...expectedKeys].every((key) => actualKeys.has(key));
 }
 
 export function getBackendIndex(

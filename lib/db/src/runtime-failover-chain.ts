@@ -16,15 +16,22 @@ import {
   getNextBackend,
   getReplicationEdge,
   isPersistedDatabaseBackend,
+  replicationTableSetsMatch,
   resolveDatabaseNodes,
   type DatabaseBackend,
   type DatabaseNodeConfig,
   type PersistedDatabaseBackend,
 } from "./failover-topology";
+import {
+  planSequenceSync,
+  type SequenceSnapshot,
+} from "./failover-sequences";
 
 type Queryable = { query: (...args: any[]) => any };
 type RuntimeNode = Omit<DatabaseNodeConfig, "maxBytes"> & {
   pool: pg.Pool;
+  subscriptionPool: pg.Pool;
+  canManageSubscription: boolean;
   database: ReturnType<typeof drizzle<typeof schema>>;
   maxBytes: bigint;
 };
@@ -39,6 +46,14 @@ const failoverEnabled =
   configuredNodes.length >= 2;
 const stateBackend: DatabaseBackend = "database_url";
 const neonApiKey = process.env.NEON_API_KEY?.trim();
+
+function usesNeonPooler(connectionString: string): boolean {
+  try {
+    return /-pooler(?:\.|$)/i.test(new URL(connectionString).hostname);
+  } catch {
+    return false;
+  }
+}
 
 if (!databaseUrl) {
   throw new Error(
@@ -63,9 +78,21 @@ const nodes: RuntimeNode[] = configuredNodes.map((node) => {
     connectionTimeoutMillis: 15_000,
     idleTimeoutMillis: 10_000,
   });
+  const subscriptionPool = node.adminUrl
+    ? new pg.Pool({
+        connectionString: node.adminUrl,
+        application_name: `${node.applicationName}-subscription-admin`,
+        max: 1,
+        connectionTimeoutMillis: 15_000,
+        idleTimeoutMillis: 10_000,
+      })
+    : pool;
   return {
     ...node,
     pool,
+    subscriptionPool,
+    canManageSubscription:
+      Boolean(node.adminUrl) || !usesNeonPooler(node.url),
     database: drizzle(pool, { schema }),
     maxBytes,
   };
@@ -76,6 +103,11 @@ if (failoverEnabled) {
     if (!node.projectId) {
       console.warn(
         `[db-failover] ${node.backend} is configured without its Neon project ID; it cannot be promoted automatically.`,
+      );
+    }
+    if (!node.canManageSubscription) {
+      console.warn(
+        `[db-failover] ${node.backend} uses a Neon pooler URL without a direct subscription-admin URL; promotion is blocked.`,
       );
     }
   }
@@ -193,12 +225,8 @@ async function replicationIsCaughtUp(
   if (!edge) return false;
 
   try {
-    const [
-      subscription,
-      subscriptionTables,
-      publishedTables,
-      publisherTables,
-    ] = await Promise.all([
+    const [subscription, subscriptionTables, publishedTables, publisherTables] =
+      await Promise.all([
       subscriber.pool.query(
         `SELECT subenabled
          FROM pg_subscription
@@ -206,34 +234,61 @@ async function replicationIsCaughtUp(
         [edge.subscriptionName],
       ),
       subscriber.pool.query(
-        `SELECT count(*)::int AS count,
-                coalesce(bool_and(srsubstate = 'r'), false) AS all_ready
+        `SELECT n.nspname AS schema_name,
+                c.relname AS table_name,
+                r.srsubstate = 'r' AS ready
          FROM pg_subscription_rel r
          JOIN pg_subscription s ON s.oid = r.srsubid
+         JOIN pg_class c ON c.oid = r.srrelid
+         JOIN pg_namespace n ON n.oid = c.relnamespace
          WHERE s.subname = $1`,
         [edge.subscriptionName],
       ),
       publisher.pool.query(
-        `SELECT count(*)::int AS count
+        `SELECT schemaname AS schema_name,
+                tablename AS table_name
          FROM pg_publication_tables
-         WHERE pubname = $1`,
+         WHERE pubname = $1
+         ORDER BY schemaname, tablename`,
         [edge.publicationName],
       ),
       publisher.pool.query(
-        `SELECT count(*)::int AS count
+        `SELECT n.nspname AS schema_name,
+                c.relname AS table_name
          FROM pg_class c
          JOIN pg_namespace n ON n.oid = c.relnamespace
          WHERE n.nspname = 'public'
-           AND c.relkind IN ('r', 'p')`,
+           AND c.relkind IN ('r', 'p')
+           AND c.relname <> 'db_failover_state'
+         ORDER BY n.nspname, c.relname`,
       ),
     ]);
 
+    const expectedTables = publisherTables.rows.map(
+      (row: { schema_name: string; table_name: string }) => ({
+        schemaName: row.schema_name,
+        tableName: row.table_name,
+      }),
+    );
+    const publishedTableSet = publishedTables.rows.map(
+      (row: { schema_name: string; table_name: string }) => ({
+        schemaName: row.schema_name,
+        tableName: row.table_name,
+      }),
+    );
+    const subscriptionTableSet = subscriptionTables.rows.map(
+      (row: { schema_name: string; table_name: string }) => ({
+        schemaName: row.schema_name,
+        tableName: row.table_name,
+      }),
+    );
+
     if (
       !subscription.rows[0]?.subenabled ||
-      subscriptionTables.rows[0]?.count < 1 ||
-      !subscriptionTables.rows[0]?.all_ready ||
-      subscriptionTables.rows[0]?.count !== publishedTables.rows[0]?.count ||
-      publishedTables.rows[0]?.count !== publisherTables.rows[0]?.count
+      subscriptionTables.rows.length < 1 ||
+      !subscriptionTables.rows.every((row: { ready: boolean }) => row.ready) ||
+      !replicationTableSetsMatch(expectedTables, publishedTableSet) ||
+      !replicationTableSetsMatch(expectedTables, subscriptionTableSet)
     ) {
       return false;
     }
@@ -260,6 +315,111 @@ async function replicationIsCaughtUp(
       [currentLsn, appliedLsn],
     );
     return difference.rows[0]?.caught_up === true;
+  } catch {
+    return false;
+  }
+}
+
+function quoteIdentifier(identifier: string): string {
+  return `"${identifier.replaceAll('"', '""')}"`;
+}
+
+function qualifiedIdentifier(schema: string, name: string): string {
+  return `${quoteIdentifier(schema)}.${quoteIdentifier(name)}`;
+}
+
+async function readSequenceSnapshots(node: RuntimeNode): Promise<SequenceSnapshot[]> {
+  const sequences = await node.pool.query(
+    `SELECT sequence_ns.nspname AS sequence_schema,
+            seq.relname AS sequence_name,
+            table_ns.nspname AS table_schema,
+            tbl.relname AS table_name,
+            attr.attname AS column_name,
+            cfg.seqstart::text AS start_value,
+            cfg.seqincrement::text AS increment_by,
+            cfg.seqmin::text AS min_value,
+            cfg.seqmax::text AS max_value,
+            cfg.seqcycle AS cycle
+     FROM pg_class seq
+     JOIN pg_namespace sequence_ns ON sequence_ns.oid = seq.relnamespace
+     JOIN pg_sequence cfg ON cfg.seqrelid = seq.oid
+     JOIN pg_depend dep
+       ON dep.classid = 'pg_class'::regclass
+      AND dep.objid = seq.oid
+      AND dep.refclassid = 'pg_class'::regclass
+      AND dep.deptype IN ('a', 'i')
+     JOIN pg_class tbl ON tbl.oid = dep.refobjid
+     JOIN pg_namespace table_ns ON table_ns.oid = tbl.relnamespace
+     JOIN pg_attribute attr
+       ON attr.attrelid = tbl.oid
+      AND attr.attnum = dep.refobjsubid
+      AND NOT attr.attisdropped
+     WHERE seq.relkind = 'S'
+       AND sequence_ns.nspname = 'public'
+       AND table_ns.nspname = 'public'
+     ORDER BY table_ns.nspname, tbl.relname, attr.attname`,
+  );
+
+  return Promise.all(
+    sequences.rows.map(async (row: Record<string, unknown>) => {
+      const sequenceSchema = String(row.sequence_schema);
+      const sequenceName = String(row.sequence_name);
+      const tableSchema = String(row.table_schema);
+      const tableName = String(row.table_name);
+      const columnName = String(row.column_name);
+      const [cursor, max] = await Promise.all([
+        node.pool.query(
+          `SELECT last_value::text AS last_value, is_called
+           FROM ${qualifiedIdentifier(sequenceSchema, sequenceName)}`,
+        ),
+        node.pool.query(
+          `SELECT max(${quoteIdentifier(columnName)})::text AS max_value
+           FROM ${qualifiedIdentifier(tableSchema, tableName)}`,
+        ),
+      ]);
+
+      return {
+        sequenceSchema,
+        sequenceName,
+        tableSchema,
+        tableName,
+        columnName,
+        startValue: String(row.start_value),
+        incrementBy: String(row.increment_by),
+        minValue: String(row.min_value),
+        maxValue: String(row.max_value),
+        cycle: row.cycle === true,
+        lastValue: cursor.rows[0]?.last_value ?? null,
+        isCalled: cursor.rows[0]?.is_called === true,
+        tableMaxValue: max.rows[0]?.max_value ?? null,
+      };
+    }),
+  );
+}
+
+async function synchronizeSequences(
+  publisher: RuntimeNode,
+  subscriber: RuntimeNode,
+): Promise<boolean> {
+  try {
+    const [sourceSequences, targetSequences] = await Promise.all([
+      readSequenceSnapshots(publisher),
+      readSequenceSnapshots(subscriber),
+    ]);
+    const updates = planSequenceSync(sourceSequences, targetSequences);
+    if (!updates) return false;
+
+    for (const update of updates) {
+      await subscriber.pool.query(
+        "SELECT setval($1::regclass, $2::bigint, $3::boolean)",
+        [
+          qualifiedIdentifier(update.sequenceSchema, update.sequenceName),
+          update.value,
+          update.isCalled,
+        ],
+      );
+    }
+    return true;
   } catch {
     return false;
   }
@@ -354,6 +514,26 @@ async function restoreBackendAfterBlockedFailover(
   setActiveBackend(backend);
 }
 
+async function restoreSubscriptionAndBackend(
+  targetNode: RuntimeNode,
+  subscriptionName: string,
+  backend: DatabaseBackend,
+): Promise<boolean> {
+  try {
+    await targetNode.subscriptionPool.query(
+      `ALTER SUBSCRIPTION ${subscriptionName} ENABLE`,
+    );
+    await restoreBackendAfterBlockedFailover(
+      backend,
+      "Automatic switch paused: sequence synchronization failed.",
+    );
+    return true;
+  } catch {
+    setActiveBackend("switching");
+    return false;
+  }
+}
+
 async function performFailover(reason: FailoverReason): Promise<boolean> {
   if (!failoverEnabled) return false;
 
@@ -374,6 +554,12 @@ async function performFailover(reason: FailoverReason): Promise<boolean> {
   }
   const targetNode = nodeForBackend(target.backend);
   if (!targetNode) return false;
+  if (!targetNode.canManageSubscription) {
+    console.warn(
+      `[db-failover] Promotion to ${targetNode.backend} is blocked because its Neon pooler URL cannot manage the subscription; configure the matching *_DIRECT URL.`,
+    );
+    return false;
+  }
   if (!(await stateConstraintAllows(target.backend))) {
     console.warn(
       `[db-failover] Failover to ${target.backend} is blocked until the failover-state migration is applied.`,
@@ -432,7 +618,7 @@ async function performFailover(reason: FailoverReason): Promise<boolean> {
   }
 
   try {
-    await targetNode.pool.query(
+    await targetNode.subscriptionPool.query(
       `ALTER SUBSCRIPTION ${edge.subscriptionName} DISABLE`,
     );
   } catch {
@@ -440,6 +626,24 @@ async function performFailover(reason: FailoverReason): Promise<boolean> {
       current.backend,
       "Automatic switch paused: could not stop replication safely.",
     ).catch(() => setActiveBackend("switching"));
+    return false;
+  }
+
+  if (!(await synchronizeSequences(current, targetNode))) {
+    const restored = await restoreSubscriptionAndBackend(
+      targetNode,
+      edge.subscriptionName,
+      current.backend,
+    );
+    if (!restored) {
+      console.error(
+        "[db-failover] Sequence synchronization failed and the previous backend could not be safely restored; writes remain paused.",
+      );
+    } else {
+      console.warn(
+        `[db-failover] Kept ${current.backend} active because sequence state on ${targetNode.backend} could not be verified.`,
+      );
+    }
     return false;
   }
 
