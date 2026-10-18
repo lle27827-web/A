@@ -4,6 +4,7 @@ import * as schema from "./schema";
 import {
   DATABASE_COMPUTE_LIMIT_SECONDS,
   DATABASE_STORAGE_LIMIT_BYTES,
+  decideFailoverAction,
   hasReachedDatabaseCapacity,
   hasReachedComputeTimeLimit,
   isDatabaseCapacityError,
@@ -260,7 +261,9 @@ async function performFailover(reason: string): Promise<boolean> {
   }
   if (current !== "database_url_1") return false;
 
-  if (!(await waitForStandbyToCatchUp())) {
+  const standbySynchronized = await waitForStandbyToCatchUp();
+  const failoverDecision = decideFailoverAction(true, standbySynchronized);
+  if (failoverDecision === "blocked_not_synchronized") {
     console.warn(
       "[db-failover] Kept DATABASE_URL_1 active because DATABASE_URL is not fully synchronized.",
     );

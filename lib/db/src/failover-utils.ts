@@ -1,6 +1,21 @@
 export const DATABASE_STORAGE_LIMIT_BYTES = 1_000_000_000n;
 export const DATABASE_COMPUTE_LIMIT_SECONDS = 100 * 60 * 60;
 
+export type FailoverDecision =
+  | "stay_primary"
+  | "switch_to_fallback"
+  | "blocked_not_synchronized";
+
+export function decideFailoverAction(
+  thresholdReached: boolean,
+  standbySynchronized: boolean,
+): FailoverDecision {
+  if (!thresholdReached) return "stay_primary";
+  return standbySynchronized
+    ? "switch_to_fallback"
+    : "blocked_not_synchronized";
+}
+
 export function isDatabaseCapacityError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
 
