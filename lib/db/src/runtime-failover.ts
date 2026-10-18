@@ -35,11 +35,11 @@ const capacityLimitBytes =
   parseDatabaseCapacityLimit(process.env.DATABASE_URL_1_MAX_BYTES) ??
   DATABASE_STORAGE_LIMIT_BYTES;
 const neonApiKey = process.env.NEON_API_KEY?.trim();
-const neonProjectId = process.env.NEON_PROJECT_ID?.trim();
+const neonProjectId = process.env.NEON_PROJECT_ID_1?.trim();
 
 if (failoverEnabled && (!neonApiKey || !neonProjectId)) {
   console.warn(
-    "[db-failover] Neon CU-hour monitoring is disabled until NEON_API_KEY and NEON_PROJECT_ID are configured.",
+    "[db-failover] Neon CU-hour monitoring is disabled until NEON_API_KEY and NEON_PROJECT_ID_1 are configured.",
   );
 }
 const sourcePool = new pg.Pool({
