@@ -315,6 +315,20 @@ export interface AttendanceSummary {
   checkedOut: number;
 }
 
+export interface RetentionYearSummary {
+  year: number;
+  attendanceCount: number;
+  serviceSessionCount: number;
+  cardUseCount: number;
+}
+
+export interface RetentionYearDeleteResult {
+  year: number;
+  deletedAttendance: number;
+  deletedServiceSessions: number;
+  archivedCardUses: number;
+}
+
 export type MemberRecordHistoricalNameSource = typeof MemberRecordHistoricalNameSource[keyof typeof MemberRecordHistoricalNameSource];
 
 

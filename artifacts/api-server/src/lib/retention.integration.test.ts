@@ -21,7 +21,7 @@ test("retention archives card use atomically and never refunds used minutes", {
   delete process.env.NEON_DB1_DIRECT_URL;
   delete process.env.NEON_SOURCE_DIRECT_URL;
 
-  const [{ db, pool }, { cleanupExpiredHistory }] = await Promise.all([
+  const [{ db, pool }, { cleanupExpiredHistory, deleteFacilityHistoryYear, listFacilityHistoryYears }] = await Promise.all([
     import("@workspace/db"),
     import("./retention"),
   ]);
@@ -69,6 +69,8 @@ test("retention archives card use atomically and never refunds used minutes", {
     }
 
     const cutoff = retentionCutoffDate();
+    const cutoffYear = Number(cutoff.slice(0, 4));
+    const otherYear = cutoffYear + 1;
     const beforeCutoff = new Date(`${cutoff}T00:00:00.000Z`);
     beforeCutoff.setUTCDate(beforeCutoff.getUTCDate() - 1);
     const oldDate = beforeCutoff.toISOString().slice(0, 10);
@@ -95,8 +97,10 @@ test("retention archives card use atomically and never refunds used minutes", {
     await insertSession(null, oldDate, 60, "old walk-in");
     await insertSession(1, cutoff, 15, "retained card use");
     await insertSession(null, cutoff, 20, "retained walk-in");
-    await setupPool.query("INSERT INTO public.attendance (work_date) VALUES ($1), ($2)", [oldDate, cutoff]);
-    await setupPool.query("INSERT INTO public.personal_sessions (work_date) VALUES ($1), ($2)", [oldDate, cutoff]);
+    await insertSession(1, `${otherYear}-06-01`, 10, "other year card use");
+    await insertSession(null, `${otherYear}-06-01`, 5, "other year walk-in");
+    await setupPool.query("INSERT INTO public.attendance (work_date) VALUES ($1), ($2), ($3)", [oldDate, cutoff, `${otherYear}-06-01`]);
+    await setupPool.query("INSERT INTO public.personal_sessions (work_date) VALUES ($1), ($2), ($3)", [oldDate, cutoff, `${otherYear}-06-01`]);
 
     await setupPool.query(`
       CREATE FUNCTION public.fail_retention_session_delete() RETURNS trigger AS $$
@@ -111,7 +115,7 @@ test("retention archives card use atomically and never refunds used minutes", {
       return cause instanceof Error && cause.message.includes("intentional isolated rollback test");
     });
     assert.equal(Number((await setupPool.query("SELECT count(*) AS count FROM public.card_usage_history")).rows[0].count), 0);
-    assert.equal(Number((await setupPool.query("SELECT count(*) AS count FROM public.service_sessions")).rows[0].count), 4);
+    assert.equal(Number((await setupPool.query("SELECT count(*) AS count FROM public.service_sessions")).rows[0].count), 6);
     await setupPool.query(`
       DROP TRIGGER fail_retention_session_delete ON public.service_sessions;
       DROP FUNCTION public.fail_retention_session_delete();
@@ -151,7 +155,7 @@ test("retention archives card use atomically and never refunds used minutes", {
         AS remaining
       FROM public.treatment_cards WHERE id = 1
     `);
-    assert.equal(Number(balance.rows[0].remaining), 75);
+    assert.equal(Number(balance.rows[0].remaining), 65);
 
     const rerun = await cleanupExpiredHistory();
     assert.deepEqual(rerun, {
@@ -161,6 +165,38 @@ test("retention archives card use atomically and never refunds used minutes", {
       deletedAttendance: 0,
       deletedPersonalSessions: 0,
     });
+
+    assert.deepEqual(await listFacilityHistoryYears(), [
+      { year: otherYear, attendanceCount: 1, serviceSessionCount: 2, cardUseCount: 1 },
+      { year: cutoffYear, attendanceCount: 1, serviceSessionCount: 2, cardUseCount: 1 },
+    ]);
+
+    const deletedYear = await deleteFacilityHistoryYear(cutoffYear);
+    assert.deepEqual(deletedYear, {
+      year: cutoffYear,
+      deletedAttendance: 1,
+      deletedServiceSessions: 2,
+      archivedCardUses: 1,
+    });
+    assert.equal(Number((await setupPool.query("SELECT count(*) AS count FROM public.personal_sessions")).rows[0].count), 2);
+    assert.equal(Number((await setupPool.query("SELECT count(*) AS count FROM public.service_sessions")).rows[0].count), 2);
+    assert.equal(Number((await setupPool.query("SELECT count(*) AS count FROM public.card_usage_history")).rows[0].count), 2);
+    assert.equal(Number((await setupPool.query(
+      "SELECT count(*) AS count FROM public.attendance WHERE extract(year FROM work_date) = $1",
+      [otherYear],
+    )).rows[0].count), 1);
+
+    const balanceAfterYearDelete = await setupPool.query(`
+      SELECT total_minutes
+        - (SELECT coalesce(sum(minutes), 0) FROM public.card_usage_history WHERE card_id = 1)
+        - (SELECT coalesce(sum(minutes), 0) FROM public.service_sessions WHERE card_id = 1)
+        AS remaining
+      FROM public.treatment_cards WHERE id = 1
+    `);
+    assert.equal(Number(balanceAfterYearDelete.rows[0].remaining), 65);
+    assert.deepEqual(await listFacilityHistoryYears(), [
+      { year: otherYear, attendanceCount: 1, serviceSessionCount: 2, cardUseCount: 1 },
+    ]);
   } finally {
     await pool.end();
   }

@@ -52,6 +52,8 @@ export * from './personalSettingsInput';
 export * from './personalSyncInput';
 export * from './personalSyncInputScope';
 export * from './personalSyncResult';
+export * from './retentionYearDeleteResult';
+export * from './retentionYearSummary';
 export * from './serviceSession';
 export * from './serviceSessionInput';
 export * from './serviceTypeInput';

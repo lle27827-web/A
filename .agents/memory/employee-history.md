@@ -26,3 +26,9 @@ Facility and personal attendance/work-session history is retained for a rolling 
 **Why:** the user requires employee work history to expire after five years but customer card balances and complete card-use history to remain indefinitely.
 
 **How to apply:** calculate the cutoff by Vietnam calendar date; archive card-backed sessions and delete the source rows in one transaction. Keep archived snapshots out of employee payroll/history views, include them in card balances and card detail history, and retain the used-card deletion restriction.
+
+Manual year-based history deletion is facility-only. Preserve personal notebook sessions and permanent card-use history; archive card-backed facility sessions before deleting their source records, without changing card balances or consumed minutes.
+
+**Why:** the user confirmed that choosing a year to delete applies only to facility history and must keep the personal notebook and card-use ledger.
+
+**How to apply:** keep this boundary in both the owner-only Settings flow and the server transaction for manual annual deletion.

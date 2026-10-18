@@ -12,6 +12,38 @@ export const ListHistoryMonthsResponseItem = zod.string()
 export const ListHistoryMonthsResponse = zod.array(ListHistoryMonthsResponseItem)
 
 
+/**
+ * @summary Liệt kê năm có lịch sử chấm công cơ sở
+ */
+export const ListRetentionYearsResponseItem = zod.object({
+  "year": zod.number().int(),
+  "attendanceCount": zod.number().int(),
+  "serviceSessionCount": zod.number().int(),
+  "cardUseCount": zod.number().int()
+})
+export const ListRetentionYearsResponse = zod.array(ListRetentionYearsResponseItem)
+
+
+/**
+ * @summary Xóa lịch sử chấm công cơ sở trong một năm
+ */
+export const deleteRetentionYearPathYearMin = 1900;
+export const deleteRetentionYearPathYearMax = 2100;
+
+
+
+export const DeleteRetentionYearParams = zod.object({
+  "year": zod.coerce.number().int().min(deleteRetentionYearPathYearMin).max(deleteRetentionYearPathYearMax)
+})
+
+export const DeleteRetentionYearResponse = zod.object({
+  "year": zod.number().int(),
+  "deletedAttendance": zod.number().int(),
+  "deletedServiceSessions": zod.number().int(),
+  "archivedCardUses": zod.number().int()
+})
+
+
 export const UpdatePersonalSettingsBody = zod.object({
   "useFacilityRates": zod.boolean()
 })

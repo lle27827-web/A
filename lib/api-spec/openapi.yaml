@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: attendance
     description: Chấm công
+  - name: retention
+    description: Lưu trữ lịch sử
   - name: members
     description: Thành viên
 paths:
@@ -24,6 +26,37 @@ paths:
           content:
             application/json:
               schema: { type: array, items: { type: string } }
+  /retention/years:
+    get:
+      operationId: listRetentionYears
+      tags: [retention]
+      summary: Liệt kê năm có lịch sử chấm công cơ sở
+      responses:
+        "200":
+          description: Số liệu lịch sử cơ sở theo năm
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/RetentionYearSummary" }
+  /retention/years/{year}:
+    delete:
+      operationId: deleteRetentionYear
+      tags: [retention]
+      summary: Xóa lịch sử chấm công cơ sở trong một năm
+      parameters:
+        - in: path
+          name: year
+          required: true
+          schema: { type: integer, minimum: 1900, maximum: 2100 }
+      responses:
+        "200":
+          description: Đã xóa lịch sử cơ sở và lưu nhật ký dùng thẻ
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RetentionYearDeleteResult" }
+        "400": { description: Năm không hợp lệ }
+        "404": { description: Năm này không còn lịch sử chấm công cơ sở }
   /personal/settings:
     put:
       operationId: updatePersonalSettings
@@ -947,6 +980,22 @@ components:
         checkedOut:
           type: integer
       required: [date, total, present, late, absent, leave, checkedIn, checkedOut]
+    RetentionYearSummary:
+      type: object
+      required: [year, attendanceCount, serviceSessionCount, cardUseCount]
+      properties:
+        year: { type: integer }
+        attendanceCount: { type: integer }
+        serviceSessionCount: { type: integer }
+        cardUseCount: { type: integer }
+    RetentionYearDeleteResult:
+      type: object
+      required: [year, deletedAttendance, deletedServiceSessions, archivedCardUses]
+      properties:
+        year: { type: integer }
+        deletedAttendance: { type: integer }
+        deletedServiceSessions: { type: integer }
+        archivedCardUses: { type: integer }
     MemberRecord:
       type: object
       properties:

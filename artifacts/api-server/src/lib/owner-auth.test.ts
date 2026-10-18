@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Request, Response } from "express";
-import { apiAuthorizationGate, isPublicEmployeeRead } from "./owner-auth";
+import { apiAuthorizationGate, isPublicEmployeeRead, managerRequestAllowed } from "./owner-auth";
+import { ownerPermissions } from "./facility-permissions";
 
 function request(method: string, path: string, query: Record<string, unknown> = {}): Request {
   return { method, path, query } as Request;
@@ -74,4 +75,10 @@ test("all guest write methods remain private", () => {
   assert.equal(isPublicEmployeeRead(request("POST", "/members")), false);
   assert.equal(isPublicEmployeeRead(request("PATCH", "/attendance/4")), false);
   assert.equal(isPublicEmployeeRead(request("DELETE", "/service-sessions/12")), false);
+});
+
+test("yearly history deletion is reserved for the owner", async () => {
+  const maximumManagerPermissions = ownerPermissions();
+  assert.equal(await managerRequestAllowed(request("GET", "/retention/years"), maximumManagerPermissions), false);
+  assert.equal(await managerRequestAllowed(request("DELETE", "/retention/years/2025"), maximumManagerPermissions), false);
 });

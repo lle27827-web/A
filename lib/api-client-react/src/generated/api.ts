@@ -53,6 +53,8 @@ import type {
   PersonalSettingsInput,
   PersonalSyncInput,
   PersonalSyncResult,
+  RetentionYearDeleteResult,
+  RetentionYearSummary,
   ServiceSession,
   ServiceSessionInput,
   ServiceTypeInput,
@@ -159,6 +161,157 @@ export function useListHistoryMonths<TData = Awaited<ReturnType<typeof listHisto
 
 
 
+
+export const getListRetentionYearsUrl = () => {
+
+
+
+
+  return `/api/retention/years`
+}
+
+/**
+ * @summary Liệt kê năm có lịch sử chấm công cơ sở
+ */
+export const listRetentionYears = async ( options?: Parameters<typeof customFetch>[1]): Promise<RetentionYearSummary[]> => {
+
+  return customFetch<RetentionYearSummary[]>(getListRetentionYearsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRetentionYearsQueryKey = () => {
+    return [
+    `/api/retention/years`
+    ] as const;
+    }
+
+
+export const getListRetentionYearsQueryOptions = <TData = Awaited<ReturnType<typeof listRetentionYears>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRetentionYears>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRetentionYearsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRetentionYears>>> = ({ signal }) => listRetentionYears({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRetentionYears>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRetentionYearsQueryResult = NonNullable<Awaited<ReturnType<typeof listRetentionYears>>>
+export type ListRetentionYearsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Liệt kê năm có lịch sử chấm công cơ sở
+ */
+
+export function useListRetentionYears<TData = Awaited<ReturnType<typeof listRetentionYears>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRetentionYears>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRetentionYearsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDeleteRetentionYearUrl = (year: number,) => {
+
+
+
+
+  return `/api/retention/years/${year}`
+}
+
+/**
+ * @summary Xóa lịch sử chấm công cơ sở trong một năm
+ */
+export const deleteRetentionYear = async (year: number, options?: Parameters<typeof customFetch>[1]): Promise<RetentionYearDeleteResult> => {
+
+  return customFetch<RetentionYearDeleteResult>(getDeleteRetentionYearUrl(year),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteRetentionYearMutationKey = () => ['deleteRetentionYear'] as const;
+
+export const getDeleteRetentionYearMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRetentionYear>>, TError,DeleteRetentionYearMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteRetentionYear>>, TError,DeleteRetentionYearMutationVariables, TContext> => {
+
+const mutationKey = getDeleteRetentionYearMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRetentionYear>>, DeleteRetentionYearMutationVariables> = (props) => {
+          const {year} = props ?? {};
+
+          return  deleteRetentionYear(year,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteRetentionYearMutationResult = NonNullable<Awaited<ReturnType<typeof deleteRetentionYear>>>
+
+    export type DeleteRetentionYearMutationError = ErrorType<void>
+    export type DeleteRetentionYearMutationVariables = {year: number}
+
+    /**
+ * @summary Xóa lịch sử chấm công cơ sở trong một năm
+ */
+export const useDeleteRetentionYear = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRetentionYear>>, TError,DeleteRetentionYearMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteRetentionYear>>,
+        TError,
+        DeleteRetentionYearMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteRetentionYearMutationOptions(options));
+    }
 
 export const getUpdatePersonalSettingsUrl = () => {
 
