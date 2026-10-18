@@ -128,7 +128,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
       {sessionsQuery.isLoading ? <Skeleton rows={3} label="Đang tải ca phục vụ" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được ca phục vụ." onRetry={() => void sessionsQuery.refetch()} /> : daySessions.length === 0 ? (
         <div className="empty small"><CalendarDays size={18} /><p>Chưa có ca được ghi trong ngày này.</p></div>
       ) : (
-          <SessionRows sessions={daySessions} title={`Ca phục vụ ngày ${formatShortDate(day)}`} canEditRow={canEditSession} linkCards={shell.permissions.viewCards} busy={deleteSession.isPending}
+          <SessionRows sessions={daySessions} title={`Ca phục vụ ngày ${formatShortDate(day)}`} canEditRow={canEditSession} linkCards={shell.permissions.viewCards && !historyMonth} busy={deleteSession.isPending}
           onEdit={(s) => { setDialogError(''); setSessionDialog({ session: s }); }} onDelete={askDeleteSession} testId="day-sessions" />
       )}
       {canEdit && (

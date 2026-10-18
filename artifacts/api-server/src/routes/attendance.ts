@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, asc, count, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import {
   CreateAttendanceBody,
   CreateAttendanceResponse,
@@ -12,6 +12,7 @@ import {
   UpdateAttendanceParams,
   UpdateAttendanceResponse,
 } from "@workspace/api-zod";
+import { isWithinRetention, retentionCutoffDate } from "../lib/retention-window";
 import {
   db,
   attendanceTable,
@@ -50,8 +51,14 @@ router.get("/attendance", async (req, res): Promise<void> => {
 
   const filters = [];
   const permissions = (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.permissions ?? noPermissions();
+  const cutoff = retentionCutoffDate();
+  filters.push(gte(attendanceTable.workDate, cutoff));
   if (!permissions.allEmployees) filters.push(inArray(attendanceTable.memberId, permissions.employeeIds));
   if (query.data.date) {
+    if (!isWithinRetention(query.data.date)) {
+      res.status(400).json({ error: "Chỉ xem lịch sử chấm công trong 5 năm gần nhất." });
+      return;
+    }
     filters.push(eq(attendanceTable.workDate, query.data.date));
   }
   if (query.data.status) {
@@ -88,6 +95,10 @@ router.get("/attendance/summary", async (req, res): Promise<void> => {
   }
 
   const workDate = query.data.date;
+  if (!isWithinRetention(workDate)) {
+    res.status(400).json({ error: "Chỉ xem lịch sử chấm công trong 5 năm gần nhất." });
+    return;
+  }
   const permissions = (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.permissions ?? noPermissions();
   const [row] = await db
     .select({
@@ -119,6 +130,10 @@ router.post("/attendance", async (req, res): Promise<void> => {
   const parsed = CreateAttendanceBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  if (!isWithinRetention(parsed.data.workDate)) {
+    res.status(400).json({ error: "Chỉ ghi chấm công trong 5 năm gần nhất." });
     return;
   }
 
@@ -161,6 +176,10 @@ router.patch("/attendance/:id", async (req, res): Promise<void> => {
     });
     return;
   }
+  if (parsed.data.workDate !== undefined && !isWithinRetention(parsed.data.workDate)) {
+    res.status(400).json({ error: "Chỉ ghi chấm công trong 5 năm gần nhất." });
+    return;
+  }
 
   const update: Partial<AttendanceWrite> = {};
   if (parsed.data.employeeName !== undefined) update.employeeName = parsed.data.employeeName;
@@ -187,6 +206,7 @@ router.patch("/attendance/:id", async (req, res): Promise<void> => {
     .update(attendanceTable)
     .set(update)
     .where(and(eq(attendanceTable.id, params.data.id),
+      gte(attendanceTable.workDate, retentionCutoffDate()),
       res.locals.facilityAuth?.permissions.allEmployees ? undefined
         : inArray(attendanceTable.memberId, res.locals.facilityAuth?.permissions.employeeIds ?? [])))
     .returning();

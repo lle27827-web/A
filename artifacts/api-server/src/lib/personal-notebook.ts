@@ -2,8 +2,9 @@ import { and, asc, desc, eq, gte, isNull, isNotNull, lt, sql } from "drizzle-orm
 import { db, personalServicesTable as services, personalSessionsTable as sessions,
   personalSettingsTable } from "@workspace/db";
 import type { PersonalServiceInput, PersonalSessionInput } from "@workspace/api-zod";
-import { MassageError, monthBounds, validDate } from "./massage";
+import { MassageError, retainedDate, retainedMonthBounds } from "./massage";
 import { lockPersonal, personalSettings, refreshFacilityServices } from "./personal-data";
+import { retentionCutoffDate } from "./retention-window";
 export { getPersonalComparison } from "./personal-comparison";
 
 const owned = (userId: string) => {
@@ -15,8 +16,8 @@ const sessionResult = ({ userId: _userId, requestId: _requestId, ...row }: typeo
 const missing = () => new MassageError(404, "Không tìm thấy dữ liệu trong sổ cá nhân.");
 
 function period(month: string, date: string) {
-  const bounds = monthBounds(month);
-  validDate(date);
+  const bounds = retainedMonthBounds(month);
+  retainedDate(date);
   if (date.slice(0, 7) !== month) throw new MassageError(400, "Ngày cần nằm trong tháng đã chọn.");
   return bounds;
 }
@@ -51,7 +52,7 @@ export async function deletePersonalService(userId: string, id: number) {
 }
 export async function savePersonalSession(userId: string, input: PersonalSessionInput, id?: number) {
   owned(userId);
-  validDate(input.workDate);
+  retainedDate(input.workDate);
   if (!Number.isInteger(input.minutes) || input.minutes < 1 || input.minutes > 1440 || input.note.length > 2000) {
     throw new MassageError(400, "Số phút hoặc ghi chú không hợp lệ.");
   }
@@ -106,7 +107,8 @@ export async function getPersonalNotebook(userId: string, month: string, date: s
   const sessionRows = await tx.select().from(sessions).where(and(eq(sessions.userId, userId),
     gte(sessions.workDate, start), lt(sessions.workDate, end))).orderBy(desc(sessions.workDate), desc(sessions.id));
   const monthRows = await tx.selectDistinct({ month: sql<string>`to_char(${sessions.workDate}, 'YYYY-MM')` }).from(sessions)
-    .where(eq(sessions.userId, userId)).orderBy(desc(sql`to_char(${sessions.workDate}, 'YYYY-MM')`));
+    .where(and(eq(sessions.userId, userId), gte(sessions.workDate, retentionCutoffDate())))
+    .orderBy(desc(sql`to_char(${sessions.workDate}, 'YYYY-MM')`));
   return { month, date, useFacilityRates, services: serviceRows.map(serviceResult), sessions: sessionRows.map(sessionResult),
     totalDay: sessionRows.filter((row) => row.workDate === date).reduce((sum, row) => sum + row.earnings, 0),
     totalMonth: sessionRows.reduce((sum, row) => sum + row.earnings, 0), months: monthRows.map((row) => row.month) };

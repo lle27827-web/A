@@ -9,6 +9,7 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:auth": "esbuild src/lib/owner-auth.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-auth-tests.cjs && node --test /tmp/so-cong-auth-tests.cjs",
+    "test:retention": "esbuild src/lib/retention-*.test.ts --bundle --platform=node --format=cjs --outdir=/tmp/so-cong-retention-tests && node --test /tmp/so-cong-retention-tests/*.test.js",
     "test:permissions": "esbuild src/lib/facility-permissions.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-permission-tests.cjs && node --test /tmp/so-cong-permission-tests.cjs",
     "test:massage": "esbuild src/lib/massage.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/cung-lam-massage-tests.cjs && node --test /tmp/cung-lam-massage-tests.cjs",
     "test:revenue": "esbuild src/lib/facility-revenue.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-revenue-tests.cjs && node --test /tmp/so-cong-revenue-tests.cjs",
@@ -17,7 +18,8 @@
     "test:personal": "esbuild src/lib/personal-notebook.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-personal-tests.cjs && node --test /tmp/so-cong-personal-tests.cjs",
     "test:personal-sync": "esbuild src/lib/personal-sync.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-personal-sync-tests.cjs && node --test /tmp/so-cong-personal-sync-tests.cjs",
     "test:card-merge": "esbuild src/lib/card-merge.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-card-merge-tests.cjs && node --test /tmp/so-cong-card-merge-tests.cjs",
-    "test:appointments": "esbuild src/routes/appointments.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-appointments-tests.cjs && node --test /tmp/so-cong-appointments-tests.cjs"
+    "test:appointments": "esbuild src/routes/appointments.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-appointments-tests.cjs && node --test /tmp/so-cong-appointments-tests.cjs",
+    "test:database-failover": "esbuild src/lib/database-failover.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-database-failover-tests.cjs && node --test /tmp/so-cong-database-failover-tests.cjs"
   },
   "dependencies": {
     "@clerk/backend": "^3.23.2",

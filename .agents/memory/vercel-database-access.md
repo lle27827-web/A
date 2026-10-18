@@ -9,8 +9,8 @@ Replit-managed PostgreSQL is not externally accessible from Vercel; its injected
 
 **How to apply:** For Vercel, provision an external PostgreSQL database, apply the app schema, and configure its URL in Vercel's environment settings. Copy existing data separately if needed. Never put the database URL in source control or chat.
 
-For this app, Vercel's active database is the Neon project configured as `DATABASE_URL`; `DATABASE_URL_1` is a separate Neon project, not yet synchronized.
+For this app, the existing Vercel data is in one Neon project and `DATABASE_URL_1` is a separate Neon project. Initial data/schema synchronization and ongoing logical replication were verified in both directions. The intended arrangement is `DATABASE_URL_1` as primary and `DATABASE_URL` as fallback.
 
-**Why:** The user confirmed these are distinct Neon projects and that `DATABASE_URL` contains the current Vercel data. Switching to the other project before synchronizing would split writes and hide existing records.
+**Why:** The user confirmed the projects are separate, the current Vercel records are in `DATABASE_URL`, and requested automatic fallback to that database if `DATABASE_URL_1` fills. Switching before synchronization would split writes or hide records.
 
-**How to apply:** Keep `DATABASE_URL` authoritative until the standby has the full schema and initial data plus verified ongoing replication. Only then implement and test failover.
+**How to apply:** Keep both database variables configured in Vercel and do not claim production has switched until the failover-capable code is deployed there. Replit secrets do not automatically configure Vercel. A proactive size check requires `DATABASE_URL_1_MAX_BYTES`; if it is unset, only a database capacity error can trigger failover. Failover must stop unless the fallback is fully synchronized.

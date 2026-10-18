@@ -10,18 +10,19 @@ import { SESSION_FRESHNESS, cardMatches, formatMinutes, formatMonth } from '@/li
 /** Shared global search results, rendered first in AppShell main whenever the shared query is non-empty. */
 export function SearchResults() {
   const shell = useShell();
-  const { query, setQuery, members, membersLoading, membersError, retryMembers, permissions, canViewEmployees, employeeMode } = shell;
+  const { query, setQuery, members, membersLoading, membersError, retryMembers, permissions, canViewEmployees, employeeMode, historyMonth } = shell;
   const raw = query.trim();
   const searching = raw.length > 0;
+  const canSearchCards = permissions.viewCards && !historyMonth;
   const month = shell.period.month;
   const { withHistory } = shell;
-  const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), enabled: searching && permissions.viewCards, refetchOnWindowFocus: true } });
+  const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), enabled: searching && canSearchCards, refetchOnWindowFocus: true } });
   const sessionParams = useMemo(() => ({ month }), [month]);
   const sessionsQuery = useListServiceSessions(sessionParams, { query: { queryKey: getListServiceSessionsQueryKey(sessionParams), enabled: searching && canViewEmployees, ...SESSION_FRESHNESS } });
 
   const q = normalize(raw);
   const memberHits = useMemo(() => (searching ? members.filter((m) => normalize(m.name).includes(q)) : []), [members, q, searching]);
-  const cardHits = useMemo(() => (searching ? (cardsQuery.data ?? []).filter((c) => cardMatches(c, raw, normalize) || normalize(c.serviceType).includes(q)) : []), [cardsQuery.data, raw, q, searching]);
+  const cardHits = useMemo(() => (searching && canSearchCards ? (cardsQuery.data ?? []).filter((c) => cardMatches(c, raw, normalize) || normalize(c.serviceType).includes(q)) : []), [cardsQuery.data, canSearchCards, raw, q, searching]);
   const sessionHits = useMemo(() => (searching ? (sessionsQuery.data ?? []).filter((s) => normalize([s.employeeName, s.customerName, s.serviceType, formatShortDate(s.workDate)].join(' ')).includes(q)) : []), [sessionsQuery.data, q, searching]);
 
   if (!searching) return null;
@@ -64,7 +65,7 @@ export function SearchResults() {
       </div>
     ) },
   ];
-  const groups = allGroups.filter((group) => group.key === 'cards' ? permissions.viewCards : canViewEmployees);
+  const groups = allGroups.filter((group) => group.key === 'cards' ? canSearchCards : canViewEmployees);
   // Groups with hits first (customer cards prioritised), then loading/error, then empty ones.
   const ordered = [...groups].sort((a, b) => Number(b.hits > 0) - Number(a.hits > 0) || Number(b.loading) - Number(a.loading));
   const anyLoading = groups.some((g) => g.loading);
@@ -75,7 +76,7 @@ export function SearchResults() {
     <section className="panel search-results" aria-labelledby="search-title" data-testid="section-search-results">
       <div className="panel-head wrap">
         <div><h2 id="search-title">Kết quả cho “{raw}”</h2>
-          <p className="sub" aria-live="polite">{anyLoading ? 'Đang tìm…' : [permissions.viewCards && `${cardHits.length} thẻ`, canViewEmployees && `${memberHits.length} nhân viên · ${sessionHits.length} ca`].filter(Boolean).join(' · ')}</p></div>
+          <p className="sub" aria-live="polite">{anyLoading ? 'Đang tìm…' : [canSearchCards && `${cardHits.length} thẻ`, canViewEmployees && `${memberHits.length} nhân viên · ${sessionHits.length} ca`].filter(Boolean).join(' · ')}</p></div>
         <button type="button" className="btn small ghost" onClick={() => setQuery('')} data-testid="button-clear-results"><X size={14} />Xóa tìm kiếm</button>
       </div>
       {!anyLoading && !anyError && total === 0 ? (

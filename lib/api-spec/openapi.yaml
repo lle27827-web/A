@@ -1059,7 +1059,7 @@ components:
         hourlyRate: { type: integer, minimum: 1, maximum: 10000000 }
     ServiceSession:
       type: object
-      required: [id, cardId, memberId, employeeName, customerName, serviceType, serviceTypeId, workDate, minutes, customerHourlyRate, customerCharge, hourlyRate, earnings, note, createdAt]
+      required: [id, cardId, memberId, employeeName, customerName, serviceType, serviceTypeId, workDate, minutes, customerHourlyRate, customerCharge, hourlyRate, earnings, note, createdAt, archived]
       properties:
         id: { type: integer }
         cardId: { type: ["integer", "null"] }
@@ -1076,6 +1076,7 @@ components:
         earnings: { type: integer }
         note: { type: string }
         createdAt: { type: string, format: date-time }
+        archived: { type: boolean }
     ServiceSessionInput:
       type: object
       required: [memberId, workDate, minutes]

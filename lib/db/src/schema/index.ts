@@ -23,6 +23,7 @@ export * from "./member-versions";
 export * from "./attendance";
 export * from "./treatment-cards";
 export * from "./card-topups";
+export * from "./card-usage-history";
 export * from "./service-sessions";
 export * from "./service-types";
 export * from "./manager-grants";

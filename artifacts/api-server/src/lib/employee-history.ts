@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { db, membersTable, memberVersionsTable, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
 import type { MemberInput, MemberRecord, MemberUpdate } from "@workspace/api-zod";
-import { MassageError, monthBounds } from "./massage";
+import { MassageError, retainedMonthBounds } from "./massage";
 
 function memberResponse(member: typeof membersTable.$inferSelect) {
   return { ...member, createdAt: member.createdAt.toISOString(), deletedAt: member.deletedAt?.toISOString() ?? null };
@@ -16,7 +16,7 @@ export async function listMembersForPeriod(month?: string, memberId?: number): P
       .orderBy(asc(membersTable.name));
     return rows.map(memberResponse);
   }
-  const { start, end } = monthBounds(month);
+  const { start, end } = retainedMonthBounds(month);
   const startInstant = new Date(`${start}T00:00:00+07:00`);
   const endInstant = new Date(`${end}T00:00:00+07:00`);
   return db.transaction(async (tx) => {

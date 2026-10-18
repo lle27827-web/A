@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { cardTopUpsTable, db, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
-import { monthBounds, validDate } from "./massage";
+import { retainedDate, retainedMonthBounds } from "./massage";
 
 /** Card-session wages remain in payroll but do not change this owner-defined revenue metric. */
 function revenueTotals(walkInCharges: number, cardPayments: number, walkInWages: number) {
@@ -10,8 +10,8 @@ function revenueTotals(walkInCharges: number, cardPayments: number, walkInWages:
 
 /** Gross revenue recognizes walk-in service charges and card sales, not card redemptions. */
 export async function getFacilityRevenue(month: string, requestedDate?: string) {
-  const { start, end } = monthBounds(month);
-  const date = validDate(requestedDate ?? new Intl.DateTimeFormat("en-CA", {
+  const { start, end } = retainedMonthBounds(month);
+  const date = retainedDate(requestedDate ?? new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(new Date()));
   const topSoldCardServiceType = sql<string | null>`(

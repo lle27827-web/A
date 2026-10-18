@@ -186,7 +186,7 @@ export function AppShell({
               <VoiceInput id="global-search" type="search" value={query}
                 onChange={(event) => setQuery(event.target.value)} autoComplete="off"
                 data-testid="input-global-search"
-                placeholder={employeeMode ? 'Tìm khách, dịch vụ trong tháng...' : permissions.viewCards && canViewEmployees ? 'Tìm nhân viên, khách, số điện thoại, dịch vụ...' : permissions.viewCards ? 'Tìm khách, số điện thoại...' : 'Tìm nhân viên, khách, dịch vụ...'} />
+                placeholder={historyMonth ? 'Tìm nhân viên, ca dịch vụ trong tháng...' : employeeMode ? 'Tìm khách, dịch vụ trong tháng...' : permissions.viewCards && canViewEmployees ? 'Tìm nhân viên, khách, số điện thoại, dịch vụ...' : permissions.viewCards ? 'Tìm khách, số điện thoại...' : 'Tìm nhân viên, khách, dịch vụ...'} />
               {query && <button type="button" className="icon-btn" onClick={() => setQuery('')}
                 aria-label="Xóa tìm kiếm" data-testid="button-clear-search"><X size={15} /></button>}
             </form>
@@ -206,7 +206,7 @@ export function AppShell({
           {historyMonth && employeeRoute && (
             <div className="banner soft history-banner" role="status" data-testid="status-history-mode">
               <History size={15} aria-hidden="true" />
-              <span><strong>Lịch sử {formatMonth(historyMonth).toLowerCase()}</strong> · chỉ xem, không thể thêm, sửa hay xóa.</span>
+              <span><strong>Lịch sử {formatMonth(historyMonth).toLowerCase()}</strong> · chỉ xem.</span>
               <label className="history-month">
                 <span className="sr-only">Chọn tháng lịch sử</span>
                 <input type="month" value={historyMonth} max={resolved.currentMonth} data-testid="input-history-month"

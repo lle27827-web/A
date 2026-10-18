@@ -4,7 +4,7 @@ import { db, personalServicesTable as services, personalSessionsTable as session
   serviceSessionsTable as visits, treatmentCardsTable as cards } from "@workspace/db";
 import type { PersonalComparisonVisit, PersonalDiscrepancy, PersonalSyncInput } from "@workspace/api-zod";
 import { listMembersForPeriod } from "./employee-history";
-import { MassageError, monthBounds, validDate } from "./massage";
+import { MassageError, retainedDate, retainedMonthBounds } from "./massage";
 import { lockPersonal, personalSettings, refreshFacilityServices, type PersonalTx } from "./personal-data";
 
 type Visit = PersonalComparisonVisit;
@@ -30,8 +30,8 @@ export function comparePersonalVisits(personal: Visit[], reference: Visit[]): Pe
   });
 }
 async function comparisonSnapshot(tx: PersonalTx, userId: string, memberId: number, month: string, date: string) {
-  const { start, end } = monthBounds(month);
-  validDate(date);
+  const { start, end } = retainedMonthBounds(month);
+  retainedDate(date);
   if (!userId) throw new MassageError(401, "Vui lòng đăng nhập.");
   if (date.slice(0, 7) !== month) throw new MassageError(400, "Ngày cần nằm trong tháng đã chọn.");
   const [member] = await listMembersForPeriod(month, memberId);
@@ -77,7 +77,7 @@ export async function syncPersonalNotebook(userId: string, input: PersonalSyncIn
     const snapshot = await comparisonSnapshot(tx, userId, input.memberId, input.month, input.date);
     const expected = input.scope === "day" ? snapshot.report.revisionDay : snapshot.report.revisionMonth;
     if (input.revision !== expected) throw new MassageError(409, "Dữ liệu đã thay đổi. Hãy tải lại đối chiếu và xác nhận lại trước khi thay thế.");
-    const { start, end } = monthBounds(input.month);
+    const { start, end } = retainedMonthBounds(input.month);
     const predicate = and(eq(sessions.userId, userId), input.scope === "day" ? eq(sessions.workDate, input.date)
       : and(gte(sessions.workDate, start), lt(sessions.workDate, end)));
     const removed = await tx.delete(sessions).where(predicate).returning({ id: sessions.id });

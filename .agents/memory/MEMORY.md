@@ -1,16 +1,16 @@
 - [React workspace compatibility](react-workspace-compatibility.md) — keep Clerk's web React peer range isolated from the Expo-pinned workspace versions.
 - [Orval parameter collisions](orval-parameter-collisions.md) — mixed path/query parameters can generate duplicate exports; fix the contract, not generated files.
 - [Scrollable table accessibility](scrollable-table-accessibility.md) — position scrollports so absolute screen-reader labels cannot escape clipping and widen the document.
-- [Archived treatment cards](archived-cards.md) — keep archived cards in storage; exclude their visits, wages, sales and balances from active views.
+- [Archived treatment cards](archived-cards.md) — preserve used-card history permanently; count archived minutes as used and keep used-card deletion blocked.
 - [Card-use revenue reporting](card-use-revenue-reporting.md) — separate service price/pay, label customer charges “Tiền dịch vụ,” and count card revenue only on purchase.
 - [OpenAPI date query strings](openapi-date-query-strings.md) — keep URL dates as validated `YYYY-MM-DD` strings; Express query values arrive as text.
-- [Vercel database access](vercel-database-access.md) — Vercel uses a Neon source; synchronize its separate `DATABASE_URL_1` standby before enabling failover.
+- [Vercel database access](vercel-database-access.md) — Neon `DATABASE_URL_1` is the prepared primary; Vercel needs its own env and deployment before traffic switches.
 - [Account access](owner-guest-access.md) — mandatory login, owner-delegated employee/card/revenue rights, isolated notebooks and embedded session verification.
 - [Appointment access](appointment-access.md) — appointment records need a dedicated manager grant; editing requires viewing and never comes from other facility permissions.
 - [Vercel SPA routing](vercel-spa-routing.md) — use raw route regex and an index destination; path transforms alone cannot resolve static SPA pages.
 - [Migration baselines](database-migration-baseline.md) — existing tables may have an empty migration journal; do not replay or invent a baseline blindly.
 - [Drizzle nested selects](drizzle-nested-selects.md) — raw selected SQL may strip column qualifiers; explicitly qualify joined subqueries.
-- [Employee history](employee-history.md) — deleting staff must leave prior-month records untouched and never refund card hours.
+- [Employee history](employee-history.md) — retain facility/personal work history five years; archive older card uses permanently without refunding hours.
 - [Navigation placement](navigation-placement.md) — keep service pricing on the home screen; preserve its manager grant while keeping it out of Settings.
 - [Personal synchronization](personal-synchronization.md) — importing replaces only the confirmed day/month; optional facility rates use employee pay and preserve historical wages.
 - [Concise accessibility](concise-accessibility.md) — short titles and discrepancy summaries; keep controls, financial data, errors and destructive warnings accessible.

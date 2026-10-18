@@ -100,8 +100,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
-    {historyOpen && <HistoryMonthsDialog onPick={pickHistory} onClose={() => setHistoryOpen(false)}
-      description={permissions.viewRevenue ? 'Chọn tháng để xem doanh thu và dữ liệu cơ sở (chỉ xem).' : 'Chọn tháng để xem danh sách nhân viên tháng đó (chỉ xem).'} />}
+    {historyOpen && <HistoryMonthsDialog listOnly onPick={pickHistory} onClose={() => setHistoryOpen(false)} />}
     {grantsOpen && canManageGrants && <AccessGrantsDialog members={members} isOwner={isOwner} permissions={permissions} onClose={() => setGrantsOpen(false)} />}
     </>
   );

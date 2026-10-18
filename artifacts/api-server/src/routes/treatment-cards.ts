@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { desc, eq, inArray, isNull, sql } from "drizzle-orm";
-import { cardTopUpsTable, db, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
+import { desc, inArray, isNull, sql } from "drizzle-orm";
+import { cardTopUpsTable, cardUsageHistoryTable, db, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
 import {
   CreateTreatmentCardBody, CreateTreatmentCardResponse, DeleteTreatmentCardParams,
   ListTreatmentCardsResponse, UpdateTreatmentCardBody, UpdateTreatmentCardParams, UpdateTreatmentCardResponse,
@@ -13,12 +13,25 @@ const router: IRouter = Router();
 router.get("/treatment-cards", massageHandler(async (_req, res) => {
   res.set("Cache-Control", "private, no-store");
   const result = await db.transaction(async (tx) => {
-    const rows = await tx.select({ card: treatmentCardsTable, used: sql<number>`coalesce(sum(${serviceSessionsTable.minutes}), 0)` })
-      .from(treatmentCardsTable).leftJoin(serviceSessionsTable, eq(serviceSessionsTable.cardId, treatmentCardsTable.id))
-      .where(isNull(treatmentCardsTable.deletedAt))
-      .groupBy(treatmentCardsTable.id).orderBy(desc(treatmentCardsTable.purchaseDate), desc(treatmentCardsTable.id));
-    const topUps = rows.length ? await tx.select().from(cardTopUpsTable)
-      .where(inArray(cardTopUpsTable.cardId, rows.map(({ card }) => card.id)))
+    const cards = await tx.select().from(treatmentCardsTable).where(isNull(treatmentCardsTable.deletedAt))
+      .orderBy(desc(treatmentCardsTable.purchaseDate), desc(treatmentCardsTable.id));
+    const cardIds = cards.map((card) => card.id);
+    const liveUse = cardIds.length ? await tx.select({
+      cardId: serviceSessionsTable.cardId,
+      minutes: sql<number>`coalesce(sum(${serviceSessionsTable.minutes}), 0)`,
+    }).from(serviceSessionsTable).where(inArray(serviceSessionsTable.cardId, cardIds))
+      .groupBy(serviceSessionsTable.cardId) : [];
+    const archivedUse = cardIds.length ? await tx.select({
+      cardId: cardUsageHistoryTable.cardId,
+      minutes: sql<number>`coalesce(sum(${cardUsageHistoryTable.minutes}), 0)`,
+    }).from(cardUsageHistoryTable).where(inArray(cardUsageHistoryTable.cardId, cardIds))
+      .groupBy(cardUsageHistoryTable.cardId) : [];
+    const usage = new Map<number, number>();
+    for (const row of [...liveUse, ...archivedUse]) {
+      if (row.cardId !== null) usage.set(row.cardId, (usage.get(row.cardId) ?? 0) + Number(row.minutes));
+    }
+    const topUps = cardIds.length ? await tx.select().from(cardTopUpsTable)
+      .where(inArray(cardTopUpsTable.cardId, cardIds))
       .orderBy(desc(cardTopUpsTable.paymentDate), desc(cardTopUpsTable.id)) : [];
     const history = new Map<number, typeof topUps>();
     for (const payment of topUps) {
@@ -26,7 +39,7 @@ router.get("/treatment-cards", massageHandler(async (_req, res) => {
       items.push(payment);
       history.set(payment.cardId, items);
     }
-    return ListTreatmentCardsResponse.parse(rows.map(({ card, used }) => cardResponse(card, Number(used), history.get(card.id))));
+    return ListTreatmentCardsResponse.parse(cards.map((card) => cardResponse(card, usage.get(card.id) ?? 0, history.get(card.id))));
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
   res.json(result);
 }));

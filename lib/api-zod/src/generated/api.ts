@@ -1183,7 +1183,8 @@ export const ListServiceSessionsResponseItem = zod.object({
   "hourlyRate": zod.number().int(),
   "earnings": zod.number().int(),
   "note": zod.string(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "archived": zod.boolean()
 })
 export const ListServiceSessionsResponse = zod.array(ListServiceSessionsResponseItem)
 
@@ -1228,7 +1229,8 @@ export const CreateServiceSessionResponse = zod.object({
   "hourlyRate": zod.number().int(),
   "earnings": zod.number().int(),
   "note": zod.string(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "archived": zod.boolean()
 })
 
 
@@ -1279,7 +1281,8 @@ export const UpdateServiceSessionResponse = zod.object({
   "hourlyRate": zod.number().int(),
   "earnings": zod.number().int(),
   "note": zod.string(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "archived": zod.boolean()
 })
 
 

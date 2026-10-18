@@ -27,7 +27,7 @@ export function SessionTable({ sessions, caption, canEdit, showDate, showTime, s
         <tbody>
           {sessions.map((s) => {
             const orphan = s.memberId === null;
-            const rowEdit = canEdit && (canEditRow ? canEditRow(s) : true);
+            const rowEdit = canEdit && !s.archived && (canEditRow ? canEditRow(s) : true);
             return (
               <tr key={s.id} data-testid={`row-session-${s.id}`}>
                 {showDate && <td className="mono nowrap"><time dateTime={s.workDate}>{formatShortDate(s.workDate)}</time>

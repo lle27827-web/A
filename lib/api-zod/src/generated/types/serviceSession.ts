@@ -25,4 +25,5 @@ export interface ServiceSession {
   earnings: number;
   note: string;
   createdAt: Date;
+  archived: boolean;
 }

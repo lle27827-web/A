@@ -14,3 +14,15 @@ Historical month selection applies throughout employee management, including ros
 **Why:** the user wants the entire employee-management view to show that period's data, not today's roster with an old revenue total.
 
 **How to apply:** use recorded employee versions or actual visit-name snapshots, never silently relabel old history with a current name. Explicitly mark historical identities that were not recorded. Older hard-deleted visits cannot be recovered by inventing rows; they require a genuine backup.
+
+Facility month-history mode should use the home dashboard, retain employee management and all revenue totals, and hide card management, appointments, and service/pricing navigation. Keep the selected month when opening employee details or reloading; historical routes remain read-only.
+
+**Why:** the user asked for the previous-month facility view to match the main interface while showing only employee and revenue information, with a concise month list in Settings.
+
+**How to apply:** use the existing month query for all history requests, suppress current-only navigation and card search results in that mode, and show an empty state when no records exist rather than fabricating history.
+
+Facility and personal attendance/work-session history is retained for a rolling five years. Automatically remove older attendance, walk-in sessions, personal sessions, and card-linked employee sessions. Before deleting an old card-linked session, copy its complete customer, employee, service, date, time, pay, and note snapshot to permanent card-use history. Archived card-use minutes still count as consumed; cleanup must never restore card hours or alter card totals.
+
+**Why:** the user requires employee work history to expire after five years but customer card balances and complete card-use history to remain indefinitely.
+
+**How to apply:** calculate the cutoff by Vietnam calendar date; archive card-backed sessions and delete the source rows in one transaction. Keep archived snapshots out of employee payroll/history views, include them in card balances and card detail history, and retain the used-card deletion restriction.

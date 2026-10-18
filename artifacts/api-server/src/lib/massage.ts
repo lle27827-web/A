@@ -1,7 +1,8 @@
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
-import { appointmentsTable, attendanceTable, cardTopUpsTable, db, membersTable, memberVersionsTable, serviceSessionsTable, treatmentCardsTable, serviceTypesTable, type CardTopUpRow } from "@workspace/db";
+import { appointmentsTable, attendanceTable, cardTopUpsTable, cardUsageHistoryTable, db, membersTable, memberVersionsTable, serviceSessionsTable, treatmentCardsTable, serviceTypesTable, type CardTopUpRow } from "@workspace/db";
 import type { FacilityPermissions, ServiceSessionInput, TreatmentCardInput, TreatmentCardUpdate } from "@workspace/api-zod";
 import { canEditEmployee } from "./facility-permissions";
+import { isWithinRetention, retentionCutoffDate } from "./retention-window";
 
 export class MassageError extends Error {
   constructor(public status: number, message: string, public details?: { mergeTargetId: number }) { super(message); }
@@ -24,8 +25,21 @@ export function monthBounds(month: string) {
   return { start, end: d.toISOString().slice(0, 10) };
 }
 
+export function retainedDate(value: string) {
+  const date = validDate(value);
+  if (!isWithinRetention(date)) throw new MassageError(400, "Chỉ xem và ghi lịch sử trong 5 năm gần nhất.");
+  return date;
+}
+
+export function retainedMonthBounds(month: string) {
+  const bounds = monthBounds(month);
+  const cutoff = retentionCutoffDate();
+  if (bounds.end <= cutoff) throw new MassageError(400, "Chỉ xem lịch sử trong 5 năm gần nhất.");
+  return { ...bounds, start: bounds.start < cutoff ? cutoff : bounds.start };
+}
+
 export function sessionResponse(row: typeof serviceSessionsTable.$inferSelect) {
-  return { ...row, createdAt: row.createdAt.toISOString() };
+  return { ...row, archived: false, createdAt: row.createdAt.toISOString() };
 }
 export function cardResponse(row: typeof treatmentCardsTable.$inferSelect, usedMinutes = 0, topUps: CardTopUpRow[] = []) {
   return {
@@ -73,10 +87,12 @@ async function creditCard(tx: Tx, card: typeof treatmentCardsTable.$inferSelect,
   return cardWithHistory(tx, row, await usedMinutes(tx, row.id));
 }
 async function usedMinutes(tx: Tx, cardId: number, excludeId?: number) {
-  const [row] = await tx.select({ used: sql<number>`coalesce(sum(${serviceSessionsTable.minutes}), 0)` })
+  const [live] = await tx.select({ used: sql<number>`coalesce(sum(${serviceSessionsTable.minutes}), 0)` })
     .from(serviceSessionsTable)
     .where(and(eq(serviceSessionsTable.cardId, cardId), excludeId ? ne(serviceSessionsTable.id, excludeId) : undefined));
-  return Number(row.used);
+  const [archived] = await tx.select({ used: sql<number>`coalesce(sum(${cardUsageHistoryTable.minutes}), 0)` })
+    .from(cardUsageHistoryTable).where(eq(cardUsageHistoryTable.cardId, cardId));
+  return Number(live.used) + Number(archived.used);
 }
 function cardValues(input: TreatmentCardInput) {
   validDate(input.purchaseDate);
@@ -143,6 +159,7 @@ export async function updateCard(id: number, input: TreatmentCardUpdate) {
         note: `Gộp thẻ #${old.id}${values.note ? ` · ${values.note}` : ""}` });
       await tx.update(cardTopUpsTable).set({ cardId: target.id }).where(eq(cardTopUpsTable.cardId, id));
       await tx.update(serviceSessionsTable).set({ cardId: target.id }).where(eq(serviceSessionsTable.cardId, id));
+      await tx.update(cardUsageHistoryTable).set({ cardId: target.id }).where(eq(cardUsageHistoryTable.cardId, id));
       const firstUsedAt = [target.firstUsedAt, old.firstUsedAt].filter((v): v is Date => Boolean(v))
         .sort((a, b) => a.getTime() - b.getTime())[0] ?? (used > 0 ? new Date() : null);
       const [merged] = await tx.update(treatmentCardsTable).set({ totalMinutes, firstUsedAt })
@@ -163,9 +180,7 @@ export async function deleteCard(id: number) {
   await db.transaction(async (tx) => {
     const [card] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
     if (!card || card.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
-    const [visit] = await tx.select({ id: serviceSessionsTable.id }).from(serviceSessionsTable)
-      .where(eq(serviceSessionsTable.cardId, id)).limit(1);
-    if (card.firstUsedAt || visit) {
+    if (card.firstUsedAt || await usedMinutes(tx, id) > 0) {
       throw new MassageError(409, "Thẻ đã có lượt sử dụng nên không thể xóa.");
     }
     // Preserve the audit record; live lists, balances and reports exclude it.
@@ -228,7 +243,10 @@ export async function addCardHours(id: number, minutes: number, amount: number) 
 // Lock the session and affected cards in a consistent order. Card row locks
 // serialize balance checks so simultaneous requests cannot overspend hours.
 export async function saveSession(input: ServiceSessionInput, id?: number, permissions?: FacilityPermissions) {
-  validDate(input.workDate);
+  const workDate = validDate(input.workDate);
+  if (input.cardId == null && !isWithinRetention(workDate)) {
+    throw new MassageError(400, "Chỉ ghi ca khách lẻ trong 5 năm gần nhất.");
+  }
   return db.transaction(async (tx) => {
     const [old] = id ? await tx.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, id)).for("update") : [];
     if (id && !old) throw new MassageError(404, "Không tìm thấy lượt phục vụ.");

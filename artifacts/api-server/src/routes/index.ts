@@ -9,6 +9,7 @@ import serviceSessionsRouter from "./service-sessions";
 import personalNotebookRouter from "./personal-notebook";
 import accessGrantsRouter from "./access-grants";
 import appointmentsRouter from "./appointments";
+import retentionRouter from "./retention";
 
 const router: IRouter = Router();
 router.use(authRouter);
@@ -21,5 +22,6 @@ router.use(serviceSessionsRouter);
 router.use(personalNotebookRouter);
 router.use(accessGrantsRouter);
 router.use(appointmentsRouter);
+router.use(retentionRouter);
 
 export default router;

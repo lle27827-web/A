@@ -19,6 +19,8 @@
     "migrate:personal-sync": "node ./scripts/apply-personal-sync.mjs",
     "migrate:facility-permissions": "node ./scripts/apply-facility-permissions.mjs",
     "migrate:appointments": "node ./scripts/apply-appointments.mjs",
+    "migrate:card-usage-history": "node ./scripts/apply-card-usage-history.mjs",
+    "migrate:database-failover-state": "node ./scripts/apply-database-failover-state.mjs",
     "push": "drizzle-kit push --config ./drizzle.config.ts",
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts"
   },

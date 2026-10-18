@@ -5,6 +5,7 @@ import { db, attendanceTable, serviceSessionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { FacilityPermissions } from "@workspace/api-zod";
 import { canEditEmployee, canViewEmployee, noPermissions, ownerPermissions, permissionsForEmail } from "./facility-permissions";
+import { isValidRetentionCronAuthorization } from "./retention-auth";
 
 const secretKey = process.env.APP_CLERK_SECRET_KEY?.trim();
 const publishableKey = process.env.APP_CLERK_PUBLISHABLE_KEY?.trim();
@@ -121,6 +122,17 @@ export async function apiAuthorizationGate(
   next: NextFunction,
 ): Promise<void> {
   res.set("Cache-Control", "private, no-store");
+  if (req.path === "/retention/cleanup") {
+    if (req.method !== "GET") { res.status(405).json({ error: "Phương thức không được hỗ trợ." }); return; }
+    const secret = process.env.CRON_SECRET?.trim();
+    if (!secret) { res.status(503).json({ error: "Lịch lưu trữ chưa được cấu hình." }); return; }
+    if (!isValidRetentionCronAuthorization(req.get("authorization"), secret)) {
+      res.status(401).json({ error: "Không được phép chạy tác vụ lưu trữ." });
+      return;
+    }
+    next();
+    return;
+  }
   if (req.method === "OPTIONS" || isPublicEmployeeRead(req)) { next(); return; }
   if (!requestHasTrustedOrigin(req)) {
     res.status(403).json({ error: "Yêu cầu không được gửi từ ứng dụng này." });

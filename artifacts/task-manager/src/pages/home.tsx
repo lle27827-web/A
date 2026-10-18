@@ -30,17 +30,17 @@ export default function HomePage() {
           <strong id="employees-link-title">Quản lý nhân viên</strong>
           <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>
         </Link>}
-        {permissions.viewCards && <Link href="/cards" className="tile alt" aria-labelledby="cards-link-title" data-testid="link-cards">
+        {!isHistory && permissions.viewCards && <Link href="/cards" className="tile alt" aria-labelledby="cards-link-title" data-testid="link-cards">
           <CreditCard size={28} aria-hidden="true" />
           <strong id="cards-link-title">Quản lý thẻ</strong>
           <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>
         </Link>}
-        {(permissions.viewAppointments || permissions.editAppointments) && <Link href="/appointments" className="tile alt" aria-labelledby="appointments-link-title" data-testid="link-appointments">
+        {!isHistory && (permissions.viewAppointments || permissions.editAppointments) && <Link href="/appointments" className="tile alt" aria-labelledby="appointments-link-title" data-testid="link-appointments">
           <CalendarDays size={28} aria-hidden="true" />
           <strong id="appointments-link-title">Lịch hẹn</strong>
           <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>
         </Link>}
-        {canEditServices && <Link href="/services" className="tile" aria-labelledby="services-link-title" data-testid="link-services-tile">
+        {!isHistory && canEditServices && <Link href="/services" className="tile" aria-labelledby="services-link-title" data-testid="link-services-tile">
           <Sparkles size={28} aria-hidden="true" />
           <strong id="services-link-title">Dịch vụ &amp; giá</strong>
           <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>

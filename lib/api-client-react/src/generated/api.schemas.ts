@@ -515,6 +515,7 @@ export interface ServiceSession {
   earnings: number;
   note: string;
   createdAt: string;
+  archived: boolean;
 }
 
 export interface ServiceSessionInput {
