@@ -124,16 +124,16 @@ export function getReplicationEdge(
 
 export function getBackendIndex(
   backend: PersistedDatabaseBackend,
-  nodes: readonly DatabaseNodeConfig[],
+  nodes: readonly Pick<DatabaseNodeConfig, "backend">[],
 ): number {
   if (backend === "switching") return -1;
   return nodes.findIndex((node) => node.backend === backend);
 }
 
-export function getNextBackend(
+export function getNextBackend<T extends Pick<DatabaseNodeConfig, "backend">>(
   backend: DatabaseBackend,
-  nodes: readonly DatabaseNodeConfig[],
-): DatabaseNodeConfig | undefined {
+  nodes: readonly T[],
+): T | undefined {
   const index = getBackendIndex(backend, nodes);
   return index >= 0 ? nodes[index + 1] : undefined;
 }

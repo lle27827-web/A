@@ -23,7 +23,7 @@ import {
 } from "./failover-topology";
 
 type Queryable = { query: (...args: any[]) => any };
-type RuntimeNode = DatabaseNodeConfig & {
+type RuntimeNode = Omit<DatabaseNodeConfig, "maxBytes"> & {
   pool: pg.Pool;
   database: ReturnType<typeof drizzle<typeof schema>>;
   maxBytes: bigint;
@@ -38,9 +38,6 @@ const failoverEnabled =
   Boolean(process.env.DATABASE_URL_1?.trim() && databaseUrl) &&
   configuredNodes.length >= 2;
 const stateBackend: DatabaseBackend = "database_url";
-const stateNodeConfig = configuredNodes.find(
-  (node) => node.backend === stateBackend,
-);
 const neonApiKey = process.env.NEON_API_KEY?.trim();
 
 if (!databaseUrl) {
@@ -89,8 +86,11 @@ if (failoverEnabled) {
   }
 }
 
-let activeBackend: PersistedDatabaseBackend = nodes[0]?.backend ?? "database_url";
-let activeDatabase = nodes[0]?.database;
+let activeBackend: PersistedDatabaseBackend = failoverEnabled
+  ? (nodes[0]?.backend ?? "database_url")
+  : "database_url";
+let activeDatabase: RuntimeNode["database"] | undefined =
+  nodeForBackend("database_url")?.database ?? nodes[0]?.database;
 let lastCapacityCheckAt = 0;
 let lastCapacityCheckBackend: DatabaseBackend | null = null;
 let capacityCheckPromise: Promise<void> | null = null;
@@ -557,7 +557,7 @@ async function checkCurrentCapacity(): Promise<void> {
 }
 
 export async function refreshDatabaseBackend(): Promise<PersistedDatabaseBackend> {
-  if (!failoverEnabled) return nodes[0]?.backend ?? "database_url";
+  if (!failoverEnabled) return "database_url";
   const backend = await readBackendState();
   setActiveBackend(backend);
   if (backend === "switching") return backend;
@@ -577,17 +577,26 @@ function installCapacityErrorHandling(node: RuntimeNode): void {
   const rawPoolQuery = pool.query.bind(pool) as (
     ...args: any[]
   ) => any;
-  const handleResult = (result: any): any => {
+  const handleResult = (result: any, isCapacityProbe: boolean): any => {
     if (!isPromiseLike(result)) return result;
     return result.catch(async (error: unknown) => {
-      if (isDatabaseCapacityError(error) && activeBackend === node.backend) {
+      if (
+        isDatabaseCapacityError(error) &&
+        activeBackend === node.backend &&
+        !failoverPromise &&
+        !isCapacityProbe
+      ) {
         await requestFailover("storage").catch(() => false);
       }
       throw error;
     });
   };
   const monitoredPool = pool as unknown as Queryable;
-  monitoredPool.query = (...args: any[]) => handleResult(rawPoolQuery(...args));
+  monitoredPool.query = (...args: any[]) =>
+    handleResult(
+      rawPoolQuery(...args),
+      /pg_database_size\s*\(/i.test(queryText(args)),
+    );
 
   const rawConnect = pool.connect.bind(pool) as (...args: any[]) => any;
   const monitoredConnect = (...args: any[]) => {
@@ -633,7 +642,11 @@ function installClientHandler(client: pg.PoolClient, node: RuntimeNode): void {
         return value;
       })
       .catch(async (error: unknown) => {
-        if (isDatabaseCapacityError(error) && activeBackend === node.backend) {
+        if (
+          isDatabaseCapacityError(error) &&
+          activeBackend === node.backend &&
+          !failoverPromise
+        ) {
           if (inTransaction) {
             await rawQuery("ROLLBACK").catch(() => undefined);
             inTransaction = false;

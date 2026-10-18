@@ -9,6 +9,12 @@ import {
   parseNeonComputeTimeSeconds,
   parseDatabaseCapacityLimit,
 } from "../../../../lib/db/src/failover-utils";
+import {
+  failoverStateConstraintSupports,
+  getNextBackend,
+  getReplicationEdge,
+  resolveDatabaseNodes,
+} from "../../../../lib/db/src/failover-topology";
 
 test("database full SQLSTATE is recognized", () => {
   assert.equal(isDatabaseCapacityError({ code: "53100" }), true);
@@ -46,5 +52,81 @@ test("Neon compute usage uses the 100 CU-hour threshold", () => {
   assert.equal(hasReachedComputeTimeLimit(360_000), true);
   assert.equal(hasReachedComputeTimeLimit(359_999), false);
   assert.throws(() => parseNeonComputeTimeSeconds({ project: {} }));
+});
+
+test("four-database failover order preserves the existing DATABASE_URL slot", () => {
+  const nodes = resolveDatabaseNodes({
+    DATABASE_URL_1: "postgres://primary",
+    DATABASE_URL: "postgres://fallback",
+    DATABASE_URL_3: "postgres://replica3",
+    DATABASE_URL_4: "postgres://replica4",
+  });
+
+  assert.deepEqual(
+    nodes.map((node) => node.backend),
+    ["database_url_1", "database_url", "database_url_3", "database_url_4"],
+  );
+  assert.equal(
+    getNextBackend("database_url", nodes)?.backend,
+    "database_url_3",
+  );
+  assert.equal(
+    getNextBackend("database_url_3", nodes)?.backend,
+    "database_url_4",
+  );
+});
+
+test("additional replica cannot skip a missing link in the failover order", () => {
+  assert.throws(
+    () =>
+      resolveDatabaseNodes({
+        DATABASE_URL_1: "postgres://primary",
+        DATABASE_URL: "postgres://fallback",
+        DATABASE_URL_4: "postgres://replica4",
+      }),
+    /requires DATABASE_URL_3/,
+  );
+});
+
+test("development with only DATABASE_URL keeps its existing database", () => {
+  const nodes = resolveDatabaseNodes({
+    DATABASE_URL: "postgres://development",
+  });
+  assert.deepEqual(
+    nodes.map((node) => node.backend),
+    ["database_url"],
+  );
+});
+
+test("replication checks use fixed names for each sequential link", () => {
+  assert.equal(
+    getReplicationEdge("database_url_1", "database_url")?.subscriptionName,
+    "socong_source_from_db1_v1",
+  );
+  assert.equal(
+    getReplicationEdge("database_url", "database_url_3")?.publicationName,
+    "socong_source_to_db3_v1",
+  );
+  assert.equal(
+    getReplicationEdge("database_url_3", "database_url_4")?.subscriptionName,
+    "socong_db4_from_db3_v1",
+  );
+});
+
+test("failover-state migration must allow a promoted backend", () => {
+  assert.equal(
+    failoverStateConstraintSupports(
+      "CHECK (active_backend = ANY (ARRAY['database_url_1', 'database_url', 'database_url_3']))",
+      ["database_url_3"],
+    ),
+    true,
+  );
+  assert.equal(
+    failoverStateConstraintSupports(
+      "CHECK (active_backend IN ('database_url_1', 'database_url', 'switching'))",
+      ["database_url_4"],
+    ),
+    false,
+  );
 });
 

@@ -3,7 +3,7 @@ export {
   pool,
   refreshDatabaseBackend,
   DatabaseFailoverInProgressError,
-} from "./runtime-failover";
+} from "./runtime-failover-chain";
 export {
   hasReachedDatabaseCapacity,
   isDatabaseCapacityError,

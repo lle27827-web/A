@@ -21,6 +21,11 @@ Thêm các biến này trong Vercel Project Settings → Environment Variables. 
 | Biến | Dùng ở đâu | Lưu ý |
 | --- | --- | --- |
 | `DATABASE_URL` | API | Chuỗi kết nối Neon PostgreSQL dành cho deployment Vercel. Dùng connection string dạng pooled của Neon và giữ giá trị này bí mật. |
+| `DATABASE_URL_1` | API | Database thứ nhất trong chuỗi failover; giữ nguyên vai trò hiện tại. |
+| `DATABASE_URL_3` | API | Bản sao thứ ba; yêu cầu đồng bộ từ `DATABASE_URL` trước khi được phép promote. |
+| `DATABASE_URL_4` | API | Bản sao thứ tư; yêu cầu đồng bộ từ `DATABASE_URL_3`. Không thể bỏ qua database thứ ba. |
+| `NEON_API_KEY` | API | Secret dùng đọc mức CU của từng project; không đưa vào mã nguồn. |
+| `NEON_PROJECT_ID_1`, `NEON_PROJECT_ID`, `NEON_PROJECT_ID_3`, `NEON_PROJECT_ID_4` | API | Project ID tương ứng với từng URL; cần project ID cho mọi database có thể được promote để xác nhận còn hạn mức CU. |
 | `APP_CLERK_SECRET_KEY` | API | Secret key của Clerk Production bên ngoài. Không dùng khóa Clerk do Replit quản lý hoặc khóa Development. |
 | `APP_CLERK_PUBLISHABLE_KEY` | API | Publishable key của cùng Clerk Production. |
 | `VITE_APP_CLERK_PUBLISHABLE_KEY` | Web build | Cùng publishable key Production, được dùng ở giao diện trình duyệt. |
@@ -42,13 +47,17 @@ API được truy cập cùng domain qua `/api/*`; không bật CORS cho mọi d
 
 ## Neon PostgreSQL cho Vercel
 
-API đã dùng `pg` và Drizzle với `process.env.DATABASE_URL` (`lib/db/src/index.ts`), nên có thể dùng chuỗi kết nối PostgreSQL pooled của Neon mà không cần đổi driver.
+API dùng `pg` và Drizzle. Thứ tự failover là `DATABASE_URL_1` → `DATABASE_URL` → `DATABASE_URL_3` → `DATABASE_URL_4`; `DATABASE_URL` vẫn là database điều khiển trạng thái failover. Không có biến `DATABASE_URL_2` trong cấu hình này.
 
-1. Trong Neon, tạo/chọn database và lấy connection string pooled, có SSL.
-2. Thêm chuỗi đó làm `DATABASE_URL` trong Vercel, tối thiểu ở môi trường Production. Dùng Neon branch riêng cho Preview nếu cần thử ghi dữ liệu.
-3. Redeploy để API nhận giá trị mới.
+1. Mỗi database dự phòng phải có cùng schema và dữ liệu, cùng replication đang chạy theo đúng thứ tự trên. Việc chỉ thêm URL hoặc tắt connection pooling không tạo replication.
+2. Đặt các tên publication/subscription như sau: `socong_db1_to_source_v1` / `socong_source_from_db1_v1` (database 1 → `DATABASE_URL`, hiện có); `socong_source_to_db3_v1` / `socong_db3_from_source_v1` (`DATABASE_URL` → database 3); `socong_db3_to_db4_v1` / `socong_db4_from_db3_v1` (database 3 → database 4). Runtime kiểm tra publication, subscription, bảng đồng bộ và LSN; nếu thiếu hoặc trễ thì không promote.
+3. Thêm các URL và project ID trong bảng biến môi trường ở trên vào Vercel Production. Mã chỉ dùng `_3`/`_4` khi cả database trước đó trong chuỗi cũng có mặt.
+4. Trước khi triển khai mã mới, chạy `pnpm --filter @workspace/db run migrate:database-failover-state` với `DATABASE_URL` trỏ chính xác tới database điều khiển `DATABASE_URL` của Vercel. Script mở rộng các giá trị được phép trong bảng trạng thái; không chạy migration này với database Replit hoặc database khác.
+5. Redeploy Vercel sau khi đã chuẩn bị schema, replication, project IDs và migration. Không chạy migration tự động trong lệnh build.
 
-Chỉ Vercel chuyển sang Neon; Replit tiếp tục dùng `DATABASE_URL` do Replit quản lý. Không thay biến đó trong Replit.
+Ngưỡng mặc định cho từng database là 100 CU-giờ và 1.000.000.000 byte. Có thể đặt ngưỡng dung lượng riêng qua `DATABASE_URL_1_MAX_BYTES`, `DATABASE_URL_MAX_BYTES`, `DATABASE_URL_3_MAX_BYTES` và `DATABASE_URL_4_MAX_BYTES`. Bản sao đầy đủ không cộng dồn dung lượng; nếu tất cả cùng chứa một dữ liệu, chuyển dự phòng không giải quyết được khi chúng cùng chạm ngưỡng lưu trữ.
+
+Các biến này là cấu hình Vercel; không thay `DATABASE_URL` do Replit quản lý trong môi trường Replit.
 
 Đổi `DATABASE_URL` không sao chép dữ liệu. Database Neon mới phải được áp dụng schema trước khi ứng dụng đọc/ghi được. Dự án có migration ban đầu trong `lib/db/drizzle/0000_initial.sql` và lệnh `pnpm --filter @workspace/db run migrate` để tạo các bảng, bao gồm `members`. Chạy lệnh trong môi trường an toàn mà `DATABASE_URL` đang trỏ chính xác tới database Neon mới; không chạy với `DATABASE_URL` mặc định của Replit. Migration tạo cấu trúc bảng nhưng không sao chép dữ liệu Replit.
 

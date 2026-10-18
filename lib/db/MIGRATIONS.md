@@ -90,6 +90,15 @@ existing target fails clearly instead of prompting to reshape populated tables.
 This is for the workspace development database, not an authorization to migrate
 an external production target.
 
+## Vercel database failover state
+
+The `migrate:database-failover-state` command runs only when invoked explicitly.
+For the four-node failover chain, run it with `DATABASE_URL` set to the Vercel
+control database (the existing second node), not the Replit database. It updates
+the state table's allowed backend values; the runtime refuses promotion to a
+new node until this constraint accepts that node. Do not add the migration to a
+Vercel build hook.
+
 ## Verification
 
 ```sh
