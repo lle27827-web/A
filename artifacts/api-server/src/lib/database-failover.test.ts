@@ -7,6 +7,7 @@ import {
   hasReachedDatabaseCapacity,
   hasReachedComputeTimeLimit,
   isDatabaseCapacityError,
+  parseComputeTimeLimitSeconds,
   parseNeonComputeTimeSeconds,
   parseDatabaseCapacityLimit,
 } from "../../../../lib/db/src/failover-utils";
@@ -47,6 +48,18 @@ test("Neon compute usage uses the 100 CU-hour threshold", () => {
   assert.equal(hasReachedComputeTimeLimit(360_000), true);
   assert.equal(hasReachedComputeTimeLimit(359_999), false);
   assert.throws(() => parseNeonComputeTimeSeconds({ project: {} }));
+});
+
+test("compute failover limit can be lowered with a safe positive integer", () => {
+  assert.equal(parseComputeTimeLimitSeconds(undefined), null);
+  assert.equal(parseComputeTimeLimitSeconds("1"), 1);
+  assert.equal(parseComputeTimeLimitSeconds("3600"), 3600);
+  assert.throws(() => parseComputeTimeLimitSeconds("0"));
+  assert.throws(() => parseComputeTimeLimitSeconds("-1"));
+  assert.throws(() => parseComputeTimeLimitSeconds("1.5"));
+  assert.throws(() =>
+    parseComputeTimeLimitSeconds("9007199254740992"),
+  );
 });
 
 test("bounded failover simulation never queries Neon or changes a database", () => {

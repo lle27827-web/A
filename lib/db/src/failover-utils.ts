@@ -39,6 +39,25 @@ export function parseDatabaseCapacityLimit(value: string | undefined): bigint | 
   return BigInt(normalized);
 }
 
+export function parseComputeTimeLimitSeconds(
+  value: string | undefined,
+): number | null {
+  if (value === undefined || value.trim() === "") return null;
+  const normalized = value.trim();
+  if (!/^[1-9]\d*$/.test(normalized)) {
+    throw new Error(
+      "DATABASE_URL_1_COMPUTE_LIMIT_SECONDS must be a positive integer.",
+    );
+  }
+  const seconds = Number(normalized);
+  if (!Number.isSafeInteger(seconds)) {
+    throw new Error(
+      "DATABASE_URL_1_COMPUTE_LIMIT_SECONDS must be a safe positive integer.",
+    );
+  }
+  return seconds;
+}
+
 export function hasReachedDatabaseCapacity(
   usedBytes: string | bigint,
   limitBytes: bigint,

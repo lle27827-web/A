@@ -10,6 +10,7 @@ import {
   isDatabaseCapacityError,
   parseNeonComputeTimeSeconds,
   parseDatabaseCapacityLimit,
+  parseComputeTimeLimitSeconds,
 } from "./failover-utils";
 
 type Backend = "database_url_1" | "database_url" | "switching";
@@ -35,6 +36,10 @@ if (isVercel && databaseUrl1 && !sourceUrl) {
 const capacityLimitBytes =
   parseDatabaseCapacityLimit(process.env.DATABASE_URL_1_MAX_BYTES) ??
   DATABASE_STORAGE_LIMIT_BYTES;
+const computeLimitSeconds =
+  parseComputeTimeLimitSeconds(
+    process.env.DATABASE_URL_1_COMPUTE_LIMIT_SECONDS,
+  ) ?? DATABASE_COMPUTE_LIMIT_SECONDS;
 const neonApiKey = process.env.NEON_API_KEY?.trim();
 const neonProjectId = process.env.NEON_PROJECT_ID_1?.trim();
 
@@ -402,7 +407,7 @@ async function checkCapacityThreshold(): Promise<void> {
     if (
       !hasReachedComputeTimeLimit(
         usedComputeSeconds,
-        DATABASE_COMPUTE_LIMIT_SECONDS,
+        computeLimitSeconds,
       )
     ) {
       return;
