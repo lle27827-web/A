@@ -2,8 +2,12 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "./schema";
 import {
+  DATABASE_COMPUTE_LIMIT_SECONDS,
+  DATABASE_STORAGE_LIMIT_BYTES,
   hasReachedDatabaseCapacity,
+  hasReachedComputeTimeLimit,
   isDatabaseCapacityError,
+  parseNeonComputeTimeSeconds,
   parseDatabaseCapacityLimit,
 } from "./failover-utils";
 
@@ -27,9 +31,17 @@ if (isVercel && databaseUrl1 && !sourceUrl) {
   );
 }
 
-const capacityLimitBytes = parseDatabaseCapacityLimit(
-  process.env.DATABASE_URL_1_MAX_BYTES,
-);
+const capacityLimitBytes =
+  parseDatabaseCapacityLimit(process.env.DATABASE_URL_1_MAX_BYTES) ??
+  DATABASE_STORAGE_LIMIT_BYTES;
+const neonApiKey = process.env.NEON_API_KEY?.trim();
+const neonProjectId = process.env.NEON_PROJECT_ID?.trim();
+
+if (failoverEnabled && (!neonApiKey || !neonProjectId)) {
+  console.warn(
+    "[db-failover] Neon CU-hour monitoring is disabled until NEON_API_KEY and NEON_PROJECT_ID are configured.",
+  );
+}
 const sourcePool = new pg.Pool({
   connectionString: sourceUrl,
   application_name: "so-cong-db-fallback",
@@ -322,7 +334,7 @@ async function requestFailover(reason: string): Promise<boolean> {
 }
 
 async function checkCapacityThreshold(): Promise<void> {
-  if (!failoverEnabled || capacityLimitBytes === null) return;
+  if (!failoverEnabled) return;
 
   const now = Date.now();
   if (now - lastCapacityCheckAt < 30_000) {
@@ -350,18 +362,55 @@ async function checkCapacityThreshold(): Promise<void> {
       return;
     }
 
+    if (usedBytes && hasReachedDatabaseCapacity(usedBytes, capacityLimitBytes)) {
+      const switched = await requestFailover(
+        "DATABASE_URL_1 reached its configured storage threshold.",
+      );
+      if (!switched) {
+        throw new Error(
+          "DATABASE_URL_1 reached its storage threshold, but automatic failover was blocked because the fallback database is not fully synchronized.",
+        );
+      }
+      return;
+    }
+
+    if (!neonApiKey || !neonProjectId) return;
+
+    let usedComputeSeconds: number;
+    try {
+      const response = await fetch(
+        `https://console.neon.tech/api/v2/projects/${encodeURIComponent(neonProjectId)}`,
+        {
+          headers: { Authorization: `Bearer ${neonApiKey}` },
+          signal: AbortSignal.timeout(5_000),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`Neon usage API returned HTTP ${response.status}.`);
+      }
+      usedComputeSeconds = parseNeonComputeTimeSeconds(await response.json());
+    } catch {
+      console.warn(
+        "[db-failover] Neon compute usage could not be checked; continuing with the active database.",
+      );
+      return;
+    }
+
     if (
-      !usedBytes ||
-      !hasReachedDatabaseCapacity(usedBytes, capacityLimitBytes)
+      !hasReachedComputeTimeLimit(
+        usedComputeSeconds,
+        DATABASE_COMPUTE_LIMIT_SECONDS,
+      )
     ) {
       return;
     }
+
     const switched = await requestFailover(
-      "DATABASE_URL_1 reached its configured capacity threshold.",
+      "DATABASE_URL_1 reached the 100 CU-hour compute threshold.",
     );
     if (!switched) {
       throw new Error(
-        "DATABASE_URL_1 reached its capacity threshold, but automatic failover was blocked because the fallback database is not fully synchronized.",
+        "DATABASE_URL_1 reached the compute threshold, but automatic failover was blocked because the fallback database is not fully synchronized.",
       );
     }
   })();

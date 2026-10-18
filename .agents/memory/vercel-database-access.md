@@ -13,7 +13,7 @@ For this app, the existing Vercel data is in one Neon project and `DATABASE_URL_
 
 **Why:** The user confirmed the projects are separate, the current Vercel records are in `DATABASE_URL`, and requested automatic fallback to that database if `DATABASE_URL_1` fills. Switching before synchronization would split writes or hide records.
 
-**How to apply:** Keep both database variables configured in Vercel and do not claim production has switched until the failover-capable code is deployed there. Replit secrets do not automatically configure Vercel. A proactive size check requires `DATABASE_URL_1_MAX_BYTES`; if it is unset, only a database capacity error can trigger failover. Failover must stop unless the fallback is fully synchronized.
+**How to apply:** Keep both database variables configured in Vercel and do not claim production has switched until the failover-capable code is deployed there. Replit secrets do not automatically configure Vercel. Runtime failover checks run only on API requests (not while idle), use a 1 GB storage threshold by default, and check 100 CU-hours through Neon’s project API when `NEON_API_KEY` and `NEON_PROJECT_ID` are configured in Vercel. `DATABASE_URL_1_MAX_BYTES` can override the storage threshold. Failover must stop unless the fallback is fully synchronized; Neon’s usage metric may lag.
 
 Keep the retention cleanup schedule disabled until the permanent card-use ledger exists on both Neon databases and the publication/subscription reports that table ready. The runtime failover guard checks publication, subscription, and table counts, but that code check does not confirm live Neon configuration.
 
