@@ -36,12 +36,6 @@
       ]
     }
   },
-  "crons": [
-    {
-      "path": "/api/retention/cleanup",
-      "schedule": "0 17 * * *"
-    }
-  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
