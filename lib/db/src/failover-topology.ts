@@ -167,6 +167,13 @@ export function getNextBackend<T extends Pick<DatabaseNodeConfig, "backend">>(
   return index >= 0 ? nodes[index + 1] : undefined;
 }
 
+export function isControlledDb1ToDb2Promotion(
+  currentBackend: DatabaseBackend,
+  targetBackend: DatabaseBackend,
+): boolean {
+  return currentBackend === "database_url_1" && targetBackend === "database_url";
+}
+
 export function isPersistedDatabaseBackend(
   backend: unknown,
 ): backend is PersistedDatabaseBackend {

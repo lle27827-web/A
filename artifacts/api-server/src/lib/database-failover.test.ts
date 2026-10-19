@@ -13,6 +13,7 @@ import {
   failoverStateConstraintSupports,
   getNextBackend,
   getReplicationEdge,
+  isControlledDb1ToDb2Promotion,
   replicationTableSetsMatch,
   resolveDatabaseNodes,
 } from "../../../../lib/db/src/failover-topology";
@@ -106,6 +107,13 @@ test("four-database failover order preserves the existing DATABASE_URL slot", ()
   assert.equal(nodes[1]?.adminUrl, "postgres://fallback-direct");
   assert.equal(nodes[2]?.projectId, "project-3");
   assert.equal(nodes[3]?.projectId, "project-4");
+});
+
+test("owner-controlled failover can only promote DB1 to DB2", () => {
+  assert.equal(isControlledDb1ToDb2Promotion("database_url_1", "database_url"), true);
+  assert.equal(isControlledDb1ToDb2Promotion("database_url", "database_url_3"), false);
+  assert.equal(isControlledDb1ToDb2Promotion("database_url_1", "database_url_3"), false);
+  assert.equal(isControlledDb1ToDb2Promotion("database_url_3", "database_url_4"), false);
 });
 
 test("additional replica cannot skip a missing link in the failover order", () => {

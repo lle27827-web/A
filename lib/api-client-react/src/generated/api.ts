@@ -30,6 +30,9 @@ import type {
   AttendanceUpdate,
   AuthStatus,
   CardHoursInput,
+  DatabaseFailoverInput,
+  DatabaseFailoverResult,
+  DatabaseFailoverStatus,
   GetAttendanceSummaryParams,
   GetMassageSummaryParams,
   GetMemberPayrollParams,
@@ -311,6 +314,171 @@ export const useDeleteRetentionYear = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getDeleteRetentionYearMutationOptions(options));
+    }
+
+export const getGetDatabaseFailoverStatusUrl = () => {
+
+
+
+
+  return `/api/database/failover`
+}
+
+/**
+ * @summary Xem trạng thái chuyển database dự phòng
+ */
+export const getDatabaseFailoverStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<DatabaseFailoverStatus> => {
+
+  return customFetch<DatabaseFailoverStatus>(getGetDatabaseFailoverStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDatabaseFailoverStatusQueryKey = () => {
+    return [
+    `/api/database/failover`
+    ] as const;
+    }
+
+
+export const getGetDatabaseFailoverStatusQueryOptions = <TData = Awaited<ReturnType<typeof getDatabaseFailoverStatus>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDatabaseFailoverStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDatabaseFailoverStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDatabaseFailoverStatus>>> = ({ signal }) => getDatabaseFailoverStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDatabaseFailoverStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDatabaseFailoverStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getDatabaseFailoverStatus>>>
+export type GetDatabaseFailoverStatusQueryError = ErrorType<void>
+
+
+/**
+ * @summary Xem trạng thái chuyển database dự phòng
+ */
+
+export function useGetDatabaseFailoverStatus<TData = Awaited<ReturnType<typeof getDatabaseFailoverStatus>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDatabaseFailoverStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDatabaseFailoverStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRequestDatabaseFailoverUrl = () => {
+
+
+
+
+  return `/api/database/failover`
+}
+
+/**
+ * @summary Chủ sở hữu yêu cầu chuyển DB1 sang DB2
+ */
+export const requestDatabaseFailover = async (databaseFailoverInput: DatabaseFailoverInput, options?: Parameters<typeof customFetch>[1]): Promise<DatabaseFailoverResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<DatabaseFailoverResult>(getRequestDatabaseFailoverUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(databaseFailoverInput)
+  }
+);}
+
+
+
+
+
+export const getRequestDatabaseFailoverMutationKey = () => ['requestDatabaseFailover'] as const;
+
+export const getRequestDatabaseFailoverMutationOptions = <TError = ErrorType<void | DatabaseFailoverResult>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestDatabaseFailover>>, TError,RequestDatabaseFailoverMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestDatabaseFailover>>, TError,RequestDatabaseFailoverMutationVariables, TContext> => {
+
+const mutationKey = getRequestDatabaseFailoverMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestDatabaseFailover>>, RequestDatabaseFailoverMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestDatabaseFailover(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestDatabaseFailoverMutationResult = NonNullable<Awaited<ReturnType<typeof requestDatabaseFailover>>>
+    export type RequestDatabaseFailoverMutationBody = BodyType<DatabaseFailoverInput>
+    export type RequestDatabaseFailoverMutationError = ErrorType<void | DatabaseFailoverResult>
+    export type RequestDatabaseFailoverMutationVariables = {data: BodyType<DatabaseFailoverInput>}
+
+    /**
+ * @summary Chủ sở hữu yêu cầu chuyển DB1 sang DB2
+ */
+export const useRequestDatabaseFailover = <TError = ErrorType<void | DatabaseFailoverResult>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestDatabaseFailover>>, TError,RequestDatabaseFailoverMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestDatabaseFailover>>,
+        TError,
+        RequestDatabaseFailoverMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRequestDatabaseFailoverMutationOptions(options));
     }
 
 export const getUpdatePersonalSettingsUrl = () => {

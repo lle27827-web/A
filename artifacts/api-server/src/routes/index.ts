@@ -10,6 +10,7 @@ import personalNotebookRouter from "./personal-notebook";
 import accessGrantsRouter from "./access-grants";
 import appointmentsRouter from "./appointments";
 import retentionRouter from "./retention";
+import databaseFailoverRouter from "./database-failover";
 
 const router: IRouter = Router();
 router.use(authRouter);
@@ -23,5 +24,6 @@ router.use(personalNotebookRouter);
 router.use(accessGrantsRouter);
 router.use(appointmentsRouter);
 router.use(retentionRouter);
+router.use(databaseFailoverRouter);
 
 export default router;

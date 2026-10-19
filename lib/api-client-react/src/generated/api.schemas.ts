@@ -329,6 +329,39 @@ export interface RetentionYearDeleteResult {
   archivedCardUses: number;
 }
 
+export type DatabaseFailoverBackend = typeof DatabaseFailoverBackend[keyof typeof DatabaseFailoverBackend];
+
+
+export const DatabaseFailoverBackend = {
+  database_url_1: 'database_url_1',
+  database_url: 'database_url',
+  database_url_3: 'database_url_3',
+  database_url_4: 'database_url_4',
+  switching: 'switching',
+} as const;
+
+export interface DatabaseFailoverStatus {
+  activeBackend: DatabaseFailoverBackend;
+  canSwitchToDb2: boolean;
+}
+
+export type DatabaseFailoverInputConfirmation = typeof DatabaseFailoverInputConfirmation[keyof typeof DatabaseFailoverInputConfirmation];
+
+
+export const DatabaseFailoverInputConfirmation = {
+  DB1_TO_DB2: 'DB1_TO_DB2',
+} as const;
+
+export interface DatabaseFailoverInput {
+  confirmation: DatabaseFailoverInputConfirmation;
+}
+
+export interface DatabaseFailoverResult {
+  switched: boolean;
+  activeBackend: DatabaseFailoverBackend;
+  message: string;
+}
+
 export type MemberRecordHistoricalNameSource = typeof MemberRecordHistoricalNameSource[keyof typeof MemberRecordHistoricalNameSource];
 
 

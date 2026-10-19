@@ -1,6 +1,8 @@
 export {
   db,
   pool,
+  getDatabaseFailoverStatus,
+  requestOwnerDb1ToDb2Failover,
   refreshDatabaseBackend,
   DatabaseFailoverInProgressError,
 } from "./runtime-failover-chain";

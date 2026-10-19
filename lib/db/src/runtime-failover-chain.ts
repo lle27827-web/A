@@ -15,6 +15,7 @@ import {
   getBackendIndex,
   getNextBackend,
   getReplicationEdge,
+  isControlledDb1ToDb2Promotion,
   isPersistedDatabaseBackend,
   replicationTableSetsMatch,
   resolveDatabaseNodes,
@@ -35,7 +36,7 @@ type RuntimeNode = Omit<DatabaseNodeConfig, "maxBytes"> & {
   database: ReturnType<typeof drizzle<typeof schema>>;
   maxBytes: bigint;
 };
-type FailoverReason = "compute" | "storage";
+type FailoverReason = "compute" | "storage" | "manual";
 
 const isVercel = process.env.VERCEL === "1";
 const configuredNodes = resolveDatabaseNodes(process.env);
@@ -534,7 +535,16 @@ async function restoreSubscriptionAndBackend(
   }
 }
 
-async function performFailover(reason: FailoverReason): Promise<boolean> {
+function failoverReasonMessage(reason: FailoverReason, backend: DatabaseBackend): string {
+  if (reason === "manual") return `Owner requested controlled promotion from ${backend} to its verified standby.`;
+  if (reason === "compute") return `100 CU-hour limit reached on ${backend}.`;
+  return `Storage limit reached on ${backend}.`;
+}
+
+async function performFailover(
+  reason: FailoverReason,
+  expectedCurrentBackend?: DatabaseBackend,
+): Promise<boolean> {
   if (!failoverEnabled) return false;
 
   const statePool = controlNode()?.pool;
@@ -545,6 +555,9 @@ async function performFailover(reason: FailoverReason): Promise<boolean> {
   const currentIndex = getBackendIndex(currentState, nodes);
   if (currentIndex < 0) return false;
   const current = nodes[currentIndex];
+  if (expectedCurrentBackend && current.backend !== expectedCurrentBackend) {
+    return false;
+  }
   const target = getNextBackend(current.backend, nodes);
   if (!target) {
     console.warn(
@@ -554,6 +567,12 @@ async function performFailover(reason: FailoverReason): Promise<boolean> {
   }
   const targetNode = nodeForBackend(target.backend);
   if (!targetNode) return false;
+  if (
+    reason === "manual" &&
+    !isControlledDb1ToDb2Promotion(current.backend, targetNode.backend)
+  ) {
+    return false;
+  }
   if (!targetNode.canManageSubscription) {
     console.warn(
       `[db-failover] Promotion to ${targetNode.backend} is blocked because its Neon pooler URL cannot manage the subscription; configure the matching *_DIRECT URL.`,
@@ -586,7 +605,7 @@ async function performFailover(reason: FailoverReason): Promise<boolean> {
          updated_at = now()
      WHERE id = 1 AND active_backend = $2
      RETURNING id`,
-    [`${reason} limit reached on ${current.backend}.`, current.backend],
+    [failoverReasonMessage(reason, current.backend), current.backend],
   );
   if (claim.rowCount !== 1) {
     const latest = await readBackendState();
@@ -655,7 +674,7 @@ async function performFailover(reason: FailoverReason): Promise<boolean> {
            updated_at = now()
        WHERE id = 1 AND active_backend = 'switching'
        RETURNING id`,
-      [target.backend, `${reason} limit reached on ${current.backend}.`],
+      [target.backend, failoverReasonMessage(reason, current.backend)],
     );
     if (activated.rowCount !== 1) {
       setActiveBackend("switching");
@@ -673,9 +692,12 @@ async function performFailover(reason: FailoverReason): Promise<boolean> {
   return true;
 }
 
-async function requestFailover(reason: FailoverReason): Promise<boolean> {
+async function requestFailover(
+  reason: FailoverReason,
+  expectedCurrentBackend?: DatabaseBackend,
+): Promise<boolean> {
   if (failoverPromise) return failoverPromise;
-  failoverPromise = performFailover(reason).finally(() => {
+  failoverPromise = performFailover(reason, expectedCurrentBackend).finally(() => {
     failoverPromise = null;
   });
   return failoverPromise;
@@ -767,6 +789,50 @@ export async function refreshDatabaseBackend(): Promise<PersistedDatabaseBackend
   if (backend === "switching") return backend;
   await checkCurrentCapacity();
   return activeBackend;
+}
+
+export async function getDatabaseFailoverStatus(): Promise<{
+  activeBackend: PersistedDatabaseBackend;
+  canSwitchToDb2: boolean;
+}> {
+  const activeBackend = await refreshDatabaseBackend();
+  const target = nodeForBackend("database_url");
+  return {
+    activeBackend,
+    canSwitchToDb2: Boolean(
+      isVercel &&
+      process.env.VERCEL_ENV === "production" &&
+      failoverEnabled &&
+      activeBackend === "database_url_1" &&
+      target?.canManageSubscription,
+    ),
+  };
+}
+
+export async function requestOwnerDb1ToDb2Failover(): Promise<{
+  switched: boolean;
+  activeBackend: PersistedDatabaseBackend;
+}> {
+  if (!isVercel || process.env.VERCEL_ENV !== "production" || !failoverEnabled) {
+    return { switched: false, activeBackend: await readBackendState() };
+  }
+
+  const currentBackend = await readBackendState();
+  const target = getNextBackend(currentBackend === "switching" ? "database_url_1" : currentBackend, nodes);
+  if (
+    currentBackend !== "database_url_1" ||
+    !target ||
+    !isControlledDb1ToDb2Promotion(currentBackend, target.backend)
+  ) {
+    return { switched: false, activeBackend: currentBackend };
+  }
+
+  await requestFailover("manual", "database_url_1");
+  const activeBackend = await readBackendState();
+  return {
+    switched: activeBackend === "database_url",
+    activeBackend,
+  };
 }
 
 export class DatabaseFailoverInProgressError extends Error {

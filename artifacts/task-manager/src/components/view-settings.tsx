@@ -1,11 +1,12 @@
 import { useCallback, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
-import { ArrowLeft, BookHeart, ChevronRight, History, Home, KeyRound, Settings, Trash2, X } from 'lucide-react';
+import { ArrowLeft, BookHeart, ChevronRight, Database, History, Home, KeyRound, Settings, Trash2, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
 import { AccessGrantsDialog } from '@/components/access-grants';
+import { DatabaseFailoverDialog } from '@/components/database-failover-dialog';
 
 export type ViewMode = 'owner' | 'employee';
 export type ViewPrefs = { mode: ViewMode; employeeId: number | null };
@@ -54,6 +55,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   const [, navigate] = useLocation();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [deleteHistoryOpen, setDeleteHistoryOpen] = useState(false);
+  const [failoverOpen, setFailoverOpen] = useState(false);
 
   function pickHistory(month: string, date: string) {
     setHistoryOpen(false);
@@ -96,6 +98,12 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
           )}
 
           {isOwner && (
+            <button type="button" className="settings-link" onClick={() => { onOpenChange(false); setFailoverOpen(true); }} data-testid="button-open-database-failover">
+              <Database size={15} aria-hidden="true" /><span className="grow"><strong>Chuyển database dự phòng</strong><span className="muted">Chủ sở hữu · DB1 sang DB2</span></span><ChevronRight size={16} aria-hidden="true" />
+            </button>
+          )}
+
+          {isOwner && (
             <button type="button" className="settings-link" onClick={() => { onOpenChange(false); setDeleteHistoryOpen(true); }} data-testid="button-open-delete-history">
               <Trash2 size={15} aria-hidden="true" /><span className="grow"><strong>Xóa lịch sử chấm công</strong><span className="muted">Chọn năm cần xóa</span></span><ChevronRight size={16} aria-hidden="true" />
             </button>
@@ -110,6 +118,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
     </DialogPrimitive.Root>
     {historyOpen && <HistoryMonthsDialog listOnly onPick={pickHistory} onClose={() => setHistoryOpen(false)} />}
     {deleteHistoryOpen && isOwner && <HistoryDeleteDialog onClose={() => setDeleteHistoryOpen(false)} />}
+    {failoverOpen && isOwner && <DatabaseFailoverDialog onClose={() => setFailoverOpen(false)} />}
     {grantsOpen && canManageGrants && <AccessGrantsDialog members={members} isOwner={isOwner} permissions={permissions} onClose={() => setGrantsOpen(false)} />}
     </>
   );

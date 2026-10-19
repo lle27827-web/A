@@ -78,7 +78,13 @@ export function weekday(date: string) { return WEEKDAYS[new Date(`${date}T00:00:
 export function errorText(error: unknown, fallback = 'Chưa thể lưu thay đổi. Vui lòng thử lại.') {
   const status = statusCode(error);
   const data = error && typeof error === 'object' ? (error as { data?: unknown }).data : null;
-  const serverMsg = data && typeof data === 'object' && typeof (data as { error?: unknown }).error === 'string' ? (data as { error: string }).error : '';
+  const serverMsg = data && typeof data === 'object'
+    ? typeof (data as { error?: unknown }).error === 'string'
+      ? (data as { error: string }).error
+      : typeof (data as { message?: unknown }).message === 'string'
+        ? (data as { message: string }).message
+        : ''
+    : '';
   if (status === 401 || status === 403) return serverMsg || 'Yêu cầu không được phép thực hiện.';
   return serverMsg || fallback;
 }

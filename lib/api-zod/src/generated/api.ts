@@ -44,6 +44,29 @@ export const DeleteRetentionYearResponse = zod.object({
 })
 
 
+/**
+ * @summary Xem trạng thái chuyển database dự phòng
+ */
+export const GetDatabaseFailoverStatusResponse = zod.object({
+  "activeBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4', 'switching']),
+  "canSwitchToDb2": zod.boolean()
+})
+
+
+/**
+ * @summary Chủ sở hữu yêu cầu chuyển DB1 sang DB2
+ */
+export const RequestDatabaseFailoverBody = zod.object({
+  "confirmation": zod.enum(['DB1_TO_DB2'])
+})
+
+export const RequestDatabaseFailoverResponse = zod.object({
+  "switched": zod.boolean(),
+  "activeBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4', 'switching']),
+  "message": zod.string()
+})
+
+
 export const UpdatePersonalSettingsBody = zod.object({
   "useFacilityRates": zod.boolean()
 })
