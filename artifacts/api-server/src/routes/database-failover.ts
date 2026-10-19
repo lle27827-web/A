@@ -14,6 +14,7 @@ import {
   requestOwnerDatabaseFailover,
 } from "@workspace/db";
 import { requireOwner } from "../lib/owner-auth";
+import { getCapacityProbeReadiness } from "../lib/database-failover-readiness";
 
 const router: IRouter = Router();
 const backendNames: Record<string, string> = {
@@ -40,11 +41,32 @@ router.post("/database/failover/capacity-probe", requireOwner, async (req, res, 
   }
 
   const probeName = `KIEM_THU_DB_${randomUUID().replaceAll("-", "")}`;
-  const beforeBackend = await refreshDatabaseBackend().catch((error: unknown) => {
+  let beforeBackend: string;
+  try {
+    const status = await getDatabaseFailoverStatus();
+    const readiness = getCapacityProbeReadiness(
+      status.activeBackend,
+      status.switchTargets,
+    );
+    if (!readiness.canRun) {
+      res.set("Cache-Control", "no-store").status(409).json({
+        error: readiness.message ?? "Kho dự phòng chưa sẵn sàng để kiểm thử.",
+      });
+      return;
+    }
+
+    beforeBackend = await refreshDatabaseBackend();
+    if (beforeBackend !== status.activeBackend) {
+      res.set("Cache-Control", "no-store").json({
+        activeBackend: beforeBackend,
+        switched: true,
+      });
+      return;
+    }
+  } catch (error) {
     next(error);
-    return null;
-  });
-  if (!beforeBackend) return;
+    return;
+  }
 
   try {
     await db.transaction(async (tx) => {

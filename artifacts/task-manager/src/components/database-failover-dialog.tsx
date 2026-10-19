@@ -60,6 +60,17 @@ export function DatabaseFailoverDialog({ onClose }: { onClose: () => void }) {
   const nextBackendStatus = nextBackend
     ? status.data?.switchTargets.find((item) => item.backend === nextBackend)
     : undefined;
+  const capacityTestBlocker = activeBackend === 'switching'
+    ? 'Đang có thao tác chuyển database; hãy tải lại trạng thái.'
+    : !activeBackend
+      ? 'Chưa tải được trạng thái database đang hoạt động.'
+      : !nextBackend
+        ? `${backendLabel(activeBackend)} là kho cuối trong chuỗi tự động; không có kho tiếp theo để thử.`
+        : !nextBackendStatus
+          ? `Chưa tải được trạng thái ${backendLabel(nextBackend)}. Hãy tải lại trạng thái.`
+          : !nextBackendStatus.configured || !nextBackendStatus.canSwitch
+            ? `${backendLabel(nextBackend)} chưa sẵn sàng: ${nextBackendStatus.message}`
+            : null;
   const expectedConfirmation =
     activeBackend && selectedTarget
       ? `${backendLabel(activeBackend)} SANG ${backendLabel(selectedTarget)}`
@@ -123,7 +134,7 @@ export function DatabaseFailoverDialog({ onClose }: { onClose: () => void }) {
     if (
       !activeBackend ||
       activeBackend === 'switching' ||
-      !nextBackendStatus?.canSwitch ||
+      capacityTestBlocker ||
       capacityTestConfirmation.trim() !== capacityTestConfirmPhrase ||
       capacityTestRunning ||
       mutation.isPending
@@ -326,7 +337,7 @@ export function DatabaseFailoverDialog({ onClose }: { onClose: () => void }) {
                   type="button"
                   className="btn danger"
                   disabled={
-                    !nextBackendStatus?.canSwitch ||
+                    Boolean(capacityTestBlocker) ||
                     capacityTestConfirmation.trim() !== capacityTestConfirmPhrase ||
                     mutation.isPending
                   }
@@ -336,9 +347,9 @@ export function DatabaseFailoverDialog({ onClose }: { onClose: () => void }) {
                   <Play size={14} aria-hidden="true" />
                   Chạy ghi thử liên tục
                 </button>
-                {!nextBackendStatus?.canSwitch && (
+                {capacityTestBlocker && (
                   <p className="hint warn" role="status">
-                    Kho liền kề tiếp theo chưa sẵn sàng; không thể chạy bài thử.
+                    {capacityTestBlocker}
                   </p>
                 )}
               </>

@@ -1233,15 +1233,18 @@ async function getSwitchTargetStatus(
   if (isActive) {
     return { ...base, canSwitch: false, message: "Đang hoạt động." };
   }
-  if (
-    !isVercel ||
-    process.env.VERCEL_ENV !== "production" ||
-    !failoverEnabled
-  ) {
+  if (!isVercel || process.env.VERCEL_ENV !== "production") {
     return {
       ...base,
       canSwitch: false,
       message: "Chỉ chuyển kho trên bản production Vercel.",
+    };
+  }
+  if (!failoverEnabled) {
+    return {
+      ...base,
+      canSwitch: false,
+      message: "Chưa bật failover: cần cấu hình DATABASE_URL_1 và DATABASE_URL.",
     };
   }
   if (active === "switching") {
