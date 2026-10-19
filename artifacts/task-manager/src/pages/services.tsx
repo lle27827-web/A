@@ -6,7 +6,6 @@ import { AlertCircle, LoaderCircle, Pencil, Plus, Sparkles, Trash2 } from 'lucid
 import { Link } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
-import { VoiceInput } from '@/components/voice-input';
 import { statusCode } from '@/lib/attendance';
 import { errorText, formatVnd, parseMoney, useRefreshMassage } from '@/lib/massage';
 
@@ -128,7 +127,7 @@ function ServiceDialog({ service, busy, serverError, authError, onClose, onSubmi
   return (
     <Modal title={service ? 'Sửa dịch vụ' : 'Thêm dịch vụ'} onClose={onClose} testId="dialog-service">
       <form className="form-grid" onSubmit={submit} noValidate>
-        <label className="field" htmlFor="sv-name">Tên dịch vụ<VoiceInput id="sv-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} required placeholder="Massage body đá nóng" data-testid="input-service-name" /></label>
+        <label className="field" htmlFor="sv-name">Tên dịch vụ<input id="sv-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} required placeholder="Massage body đá nóng" data-testid="input-service-name" /></label>
         <label className="field" htmlFor="sv-customer-rate">Tiền dịch vụ / giờ (VND)
           <input id="sv-customer-rate" inputMode="numeric" value={customerRate} onChange={(e) => setCustomerRate(e.target.value)} required placeholder="150000" data-testid="input-service-customer-rate" />
         </label>

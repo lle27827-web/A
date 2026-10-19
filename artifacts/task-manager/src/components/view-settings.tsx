@@ -1,12 +1,13 @@
 import { useCallback, useContext, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
-import { ArrowLeft, BookHeart, ChevronRight, Database, History, Home, KeyRound, Settings, Trash2, Volume2, X } from 'lucide-react';
+import { ArrowLeft, BookHeart, ChevronRight, Database, History, Home, KeyRound, Settings, SlidersHorizontal, Trash2, Volume2, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
 import { AccessGrantsDialog } from '@/components/access-grants';
 import { DatabaseFailoverDialog } from '@/components/database-failover-dialog';
+import { ScreenReaderSettingsDialog } from '@/components/screen-reader-settings-dialog';
 import { ScreenReaderContext } from '@/components/screen-reader-context';
 
 export type ViewMode = 'owner' | 'employee';
@@ -57,6 +58,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   const [historyOpen, setHistoryOpen] = useState(false);
   const [deleteHistoryOpen, setDeleteHistoryOpen] = useState(false);
   const [failoverOpen, setFailoverOpen] = useState(false);
+  const [screenReaderSettingsOpen, setScreenReaderSettingsOpen] = useState(false);
   const screenReader = useContext(ScreenReaderContext);
   if (!screenReader) throw new Error('ViewSettings rendered outside the screen reader provider');
 
@@ -101,6 +103,20 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
             <span className="screen-reader-switch-state" aria-hidden="true">{screenReader.enabled ? 'Bật' : 'Tắt'}</span>
           </button>
 
+          <button
+            type="button"
+            className="settings-link"
+            onClick={() => { onOpenChange(false); setScreenReaderSettingsOpen(true); }}
+            data-testid="button-open-screen-reader-settings"
+          >
+            <SlidersHorizontal size={16} aria-hidden="true" />
+            <span className="grow">
+              <strong>Thiết lập Trợ đọc</strong>
+              <span className="muted">Cử chỉ và tốc độ giọng đọc</span>
+            </span>
+            <ChevronRight size={16} aria-hidden="true" />
+          </button>
+
           <Link href="/personal" className="settings-link personal-entry" onClick={() => onOpenChange(false)} data-testid="link-personal-notebook">
             <BookHeart size={17} aria-hidden="true" /><span className="grow"><strong>Chấm công cá nhân</strong><span className="muted">Sổ riêng của tài khoản bạn</span></span><ChevronRight size={16} aria-hidden="true" />
           </Link>
@@ -119,7 +135,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
 
           {isOwner && (
             <button type="button" className="settings-link" onClick={() => { onOpenChange(false); setFailoverOpen(true); }} data-testid="button-open-database-failover">
-              <Database size={15} aria-hidden="true" /><span className="grow"><strong>Chuyển database dự phòng</strong><span className="muted">Chủ sở hữu · DB1 sang DB2</span></span><ChevronRight size={16} aria-hidden="true" />
+              <Database size={15} aria-hidden="true" /><span className="grow"><strong>Chuyển database dự phòng</strong><span className="muted">Chủ sở hữu · kho liền kề đã đồng bộ</span></span><ChevronRight size={16} aria-hidden="true" />
             </button>
           )}
 
@@ -140,6 +156,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
     {deleteHistoryOpen && isOwner && <HistoryDeleteDialog onClose={() => setDeleteHistoryOpen(false)} />}
     {failoverOpen && isOwner && <DatabaseFailoverDialog onClose={() => setFailoverOpen(false)} />}
     {grantsOpen && canManageGrants && <AccessGrantsDialog members={members} isOwner={isOwner} permissions={permissions} onClose={() => setGrantsOpen(false)} />}
+    {screenReaderSettingsOpen && <ScreenReaderSettingsDialog onClose={() => setScreenReaderSettingsOpen(false)} />}
     </>
   );
 }

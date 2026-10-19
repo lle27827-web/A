@@ -402,7 +402,7 @@ export const getRequestDatabaseFailoverUrl = () => {
 }
 
 /**
- * @summary Chủ sở hữu yêu cầu chuyển DB1 sang DB2
+ * @summary Chủ sở hữu yêu cầu chuyển giữa hai database liền kề
  */
 export const requestDatabaseFailover = async (databaseFailoverInput: DatabaseFailoverInput, options?: Parameters<typeof customFetch>[1]): Promise<DatabaseFailoverResult> => {
 
@@ -468,7 +468,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type RequestDatabaseFailoverMutationVariables = {data: BodyType<DatabaseFailoverInput>}
 
     /**
- * @summary Chủ sở hữu yêu cầu chuyển DB1 sang DB2
+ * @summary Chủ sở hữu yêu cầu chuyển giữa hai database liền kề
  */
 export const useRequestDatabaseFailover = <TError = ErrorType<void | DatabaseFailoverResult>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestDatabaseFailover>>, TError,RequestDatabaseFailoverMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}

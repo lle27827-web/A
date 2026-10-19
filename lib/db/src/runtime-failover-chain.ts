@@ -6,16 +6,19 @@ import {
   DATABASE_STORAGE_LIMIT_BYTES,
   hasReachedComputeTimeLimit,
   hasReachedDatabaseCapacity,
+  isDatabaseAvailabilityError,
   isDatabaseCapacityError,
+  isDatabaseFailoverTriggerError,
+  isSameDatabaseFailureDomain,
   parseDatabaseCapacityLimit,
   parseNeonComputeTimeSeconds,
 } from "./failover-utils";
 import {
+  areAdjacentBackends,
   failoverStateConstraintSupports,
   getBackendIndex,
   getNextBackend,
   getReplicationEdge,
-  isControlledDb1ToDb2Promotion,
   isPersistedDatabaseBackend,
   replicationTableSetsMatch,
   resolveDatabaseNodes,
@@ -36,11 +39,13 @@ type RuntimeNode = Omit<DatabaseNodeConfig, "maxBytes"> & {
   database: ReturnType<typeof drizzle<typeof schema>>;
   maxBytes: bigint;
 };
-type FailoverReason = "compute" | "storage" | "manual";
+type FailoverReason = "availability" | "compute" | "storage" | "manual";
 
 const isVercel = process.env.VERCEL === "1";
 const configuredNodes = resolveDatabaseNodes(process.env);
 const databaseUrl = process.env.DATABASE_URL?.trim();
+const failoverCoordinatorUrl =
+  process.env.DATABASE_FAILOVER_COORDINATOR_URL?.trim();
 const failoverEnabled =
   isVercel &&
   Boolean(process.env.DATABASE_URL_1?.trim() && databaseUrl) &&
@@ -99,14 +104,44 @@ const nodes: RuntimeNode[] = configuredNodes.map((node) => {
   };
 });
 
+if (
+  failoverCoordinatorUrl &&
+  nodes.some((node) =>
+    isSameDatabaseFailureDomain(failoverCoordinatorUrl, node.url),
+  )
+) {
+  throw new Error(
+    "DATABASE_FAILOVER_COORDINATOR_URL must use a separate database failure domain from all application databases.",
+  );
+}
+
+const failoverCoordinatorPool = failoverCoordinatorUrl
+  ? new pg.Pool({
+      connectionString: failoverCoordinatorUrl,
+      application_name: "so-cong-failover-coordinator",
+      max: 1,
+      connectionTimeoutMillis: 10_000,
+      idleTimeoutMillis: 10_000,
+    })
+  : undefined;
+
 if (failoverEnabled) {
-  for (const node of nodes.slice(1)) {
+  if (!failoverCoordinatorPool) {
+    console.warn(
+      "[db-failover] DATABASE_FAILOVER_COORDINATOR_URL is not configured; using the legacy failover-state table on DATABASE_URL. Failover cannot be coordinated if that database is unavailable.",
+    );
+  } else {
+    console.info(
+      "[db-failover] Using the independent PostgreSQL failover coordinator.",
+    );
+  }
+  for (const node of nodes) {
     if (!node.projectId) {
       console.warn(
         `[db-failover] ${node.backend} is configured without its Neon project ID; it cannot be promoted automatically.`,
       );
     }
-    if (!node.canManageSubscription) {
+    if (node !== nodes[0] && !node.canManageSubscription) {
       console.warn(
         `[db-failover] ${node.backend} uses a Neon pooler URL without a direct subscription-admin URL; promotion is blocked.`,
       );
@@ -114,7 +149,7 @@ if (failoverEnabled) {
   }
   if (!neonApiKey) {
     console.warn(
-      "[db-failover] Neon CU-hour monitoring is disabled until NEON_API_KEY is configured.",
+      "[db-failover] Neon CU-hour monitoring is unavailable until NEON_API_KEY and every configured project ID are set; API requests will fail closed.",
     );
   }
 }
@@ -128,9 +163,10 @@ let lastCapacityCheckAt = 0;
 let lastCapacityCheckBackend: DatabaseBackend | null = null;
 let capacityCheckPromise: Promise<void> | null = null;
 let failoverPromise: Promise<boolean> | null = null;
+let lastAvailabilityFailoverAttemptAt = 0;
 
 const lsnPollIntervalMs = 250;
-const lsnPollAttempts = 12;
+const lsnPollAttempts = 40;
 const transactionDrainAttempts = 12;
 
 function nodeForBackend(backend: DatabaseBackend): RuntimeNode | undefined {
@@ -144,6 +180,10 @@ function activeNode(): RuntimeNode | undefined {
 
 function controlNode(): RuntimeNode | undefined {
   return nodeForBackend(stateBackend);
+}
+
+function failoverStatePool(): pg.Pool | undefined {
+  return failoverCoordinatorPool ?? controlNode()?.pool;
 }
 
 function setActiveBackend(backend: PersistedDatabaseBackend): void {
@@ -178,7 +218,7 @@ async function delay(ms: number): Promise<void> {
 async function readBackendState(): Promise<PersistedDatabaseBackend> {
   if (!failoverEnabled) return nodes[0]?.backend ?? "database_url";
 
-  const statePool = controlNode()?.pool;
+  const statePool = failoverStatePool();
   if (!statePool) {
     throw new Error("The database failover state database is not configured.");
   }
@@ -202,7 +242,7 @@ async function readBackendState(): Promise<PersistedDatabaseBackend> {
 async function stateConstraintAllows(
   backend: DatabaseBackend,
 ): Promise<boolean> {
-  const statePool = controlNode()?.pool;
+  const statePool = failoverStatePool();
   if (!statePool) return false;
   try {
     const result = await statePool.query(
@@ -327,6 +367,177 @@ function quoteIdentifier(identifier: string): string {
 
 function qualifiedIdentifier(schema: string, name: string): string {
   return `${quoteIdentifier(schema)}.${quoteIdentifier(name)}`;
+}
+
+function quoteLiteral(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`;
+}
+
+async function applicationTables(node: RuntimeNode): Promise<
+  { schemaName: string; tableName: string }[]
+> {
+  const result = await node.pool.query(
+    `SELECT n.nspname AS schema_name,
+            c.relname AS table_name
+     FROM pg_class c
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public'
+       AND c.relkind IN ('r', 'p')
+       AND c.relname <> 'db_failover_state'
+     ORDER BY n.nspname, c.relname`,
+  );
+  return result.rows.map(
+    (row: { schema_name: string; table_name: string }) => ({
+      schemaName: row.schema_name,
+      tableName: row.table_name,
+    }),
+  );
+}
+
+async function ensureReplicationPublication(
+  publisher: RuntimeNode,
+  publicationName: string,
+): Promise<boolean> {
+  try {
+    const publication = await publisher.subscriptionPool.query(
+      `SELECT puballtables, pubinsert, pubupdate, pubdelete, pubtruncate
+       FROM pg_publication
+       WHERE pubname = $1`,
+      [publicationName],
+    );
+    const expectedTables = await applicationTables(publisher);
+    if (expectedTables.length === 0) return false;
+
+    if (publication.rows.length === 0) {
+      const tableList = expectedTables
+        .map(({ schemaName, tableName }) =>
+          qualifiedIdentifier(schemaName, tableName),
+        )
+        .join(", ");
+      await publisher.subscriptionPool.query(
+        `CREATE PUBLICATION ${quoteIdentifier(publicationName)}
+         FOR TABLE ${tableList}`,
+      );
+    } else {
+      const current = publication.rows[0];
+      if (
+        current.puballtables ||
+        !current.pubinsert ||
+        !current.pubupdate ||
+        !current.pubdelete ||
+        !current.pubtruncate
+      ) {
+        return false;
+      }
+    }
+
+    const [published, localTables] = await Promise.all([
+      publisher.pool.query(
+        `SELECT schemaname AS schema_name,
+                tablename AS table_name
+         FROM pg_publication_tables
+         WHERE pubname = $1
+         ORDER BY schemaname, tablename`,
+        [publicationName],
+      ),
+      applicationTables(publisher),
+    ]);
+    return replicationTableSetsMatch(
+      localTables,
+      published.rows.map(
+        (row: { schema_name: string; table_name: string }) => ({
+          schemaName: row.schema_name,
+          tableName: row.table_name,
+        }),
+      ),
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function removeSubscription(
+  subscriber: RuntimeNode,
+  subscriptionName: string,
+): Promise<boolean> {
+  try {
+    const result = await subscriber.subscriptionPool.query(
+      `SELECT subenabled
+       FROM pg_subscription
+       WHERE subname = $1`,
+      [subscriptionName],
+    );
+    if (result.rows.length === 0) return true;
+    if (result.rows[0]?.subenabled) {
+      await subscriber.subscriptionPool.query(
+        `ALTER SUBSCRIPTION ${quoteIdentifier(subscriptionName)} DISABLE`,
+      );
+    }
+    await subscriber.subscriptionPool.query(
+      `DROP SUBSCRIPTION ${quoteIdentifier(subscriptionName)}`,
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readSubscriptionEnabled(
+  subscriber: RuntimeNode,
+  subscriptionName: string,
+): Promise<boolean | null> {
+  try {
+    const result = await subscriber.subscriptionPool.query(
+      `SELECT subenabled
+       FROM pg_subscription
+       WHERE subname = $1`,
+      [subscriptionName],
+    );
+    return result.rows.length === 0 ? false : result.rows[0]?.subenabled === true;
+  } catch {
+    return null;
+  }
+}
+
+async function createFreshSubscription(
+  publisher: RuntimeNode,
+  subscriber: RuntimeNode,
+  publicationName: string,
+  subscriptionName: string,
+): Promise<boolean> {
+  if (!publisher.canManageSubscription || !subscriber.canManageSubscription) {
+    return false;
+  }
+  if (!(await ensureReplicationPublication(publisher, publicationName))) {
+    return false;
+  }
+
+  try {
+    const existing = await subscriber.subscriptionPool.query(
+      `SELECT subenabled
+       FROM pg_subscription
+       WHERE subname = $1`,
+      [subscriptionName],
+    );
+    if (existing.rows[0]?.subenabled) return false;
+    if (
+      existing.rows.length > 0 &&
+      !(await removeSubscription(subscriber, subscriptionName))
+    ) {
+      return false;
+    }
+
+    const connectionString = publisher.adminUrl ?? publisher.url;
+    await subscriber.subscriptionPool.query(
+      `CREATE SUBSCRIPTION ${quoteIdentifier(subscriptionName)}
+       CONNECTION ${quoteLiteral(connectionString)}
+       PUBLICATION ${quoteIdentifier(publicationName)}
+       WITH (copy_data = false)`,
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function readSequenceSnapshots(node: RuntimeNode): Promise<SequenceSnapshot[]> {
@@ -498,13 +709,44 @@ async function nodeHasCapacity(node: RuntimeNode): Promise<boolean> {
   }
 }
 
+let cascadingReplicationCheck: {
+  expiresAt: number;
+  result: Promise<boolean>;
+} | null = null;
+
+async function supportsCascadingReplication(): Promise<boolean> {
+  if (nodes.length <= 2) return true;
+  const now = Date.now();
+  if (!cascadingReplicationCheck || cascadingReplicationCheck.expiresAt <= now) {
+    const result = Promise.all(
+      nodes.map(async (node) => {
+        const versionResult = await node.pool.query(
+          "SELECT current_setting('server_version_num')::int AS version",
+        );
+        return Number(versionResult.rows[0]?.version);
+      }),
+    )
+      .then((versions) =>
+        versions.every(
+          (version) => Number.isInteger(version) && version >= 160000,
+        ),
+      )
+      .catch(() => false);
+    cascadingReplicationCheck = {
+      expiresAt: now + 5 * 60_000,
+      result,
+    };
+  }
+  return cascadingReplicationCheck.result;
+}
+
 async function restoreBackendAfterBlockedFailover(
   backend: DatabaseBackend,
   reason: string,
 ): Promise<void> {
-  const statePool = controlNode()?.pool;
+  const statePool = failoverStatePool();
   if (!statePool) throw new Error("The failover state database is unavailable.");
-  await statePool.query(
+  const result = await statePool.query(
     `UPDATE public.db_failover_state
      SET active_backend = $1,
          reason = $2,
@@ -512,42 +754,130 @@ async function restoreBackendAfterBlockedFailover(
      WHERE id = 1 AND active_backend = 'switching'`,
     [backend, reason],
   );
+  if (result.rowCount !== 1) {
+    const latest = await readBackendState().catch(() => "switching" as const);
+    setActiveBackend(latest);
+    if (latest === "switching") {
+      throw new Error("The failover state could not be safely restored.");
+    }
+    return;
+  }
   setActiveBackend(backend);
 }
 
-async function restoreSubscriptionAndBackend(
-  targetNode: RuntimeNode,
-  subscriptionName: string,
-  backend: DatabaseBackend,
-): Promise<boolean> {
+function failoverReasonMessage(reason: FailoverReason, backend: DatabaseBackend): string {
+  if (reason === "manual") return `Owner requested a controlled switch from ${backend}.`;
+  if (reason === "compute") return `100 CU-hour limit reached on ${backend}.`;
+  if (reason === "availability") return `Database connection or write availability failed on ${backend}.`;
+  return `Storage limit reached on ${backend}.`;
+}
+
+type ReplicationFlipResult = {
+  ready: boolean;
+  safeToRestore: boolean;
+  reverseEdge?: NonNullable<ReturnType<typeof getReplicationEdge>>;
+};
+
+async function prepareReverseReplication(
+  current: RuntimeNode,
+  target: RuntimeNode,
+  forwardEdge: NonNullable<ReturnType<typeof getReplicationEdge>>,
+): Promise<ReplicationFlipResult> {
+  const reverseEdge = getReplicationEdge(target.backend, current.backend);
+  if (
+    !reverseEdge ||
+    !current.canManageSubscription ||
+    !target.canManageSubscription
+  ) {
+    return { ready: false, safeToRestore: true };
+  }
+  const reverseAlreadyEnabled = await readSubscriptionEnabled(
+    current,
+    reverseEdge.subscriptionName,
+  );
+  if (reverseAlreadyEnabled !== false) {
+    return { ready: false, safeToRestore: false };
+  }
+
+  let reverseCreated = false;
   try {
-    await targetNode.subscriptionPool.query(
-      `ALTER SUBSCRIPTION ${subscriptionName} ENABLE`,
+    reverseCreated = await createFreshSubscription(
+      target,
+      current,
+      reverseEdge.publicationName,
+      reverseEdge.subscriptionName,
     );
-    await restoreBackendAfterBlockedFailover(
-      backend,
-      "Automatic switch paused: sequence synchronization failed.",
+    if (!reverseCreated) return { ready: false, safeToRestore: true };
+
+    const reverseCaughtUp = await waitForReplicationCatchup(target, current);
+    const sequencesSynchronized =
+      reverseCaughtUp && (await synchronizeSequences(target, current));
+    if (!sequencesSynchronized) {
+      const removed = await removeSubscription(
+        current,
+        reverseEdge.subscriptionName,
+      );
+      return { ready: false, safeToRestore: removed };
+    }
+
+    await target.subscriptionPool.query(
+      `ALTER SUBSCRIPTION ${quoteIdentifier(forwardEdge.subscriptionName)} DISABLE`,
     );
-    return true;
+    return { ready: true, safeToRestore: true, reverseEdge };
   } catch {
-    setActiveBackend("switching");
-    return false;
+    let safeToRestore = true;
+    if (reverseCreated) {
+      const removed = await removeSubscription(
+        current,
+        reverseEdge.subscriptionName,
+      );
+      if (!removed) {
+        safeToRestore = false;
+        console.error(
+          `[db-failover] Could not remove the new reverse subscription ${reverseEdge.subscriptionName}; writes remain paused.`,
+        );
+      }
+    }
+    try {
+      await target.subscriptionPool.query(
+        `ALTER SUBSCRIPTION ${quoteIdentifier(forwardEdge.subscriptionName)} ENABLE`,
+      );
+    } catch {
+      safeToRestore = false;
+    }
+    return { ready: false, safeToRestore };
   }
 }
 
-function failoverReasonMessage(reason: FailoverReason, backend: DatabaseBackend): string {
-  if (reason === "manual") return `Owner requested controlled promotion from ${backend} to its verified standby.`;
-  if (reason === "compute") return `100 CU-hour limit reached on ${backend}.`;
-  return `Storage limit reached on ${backend}.`;
+async function restoreReplicationDirection(
+  current: RuntimeNode,
+  target: RuntimeNode,
+  forwardEdge: NonNullable<ReturnType<typeof getReplicationEdge>>,
+  reverseEdge: NonNullable<ReturnType<typeof getReplicationEdge>>,
+): Promise<boolean> {
+  const removed = await removeSubscription(
+    current,
+    reverseEdge.subscriptionName,
+  );
+  if (!removed) return false;
+  try {
+    await target.subscriptionPool.query(
+      `ALTER SUBSCRIPTION ${quoteIdentifier(forwardEdge.subscriptionName)} ENABLE`,
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function performFailover(
   reason: FailoverReason,
   expectedCurrentBackend?: DatabaseBackend,
+  requestedTargetBackend?: DatabaseBackend,
 ): Promise<boolean> {
   if (!failoverEnabled) return false;
 
-  const statePool = controlNode()?.pool;
+  const statePool = failoverStatePool();
   if (!statePool) return false;
   const currentState = await readBackendState();
   if (currentState === "switching") return false;
@@ -558,10 +888,12 @@ async function performFailover(
   if (expectedCurrentBackend && current.backend !== expectedCurrentBackend) {
     return false;
   }
-  const target = getNextBackend(current.backend, nodes);
+  const target = requestedTargetBackend
+    ? nodeForBackend(requestedTargetBackend)
+    : getNextBackend(current.backend, nodes);
   if (!target) {
     console.warn(
-      `[db-failover] No standby remains after ${current.backend}; kept it active.`,
+      `[db-failover] Requested target is not configured from ${current.backend}; kept it active.`,
     );
     return false;
   }
@@ -569,19 +901,32 @@ async function performFailover(
   if (!targetNode) return false;
   if (
     reason === "manual" &&
-    !isControlledDb1ToDb2Promotion(current.backend, targetNode.backend)
+    !areAdjacentBackends(current.backend, targetNode.backend, nodes)
   ) {
     return false;
   }
-  if (!targetNode.canManageSubscription) {
+  if (!current.canManageSubscription || !targetNode.canManageSubscription) {
     console.warn(
-      `[db-failover] Promotion to ${targetNode.backend} is blocked because its Neon pooler URL cannot manage the subscription; configure the matching *_DIRECT URL.`,
+      `[db-failover] Switch from ${current.backend} to ${targetNode.backend} is blocked because both databases need direct replication-management connections.`,
+    );
+    return false;
+  }
+  if (!(await supportsCascadingReplication())) {
+    console.warn(
+      "[db-failover] Multi-database switching is blocked unless every configured Neon database supports cascading logical replication.",
     );
     return false;
   }
   if (!(await stateConstraintAllows(target.backend))) {
     console.warn(
       `[db-failover] Failover to ${target.backend} is blocked until the failover-state migration is applied.`,
+    );
+    return false;
+  }
+  const edge = getReplicationEdge(current.backend, targetNode.backend);
+  if (!edge) {
+    console.warn(
+      `[db-failover] Switch from ${current.backend} to ${targetNode.backend} is blocked because the replication direction is not configured.`,
     );
     return false;
   }
@@ -627,40 +972,29 @@ async function performFailover(
     return false;
   }
 
-  const edge = getReplicationEdge(current.backend, targetNode.backend);
-  if (!edge) {
-    await restoreBackendAfterBlockedFailover(
-      current.backend,
-      "Automatic switch paused: replication edge is not configured.",
-    );
-    return false;
-  }
-
-  try {
-    await targetNode.subscriptionPool.query(
-      `ALTER SUBSCRIPTION ${edge.subscriptionName} DISABLE`,
-    );
-  } catch {
-    await restoreBackendAfterBlockedFailover(
-      current.backend,
-      "Automatic switch paused: could not stop replication safely.",
-    ).catch(() => setActiveBackend("switching"));
-    return false;
-  }
-
   if (!(await synchronizeSequences(current, targetNode))) {
-    const restored = await restoreSubscriptionAndBackend(
-      targetNode,
-      edge.subscriptionName,
+    await restoreBackendAfterBlockedFailover(
       current.backend,
+      "Database switch paused: sequence state could not be synchronized.",
     );
-    if (!restored) {
-      console.error(
-        "[db-failover] Sequence synchronization failed and the previous backend could not be safely restored; writes remain paused.",
+    return false;
+  }
+
+  const replicationFlip = await prepareReverseReplication(
+    current,
+    targetNode,
+    edge,
+  );
+  if (!replicationFlip.ready || !replicationFlip.reverseEdge) {
+    if (replicationFlip.safeToRestore) {
+      await restoreBackendAfterBlockedFailover(
+        current.backend,
+        "Database switch paused: reverse replication could not be established and verified.",
       );
     } else {
-      console.warn(
-        `[db-failover] Kept ${current.backend} active because sequence state on ${targetNode.backend} could not be verified.`,
+      setActiveBackend("switching");
+      console.error(
+        "[db-failover] Reverse replication cleanup failed; writes remain paused to prevent split-brain.",
       );
     }
     return false;
@@ -677,15 +1011,50 @@ async function performFailover(
       [target.backend, failoverReasonMessage(reason, current.backend)],
     );
     if (activated.rowCount !== 1) {
-      setActiveBackend("switching");
+      const restored = await restoreReplicationDirection(
+        current,
+        targetNode,
+        edge,
+        replicationFlip.reverseEdge,
+      );
+      if (restored) {
+        await restoreBackendAfterBlockedFailover(
+          current.backend,
+          "Database switch paused: the active database state changed before commit.",
+        );
+      } else {
+        setActiveBackend("switching");
+      }
       return false;
     }
   } catch {
-    setActiveBackend("switching");
+    const restored = await restoreReplicationDirection(
+      current,
+      targetNode,
+      edge,
+      replicationFlip.reverseEdge,
+    );
+    if (restored) {
+      await restoreBackendAfterBlockedFailover(
+        current.backend,
+        "Database switch paused: the active database state could not be committed.",
+      ).catch(() => setActiveBackend("switching"));
+    } else {
+      setActiveBackend("switching");
+    }
     return false;
   }
 
   setActiveBackend(target.backend);
+  const oldSubscriptionRemoved = await removeSubscription(
+    targetNode,
+    edge.subscriptionName,
+  );
+  if (!oldSubscriptionRemoved) {
+    console.warn(
+      `[db-failover] ${target.backend} is active, but cleanup of the inactive ${edge.subscriptionName} subscription was deferred.`,
+    );
+  }
   console.warn(
     `[db-failover] Switched from ${current.backend} to ${target.backend} after synchronization and capacity checks.`,
   );
@@ -695,12 +1064,30 @@ async function performFailover(
 async function requestFailover(
   reason: FailoverReason,
   expectedCurrentBackend?: DatabaseBackend,
+  requestedTargetBackend?: DatabaseBackend,
 ): Promise<boolean> {
   if (failoverPromise) return failoverPromise;
-  failoverPromise = performFailover(reason, expectedCurrentBackend).finally(() => {
+  failoverPromise = performFailover(
+    reason,
+    expectedCurrentBackend,
+    requestedTargetBackend,
+  ).finally(() => {
     failoverPromise = null;
   });
   return failoverPromise;
+}
+
+const AVAILABILITY_FAILOVER_COOLDOWN_MS = 15_000;
+
+async function requestAvailabilityFailover(): Promise<boolean> {
+  if (failoverPromise) return failoverPromise;
+  if (Date.now() - lastAvailabilityFailoverAttemptAt < AVAILABILITY_FAILOVER_COOLDOWN_MS) {
+    return false;
+  }
+  lastAvailabilityFailoverAttemptAt = Date.now();
+  const switched = await requestFailover("availability").catch(() => false);
+  if (switched) lastAvailabilityFailoverAttemptAt = 0;
+  return switched;
 }
 
 async function checkCurrentCapacity(): Promise<void> {
@@ -708,17 +1095,20 @@ async function checkCurrentCapacity(): Promise<void> {
   const current = activeNode();
   if (!current) return;
 
+  if (capacityCheckPromise) {
+    await capacityCheckPromise;
+    return;
+  }
+
   const now = Date.now();
   if (
     lastCapacityCheckBackend === current.backend &&
     now - lastCapacityCheckAt < 30_000
   ) {
-    if (capacityCheckPromise) await capacityCheckPromise;
     return;
   }
-  lastCapacityCheckAt = now;
-  lastCapacityCheckBackend = current.backend;
-  capacityCheckPromise = (async () => {
+
+  const checkPromise = (async () => {
     let usedBytes: string | undefined;
     try {
       const result = await current.pool.query(
@@ -726,20 +1116,31 @@ async function checkCurrentCapacity(): Promise<void> {
       );
       usedBytes = result.rows[0]?.bytes as string | undefined;
     } catch (error) {
-      if (!isDatabaseCapacityError(error)) throw error;
-      const switched = await requestFailover("storage").catch(() => false);
+      if (isDatabaseCapacityError(error)) {
+        const switched = await requestFailover("storage").catch(() => false);
+        if (!switched) {
+          throw new Error(
+            `The active database ${current.backend} is full and no synchronized standby with verified capacity is available.`,
+          );
+        }
+        return;
+      }
+      if (!isDatabaseAvailabilityError(error)) throw error;
+      const switched = await requestAvailabilityFailover();
       if (!switched) {
         throw new Error(
-          `The active database ${current.backend} is full and no synchronized standby with verified capacity is available.`,
+          `The active database ${current.backend} is unavailable; no adjacent standby could be safely activated.`,
         );
       }
       return;
     }
 
-    if (
-      usedBytes &&
-      hasReachedDatabaseCapacity(usedBytes, current.maxBytes)
-    ) {
+    if (!usedBytes) {
+      throw new Error(
+        `Storage usage could not be verified for ${current.backend}.`,
+      );
+    }
+    if (hasReachedDatabaseCapacity(usedBytes, current.maxBytes)) {
       const switched = await requestFailover("storage");
       if (!switched) {
         throw new Error(
@@ -749,15 +1150,19 @@ async function checkCurrentCapacity(): Promise<void> {
       return;
     }
 
-    if (!neonApiKey || !current.projectId) return;
+    if (!neonApiKey || !current.projectId) {
+      throw new Error(
+        `Neon CU-hour monitoring is not configured for ${current.backend}.`,
+      );
+    }
     let usedComputeSeconds: number;
     try {
       usedComputeSeconds = await readComputeUsageSeconds(current);
-    } catch {
+    } catch (error) {
       console.warn(
-        `[db-failover] Neon CU usage could not be checked for ${current.backend}; continuing with the active database.`,
+        `[db-failover] Neon CU usage could not be verified for ${current.backend}; API requests will fail closed.`,
       );
-      return;
+      throw error;
     }
     if (
       !hasReachedComputeTimeLimit(
@@ -775,10 +1180,17 @@ async function checkCurrentCapacity(): Promise<void> {
     }
   })();
 
+  capacityCheckPromise = checkPromise;
   try {
-    await capacityCheckPromise;
+    await checkPromise;
+    lastCapacityCheckAt = Date.now();
+    lastCapacityCheckBackend = current.backend;
+  } catch (error) {
+    lastCapacityCheckAt = 0;
+    lastCapacityCheckBackend = null;
+    throw error;
   } finally {
-    capacityCheckPromise = null;
+    if (capacityCheckPromise === checkPromise) capacityCheckPromise = null;
   }
 }
 
@@ -791,25 +1203,150 @@ export async function refreshDatabaseBackend(): Promise<PersistedDatabaseBackend
   return activeBackend;
 }
 
+const allDatabaseBackends: readonly DatabaseBackend[] = [
+  "database_url_1",
+  "database_url",
+  "database_url_3",
+  "database_url_4",
+];
+
+async function getSwitchTargetStatus(
+  active: PersistedDatabaseBackend,
+  targetBackend: DatabaseBackend,
+): Promise<{
+  backend: DatabaseBackend;
+  configured: boolean;
+  active: boolean;
+  canSwitch: boolean;
+  message: string;
+}> {
+  const target = nodeForBackend(targetBackend);
+  const isActive = active === targetBackend;
+  const base = {
+    backend: targetBackend,
+    configured: Boolean(target),
+    active: isActive,
+  };
+  if (!target) {
+    return { ...base, canSwitch: false, message: "Chưa cấu hình kho này." };
+  }
+  if (isActive) {
+    return { ...base, canSwitch: false, message: "Đang hoạt động." };
+  }
+  if (
+    !isVercel ||
+    process.env.VERCEL_ENV !== "production" ||
+    !failoverEnabled
+  ) {
+    return {
+      ...base,
+      canSwitch: false,
+      message: "Chỉ chuyển kho trên bản production Vercel.",
+    };
+  }
+  if (active === "switching") {
+    return {
+      ...base,
+      canSwitch: false,
+      message: "Đang có thao tác chuyển kho.",
+    };
+  }
+  const current = nodeForBackend(active);
+  if (!current || !areAdjacentBackends(current.backend, target.backend, nodes)) {
+    return {
+      ...base,
+      canSwitch: false,
+      message: "Chỉ chuyển trực tiếp sang kho liền kề.",
+    };
+  }
+  if (!(await supportsCascadingReplication())) {
+    return {
+      ...base,
+      canSwitch: false,
+      message: "Cần PostgreSQL 16+ trên mọi kho để đồng bộ theo chuỗi.",
+    };
+  }
+  if (!current.canManageSubscription || !target.canManageSubscription) {
+    return {
+      ...base,
+      canSwitch: false,
+      message: "Cần kết nối trực tiếp để quản lý replication.",
+    };
+  }
+  if (!neonApiKey) {
+    return {
+      ...base,
+      canSwitch: false,
+      message: "Thiếu NEON_API_KEY để kiểm tra giới hạn CU.",
+    };
+  }
+  if (!target.projectId) {
+    return {
+      ...base,
+      canSwitch: false,
+      message: "Thiếu mã project Neon để kiểm tra giới hạn CU.",
+    };
+  }
+  if (!(await stateConstraintAllows(target.backend))) {
+    return {
+      ...base,
+      canSwitch: false,
+      message: "Cần cập nhật bảng trạng thái failover trên database.",
+    };
+  }
+  const edge = getReplicationEdge(current.backend, target.backend);
+  if (!edge || !(await replicationIsCaughtUp(current, target))) {
+    return {
+      ...base,
+      canSwitch: false,
+      message: "Replication chưa sẵn sàng hoặc chưa đồng bộ.",
+    };
+  }
+  const reverseEdge = getReplicationEdge(target.backend, current.backend);
+  if (
+    !reverseEdge ||
+    (await readSubscriptionEnabled(current, reverseEdge.subscriptionName)) !==
+      false
+  ) {
+    return {
+      ...base,
+      canSwitch: false,
+      message: "Không xác minh được chiều replication ngược; chuyển bị khóa.",
+    };
+  }
+  if (!(await nodeHasCapacity(target))) {
+    return {
+      ...base,
+      canSwitch: false,
+      message: "Chưa xác nhận được dung lượng và CU còn trống.",
+    };
+  }
+  return {
+    ...base,
+    canSwitch: true,
+    message: "Đã đồng bộ; có thể chuyển an toàn.",
+  };
+}
+
 export async function getDatabaseFailoverStatus(): Promise<{
   activeBackend: PersistedDatabaseBackend;
-  canSwitchToDb2: boolean;
+  switchTargets: Awaited<ReturnType<typeof getSwitchTargetStatus>>[];
 }> {
   const activeBackend = await refreshDatabaseBackend();
-  const target = nodeForBackend("database_url");
   return {
     activeBackend,
-    canSwitchToDb2: Boolean(
-      isVercel &&
-      process.env.VERCEL_ENV === "production" &&
-      failoverEnabled &&
-      activeBackend === "database_url_1" &&
-      target?.canManageSubscription,
+    switchTargets: await Promise.all(
+      allDatabaseBackends.map((backend) =>
+        getSwitchTargetStatus(activeBackend, backend),
+      ),
     ),
   };
 }
 
-export async function requestOwnerDb1ToDb2Failover(): Promise<{
+export async function requestOwnerDatabaseFailover(
+  fromBackend: DatabaseBackend,
+  targetBackend: DatabaseBackend,
+): Promise<{
   switched: boolean;
   activeBackend: PersistedDatabaseBackend;
 }> {
@@ -818,19 +1355,18 @@ export async function requestOwnerDb1ToDb2Failover(): Promise<{
   }
 
   const currentBackend = await readBackendState();
-  const target = getNextBackend(currentBackend === "switching" ? "database_url_1" : currentBackend, nodes);
   if (
-    currentBackend !== "database_url_1" ||
-    !target ||
-    !isControlledDb1ToDb2Promotion(currentBackend, target.backend)
+    currentBackend !== fromBackend ||
+    !nodeForBackend(targetBackend) ||
+    !areAdjacentBackends(fromBackend, targetBackend, nodes)
   ) {
     return { switched: false, activeBackend: currentBackend };
   }
 
-  await requestFailover("manual", "database_url_1");
+  await requestFailover("manual", fromBackend, targetBackend);
   const activeBackend = await readBackendState();
   return {
-    switched: activeBackend === "database_url",
+    switched: activeBackend === targetBackend,
     activeBackend,
   };
 }
@@ -851,12 +1387,17 @@ function installCapacityErrorHandling(node: RuntimeNode): void {
     if (!isPromiseLike(result)) return result;
     return result.catch(async (error: unknown) => {
       if (
-        isDatabaseCapacityError(error) &&
+        isDatabaseFailoverTriggerError(error) &&
         activeBackend === node.backend &&
         !failoverPromise &&
         !isCapacityProbe
       ) {
-        await requestFailover("storage").catch(() => false);
+        if (isDatabaseCapacityError(error)) {
+          await requestFailover("storage").catch(() => false);
+        } else {
+          // Do not replay the failed query: a lost response can mean COMMIT succeeded.
+          await requestAvailabilityFailover();
+        }
       }
       throw error;
     });
@@ -913,15 +1454,20 @@ function installClientHandler(client: pg.PoolClient, node: RuntimeNode): void {
       })
       .catch(async (error: unknown) => {
         if (
-          isDatabaseCapacityError(error) &&
+          isDatabaseFailoverTriggerError(error) &&
           activeBackend === node.backend &&
           !failoverPromise
         ) {
-          if (inTransaction) {
+          if (inTransaction && (isDatabaseCapacityError(error) || isDatabaseAvailabilityError(error))) {
             await rawQuery("ROLLBACK").catch(() => undefined);
             inTransaction = false;
           }
-          await requestFailover("storage").catch(() => false);
+          if (isDatabaseCapacityError(error)) {
+            await requestFailover("storage").catch(() => false);
+          } else {
+            // Future requests may use the promoted node; this failed statement is never retried.
+            await requestAvailabilityFailover();
+          }
         }
         throw error;
       });

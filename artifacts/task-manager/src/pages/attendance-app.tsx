@@ -18,7 +18,6 @@ import { AlertCircle, CalendarDays, Check, CheckCheck, ChevronLeft, ChevronRight
 import { Link } from 'wouter';
 import { AttendanceTable, TableSkeleton } from '@/components/attendance-table';
 import { AttendanceDialog } from '@/components/attendance-dialog';
-import { VoiceInput } from '@/components/voice-input';
 import { MemberHistory, MemberList } from '@/components/member-panel';
 import { ViewSettings, useViewPrefs, type ViewPrefs } from '@/components/view-settings';
 import { EmployeeView } from '@/components/employee-view';
@@ -144,7 +143,7 @@ export default function AttendanceApp() {
           <form role="search" className="search" onSubmit={(e) => e.preventDefault()}>
             <Search size={16} aria-hidden="true" />
             <label htmlFor="global-search" className="sr-only">Tìm Nhân viên và ca làm</label>
-            <VoiceInput id="global-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={employeeMode ? (viewedEmployee ? `Tìm trong ca của ${viewedEmployee.name}...` : 'Chọn Nhân viên để tìm...') : 'Tìm Nhân viên, ngày, giờ...'} disabled={employeeMode && !viewedEmployee} autoComplete="off" data-testid="input-global-search" />
+            <input id="global-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={employeeMode ? (viewedEmployee ? `Tìm trong ca của ${viewedEmployee.name}...` : 'Chọn Nhân viên để tìm...') : 'Tìm Nhân viên, ngày, giờ...'} disabled={employeeMode && !viewedEmployee} autoComplete="off" data-testid="input-global-search" />
             {searching && <button type="button" className="icon-btn" onClick={() => setQuery('')} aria-label="Xóa tìm kiếm" data-testid="button-clear-search"><X size={15} /></button>}
           </form>
           <div className="account">

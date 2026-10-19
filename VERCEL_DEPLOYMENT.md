@@ -60,6 +60,10 @@ API dùng `pg` và Drizzle. Thứ tự failover là `DATABASE_URL_1` → `DATABA
 
 Ngưỡng mặc định cho từng database là 100 CU-giờ và 1.000.000.000 byte. Có thể đặt ngưỡng dung lượng riêng qua `DATABASE_URL_1_MAX_BYTES`, `DATABASE_URL_MAX_BYTES`, `DATABASE_URL_3_MAX_BYTES` và `DATABASE_URL_4_MAX_BYTES`. Bản sao đầy đủ không cộng dồn dung lượng; nếu tất cả cùng chứa một dữ liệu, chuyển dự phòng không giải quyết được khi chúng cùng chạm ngưỡng lưu trữ.
 
+Trước các API route, runtime kiểm tra dung lượng và CU khi có request, không chạy khi ứng dụng nhàn rỗi; kết quả thành công được dùng lại tối đa 30 giây. Việc chuyển CU chỉ xảy ra khi API Neon báo đã chạm 100 CU-giờ, nên độ trễ báo cáo có thể khiến thời điểm chuyển muộn hơn ngưỡng thực tế. Nếu thiếu project ID/API key hoặc không xác minh được số CU/dung lượng, API trả 503 thay vì âm thầm tiếp tục ghi.
+
+Nếu không cấu hình `DATABASE_FAILOVER_COORDINATOR_URL`, bảng trạng thái chuyển kho vẫn nằm trên `DATABASE_URL` (DB2). Khi DB2 không truy cập được, runtime có thể không ghi được trạng thái để chuyển tiếp sang DB3/DB4. Muốn bảo đảm chuỗi failover vẫn điều khiển được khi DB2 hỏng, cần một PostgreSQL điều phối độc lập nằm ngoài bốn kho dữ liệu.
+
 Các biến này là cấu hình Vercel; không thay `DATABASE_URL` do Replit quản lý trong môi trường Replit.
 
 Đổi `DATABASE_URL` không sao chép dữ liệu. Database Neon mới phải được áp dụng schema trước khi ứng dụng đọc/ghi được. Dự án có migration ban đầu trong `lib/db/drizzle/0000_initial.sql` và lệnh `pnpm --filter @workspace/db run migrate` để tạo các bảng, bao gồm `members`. Chạy lệnh trong môi trường an toàn mà `DATABASE_URL` đang trỏ chính xác tới database Neon mới; không chạy với `DATABASE_URL` mặc định của Replit. Migration tạo cấu trúc bảng nhưng không sao chép dữ liệu Replit.

@@ -81,6 +81,24 @@ const REPLICATION_EDGES: readonly ReplicationEdge[] = [
     publicationName: "socong_db3_to_db4_v1",
     subscriptionName: "socong_db4_from_db3_v1",
   },
+  {
+    publisher: "database_url",
+    subscriber: "database_url_1",
+    publicationName: "socong_db2_to_db1_v1",
+    subscriptionName: "socong_db1_from_db2_v1",
+  },
+  {
+    publisher: "database_url_3",
+    subscriber: "database_url",
+    publicationName: "socong_db3_to_db2_v1",
+    subscriptionName: "socong_db2_from_db3_v1",
+  },
+  {
+    publisher: "database_url_4",
+    subscriber: "database_url_3",
+    publicationName: "socong_db4_to_db3_v1",
+    subscriptionName: "socong_db3_from_db4_v1",
+  },
 ];
 
 export function resolveDatabaseNodes(
@@ -165,6 +183,16 @@ export function getNextBackend<T extends Pick<DatabaseNodeConfig, "backend">>(
 ): T | undefined {
   const index = getBackendIndex(backend, nodes);
   return index >= 0 ? nodes[index + 1] : undefined;
+}
+
+export function areAdjacentBackends<T extends Pick<DatabaseNodeConfig, "backend">>(
+  currentBackend: DatabaseBackend,
+  targetBackend: DatabaseBackend,
+  nodes: readonly T[],
+): boolean {
+  const currentIndex = getBackendIndex(currentBackend, nodes);
+  const targetIndex = getBackendIndex(targetBackend, nodes);
+  return currentIndex >= 0 && targetIndex >= 0 && Math.abs(currentIndex - targetIndex) === 1;
 }
 
 export function isControlledDb1ToDb2Promotion(

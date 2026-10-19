@@ -340,20 +340,34 @@ export const DatabaseFailoverBackend = {
   switching: 'switching',
 } as const;
 
-export interface DatabaseFailoverStatus {
-  activeBackend: DatabaseFailoverBackend;
-  canSwitchToDb2: boolean;
-}
-
-export type DatabaseFailoverInputConfirmation = typeof DatabaseFailoverInputConfirmation[keyof typeof DatabaseFailoverInputConfirmation];
+export type DatabaseFailoverTarget = typeof DatabaseFailoverTarget[keyof typeof DatabaseFailoverTarget];
 
 
-export const DatabaseFailoverInputConfirmation = {
-  DB1_TO_DB2: 'DB1_TO_DB2',
+export const DatabaseFailoverTarget = {
+  database_url_1: 'database_url_1',
+  database_url: 'database_url',
+  database_url_3: 'database_url_3',
+  database_url_4: 'database_url_4',
 } as const;
 
+export interface DatabaseFailoverSwitchTarget {
+  backend: DatabaseFailoverTarget;
+  configured: boolean;
+  active: boolean;
+  canSwitch: boolean;
+  message: string;
+}
+
+export interface DatabaseFailoverStatus {
+  activeBackend: DatabaseFailoverBackend;
+  switchTargets: DatabaseFailoverSwitchTarget[];
+}
+
 export interface DatabaseFailoverInput {
-  confirmation: DatabaseFailoverInputConfirmation;
+  fromBackend: DatabaseFailoverTarget;
+  targetBackend: DatabaseFailoverTarget;
+  /** @maxLength 80 */
+  confirmation: string;
 }
 
 export interface DatabaseFailoverResult {

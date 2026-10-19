@@ -75,7 +75,7 @@ paths:
     post:
       operationId: requestDatabaseFailover
       tags: [database]
-      summary: Chủ sở hữu yêu cầu chuyển DB1 sang DB2
+      summary: Chủ sở hữu yêu cầu chuyển giữa hai database liền kề
       requestBody:
         required: true
         content:
@@ -1040,15 +1040,31 @@ components:
       enum: [database_url_1, database_url, database_url_3, database_url_4, switching]
     DatabaseFailoverStatus:
       type: object
-      required: [activeBackend, canSwitchToDb2]
+      required: [activeBackend, switchTargets]
       properties:
         activeBackend: { $ref: "#/components/schemas/DatabaseFailoverBackend" }
-        canSwitchToDb2: { type: boolean }
+        switchTargets:
+          type: array
+          items: { $ref: "#/components/schemas/DatabaseFailoverSwitchTarget" }
+    DatabaseFailoverSwitchTarget:
+      type: object
+      required: [backend, configured, active, canSwitch, message]
+      properties:
+        backend: { $ref: "#/components/schemas/DatabaseFailoverTarget" }
+        configured: { type: boolean }
+        active: { type: boolean }
+        canSwitch: { type: boolean }
+        message: { type: string }
+    DatabaseFailoverTarget:
+      type: string
+      enum: [database_url_1, database_url, database_url_3, database_url_4]
     DatabaseFailoverInput:
       type: object
-      required: [confirmation]
+      required: [fromBackend, targetBackend, confirmation]
       properties:
-        confirmation: { type: string, enum: [DB1_TO_DB2] }
+        fromBackend: { $ref: "#/components/schemas/DatabaseFailoverTarget" }
+        targetBackend: { $ref: "#/components/schemas/DatabaseFailoverTarget" }
+        confirmation: { type: string, maxLength: 80 }
     DatabaseFailoverResult:
       type: object
       required: [switched, activeBackend, message]

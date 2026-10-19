@@ -6,8 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DatabaseFailoverBackend } from './databaseFailoverBackend';
+import type { DatabaseFailoverSwitchTarget } from './databaseFailoverSwitchTarget';
 
 export interface DatabaseFailoverStatus {
   activeBackend: DatabaseFailoverBackend;
-  canSwitchToDb2: boolean;
+  switchTargets: DatabaseFailoverSwitchTarget[];
 }

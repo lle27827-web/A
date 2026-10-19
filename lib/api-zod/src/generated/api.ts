@@ -49,15 +49,27 @@ export const DeleteRetentionYearResponse = zod.object({
  */
 export const GetDatabaseFailoverStatusResponse = zod.object({
   "activeBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4', 'switching']),
-  "canSwitchToDb2": zod.boolean()
+  "switchTargets": zod.array(zod.object({
+  "backend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4']),
+  "configured": zod.boolean(),
+  "active": zod.boolean(),
+  "canSwitch": zod.boolean(),
+  "message": zod.string()
+}))
 })
 
 
 /**
- * @summary Chủ sở hữu yêu cầu chuyển DB1 sang DB2
+ * @summary Chủ sở hữu yêu cầu chuyển giữa hai database liền kề
  */
+export const requestDatabaseFailoverBodyConfirmationMax = 80;
+
+
+
 export const RequestDatabaseFailoverBody = zod.object({
-  "confirmation": zod.enum(['DB1_TO_DB2'])
+  "fromBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4']),
+  "targetBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4']),
+  "confirmation": zod.string().max(requestDatabaseFailoverBodyConfirmationMax)
 })
 
 export const RequestDatabaseFailoverResponse = zod.object({

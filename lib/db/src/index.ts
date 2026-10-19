@@ -2,13 +2,16 @@ export {
   db,
   pool,
   getDatabaseFailoverStatus,
-  requestOwnerDb1ToDb2Failover,
+  requestOwnerDatabaseFailover,
   refreshDatabaseBackend,
   DatabaseFailoverInProgressError,
 } from "./runtime-failover-chain";
 export {
   hasReachedDatabaseCapacity,
   isDatabaseCapacityError,
+  isDatabaseAvailabilityError,
+  isDatabaseFailoverTriggerError,
+  isSameDatabaseFailureDomain,
   parseDatabaseCapacityLimit,
 } from "./failover-utils";
 export * from "./schema";

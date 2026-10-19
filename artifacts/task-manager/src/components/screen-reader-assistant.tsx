@@ -4,8 +4,11 @@ import { useLocation } from 'wouter';
 import { ScreenReaderContext } from '@/components/screen-reader-context';
 import {
   isSafeSaveLabel,
+  nextScreenReaderFocusIndex,
   screenReaderActionForSwipes,
+  screenReaderFocusNavigationForSwipe,
   type ScreenReaderAction,
+  type ScreenReaderFocusNavigation,
   type ScreenReaderSwipeDirection,
 } from './screen-reader-gestures';
 
@@ -14,13 +17,54 @@ const SWIPE_DISTANCE_PX = 36;
 
 function visible(element: HTMLElement): boolean {
   return element.isConnected && element.getClientRects().length > 0
-    && window.getComputedStyle(element).visibility !== 'hidden';
+    && !element.closest('[hidden], [inert], [aria-hidden="true"]')
+    && window.getComputedStyle(element).visibility !== 'hidden'
+    && window.getComputedStyle(element).display !== 'none';
 }
 
 function pageHeading(): string {
-  const main = document.querySelector<HTMLElement>('#main, .p-main');
-  const heading = main?.querySelector<HTMLElement>('h1, h2');
+  const main = document.querySelector<HTMLElement>('#main, .p-main, main');
+  const heading = main?.querySelector<HTMLElement>('h1, h2, [role="heading"]');
   return heading?.innerText.trim() || document.title || 'SỔ CÔNG';
+}
+
+function focusNavigationRoot(): HTMLElement | null {
+  const active = document.activeElement;
+  const activeDialog = active instanceof HTMLElement
+    ? active.closest<HTMLElement>('[role="dialog"][aria-modal="true"]')
+    : null;
+  if (activeDialog && visible(activeDialog)) return activeDialog;
+
+  const openDialogs = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]'))
+    .filter(visible);
+  return openDialogs.at(-1) ?? document.querySelector<HTMLElement>('#main, .p-main, main');
+}
+
+function visiblePageFocusTargets(): HTMLElement[] {
+  const root = focusNavigationRoot();
+  if (!root) return [];
+  const selector = [
+    'h1, h2, h3, h4, h5, h6, [role="heading"]',
+    'a[href]',
+    'button:not(:disabled)',
+    'input:not(:disabled):not([type="hidden"])',
+    'select:not(:disabled)',
+    'textarea:not(:disabled)',
+    '[contenteditable="true"]',
+    '[role="button"][tabindex]:not([tabindex="-1"])',
+    '[tabindex]:not([tabindex="-1"])',
+  ].join(', ');
+  return Array.from(root.querySelectorAll<HTMLElement>(selector))
+    .filter((target) => visible(target))
+    .filter((target) => !target.matches('[aria-disabled="true"], :disabled'))
+    .filter((target) => !target.closest('.screen-reader-assistant'))
+    .filter((target) => Boolean(elementLabel(target)));
+}
+
+function conciseText(element: HTMLElement): string {
+  const copy = element.cloneNode(true) as HTMLElement;
+  copy.querySelectorAll('.hint, .sub, [aria-hidden="true"]').forEach((child) => child.remove());
+  return (copy.innerText || copy.textContent || '').replace(/\s+/g, ' ').trim();
 }
 
 function elementLabel(active: HTMLElement): string {
@@ -30,7 +74,10 @@ function elementLabel(active: HTMLElement): string {
   const labelledBy = active.getAttribute('aria-labelledby');
   if (labelledBy) {
     const text = labelledBy.split(/\s+/)
-      .map((id) => document.getElementById(id)?.innerText.trim())
+      .map((id) => {
+        const label = document.getElementById(id);
+        return label instanceof HTMLElement ? conciseText(label) : '';
+      })
       .filter(Boolean)
       .join(' ');
     if (text) return text;
@@ -40,10 +87,11 @@ function elementLabel(active: HTMLElement): string {
     if (active instanceof HTMLInputElement && active.type === 'password') {
       return active.labels?.[0]?.innerText.trim() || 'Ô nhập mật khẩu';
     }
-    const label = active.labels?.[0]?.innerText.trim()
+    const labelNode = active.labels?.[0];
+    const label = labelNode ? conciseText(labelNode)
       || active.getAttribute('placeholder')
       || active.getAttribute('title')
-      || 'Ô nhập liệu';
+      || 'Ô nhập liệu' : active.getAttribute('placeholder') || active.getAttribute('title') || 'Ô nhập liệu';
     if (active instanceof HTMLSelectElement) {
       const choice = active.selectedOptions[0]?.textContent?.trim();
       return choice ? `${label}: ${choice}` : label;
@@ -51,7 +99,7 @@ function elementLabel(active: HTMLElement): string {
     return active.value ? `${label}: ${active.value}` : label;
   }
 
-  const text = (active.innerText || active.textContent || '').replace(/\s+/g, ' ').trim();
+  const text = conciseText(active);
   return text.slice(0, 100) || '';
 }
 
@@ -89,7 +137,12 @@ function safeSaveTarget(): { form: HTMLFormElement; button: HTMLButtonElement } 
 }
 
 export function ScreenReaderAssistant() {
-  const { enabled } = useScreenReaderAssistant();
+  const {
+    enabled,
+    speechRate,
+    focusSwipesEnabled,
+    shortcutSwipesEnabled,
+  } = useScreenReaderAssistant();
   const [location, navigate] = useLocation();
   const [expanded, setExpanded] = useState(false);
   const [announcement, setAnnouncement] = useState('');
@@ -98,6 +151,7 @@ export function ScreenReaderAssistant() {
   const pendingTimer = useRef<number | null>(null);
   const suppressClick = useRef(false);
   const previousLocation = useRef(location);
+  const currentFocusIndex = useRef(-1);
   function speak(text: string) {
     const cleanText = text.replace(/\s+/g, ' ').trim();
     if (!cleanText) return;
@@ -109,7 +163,7 @@ export function ScreenReaderAssistant() {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'vi-VN';
-    utterance.rate = 0.95;
+    utterance.rate = speechRate;
     const vietnameseVoice = window.speechSynthesis.getVoices().find((voice) => voice.lang.toLowerCase().startsWith('vi'));
     if (vietnameseVoice) utterance.voice = vietnameseVoice;
     window.speechSynthesis.speak(utterance);
@@ -125,10 +179,11 @@ export function ScreenReaderAssistant() {
       previousLocation.current = location;
       return;
     }
+    currentFocusIndex.current = -1;
     const routeChanged = previousLocation.current !== location;
     previousLocation.current = location;
     if (routeChanged) {
-      setAnnouncement(pageHeading());
+      speak(pageHeading());
       return;
     }
     const timer = window.setTimeout(() => {
@@ -143,12 +198,15 @@ export function ScreenReaderAssistant() {
     const onFocusIn = (event: FocusEvent) => {
       const target = event.target;
       if (!(target instanceof HTMLElement) || target.closest('.screen-reader-assistant')) return;
+      const targets = visiblePageFocusTargets();
+      const targetIndex = targets.findIndex((candidate) => candidate === target || candidate.contains(target));
+      if (targetIndex >= 0) currentFocusIndex.current = targetIndex;
       const text = elementLabel(target);
       if (text) speak(text);
     };
     document.addEventListener('focusin', onFocusIn);
     return () => document.removeEventListener('focusin', onFocusIn);
-  }, [enabled]);
+  }, [enabled, speechRate]);
 
   useEffect(() => () => {
     if (pendingTimer.current) window.clearTimeout(pendingTimer.current);
@@ -184,9 +242,48 @@ export function ScreenReaderAssistant() {
   }
 
   function runSwipeSequence(sequence: readonly ScreenReaderSwipeDirection[]) {
+    if (!shortcutSwipesEnabled) {
+      setAnnouncement('Cử chỉ lối tắt đang tắt trong Cài đặt.');
+      return;
+    }
     const action = screenReaderActionForSwipes(sequence);
     if (action) performAction(action);
     else setAnnouncement('Cử chỉ chưa được nhận diện.');
+  }
+
+  function moveFocus(direction: ScreenReaderFocusNavigation) {
+    if (!focusSwipesEnabled) {
+      setAnnouncement('Vuốt chuyển tiêu điểm đang tắt trong Cài đặt.');
+      return;
+    }
+    const targets = visiblePageFocusTargets();
+    if (targets.length === 0) {
+      setAnnouncement('Trang này chưa có mục để chuyển tiêu điểm.');
+      return;
+    }
+    const active = document.activeElement;
+    const activeTargetIndex = active instanceof HTMLElement
+      ? targets.findIndex((target) => target === active || target.contains(active))
+      : -1;
+    const currentIndex = activeTargetIndex >= 0 ? activeTargetIndex : currentFocusIndex.current;
+    const nextIndex = nextScreenReaderFocusIndex(currentIndex, targets.length, direction);
+    if (nextIndex === null) {
+      setAnnouncement(direction === 'next' ? 'Đã đến mục cuối cùng.' : 'Đã đến mục đầu tiên.');
+      return;
+    }
+
+    const target = targets[nextIndex];
+    currentFocusIndex.current = nextIndex;
+    const naturallyFocusable = target.matches('a[href], button, input, select, textarea, [contenteditable="true"]');
+    if (!naturallyFocusable && !target.hasAttribute('tabindex')) target.tabIndex = -1;
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({
+      block: 'center',
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    });
+    const text = elementLabel(target);
+    setAnnouncement(`Mục ${nextIndex + 1}/${targets.length}: ${text}`);
+    if (active === target) speak(text);
   }
 
   function recordSwipe(direction: ScreenReaderSwipeDirection) {
@@ -228,11 +325,21 @@ export function ScreenReaderAssistant() {
     if (!start || start.pointerId !== event.pointerId) return;
     const deltaX = event.clientX - start.x;
     const deltaY = event.clientY - start.y;
-    if (Math.abs(deltaY) < SWIPE_DISTANCE_PX || Math.abs(deltaY) <= Math.abs(deltaX) * 1.2) return;
+    const isHorizontalSwipe = Math.abs(deltaX) >= SWIPE_DISTANCE_PX
+      && Math.abs(deltaX) > Math.abs(deltaY) * 1.2;
+    const isVerticalSwipe = Math.abs(deltaY) >= SWIPE_DISTANCE_PX
+      && Math.abs(deltaY) > Math.abs(deltaX) * 1.2;
+    if (!isHorizontalSwipe && !isVerticalSwipe) return;
     event.preventDefault();
     event.stopPropagation();
     suppressClick.current = true;
-    recordSwipe(deltaY < 0 ? 'up' : 'down');
+    if (isHorizontalSwipe) {
+      const direction = deltaX < 0 ? 'left' : 'right';
+      const navigation = screenReaderFocusNavigationForSwipe(direction);
+      if (navigation) moveFocus(navigation);
+    } else {
+      recordSwipe(deltaY < 0 ? 'up' : 'down');
+    }
     window.setTimeout(() => { suppressClick.current = false; }, 0);
   }
 
@@ -263,13 +370,13 @@ export function ScreenReaderAssistant() {
         <section className="screen-reader-panel" aria-labelledby="screen-reader-title">
           <header className="screen-reader-panel-head">
             <h2 id="screen-reader-title">Trợ đọc SỔ CÔNG</h2>
-            <button type="button" className="icon-btn" onClick={() => setExpanded(false)} aria-label="Thu gọn Trợ đọc">
+            <button type="button" className="icon-btn" onClick={() => setExpanded(false)} aria-label="Đóng bảng Trợ đọc">
               <X size={16} aria-hidden="true" />
             </button>
           </header>
           <p className="screen-reader-status" role="status" aria-live="polite">{announcement || 'Đang bật.'}</p>
           <p className="screen-reader-gestures">
-            Vuốt lên rồi xuống: Nhân viên · Xuống rồi lên: Thẻ · Lên: Trang chính · Xuống: Lưu
+            Vuốt trái/phải: mục trước/sau · Lên: trang chính · Xuống: lưu biểu mẫu · Lên rồi xuống: Nhân viên · Xuống rồi lên: Thẻ
           </p>
           <div className="screen-reader-actions">
             <button type="button" className="btn" onClick={() => speak(pageHeading())} data-testid="button-reader-title">
@@ -297,7 +404,7 @@ export function ScreenReaderAssistant() {
               Dừng đọc
             </button>
           </div>
-          <p className="screen-reader-footnote">Cử chỉ chỉ nhận trên nút Trợ đọc. VoiceOver và TalkBack vẫn giữ cử chỉ hệ thống.</p>
+          <p className="screen-reader-footnote">VoiceOver/TalkBack dùng chạm hai lần để kích hoạt mục đang chọn. Vuốt riêng chỉ nhận trên nút Trợ đọc.</p>
         </section>
       )}
     </aside>

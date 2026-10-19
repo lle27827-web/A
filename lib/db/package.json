@@ -21,6 +21,7 @@
     "migrate:appointments": "node ./scripts/apply-appointments.mjs",
     "migrate:card-usage-history": "node ./scripts/apply-card-usage-history.mjs",
     "migrate:database-failover-state": "node ./scripts/apply-database-failover-state.mjs",
+    "migrate:database-failover-coordinator": "node ./scripts/apply-database-failover-coordinator.mjs",
     "push": "drizzle-kit push --config ./drizzle.config.ts",
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts"
   },

@@ -4,6 +4,7 @@ import {
   getGetDatabaseFailoverStatusQueryKey,
   useGetDatabaseFailoverStatus,
   useRequestDatabaseFailover,
+  type DatabaseFailoverTarget,
 } from '@workspace/api-client-react';
 import { AlertTriangle, ArrowRight, Database, LoaderCircle, RotateCw } from 'lucide-react';
 import { ErrorBanner, Modal, Skeleton } from '@/components/modal';
@@ -33,14 +34,34 @@ export function DatabaseFailoverDialog({ onClose }: { onClose: () => void }) {
   });
   const mutation = useRequestDatabaseFailover();
   const [confirmation, setConfirmation] = useState('');
+  const [selectedTarget, setSelectedTarget] = useState<DatabaseFailoverTarget | null>(null);
   const [completed, setCompleted] = useState<{ message: string; activeBackend: string } | null>(null);
-  const canSwitch = status.data?.canSwitchToDb2 === true && !completed;
+  const activeBackend = status.data?.activeBackend;
+  const targetStatus = status.data?.switchTargets.find((item) => item.backend === selectedTarget);
+  const expectedConfirmation =
+    activeBackend && selectedTarget
+      ? `${backendLabel(activeBackend)} SANG ${backendLabel(selectedTarget)}`
+      : '';
+  const canSwitch = targetStatus?.canSwitch === true && !completed;
 
   function requestSwitch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canSwitch || confirmation.trim() !== 'DB1 SANG DB2' || mutation.isPending) return;
+    if (
+      !canSwitch ||
+      !activeBackend ||
+      activeBackend === 'switching' ||
+      !selectedTarget ||
+      confirmation.trim() !== expectedConfirmation ||
+      mutation.isPending
+    ) return;
     mutation.mutate(
-      { data: { confirmation: 'DB1_TO_DB2' } },
+      {
+        data: {
+          fromBackend: activeBackend as DatabaseFailoverTarget,
+          targetBackend: selectedTarget,
+          confirmation: `${activeBackend}_TO_${selectedTarget}`,
+        },
+      },
       {
         onSuccess: async (result) => {
           setCompleted({ message: result.message, activeBackend: result.activeBackend });
@@ -80,49 +101,83 @@ export function DatabaseFailoverDialog({ onClose }: { onClose: () => void }) {
               <div className="banner soft" role="note">
                 <AlertTriangle size={15} aria-hidden="true" />
                 <span>
-                  Chuyển thật nơi ghi dữ liệu từ DB1 sang DB2. Ứng dụng kiểm tra bản sao, giao dịch đang chạy, dung lượng và CU trước khi chuyển. Nếu kiểm tra không đạt, DB1 được giữ nguyên. Sau khi chuyển, hệ thống không tự quay lại DB1.
+                  Ứng dụng chỉ chuyển giữa hai kho liền kề sau khi kiểm tra replication, giao dịch đang chạy, dung lượng và CU. Nếu bất kỳ bước nào không đạt, kho hiện tại được giữ nguyên.
                 </span>
               </div>
 
-              {!status.data?.canSwitchToDb2 && (
-                <div className="banner soft" role="status" data-testid="status-database-failover-unavailable">
-                  Chỉ có thể chuyển khi ứng dụng Production đang dùng DB1 và DB2 có kết nối quản lý replication.
-                </div>
-              )}
-
-              <form onSubmit={requestSwitch}>
-                <label className="field" htmlFor="confirm-db-failover">
-                  Nhập DB1 SANG DB2 để xác nhận
-                  <input
-                    id="confirm-db-failover"
-                    autoComplete="off"
-                    maxLength={12}
-                    value={confirmation}
-                    onChange={(event) => setConfirmation(event.target.value)}
-                    disabled={!canSwitch || mutation.isPending}
-                    data-testid="input-confirm-database-failover"
-                  />
-                </label>
-
-                {mutation.isError && (
-                  <ErrorBanner text={errorText(mutation.error, 'Chưa thể chuyển database an toàn.')} />
-                )}
-
-                <div className="dialog-actions" style={{ marginTop: 16 }}>
-                  <button type="button" className="btn ghost" onClick={onClose} disabled={mutation.isPending} data-testid="button-cancel-database-failover">
-                    Hủy
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn danger"
-                    disabled={!canSwitch || confirmation.trim() !== 'DB1 SANG DB2' || mutation.isPending}
-                    data-testid="button-confirm-database-failover"
+              <div className="stack" aria-label="Trạng thái bốn kho database">
+                {status.data?.switchTargets.map((item) => (
+                  <div
+                    key={item.backend}
+                    className="banner soft"
+                    data-testid={`database-failover-target-${item.backend}`}
                   >
-                    {mutation.isPending ? <LoaderCircle size={14} className="spin" /> : <><RotateCw size={14} aria-hidden="true" /><ArrowRight size={14} aria-hidden="true" /></>}
-                    Chuyển sang DB2
-                  </button>
-                </div>
-              </form>
+                    <span>
+                      <strong>{backendLabel(item.backend)}</strong>
+                      {item.active ? ' · Đang hoạt động' : ` · ${item.message}`}
+                    </span>
+                    {!item.active && item.configured && (
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        disabled={!item.canSwitch || mutation.isPending}
+                        onClick={() => {
+                          setSelectedTarget(item.backend);
+                          setConfirmation('');
+                        }}
+                        data-testid={`button-select-failover-${item.backend}`}
+                      >
+                        Chọn
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {selectedTarget && targetStatus?.canSwitch && (
+                <form onSubmit={requestSwitch}>
+                  <label className="field" htmlFor="confirm-db-failover">
+                    Nhập {expectedConfirmation} để xác nhận
+                    <input
+                      id="confirm-db-failover"
+                      autoComplete="off"
+                      maxLength={48}
+                      value={confirmation}
+                      onChange={(event) => setConfirmation(event.target.value)}
+                      disabled={!canSwitch || mutation.isPending}
+                      data-testid="input-confirm-database-failover"
+                    />
+                  </label>
+
+                  {mutation.isError && (
+                    <ErrorBanner text={errorText(mutation.error, 'Chưa thể chuyển database an toàn.')} />
+                  )}
+
+                  <div className="dialog-actions" style={{ marginTop: 16 }}>
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      onClick={() => {
+                        setSelectedTarget(null);
+                        setConfirmation('');
+                      }}
+                      disabled={mutation.isPending}
+                      data-testid="button-cancel-database-failover"
+                    >
+                      Hủy chọn
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn danger"
+                      disabled={!canSwitch || confirmation.trim() !== expectedConfirmation || mutation.isPending}
+                      data-testid="button-confirm-database-failover"
+                    >
+                      {mutation.isPending ? <LoaderCircle size={14} className="spin" /> : <><RotateCw size={14} aria-hidden="true" /><ArrowRight size={14} aria-hidden="true" /></>}
+                      Chuyển sang {backendLabel(selectedTarget)}
+                    </button>
+                  </div>
+                </form>
+              )}
             </>
           )}
         </>

@@ -5,15 +5,18 @@ import {
   DATABASE_STORAGE_LIMIT_BYTES,
   hasReachedDatabaseCapacity,
   hasReachedComputeTimeLimit,
+  isDatabaseAvailabilityError,
   isDatabaseCapacityError,
+  isDatabaseFailoverTriggerError,
+  isSameDatabaseFailureDomain,
   parseNeonComputeTimeSeconds,
   parseDatabaseCapacityLimit,
 } from "../../../../lib/db/src/failover-utils";
 import {
+  areAdjacentBackends,
   failoverStateConstraintSupports,
   getNextBackend,
   getReplicationEdge,
-  isControlledDb1ToDb2Promotion,
   replicationTableSetsMatch,
   resolveDatabaseNodes,
 } from "../../../../lib/db/src/failover-topology";
@@ -52,7 +55,52 @@ test("disk-full messages are recognized without exposing details", () => {
     isDatabaseCapacityError(new Error("No space left on device")),
     true,
   );
+  assert.equal(isDatabaseFailoverTriggerError({ code: "53100" }), true);
   assert.equal(isDatabaseCapacityError({ code: "53300" }), false);
+});
+
+test("database connectivity failures are recognized as failover triggers", () => {
+  for (const code of ["08006", "25006", "57P01", "57P03", "53300", "58030", "ECONNRESET", "ETIMEDOUT"]) {
+    assert.equal(isDatabaseAvailabilityError({ code }), true, code);
+    assert.equal(isDatabaseFailoverTriggerError({ code }), true, code);
+  }
+  assert.equal(
+    isDatabaseAvailabilityError({ cause: { code: "ECONNREFUSED" } }),
+    true,
+  );
+  assert.equal(
+    isDatabaseAvailabilityError(new Error("server closed the connection unexpectedly")),
+    true,
+  );
+});
+
+test("ordinary SQL and validation errors never trigger automatic failover", () => {
+  for (const error of [
+    { code: "23505", message: "duplicate key" },
+    { code: "23503", message: "foreign key violation" },
+    { code: "42601", message: "syntax error" },
+    { code: "40001", message: "serialization failure" },
+    { code: "40P01", message: "deadlock detected" },
+  ]) {
+    assert.equal(isDatabaseFailoverTriggerError(error), false, error.code);
+  }
+});
+
+test("independent coordinator URLs cannot share a database failure domain", () => {
+  assert.equal(
+    isSameDatabaseFailureDomain(
+      "postgres://user:pass@ep-example-pooler.us-east-2.aws.neon.tech/app?sslmode=require",
+      "postgres://user:pass@ep-example.us-east-2.aws.neon.tech/app?sslmode=require",
+    ),
+    true,
+  );
+  assert.equal(
+    isSameDatabaseFailureDomain(
+      "postgres://user:pass@ep-coordinator.us-east-2.aws.neon.tech/app",
+      "postgres://user:pass@ep-data.us-east-2.aws.neon.tech/app",
+    ),
+    false,
+  );
 });
 
 test("capacity limit is optional and must be a positive integer", () => {
@@ -109,11 +157,19 @@ test("four-database failover order preserves the existing DATABASE_URL slot", ()
   assert.equal(nodes[3]?.projectId, "project-4");
 });
 
-test("owner-controlled failover can only promote DB1 to DB2", () => {
-  assert.equal(isControlledDb1ToDb2Promotion("database_url_1", "database_url"), true);
-  assert.equal(isControlledDb1ToDb2Promotion("database_url", "database_url_3"), false);
-  assert.equal(isControlledDb1ToDb2Promotion("database_url_1", "database_url_3"), false);
-  assert.equal(isControlledDb1ToDb2Promotion("database_url_3", "database_url_4"), false);
+test("manual switching is limited to adjacent configured databases in either direction", () => {
+  const nodes = resolveDatabaseNodes({
+    DATABASE_URL_1: "postgres://primary",
+    DATABASE_URL: "postgres://fallback",
+    DATABASE_URL_3: "postgres://replica3",
+    DATABASE_URL_4: "postgres://replica4",
+  });
+  assert.equal(areAdjacentBackends("database_url_1", "database_url", nodes), true);
+  assert.equal(areAdjacentBackends("database_url", "database_url_1", nodes), true);
+  assert.equal(areAdjacentBackends("database_url", "database_url_3", nodes), true);
+  assert.equal(areAdjacentBackends("database_url_3", "database_url_4", nodes), true);
+  assert.equal(areAdjacentBackends("database_url_1", "database_url_3", nodes), false);
+  assert.equal(areAdjacentBackends("database_url_1", "database_url_4", nodes), false);
 });
 
 test("additional replica cannot skip a missing link in the failover order", () => {
@@ -138,7 +194,7 @@ test("development with only DATABASE_URL keeps its existing database", () => {
   );
 });
 
-test("replication checks use fixed names for each sequential link", () => {
+test("replication checks define forward and reverse names for each adjacent link", () => {
   assert.equal(
     getReplicationEdge("database_url_1", "database_url")?.subscriptionName,
     "socong_source_from_db1_v1",
@@ -151,6 +207,19 @@ test("replication checks use fixed names for each sequential link", () => {
     getReplicationEdge("database_url_3", "database_url_4")?.subscriptionName,
     "socong_db4_from_db3_v1",
   );
+  assert.equal(
+    getReplicationEdge("database_url", "database_url_1")?.subscriptionName,
+    "socong_db1_from_db2_v1",
+  );
+  assert.equal(
+    getReplicationEdge("database_url_3", "database_url")?.publicationName,
+    "socong_db3_to_db2_v1",
+  );
+  assert.equal(
+    getReplicationEdge("database_url_4", "database_url_3")?.subscriptionName,
+    "socong_db3_from_db4_v1",
+  );
+  assert.equal(getReplicationEdge("database_url_1", "database_url_3"), undefined);
 });
 
 test("replication table validation requires the exact application table set", () => {
@@ -170,17 +239,17 @@ test("replication table validation requires the exact application table set", ()
   );
 });
 
-test("failover-state migration must allow a promoted backend", () => {
+test("failover-state migration must allow every configured backend", () => {
   assert.equal(
     failoverStateConstraintSupports(
-      "CHECK (active_backend = ANY (ARRAY['database_url_1', 'database_url', 'database_url_3']))",
-      ["database_url_3"],
+      "CHECK (active_backend IN ('database_url_1', 'database_url', 'database_url_3', 'database_url_4', 'switching'))",
+      ["database_url_1", "database_url", "database_url_3", "database_url_4"],
     ),
     true,
   );
   assert.equal(
     failoverStateConstraintSupports(
-      "CHECK (active_backend IN ('database_url_1', 'database_url', 'switching'))",
+      "CHECK (active_backend IN ('database_url_1', 'database_url', 'database_url_3', 'switching'))",
       ["database_url_4"],
     ),
     false,

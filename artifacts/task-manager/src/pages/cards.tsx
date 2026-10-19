@@ -6,7 +6,6 @@ import { ChevronRight, CreditCard, LockKeyhole, Phone, Plus, Search, X } from 'l
 import { Link, useLocation } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { CardDialog, mergeConflictTarget } from '@/components/entity-dialogs';
-import { VoiceInput } from '@/components/voice-input';
 import { ErrorBanner, Skeleton } from '@/components/modal';
 import { formatShortDate, localDate, normalize } from '@/lib/attendance';
 import { cardMatches, errorText, formatMinutes, formatVnd, useRefreshMassage } from '@/lib/massage';
@@ -37,7 +36,7 @@ export default function CardsPage() {
         <label htmlFor="card-search">Tìm thẻ theo tên khách hoặc số điện thoại</label>
         <div className="card-search-box">
           <Search size={15} aria-hidden="true" />
-          <VoiceInput id="card-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" placeholder="Ví dụ: Lan hoặc 0903 123" aria-describedby="card-search-hint" data-testid="input-card-search" />
+          <input id="card-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" placeholder="Ví dụ: Lan hoặc 0903 123" aria-describedby="card-search-hint" data-testid="input-card-search" />
           {query && <button type="button" className="icon-btn" onClick={() => setQuery('')} aria-label="Xóa tìm kiếm thẻ" data-testid="button-clear-card-search"><X size={14} /></button>}
         </div>
         <span id="card-search-hint" className="hint" role="status" data-testid="text-card-count">

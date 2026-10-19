@@ -3,7 +3,6 @@ import type { PersonalService, PersonalServiceInput, PersonalSession, PersonalSe
 import { AlertCircle, CalendarDays, LoaderCircle } from 'lucide-react';
 import { Modal } from '@/components/modal';
 import { DatePickerDialog } from '@/components/date-picker-dialog';
-import { VoiceInput } from '@/components/voice-input';
 import { DurationInputs } from '@/components/duration-inputs';
 import { formatShortDate } from '@/lib/attendance';
 import { formatMinutes, formatVnd, parseHoursAndMinutes, parseMoney } from '@/lib/massage';
@@ -28,7 +27,7 @@ export function PersonalServiceDialog({ service, busy, serverError, onClose, onS
     <Modal title={service ? 'Sửa dịch vụ của tôi' : 'Thêm dịch vụ của tôi'} onClose={onClose} testId="dialog-personal-service">
       <form className="form-grid" onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <label className="field">Tên dịch vụ
-          <VoiceInput value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoFocus placeholder="VD: Massage body đá nóng" data-testid="input-personal-service-name" />
+          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoFocus placeholder="VD: Massage body đá nóng" data-testid="input-personal-service-name" />
         </label>
         <label className="field">Tiền công mỗi giờ (₫)
           <input value={rate} onChange={(e) => setRate(e.target.value)} inputMode="numeric" placeholder="VD: 85.000" data-testid="input-personal-service-rate" />
@@ -102,7 +101,7 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
           {formatMinutes(total)} · Tiền công {formatVnd(Math.round(total * rate / 60))}
         </span>}
         <label className="field">Tên khách (không bắt buộc)
-          <VoiceInput value={customerName} maxLength={160} onChange={(e) => setCustomerName(e.target.value)} placeholder="VD: Chị Lan" data-testid="input-personal-customer" />
+          <input value={customerName} maxLength={160} onChange={(e) => setCustomerName(e.target.value)} placeholder="VD: Chị Lan" data-testid="input-personal-customer" />
         </label>
         {(error || serverError) && <p className="form-error" role="alert" data-testid="text-dialog-error"><AlertCircle size={14} />{error || serverError}</p>}
         <div className="dialog-actions">

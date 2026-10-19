@@ -6,11 +6,17 @@ import {
 } from "@workspace/api-zod";
 import {
   getDatabaseFailoverStatus,
-  requestOwnerDb1ToDb2Failover,
+  requestOwnerDatabaseFailover,
 } from "@workspace/db";
 import { requireOwner } from "../lib/owner-auth";
 
 const router: IRouter = Router();
+const backendNames: Record<string, string> = {
+  database_url_1: "DB1",
+  database_url: "DB2",
+  database_url_3: "DB3",
+  database_url_4: "DB4",
+};
 
 router.get("/database/failover", requireOwner, async (_req, res, next): Promise<void> => {
   try {
@@ -24,21 +30,28 @@ router.get("/database/failover", requireOwner, async (_req, res, next): Promise<
 
 router.post("/database/failover", requireOwner, async (req, res, next): Promise<void> => {
   const input = RequestDatabaseFailoverBody.safeParse(req.body);
-  if (!input.success || input.data.confirmation !== "DB1_TO_DB2") {
-    res.status(400).json({ error: "Hãy xác nhận chuyển DB1 sang DB2." });
+  if (
+    !input.success ||
+    input.data.confirmation !==
+      `${input.data.fromBackend}_TO_${input.data.targetBackend}`
+  ) {
+    res.status(400).json({ error: "Thông tin xác nhận chuyển database không hợp lệ." });
     return;
   }
 
   try {
     res.set("Cache-Control", "no-store");
-    const result = await requestOwnerDb1ToDb2Failover();
+    const result = await requestOwnerDatabaseFailover(
+      input.data.fromBackend,
+      input.data.targetBackend,
+    );
     const message = result.switched
-      ? "Đã chuyển sang DB2. Hệ thống không tự chuyển ngược về DB1."
+      ? `Đã chuyển từ ${backendNames[input.data.fromBackend]} sang ${backendNames[input.data.targetBackend]}.`
       : result.activeBackend === "switching"
         ? "Đang có một lần chuyển database khác. Hãy tải lại trạng thái."
-        : result.activeBackend !== "database_url_1"
-          ? "DB1 không còn là database hoạt động. Thao tác này không chuyển tiếp sang database khác."
-          : "Chưa chuyển database. DB1 được giữ nguyên vì trạng thái, đồng bộ hoặc dung lượng DB2 chưa đạt điều kiện an toàn.";
+        : result.activeBackend !== input.data.fromBackend
+          ? "Database hoạt động đã thay đổi. Hãy tải lại trạng thái trước khi thử lại."
+          : "Chưa chuyển database. Kho hiện tại được giữ nguyên vì trạng thái, đồng bộ hoặc dung lượng chưa đạt điều kiện an toàn.";
     const response = RequestDatabaseFailoverResponse.parse({
       ...result,
       message,

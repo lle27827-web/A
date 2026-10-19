@@ -99,6 +99,31 @@ the Replit database. It updates the state table's allowed backend values; the
 runtime refuses promotion to a new node until this constraint accepts that node.
 Do not add the migration to a Vercel build hook.
 
+### Independent failover coordinator
+
+For failover to remain coordinatable when DB2 (`DATABASE_URL`) is unavailable,
+provision a separate PostgreSQL database that is not one of the four data
+stores. It stores only the single `public.db_failover_state` coordination row.
+The application continues using the legacy DB2 state table until
+`DATABASE_FAILOVER_COORDINATOR_URL` is configured.
+
+Before setting that Vercel variable, initialize and seed the separate
+coordinator from the current DB2 state using the explicit migration command:
+
+```sh
+DATABASE_FAILOVER_COORDINATOR_URL='[new coordinator connection URL]' \
+DATABASE_FAILOVER_STATE_SOURCE_URL='[direct DB2 connection URL]' \
+pnpm --filter @workspace/db run migrate:database-failover-coordinator
+```
+
+The migration only reads the existing state from DB2 and creates/initializes
+the state table on the new coordinator. It refuses to overwrite a conflicting
+state or migrate while the current state is `switching`. Do not run this against
+a coordinator that is one of the four application data stores. After the
+migration succeeds, add `DATABASE_FAILOVER_COORDINATOR_URL` to the Vercel
+environment and redeploy. If that URL is set before migration, application
+database requests fail closed until the coordinator state table is ready.
+
 ## Verification
 
 ```sh

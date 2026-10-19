@@ -206,27 +206,10 @@
 .form-grid { display: grid; gap: 12px; }
 .field, .form-grid, .form-grid > *, .field-row, .field-row > * { min-width: 0; max-width: 100%; }
 .field { display: grid; gap: 5px; font-size: 12px; font-weight: 700; }
-.field input, .field select, .field textarea { box-sizing: border-box; width: 100%; min-width: 0; min-height: 38px; padding: 8px 10px; border: 1px solid hsl(var(--border)); border-radius: 8px; outline: none; background: hsl(var(--card)); color: hsl(var(--foreground)); font-size: 13px; font-weight: 400; }
+.field input, .field select, .field textarea { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; min-height: 36px; padding: 7px 8px; border: 1px solid hsl(var(--border)); border-radius: 8px; outline: none; background: hsl(var(--card)); color: hsl(var(--foreground)); font-size: 13px; font-weight: 400; }
 .field textarea { resize: vertical; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: hsl(var(--primary) / .6); box-shadow: 0 0 0 3px hsl(var(--primary) / .08); }
-.voice-input-shell { box-sizing: border-box; display: flex; flex: 1 1 0%; align-items: stretch; width: 100%; min-width: 0; max-width: 100%; overflow: hidden; }
-.voice-input-shell > input, .voice-input-shell > textarea { box-sizing: border-box; flex: 1 1 0%; width: 0; min-width: 0; max-width: 100%; }
-.field .voice-input-shell { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; overflow: hidden; border: 1px solid hsl(var(--border)); border-radius: 8px; background: hsl(var(--card)); }
-.field .voice-input-shell:focus-within { border-color: hsl(var(--primary) / .6); box-shadow: 0 0 0 3px hsl(var(--primary) / .08); }
-.field .voice-input-shell > input, .field .voice-input-shell > textarea { flex: 1 1 0%; width: 0; min-width: 0; max-width: 100%; border: 0; border-radius: 0; outline: none; box-shadow: none; background: transparent; }
-.field .voice-input-shell > textarea { min-height: 78px; resize: vertical; }
-.voice-input-button { box-sizing: border-box; display: inline-flex; flex: 0 0 36px; align-items: center; justify-content: center; align-self: stretch; min-width: 36px; min-height: 38px; padding: 0; border: 0; border-left: 1px solid hsl(var(--border)); background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer; }
-.voice-input-button:hover:not(:disabled), .voice-input-button:focus-visible { color: hsl(var(--primary)); background: hsl(var(--muted) / .65); }
-.voice-input-button:focus-visible { outline: 2px solid hsl(var(--primary)); outline-offset: -2px; }
-.voice-input-button.is-listening { color: hsl(var(--destructive)); }
-.voice-input-button:disabled { cursor: not-allowed; opacity: .45; }
-.search .voice-input-shell, .card-search-box .voice-input-shell { flex: 1 1 0; width: 0; }
-.search .voice-input-shell > input, .card-search-box .voice-input-shell > input { box-sizing: border-box; flex: 1 1 0; width: 0; min-width: 0; max-width: 100%; border: 0; outline: none; background: transparent; color: hsl(var(--foreground)); font-size: 14px; }
-.search .voice-input-button { flex-basis: 34px; min-width: 34px; border-left: 0; }
-.voice-textarea-shell .voice-input-button { align-self: flex-start; min-height: 38px; }
-.member-form .voice-input-shell { flex: 1 1 0%; width: auto; min-width: 0; max-width: 100%; border: 1px solid hsl(var(--border)); border-radius: 7px; background: hsl(var(--muted)); }
-.member-form .voice-input-shell input { box-sizing: border-box; flex: 1 1 0; width: 0; min-width: 0; border: 0; border-radius: 0; background: transparent; }
-.member-form .voice-input-button { flex-basis: 34px; min-width: 34px; }
+input, select, textarea { box-sizing: border-box; min-width: 0; max-width: 100%; }
 .field-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .duration-input-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; width: 100%; max-width: 100%; }
 .duration-field { min-width: 0; max-width: 100%; }
@@ -465,8 +448,6 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   .settings-dialog { width: calc(100vw - 24px); max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); padding: 16px; }
   input, select, textarea { box-sizing: border-box; min-width: 0; max-width: 100%; }
   .field, .field-row, .field-row > *, .form-grid, .form-grid > * { min-width: 0; max-width: 100%; }
-  .voice-input-shell { flex: 1 1 0%; min-width: 0; max-width: 100%; }
-  .voice-input-button { flex-basis: 34px; min-width: 34px; }
   .field input, .field select, .field textarea { padding-inline: 8px; }
   .dialog-actions { justify-content: stretch; }
   .dialog-actions .btn { flex: 1 1 120px; }
@@ -575,6 +556,20 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .screen-reader-actions .btn { display: inline-flex; align-items: center; justify-content: flex-start; gap: 6px; min-width: 0; min-height: 40px; padding: 7px 9px; font-size: 11px; text-align: left; white-space: normal; }
 .screen-reader-actions .btn svg { flex: 0 0 auto; }
 .screen-reader-footnote { margin-bottom: 0; }
+.reader-settings-fields { display: grid; gap: 14px; min-width: 0; }
+.reader-gesture-settings { display: grid; gap: 10px; min-width: 0; }
+.reader-gesture-settings h3 { margin: 0; font-size: 14px; }
+.reader-rate-setting { display: grid; gap: 8px; padding: 12px; border: 1px solid hsl(var(--border)); border-radius: 12px; }
+.reader-rate-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 700; }
+.reader-rate-heading output { color: hsl(var(--primary)); font-variant-numeric: tabular-nums; }
+.reader-speech-range { width: 100%; min-width: 0; accent-color: hsl(var(--primary)); }
+.reader-rate-limits { display: flex; justify-content: space-between; color: hsl(var(--muted-foreground)); font-size: 12px; }
+.reader-settings-toggle { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: start; gap: 10px; padding: 12px; border: 1px solid hsl(var(--border)); border-radius: 12px; cursor: pointer; }
+.reader-settings-toggle input { width: 18px; height: 18px; margin: 1px 0 0; accent-color: hsl(var(--primary)); }
+.reader-settings-toggle span { display: grid; min-width: 0; gap: 4px; }
+.reader-settings-toggle strong { font-size: 14px; line-height: 1.35; }
+.reader-settings-toggle small { color: hsl(var(--muted-foreground)); font-size: 12px; line-height: 1.45; }
+.reader-gesture-help { padding: 11px 12px; border-left: 3px solid hsl(var(--primary)); border-radius: 8px; background: hsl(var(--primary) / .08); color: hsl(var(--muted-foreground)); font-size: 12px; line-height: 1.5; }
 @media (max-width: 420px) {
   .screen-reader-assistant { right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); width: min(300px, calc(100vw - 16px)); max-width: calc(100vw - 16px); }
   .screen-reader-panel { padding: 12px; }
@@ -757,7 +752,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .appointment-empty > svg { color: hsl(var(--primary)); }
 .appointment-empty strong { color: hsl(var(--foreground)); font-size: 14px; }
 .appointment-form { display: grid; gap: 13px; }
-.appointment-form .field textarea { min-height: 78px; }
+.appointment-form .field textarea { min-height: 68px; }
 .appointment-form .hint { margin-left: 4px; font-weight: 500; }
 .appointment-form .dialog-actions { margin-top: 3px; }
 
