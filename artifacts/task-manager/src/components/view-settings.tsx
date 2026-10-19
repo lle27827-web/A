@@ -1,12 +1,13 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useContext, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
-import { ArrowLeft, BookHeart, ChevronRight, Database, History, Home, KeyRound, Settings, Trash2, X } from 'lucide-react';
+import { ArrowLeft, BookHeart, ChevronRight, Database, History, Home, KeyRound, Settings, Trash2, Volume2, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
 import { AccessGrantsDialog } from '@/components/access-grants';
 import { DatabaseFailoverDialog } from '@/components/database-failover-dialog';
+import { ScreenReaderContext } from '@/components/screen-reader-context';
 
 export type ViewMode = 'owner' | 'employee';
 export type ViewPrefs = { mode: ViewMode; employeeId: number | null };
@@ -56,6 +57,8 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   const [historyOpen, setHistoryOpen] = useState(false);
   const [deleteHistoryOpen, setDeleteHistoryOpen] = useState(false);
   const [failoverOpen, setFailoverOpen] = useState(false);
+  const screenReader = useContext(ScreenReaderContext);
+  if (!screenReader) throw new Error('ViewSettings rendered outside the screen reader provider');
 
   function pickHistory(month: string, date: string) {
     setHistoryOpen(false);
@@ -80,6 +83,23 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
           <DialogPrimitive.Description className="sub">
             {isOwner ? 'Lịch sử, cấp quyền quản lý và sổ cá nhân.' : canManageGrants ? 'Lịch sử tháng, quyền quản lý trong phạm vi được cấp và sổ cá nhân.' : 'Lịch sử tháng và sổ cá nhân.'}
           </DialogPrimitive.Description>
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={screenReader.enabled}
+            aria-label="Trợ đọc SỔ CÔNG"
+            className={`settings-link screen-reader-setting${screenReader.enabled ? ' is-on' : ''}`}
+            onClick={() => screenReader.setEnabled(!screenReader.enabled)}
+            data-testid="button-toggle-screen-reader"
+          >
+            <Volume2 size={17} aria-hidden="true" />
+            <span className="grow">
+              <strong>Trợ đọc SỔ CÔNG</strong>
+              <span className="muted">{screenReader.enabled ? 'Đang bật' : 'Đang tắt'}</span>
+            </span>
+            <span className="screen-reader-switch-state" aria-hidden="true">{screenReader.enabled ? 'Bật' : 'Tắt'}</span>
+          </button>
 
           <Link href="/personal" className="settings-link personal-entry" onClick={() => onOpenChange(false)} data-testid="link-personal-notebook">
             <BookHeart size={17} aria-hidden="true" /><span className="grow"><strong>Chấm công cá nhân</strong><span className="muted">Sổ riêng của tài khoản bạn</span></span><ChevronRight size={16} aria-hidden="true" />

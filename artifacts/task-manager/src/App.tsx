@@ -6,6 +6,7 @@ import { Route, Switch, Router as WouterRouter, Redirect, useLocation, useSearch
 import type { FacilityPermissions } from '@workspace/api-client-react';
 import { getAuthStatus, getGetAuthStatusQueryKey, setAuthTokenGetter, useGetAuthStatus } from '@workspace/api-client-react';
 import { ALL_PERMISSIONS, AppShell, NO_PERMISSIONS, hasFacilityAccess, useShell } from '@/components/app-shell';
+import { ScreenReaderAssistantProvider } from '@/components/screen-reader-provider';
 import { EmployeeDetail } from '@/components/employee-detail';
 import HomePage from '@/pages/home';
 import EmployeesPage from '@/pages/employees';
@@ -110,33 +111,37 @@ function SignedInApplication({
   isOwner,
   permissions,
   onSignOut,
+  userId,
 }: {
   isOwner: boolean;
   permissions: FacilityPermissions;
   onSignOut: () => void;
+  userId?: string | null;
 }) {
   const search = useSearch();
   const signedInDestination = postAuthPath(search);
   const facility = hasFacilityAccess(permissions);
   return (
-    <Switch>
-      <Route path="/sign-in/*?"><Redirect to={signedInDestination} replace /></Route>
-      <Route path="/sign-up/*?"><Redirect to={signedInDestination} replace /></Route>
-      {/* Personal notebook: every signed-in account, independent of facility permissions. */}
-      <Route path="/personal"><PersonalPage onSignOut={onSignOut} /></Route>
-      <Route>
-        {facility ? (
-          <AppShell
-            isOwner={isOwner}
-            permissions={permissions}
-            onSignOut={onSignOut}
-            employeeView={<EmployeeModeView />}
-          >
-            <FacilityRoutes permissions={permissions} />
-          </AppShell>
-        ) : <NoFacilityAccessPage onSignOut={onSignOut} />}
-      </Route>
-    </Switch>
+    <ScreenReaderAssistantProvider key={userId ?? 'account'} userId={userId ?? undefined}>
+      <Switch>
+        <Route path="/sign-in/*?"><Redirect to={signedInDestination} replace /></Route>
+        <Route path="/sign-up/*?"><Redirect to={signedInDestination} replace /></Route>
+        {/* Personal notebook: every signed-in account, independent of facility permissions. */}
+        <Route path="/personal"><PersonalPage onSignOut={onSignOut} /></Route>
+        <Route>
+          {facility ? (
+            <AppShell
+              isOwner={isOwner}
+              permissions={permissions}
+              onSignOut={onSignOut}
+              employeeView={<EmployeeModeView />}
+            >
+              <FacilityRoutes permissions={permissions} />
+            </AppShell>
+          ) : <NoFacilityAccessPage onSignOut={onSignOut} />}
+        </Route>
+      </Switch>
+    </ScreenReaderAssistantProvider>
   );
 }
 
@@ -146,7 +151,7 @@ function permissionKey(p: FacilityPermissions | undefined, owner: boolean): stri
 }
 
 function AuthenticatedApplication() {
-  const { isLoaded, isSignedIn, sessionId } = useAuth();
+  const { isLoaded, isSignedIn, sessionId, userId } = useAuth();
   const { signOut } = useClerk();
   const client = useQueryClient();
   const status = useGetAuthStatus({
@@ -211,6 +216,7 @@ function AuthenticatedApplication() {
       key={key}
       isOwner={isOwner}
       permissions={permissions}
+      userId={userId}
       onSignOut={() => { void signOut({ redirectUrl: basePath || '/' }); }}
     />
   );
