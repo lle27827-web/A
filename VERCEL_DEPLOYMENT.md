@@ -62,6 +62,8 @@ Ngưỡng mặc định cho từng database là 100 CU-giờ và 1.000.000.000 b
 
 Trước các API route, runtime kiểm tra dung lượng và CU khi có request, không chạy khi ứng dụng nhàn rỗi; kết quả thành công được dùng lại tối đa 30 giây. Việc chuyển CU chỉ xảy ra khi API Neon báo đã chạm 100 CU-giờ, nên độ trễ báo cáo có thể khiến thời điểm chuyển muộn hơn ngưỡng thực tế. Nếu thiếu project ID/API key hoặc không xác minh được số CU/dung lượng, API trả 503 thay vì âm thầm tiếp tục ghi.
 
+Trong hộp thoại “Chuyển database dự phòng”, chỉ chủ sở hữu trên Vercel Production mới có thể mở bài thử CU. Mỗi lượt tạo rồi xóa một lịch hẹn giả trong cùng giao dịch; giới hạn là 60 lượt, cách nhau 31 giây, và bài thử dừng khi phát hiện đổi kho hoặc gặp lỗi. Đây là phép thử có giới hạn, không bảo đảm tự tiêu thụ đủ 100 CU-giờ; không có vòng ghi vô hạn.
+
 Nếu không cấu hình `DATABASE_FAILOVER_COORDINATOR_URL`, bảng trạng thái chuyển kho vẫn nằm trên `DATABASE_URL` (DB2). Khi DB2 không truy cập được, runtime có thể không ghi được trạng thái để chuyển tiếp sang DB3/DB4. Muốn bảo đảm chuỗi failover vẫn điều khiển được khi DB2 hỏng, cần một PostgreSQL điều phối độc lập nằm ngoài bốn kho dữ liệu.
 
 Các biến này là cấu hình Vercel; không thay `DATABASE_URL` do Replit quản lý trong môi trường Replit.
