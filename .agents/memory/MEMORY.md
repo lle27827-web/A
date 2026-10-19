@@ -14,3 +14,4 @@
 - [Navigation placement](navigation-placement.md) — keep service pricing on the home screen; preserve its manager grant while keeping it out of Settings.
 - [Personal synchronization](personal-synchronization.md) — importing replaces only the confirmed day/month; optional facility rates use employee pay and preserve historical wages.
 - [Concise accessibility](concise-accessibility.md) — short titles and discrepancy summaries; keep controls, financial data, errors and destructive warnings accessible.
+- [GitHub push verification](github-push-verification.md) — a local main commit is not deployed until push authentication succeeds; verify the remote before claiming Vercel changed.
