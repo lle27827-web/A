@@ -480,6 +480,35 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   .settings-dialog .dialog-head h2 { font-size: 17px; }
 }
 
+/* Let long names and values shrink inside mobile flex/grid layouts.
+   Tables retain their own horizontal scrollport via .table-wrap. */
+@media (max-width: 640px) {
+  .topbar-inner > *,
+  .account > *,
+  .main > *,
+  .main .layout > *,
+  .main .content > *,
+  .main .detail > *,
+  .main .home > *,
+  .main .employee-wrap > *,
+  .p-top-inner > *,
+  .p-main > *,
+  .p-grid > * {
+    min-width: 0;
+  }
+
+  .mode-pill,
+  .employee-hero > div,
+  .employee-hero h1,
+  .salary-label,
+  .rev-label,
+  .p-card h2 {
+    overflow-wrap: anywhere;
+  }
+
+  .mode-pill { max-width: 100%; white-space: normal; }
+}
+
 @media (max-height: 680px) {
   .auth-page { justify-content: flex-start; }
   .settings-dialog { top: max(8px, env(safe-area-inset-top)); transform: translateX(-50%); max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
