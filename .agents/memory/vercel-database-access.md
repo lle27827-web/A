@@ -54,3 +54,9 @@ Keep the retention cleanup schedule disabled until the permanent card-use ledger
 **Why:** Cleanup removes old employee sessions after archiving card use; a replica without the ledger could hide that permanent history after failover.
 
 **How to apply:** Re-enable the Vercel cron only after read-only checks confirm `card_usage_history` is published and its subscription relation is ready on the fallback.
+
+The production CU probe must be owner-triggered and bounded: no more than 60 short transactions, spaced at least 31 seconds apart, each inserting and deleting its probe appointment within the same transaction. It may confirm that a real threshold-triggered switch occurs, but it must not claim to consume 100 CU-hours on demand.
+
+**Why:** CU-hours are real provider usage, so an unbounded load loop can create unexpected cost; short transactions are reversible but may not move usage to the threshold.
+
+**How to apply:** Keep the endpoint production-only and owner-authorized, stop on a backend change or any error, and explain that a run can finish without reaching 100 CU-hours.
