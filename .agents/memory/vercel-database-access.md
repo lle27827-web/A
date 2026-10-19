@@ -15,11 +15,11 @@ For this app, the existing Vercel data is in one Neon project and `DATABASE_URL_
 
 **How to apply:** Keep both database variables configured in Vercel and do not claim production has switched until the failover-capable code is deployed there. Replit secrets do not automatically configure Vercel. Runtime failover checks run only on API requests (not while idle), use a 1 GB storage threshold by default, and check 100 CU-hours through Neon’s project API using `NEON_API_KEY` and `NEON_PROJECT_ID_1` for the primary `DATABASE_URL_1`. `DATABASE_URL_1_MAX_BYTES` can override the storage threshold. Failover must stop unless the fallback is fully synchronized; Neon’s usage metric may lag.
 
-As of 2026-10-19, the user confirmed Vercel has `DATABASE_URL_3` and `DATABASE_URL_4` configured and connection pooling disabled for those two URLs. This does not confirm that logical replication is configured, caught up, or that `NEON_PROJECT_ID_3` and `NEON_PROJECT_ID_4` are present.
+As of 2026-10-19, the user confirmed Vercel has `DATABASE_URL_3` and `DATABASE_URL_4` configured with pooling disabled, and has configured `NEON_PROJECT_ID_3`, `NEON_PROJECT_ID_4`, and the direct URL overrides discussed for pooled database URLs.
 
-**Why:** The user explicitly reported those Vercel settings, but connection strings alone do not prove replicas are safe to promote.
+**Why:** The user explicitly confirmed these Vercel settings; they are needed to check candidate CU usage and manage subscriptions safely.
 
-**How to apply:** Keep automatic promotion fail-closed until each link in `DATABASE_URL_1` → `DATABASE_URL` → `DATABASE_URL_3` → `DATABASE_URL_4` is verified synchronized and each candidate project can be checked for CU usage.
+**How to apply:** Recheck the production deployment after environment changes; keep automatic promotion fail-closed until every link in `DATABASE_URL_1` → `DATABASE_URL` → `DATABASE_URL_3` → `DATABASE_URL_4` is synchronized and can be checked for capacity.
 
 Keep the retention cleanup schedule disabled until the permanent card-use ledger exists on both Neon databases and the publication/subscription reports that table ready. The runtime failover guard checks publication, subscription, and table counts, but that code check does not confirm live Neon configuration.
 
