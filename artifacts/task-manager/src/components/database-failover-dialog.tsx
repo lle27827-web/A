@@ -19,7 +19,7 @@ const failoverOrder: DatabaseFailoverTarget[] = [
 ];
 const maxCapacityTestWrites = 60;
 const capacityTestIntervalMs = 31_000;
-const capacityTestConfirmPhrase = 'CHẠY KIỂM THỬ';
+const capacityTestConfirmPhrase = '30 111999';
 
 const backendLabels: Record<string, string> = {
   database_url_1: 'DB1',
@@ -311,11 +311,12 @@ export function DatabaseFailoverDialog({ onClose }: { onClose: () => void }) {
                   </div>
                 )}
                 <label className="field" htmlFor="confirm-capacity-test">
-                  Nhập {capacityTestConfirmPhrase} để xác nhận ghi thử lên production
+                  Nhập mật khẩu kiểm thử để xác nhận ghi thử lên production
                   <input
                     id="confirm-capacity-test"
+                    type="password"
                     autoComplete="off"
-                    maxLength={32}
+                    maxLength={16}
                     value={capacityTestConfirmation}
                     onChange={(event) => setCapacityTestConfirmation(event.target.value)}
                     data-testid="input-confirm-failover-capacity-test"
