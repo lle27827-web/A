@@ -16,3 +16,9 @@ The user requires reloading anywhere in the application to return to the applica
 **Why:** the user repeatedly requested this recovery behavior when reporting refresh failures.
 
 **How to apply:** check both server-side SPA delivery and client-side unknown-route handling. A client redirect cannot repair Vercel's server-generated NOT_FOUND response, and workspace changes do not modify an already-built deployment.
+
+A `200` response for the SPA document is not enough to prove the deployed app works: fetch the hashed JavaScript asset referenced by that document and verify it returns JavaScript, not an HTML fallback. A fallback can hide a missing asset behind a successful status and leave the page blank.
+
+**Why:** A live Vercel route returned the app document for a missing JavaScript bundle, so checking only the page status would have falsely suggested the deployment was healthy.
+
+**How to apply:** After a Vercel deploy, verify a deep link, the referenced JS bundle's content type/body, and an API health endpoint separately.
