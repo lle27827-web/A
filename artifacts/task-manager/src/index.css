@@ -65,7 +65,7 @@
 @layer base {
   * { @apply border-border; }
   body { @apply font-sans antialiased bg-background text-foreground; margin: 0; min-width: 320px; min-height: 100dvh; }
-  button, input, textarea, select { font: inherit; }
+  button, input, textarea, select { box-sizing: border-box; min-width: 0; max-width: 100%; font: inherit; }
   button { cursor: pointer; }
   button:disabled { cursor: not-allowed; opacity: .55; }
 }
@@ -204,18 +204,18 @@
 .dialog-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .dialog-head h2 { min-width: 0; overflow-wrap: anywhere; margin: 0; font-family: var(--app-font-display); font-size: 18px; letter-spacing: -.04em; }
 .form-grid { display: grid; gap: 12px; }
-.field, .form-grid > * { min-width: 0; }
+.field, .form-grid, .form-grid > *, .field-row, .field-row > * { min-width: 0; max-width: 100%; }
 .field { display: grid; gap: 5px; font-size: 12px; font-weight: 700; }
 .field input, .field select, .field textarea { box-sizing: border-box; width: 100%; min-width: 0; min-height: 38px; padding: 8px 10px; border: 1px solid hsl(var(--border)); border-radius: 8px; outline: none; background: hsl(var(--card)); color: hsl(var(--foreground)); font-size: 13px; font-weight: 400; }
 .field textarea { resize: vertical; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: hsl(var(--primary) / .6); box-shadow: 0 0 0 3px hsl(var(--primary) / .08); }
-.voice-input-shell { box-sizing: border-box; display: flex; flex: 1 1 auto; align-items: stretch; width: 100%; min-width: 0; max-width: 100%; overflow: hidden; }
+.voice-input-shell { box-sizing: border-box; display: flex; flex: 1 1 0%; align-items: stretch; width: 100%; min-width: 0; max-width: 100%; overflow: hidden; }
 .voice-input-shell > input, .voice-input-shell > textarea { box-sizing: border-box; flex: 1 1 0%; width: 0; min-width: 0; max-width: 100%; }
 .field .voice-input-shell { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; overflow: hidden; border: 1px solid hsl(var(--border)); border-radius: 8px; background: hsl(var(--card)); }
 .field .voice-input-shell:focus-within { border-color: hsl(var(--primary) / .6); box-shadow: 0 0 0 3px hsl(var(--primary) / .08); }
 .field .voice-input-shell > input, .field .voice-input-shell > textarea { flex: 1 1 0%; width: 0; min-width: 0; max-width: 100%; border: 0; border-radius: 0; outline: none; box-shadow: none; background: transparent; }
 .field .voice-input-shell > textarea { min-height: 78px; resize: vertical; }
-.voice-input-button { box-sizing: border-box; display: inline-flex; flex: 0 0 38px; align-items: center; justify-content: center; align-self: stretch; min-width: 38px; padding: 0; border: 0; border-left: 1px solid hsl(var(--border)); background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer; }
+.voice-input-button { box-sizing: border-box; display: inline-flex; flex: 0 0 36px; align-items: center; justify-content: center; align-self: stretch; min-width: 36px; min-height: 38px; padding: 0; border: 0; border-left: 1px solid hsl(var(--border)); background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer; }
 .voice-input-button:hover:not(:disabled), .voice-input-button:focus-visible { color: hsl(var(--primary)); background: hsl(var(--muted) / .65); }
 .voice-input-button:focus-visible { outline: 2px solid hsl(var(--primary)); outline-offset: -2px; }
 .voice-input-button.is-listening { color: hsl(var(--destructive)); }
@@ -224,7 +224,7 @@
 .search .voice-input-shell > input, .card-search-box .voice-input-shell > input { box-sizing: border-box; flex: 1 1 0; width: 0; min-width: 0; max-width: 100%; border: 0; outline: none; background: transparent; color: hsl(var(--foreground)); font-size: 14px; }
 .search .voice-input-button { flex-basis: 34px; min-width: 34px; border-left: 0; }
 .voice-textarea-shell .voice-input-button { align-self: flex-start; min-height: 38px; }
-.member-form .voice-input-shell { flex: 1 1 160px; width: auto; min-width: 0; border: 1px solid hsl(var(--border)); border-radius: 7px; background: hsl(var(--muted)); }
+.member-form .voice-input-shell { flex: 1 1 0%; width: auto; min-width: 0; max-width: 100%; border: 1px solid hsl(var(--border)); border-radius: 7px; background: hsl(var(--muted)); }
 .member-form .voice-input-shell input { box-sizing: border-box; flex: 1 1 0; width: 0; min-width: 0; border: 0; border-radius: 0; background: transparent; }
 .member-form .voice-input-button { flex-basis: 34px; min-width: 34px; }
 .field-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -463,7 +463,11 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   .reports, .tiles, .emp-item { min-width: 0; }
   .table-wrap { max-width: 100%; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
   .settings-dialog { width: calc(100vw - 24px); max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); padding: 16px; }
-  input, select, textarea { max-width: 100%; }
+  input, select, textarea { box-sizing: border-box; min-width: 0; max-width: 100%; }
+  .field, .field-row, .field-row > *, .form-grid, .form-grid > * { min-width: 0; max-width: 100%; }
+  .voice-input-shell { flex: 1 1 0%; min-width: 0; max-width: 100%; }
+  .voice-input-button { flex-basis: 34px; min-width: 34px; }
+  .field input, .field select, .field textarea { padding-inline: 8px; }
   .dialog-actions { justify-content: stretch; }
   .dialog-actions .btn { flex: 1 1 120px; }
 }
