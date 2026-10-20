@@ -30,6 +30,7 @@ import {
   planSequenceSync,
   type SequenceSnapshot,
 } from "./failover-sequences";
+import { describeReplicationBlocker } from "./failover-replication-readiness";
 
 type Queryable = { query: (...args: any[]) => any };
 type RuntimeNode = Omit<DatabaseNodeConfig, "maxBytes"> & {
@@ -258,12 +259,17 @@ async function stateConstraintAllows(
   }
 }
 
-async function replicationIsCaughtUp(
+async function getReplicationReadiness(
   publisher: RuntimeNode,
   subscriber: RuntimeNode,
-): Promise<boolean> {
+): Promise<{ ready: boolean; message: string }> {
   const edge = getReplicationEdge(publisher.backend, subscriber.backend);
-  if (!edge) return false;
+  if (!edge) {
+    return {
+      ready: false,
+      message: describeReplicationBlocker({ kind: "edge_missing" }),
+    };
+  }
 
   try {
     const [subscription, subscriptionTables, publishedTables, publisherTables] =
@@ -324,14 +330,87 @@ async function replicationIsCaughtUp(
       }),
     );
 
-    if (
-      !subscription.rows[0]?.subenabled ||
-      subscriptionTables.rows.length < 1 ||
-      !subscriptionTables.rows.every((row: { ready: boolean }) => row.ready) ||
-      !replicationTableSetsMatch(expectedTables, publishedTableSet) ||
-      !replicationTableSetsMatch(expectedTables, subscriptionTableSet)
-    ) {
-      return false;
+    const subscriptionStatus = subscription.rows[0] as
+      | { subenabled: boolean }
+      | undefined;
+    if (!subscriptionStatus) {
+      return {
+        ready: false,
+        message: describeReplicationBlocker({
+          kind: "subscription_missing",
+          subscriptionName: edge.subscriptionName,
+        }),
+      };
+    }
+    if (!subscriptionStatus.subenabled) {
+      return {
+        ready: false,
+        message: describeReplicationBlocker({
+          kind: "subscription_disabled",
+          subscriptionName: edge.subscriptionName,
+        }),
+      };
+    }
+    if (expectedTables.length === 0) {
+      return {
+        ready: false,
+        message: describeReplicationBlocker({ kind: "no_application_tables" }),
+      };
+    }
+
+    const tableKey = (table: { schemaName: string; tableName: string }) =>
+      `${table.schemaName}\u0000${table.tableName}`;
+    const expectedKeys = new Set(expectedTables.map(tableKey));
+    const publicationKeys = new Set(publishedTableSet.map(tableKey));
+    if (!replicationTableSetsMatch(expectedTables, publishedTableSet)) {
+      return {
+        ready: false,
+        message: describeReplicationBlocker({
+          kind: "publication_mismatch",
+          missingTables: expectedTables.filter(
+            (table: { schemaName: string; tableName: string }) =>
+              !publicationKeys.has(tableKey(table)),
+          ),
+          hasExtraTables: publishedTableSet.some(
+            (table: { schemaName: string; tableName: string }) =>
+              !expectedKeys.has(tableKey(table)),
+          ),
+        }),
+      };
+    }
+
+    const subscriptionKeys = new Set(subscriptionTableSet.map(tableKey));
+    if (!replicationTableSetsMatch(expectedTables, subscriptionTableSet)) {
+      return {
+        ready: false,
+        message: describeReplicationBlocker({
+          kind: "subscription_mismatch",
+          missingTables: expectedTables.filter(
+            (table: { schemaName: string; tableName: string }) =>
+              !subscriptionKeys.has(tableKey(table)),
+          ),
+          hasExtraTables: subscriptionTableSet.some(
+            (table: { schemaName: string; tableName: string }) =>
+              !expectedKeys.has(tableKey(table)),
+          ),
+        }),
+      };
+    }
+
+    const pendingTables = subscriptionTables.rows
+      .filter((row: { ready: boolean }) => !row.ready)
+      .map((row: { schema_name: string; table_name: string }) => ({
+        schemaName: row.schema_name,
+        tableName: row.table_name,
+      }));
+    if (pendingTables.length > 0) {
+      return {
+        ready: false,
+        message: describeReplicationBlocker({
+          kind: "pending_tables",
+          tables: pendingTables,
+        }),
+      };
     }
 
     const [lastEnd, current] = await Promise.all([
@@ -349,15 +428,48 @@ async function replicationIsCaughtUp(
     ]);
     const appliedLsn = lastEnd.rows[0]?.lsn as string | undefined;
     const currentLsn = current.rows[0]?.lsn as string | undefined;
-    if (!appliedLsn || !currentLsn) return false;
+    if (!appliedLsn) {
+      return {
+        ready: false,
+        message: describeReplicationBlocker({
+          kind: "apply_worker_missing",
+          subscriptionName: edge.subscriptionName,
+        }),
+      };
+    }
+    if (!currentLsn) {
+      return {
+        ready: false,
+        message: describeReplicationBlocker({ kind: "lsn_missing" }),
+      };
+    }
 
     const difference = await subscriber.pool.query(
-      "SELECT pg_wal_lsn_diff($1::pg_lsn, $2::pg_lsn) <= 0 AS caught_up",
+      `SELECT pg_wal_lsn_diff($1::pg_lsn, $2::pg_lsn)::text AS lag_bytes`,
       [currentLsn, appliedLsn],
     );
-    return difference.rows[0]?.caught_up === true;
+    const lagBytes = Number(difference.rows[0]?.lag_bytes);
+    if (!Number.isFinite(lagBytes)) {
+      return {
+        ready: false,
+        message: describeReplicationBlocker({ kind: "lsn_missing" }),
+      };
+    }
+    if (lagBytes > 0) {
+      return {
+        ready: false,
+        message: describeReplicationBlocker({
+          kind: "lag",
+          bytes: String(Math.ceil(lagBytes)),
+        }),
+      };
+    }
+    return { ready: true, message: "Đã đồng bộ; có thể chuyển an toàn." };
   } catch {
-    return false;
+    return {
+      ready: false,
+      message: describeReplicationBlocker({ kind: "query_failed" }),
+    };
   }
 }
 
@@ -642,7 +754,7 @@ async function waitForReplicationCatchup(
   subscriber: RuntimeNode,
 ): Promise<boolean> {
   for (let attempt = 0; attempt < lsnPollAttempts; attempt += 1) {
-    if (await replicationIsCaughtUp(publisher, subscriber)) return true;
+    if ((await getReplicationReadiness(publisher, subscriber)).ready) return true;
     await delay(lsnPollIntervalMs);
   }
   return false;
@@ -1298,11 +1410,17 @@ async function getSwitchTargetStatus(
     };
   }
   const edge = getReplicationEdge(current.backend, target.backend);
-  if (!edge || !(await replicationIsCaughtUp(current, target))) {
+  const replicationReadiness = edge
+    ? await getReplicationReadiness(current, target)
+    : {
+        ready: false,
+        message: describeReplicationBlocker({ kind: "edge_missing" }),
+      };
+  if (!replicationReadiness.ready) {
     return {
       ...base,
       canSwitch: false,
-      message: "Replication chưa sẵn sàng hoặc chưa đồng bộ.",
+      message: replicationReadiness.message,
     };
   }
   const reverseEdge = getReplicationEdge(target.backend, current.backend);

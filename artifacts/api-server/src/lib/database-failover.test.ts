@@ -24,6 +24,7 @@ import {
   planSequenceSync,
   type SequenceSnapshot,
 } from "../../../../lib/db/src/failover-sequences";
+import { describeReplicationBlocker } from "../../../../lib/db/src/failover-replication-readiness";
 import { getCapacityProbeReadiness } from "./database-failover-readiness";
 
 function sequenceSnapshot(
@@ -179,14 +180,57 @@ test("capacity probe reports the next database's exact readiness blocker", () =>
       backend: "database_url_3",
       configured: true,
       canSwitch: false,
-      message: "Replication chưa sẵn sàng hoặc chưa đồng bộ.",
+      message: "Chưa tạo subscription “socong_db3_from_source_v1” trên kho đích.",
     },
   ]);
   assert.deepEqual(readiness, {
     canRun: false,
     targetBackend: "database_url_3",
-    message: "DB3 chưa sẵn sàng: Replication chưa sẵn sàng hoặc chưa đồng bộ.",
+    message: "DB3 chưa sẵn sàng: Chưa tạo subscription “socong_db3_from_source_v1” trên kho đích.",
   });
+});
+
+test("replication blockers identify subscription and table setup problems", () => {
+  assert.match(
+    describeReplicationBlocker({
+      kind: "subscription_disabled",
+      subscriptionName: "socong_db3_from_source_v1",
+    }),
+    /đang bị tắt/,
+  );
+  assert.match(
+    describeReplicationBlocker({
+      kind: "subscription_mismatch",
+      missingTables: [{ schemaName: "public", tableName: "attendance" }],
+      hasExtraTables: false,
+    }),
+    /public\.attendance/,
+  );
+  assert.match(
+    describeReplicationBlocker({
+      kind: "pending_tables",
+      tables: [{ schemaName: "public", tableName: "service_sessions" }],
+    }),
+    /Đồng bộ ban đầu chưa xong.*public\.service_sessions/,
+  );
+});
+
+test("replication blockers report apply-worker and lag details", () => {
+  assert.match(
+    describeReplicationBlocker({
+      kind: "apply_worker_missing",
+      subscriptionName: "socong_db3_from_source_v1",
+    }),
+    /worker apply/,
+  );
+  assert.match(
+    describeReplicationBlocker({ kind: "lag", bytes: "2048" }),
+    /2048 byte/,
+  );
+  assert.match(
+    describeReplicationBlocker({ kind: "query_failed" }),
+    /kết nối trực tiếp và quyền PostgreSQL/,
+  );
 });
 
 test("capacity probe explains why it cannot continue past the last database", () => {
