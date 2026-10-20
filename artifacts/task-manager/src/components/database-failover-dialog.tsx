@@ -205,7 +205,19 @@ export function DatabaseFailoverDialog({ onClose }: { onClose: () => void }) {
           <div className="banner soft" role="status" data-testid="status-active-database">
             <Database size={15} aria-hidden="true" />
             <span>Database đang hoạt động: <strong>{backendLabel(status.data?.activeBackend)}</strong></span>
-            {status.isFetching && <LoaderCircle size={14} className="spin" aria-hidden="true" />}
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => void status.refetch()}
+              disabled={status.isFetching}
+              aria-label="Tải lại trạng thái database và replication"
+              data-testid="button-refresh-database-failover-status"
+            >
+              {status.isFetching
+                ? <LoaderCircle size={14} className="spin" aria-hidden="true" />
+                : <RotateCw size={14} aria-hidden="true" />}
+              Tải lại
+            </button>
           </div>
 
           {completed ? (
