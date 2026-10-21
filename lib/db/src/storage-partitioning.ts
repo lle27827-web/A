@@ -18,6 +18,11 @@ export type PartitionCapacityState =
   | "unavailable"
   | "unknown";
 
+export type PartitionReplicaPair = {
+  primary: DatabaseBackend;
+  replica: DatabaseBackend;
+};
+
 export class PartitionRoutingError extends Error {
   constructor(
     message: string,
@@ -129,6 +134,55 @@ export function resolvePartitionWriteBackend(
   }
   throw new PartitionRoutingError(
     "No writable database remains after the current partition cursor.",
+    "no_writable_store",
+  );
+}
+
+/**
+ * Choose two verified writable stores. The primary moves forward from the
+ * persisted cursor; the second copy may wrap around the ring so DB4 can also
+ * receive a replica without moving the primary cursor backwards.
+ */
+export function resolvePartitionWritePair(
+  current: DatabaseBackend,
+  orderedBackends: readonly DatabaseBackend[],
+  capacity: ReadonlyMap<DatabaseBackend, PartitionCapacityState>,
+): PartitionReplicaPair {
+  const currentIndex = orderedBackends.indexOf(current);
+  if (currentIndex < 0) {
+    throw new PartitionRoutingError(
+      "The persisted partition cursor is not part of the configured store order.",
+      "invalid_cursor",
+    );
+  }
+
+  let primaryIndex = -1;
+  for (let index = currentIndex; index < orderedBackends.length; index += 1) {
+    if (capacity.get(orderedBackends[index]!) === "available") {
+      primaryIndex = index;
+      break;
+    }
+  }
+  if (primaryIndex < 0) {
+    throw new PartitionRoutingError(
+      "No writable primary remains after the current partition cursor.",
+      "no_writable_store",
+    );
+  }
+
+  for (let offset = 1; offset < orderedBackends.length; offset += 1) {
+    const replicaIndex = (primaryIndex + offset) % orderedBackends.length;
+    const replica = orderedBackends[replicaIndex]!;
+    if (replica !== orderedBackends[primaryIndex] && capacity.get(replica) === "available") {
+      return {
+        primary: orderedBackends[primaryIndex]!,
+        replica,
+      };
+    }
+  }
+
+  throw new PartitionRoutingError(
+    "Two verified writable stores are required before a partition write can be acknowledged.",
     "no_writable_store",
   );
 }
