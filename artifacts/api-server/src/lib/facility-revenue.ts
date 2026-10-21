@@ -1,5 +1,12 @@
 import { sql } from "drizzle-orm";
-import { cardTopUpsTable, db, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
+import {
+  cardTopUpsTable,
+  db,
+  isPartitionedStorageEnabled,
+  readPartitionedTable,
+  serviceSessionsTable,
+  treatmentCardsTable,
+} from "@workspace/db";
 import { retainedDate, retainedMonthBounds } from "./massage";
 
 /** Card-session wages remain in payroll but do not change this owner-defined revenue metric. */
@@ -8,12 +15,135 @@ function revenueTotals(walkInCharges: number, cardPayments: number, walkInWages:
   return { revenue, netRevenue: revenue - walkInWages };
 }
 
+function amount(value: unknown): number {
+  const result = Number(value);
+  return Number.isFinite(result) ? result : 0;
+}
+
+function topService<T extends { serviceType: string }>(rows: T[]) {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const serviceType = row.serviceType.trim();
+    if (serviceType) counts.set(serviceType, (counts.get(serviceType) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "vi"))[0] ?? null;
+}
+
+async function getPartitionedFacilityRevenue(month: string, date: string, start: string, end: string) {
+  const [allCards, allTopUps, allSessions] = await Promise.all([
+    readPartitionedTable("treatment_cards"),
+    readPartitionedTable("card_top_ups"),
+    readPartitionedTable("service_sessions"),
+  ]);
+  const cards = allCards as unknown as (typeof treatmentCardsTable.$inferSelect)[];
+  const topUps = allTopUps as unknown as (typeof cardTopUpsTable.$inferSelect)[];
+  const sessions = allSessions as unknown as (typeof serviceSessionsTable.$inferSelect)[];
+  return aggregatePartitionedFacilityRevenue(month, date, start, end, cards, topUps, sessions);
+}
+
+type PartitionRevenueCard = Pick<
+  typeof treatmentCardsTable.$inferSelect,
+  "id" | "deletedAt" | "purchaseDate" | "purchaseAmount" | "serviceType"
+>;
+type PartitionRevenueTopUp = Pick<
+  typeof cardTopUpsTable.$inferSelect,
+  "cardId" | "paymentDate" | "amount"
+>;
+type PartitionRevenueSession = Pick<
+  typeof serviceSessionsTable.$inferSelect,
+  "workDate" | "cardId" | "serviceType" | "customerCharge" | "earnings" | "minutes"
+>;
+
+export function aggregatePartitionedFacilityRevenue(
+  month: string,
+  date: string,
+  start: string,
+  end: string,
+  cards: readonly PartitionRevenueCard[],
+  topUps: readonly PartitionRevenueTopUp[],
+  sessions: readonly PartitionRevenueSession[],
+) {
+  const activeCards = cards.filter((card) => card.deletedAt === null);
+  const activeCardIds = new Set(activeCards.map((card) => card.id));
+  const cardPayments = topUps.filter((topUp) => activeCardIds.has(topUp.cardId));
+  const inMonth = (value: string) => value >= start && value < end;
+  const monthSessions = sessions.filter((session) => inMonth(session.workDate));
+  const daySessions = monthSessions.filter((session) => session.workDate === date);
+  const monthWalkIns = monthSessions.filter((session) => session.cardId === null);
+  const monthCardUses = monthSessions.filter((session) => session.cardId !== null && activeCardIds.has(session.cardId));
+  const dayWalkIns = daySessions.filter((session) => session.cardId === null);
+  const sum = <T,>(rows: T[], select: (row: T) => unknown) =>
+    rows.reduce((total, row) => total + amount(select(row)), 0);
+  const monthCardSales = activeCards.filter((card) => inMonth(card.purchaseDate));
+  const monthTopUps = cardPayments.filter((topUp) => inMonth(topUp.paymentDate));
+  const dayCardSales = activeCards.filter((card) => card.purchaseDate === date);
+  const dayTopUps = cardPayments.filter((topUp) => topUp.paymentDate === date);
+  const monthCardRevenue = sum(monthCardSales, (card) => card.purchaseAmount) +
+    sum(monthTopUps, (topUp) => topUp.amount);
+  const dayCardRevenue = sum(dayCardSales, (card) => card.purchaseAmount) +
+    sum(dayTopUps, (topUp) => topUp.amount);
+  const monthWalkInRevenue = sum(monthWalkIns, (session) => session.customerCharge);
+  const dayWalkInRevenue = sum(dayWalkIns, (session) => session.customerCharge);
+  const topSold = topService(monthCardSales);
+  const mostUsedCard = topService(monthCardUses);
+  const mostUsedWalkIn = topService(monthWalkIns);
+  const mostUsedAll = topService([...monthCardUses, ...monthWalkIns]);
+
+  return {
+    month,
+    ...revenueTotals(monthWalkInRevenue, monthCardRevenue, sum(monthWalkIns, (row) => row.earnings)),
+    serviceRevenue: monthWalkInRevenue,
+    walkInServiceRevenue: monthWalkInRevenue,
+    walkInServiceMinutes: sum(monthWalkIns, (row) => row.minutes),
+    payroll: sum(monthSessions, (row) => row.earnings),
+    revenueExcludingCardSessions: monthWalkInRevenue + monthCardRevenue,
+    cardRevenue: monthCardRevenue,
+    cardsSold: monthCardSales.length,
+    walkInVisits: monthWalkIns.length,
+    cardVisits: monthCardUses.length,
+    topSoldCardService: topSold ? { serviceType: topSold[0], cardsSold: topSold[1] } : null,
+    mostUsedCardService: mostUsedCard
+      ? {
+          serviceType: mostUsedCard[0],
+          visits: mostUsedCard[1],
+          minutes: sum(monthCardUses.filter((row) => row.serviceType === mostUsedCard[0]), (row) => row.minutes),
+        }
+      : null,
+    mostUsedWalkInService: mostUsedWalkIn
+      ? { serviceType: mostUsedWalkIn[0], visits: mostUsedWalkIn[1] }
+      : null,
+    mostUsedService: mostUsedAll
+      ? {
+          serviceType: mostUsedAll[0],
+          visits: mostUsedAll[1],
+          minutes: sum(monthSessions.filter((row) => row.serviceType === mostUsedAll[0]), (row) => row.minutes),
+        }
+      : null,
+    today: {
+      date,
+      ...revenueTotals(dayWalkInRevenue, dayCardRevenue, sum(dayWalkIns, (row) => row.earnings)),
+      serviceRevenue: dayWalkInRevenue,
+      walkInServiceRevenue: dayWalkInRevenue,
+      walkInServiceMinutes: sum(dayWalkIns, (row) => row.minutes),
+      payroll: sum(daySessions, (row) => row.earnings),
+      revenueExcludingCardSessions: dayWalkInRevenue + dayCardRevenue,
+      cardRevenue: dayCardRevenue,
+      cardsSold: dayCardSales.length,
+      walkInVisits: dayWalkIns.length,
+      cardVisits: daySessions.filter((row) => row.cardId !== null && activeCardIds.has(row.cardId)).length,
+    },
+  };
+}
+
 /** Gross revenue recognizes walk-in service charges and card sales, not card redemptions. */
 export async function getFacilityRevenue(month: string, requestedDate?: string) {
   const { start, end } = retainedMonthBounds(month);
   const date = retainedDate(requestedDate ?? new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(new Date()));
+  if (isPartitionedStorageEnabled()) {
+    return getPartitionedFacilityRevenue(month, date, start, end);
+  }
   const topSoldCardServiceType = sql<string | null>`(
     select ${treatmentCardsTable.serviceType}
     from ${treatmentCardsTable}

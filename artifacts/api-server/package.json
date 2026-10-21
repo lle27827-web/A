@@ -21,7 +21,8 @@
     "test:card-merge": "esbuild src/lib/card-merge.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-card-merge-tests.cjs && node --test /tmp/so-cong-card-merge-tests.cjs",
     "test:appointments": "esbuild src/routes/appointments.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-appointments-tests.cjs && node --test /tmp/so-cong-appointments-tests.cjs",
     "test:database-failover": "esbuild src/lib/database-failover.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-database-failover-tests.cjs && node --test /tmp/so-cong-database-failover-tests.cjs",
-    "test:storage-partitioning": "esbuild src/lib/storage-partitioning.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-storage-partitioning-tests.cjs && node --test /tmp/so-cong-storage-partitioning-tests.cjs"
+    "test:storage-partitioning": "esbuild src/lib/storage-partitioning.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-storage-partitioning-tests.cjs && node --test /tmp/so-cong-storage-partitioning-tests.cjs",
+    "test:partitioned-revenue": "esbuild src/lib/facility-revenue.partitioned.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-partitioned-revenue-tests.cjs && node --test /tmp/so-cong-partitioned-revenue-tests.cjs"
   },
   "dependencies": {
     "@clerk/backend": "^3.23.2",

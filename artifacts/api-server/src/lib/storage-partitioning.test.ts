@@ -3,8 +3,12 @@ import test from "node:test";
 import {
   applyPartitionMutations,
   comparePartitionRevisions,
+  hashPartitionRequest,
   makePartitionEntityKey,
   nextPartitionWriteBackend,
+  resolvePartitionWriteBackend,
+  PartitionRoutingError,
+  type PartitionCapacityState,
   type PartitionMutation,
 } from "@workspace/db";
 
@@ -22,12 +26,56 @@ test("partition keys keep equal local IDs distinct across stores", () => {
   assert.throws(() => makePartitionEntityKey("database_url_1", " 27 "));
 });
 
+test("partition request hashes are stable across object key order", () => {
+  assert.equal(
+    hashPartitionRequest({ member: { name: "A", rate: 12 }, action: "update" }),
+    hashPartitionRequest({ action: "update", member: { rate: 12, name: "A" } }),
+  );
+  assert.notEqual(hashPartitionRequest({ amount: 100 }), hashPartitionRequest({ amount: 101 }));
+});
+
 test("write routing advances only to the next configured store", () => {
   assert.equal(nextPartitionWriteBackend("database_url_1", fourShards), "database_url");
   assert.equal(nextPartitionWriteBackend("database_url", fourShards), "database_url_3");
   assert.equal(nextPartitionWriteBackend("database_url_3", fourShards), "database_url_4");
   assert.equal(nextPartitionWriteBackend("database_url_4", fourShards), undefined);
   assert.equal(nextPartitionWriteBackend("database_url", fourShards.slice(0, 2)), undefined);
+});
+
+test("partition routing skips full or unavailable stores and never wraps", () => {
+  const capacity = new Map([
+    ["database_url_1", "full"],
+    ["database_url", "unavailable"],
+    ["database_url_3", "available"],
+    ["database_url_4", "available"],
+  ]) as Map<"database_url_1" | "database_url" | "database_url_3" | "database_url_4", PartitionCapacityState>;
+  assert.equal(
+    resolvePartitionWriteBackend("database_url_1", fourShards.map(({ backend }) => backend), capacity),
+    "database_url_3",
+  );
+  const allRemainingFull = new Map(capacity);
+  allRemainingFull.set("database_url_4", "full");
+  assert.throws(
+    () => resolvePartitionWriteBackend(
+      "database_url_4",
+      fourShards.map(({ backend }) => backend),
+      allRemainingFull,
+    ),
+    (error) => error instanceof PartitionRoutingError && error.code === "no_writable_store",
+  );
+});
+
+test("partition routing fails closed when candidate capacity is unknown", () => {
+  const capacity = new Map([
+    ["database_url_1", "full"],
+    ["database_url", "unknown"],
+    ["database_url_3", "available"],
+    ["database_url_4", "available"],
+  ]) as Map<"database_url_1" | "database_url" | "database_url_3" | "database_url_4", PartitionCapacityState>;
+  assert.throws(
+    () => resolvePartitionWriteBackend("database_url_1", fourShards.map(({ backend }) => backend), capacity),
+    (error) => error instanceof PartitionRoutingError && error.code === "capacity_unknown",
+  );
 });
 
 test("partition revisions compare as integers, not lexicographic strings", () => {

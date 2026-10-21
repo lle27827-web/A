@@ -55,6 +55,7 @@ const stateBackend = resolveFailoverCoordinatorBackend(
 );
 const failoverEnabled =
   isVercel &&
+  process.env.DATABASE_STORAGE_MODE !== "partitioned" &&
   Boolean(process.env.DATABASE_URL_1?.trim() && databaseUrl) &&
   configuredNodes.length >= 2;
 const neonApiKey = process.env.NEON_API_KEY?.trim();
@@ -1650,6 +1651,11 @@ if (!databaseUrlPool) {
 export const pool = databaseUrlPool;
 export const db = new Proxy(nodes[0]?.database, {
   get(_target, property) {
+    if (process.env.DATABASE_STORAGE_MODE === "partitioned") {
+      throw new Error(
+        "Partitioned storage is not fully integrated with this application's API routes; legacy database queries are blocked.",
+      );
+    }
     if (activeBackend === "switching") {
       throw new DatabaseFailoverInProgressError();
     }

@@ -19,7 +19,24 @@ export {
   comparePartitionRevisions,
   makePartitionEntityKey,
   nextPartitionWriteBackend,
+  resolvePartitionWriteBackend,
+  PartitionRoutingError,
   type PartitionMutation,
   type PartitionMutationAction,
+  type PartitionCapacityState,
 } from "./storage-partitioning";
+export {
+  appendReservedPartitionOperation,
+  getReservedPartitionOperation,
+  hashPartitionRequest,
+  isPartitionedStorageEnabled,
+  partitionEntityKey,
+  reconcilePartitionOperation,
+  readPartitionedTable,
+  reservePartitionOperation,
+  withPartitionWriteMutex,
+  PartitionStorageError,
+  type ReservedOperation,
+} from "./partitioned-storage-runtime";
+export type { MutationDraft } from "./partitioned-storage-runtime";
 export * from "./schema";

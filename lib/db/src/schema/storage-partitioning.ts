@@ -72,6 +72,8 @@ export const storagePartitionEventsTable = pgTable("storage_partition_events", {
 export const storagePartitionOperationsTable = pgTable("storage_partition_operations", {
   operationId: uuid("operation_id").primaryKey(),
   targetBackend: text("target_backend").notNull(),
+  revision: bigint("revision", { mode: "bigint" }).notNull(),
+  expectedEventCount: smallint("expected_event_count").notNull(),
   state: text("state").notNull(),
   requestHash: text("request_hash").notNull(),
   result: jsonb("result").$type<Record<string, unknown> | null>(),
@@ -87,5 +89,21 @@ export const storagePartitionOperationsTable = pgTable("storage_partition_operat
     "storage_partition_operations_state_check",
     sql`${table.state} IN ('pending', 'committed', 'needs_reconciliation')`,
   ),
+  check(
+    "storage_partition_operations_event_count_check",
+    sql`${table.expectedEventCount} > 0`,
+  ),
   index("storage_partition_operations_state_idx").on(table.state, table.updatedAt),
+]);
+
+/**
+ * Global numeric ID allocators live on DB4. Existing DB1 IDs seed the counters;
+ * every post-cutover insert must reserve IDs here rather than use local serials.
+ */
+export const storagePartitionIdSequencesTable = pgTable("storage_partition_id_sequences", {
+  entityType: text("entity_type").primaryKey(),
+  nextId: bigint("next_id", { mode: "bigint" }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  check("storage_partition_id_sequences_positive_check", sql`${table.nextId} > 0`),
 ]);

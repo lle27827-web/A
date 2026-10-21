@@ -23,6 +23,7 @@
     "migrate:database-failover-state": "node ./scripts/apply-database-failover-state.mjs",
     "migrate:database-failover-state-to-db4": "node ./scripts/apply-database-failover-state-to-db4.mjs",
     "migrate:database-failover-coordinator": "node ./scripts/apply-database-failover-coordinator.mjs",
+    "migrate:storage-partitioning": "node ./scripts/apply-storage-partitioning.mjs",
     "push": "drizzle-kit push --config ./drizzle.config.ts",
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts"
   },

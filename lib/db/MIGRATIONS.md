@@ -161,3 +161,29 @@ compatibility, preservation of existing rows, wrong defaults/types/nullability/
 constraints/indexes/sequence definitions/RLS, incomplete backfills, journal
 corruption, append-only upgrades, transactional failures and concurrent baselines.
 No application table is reset or deleted.
+
+## Partitioned storage foundation (not a production cutover)
+
+The storage-partition migration creates only the append-only event journal on
+DB1–DB4 and the operation/routing/ID coordinator tables on DB4. It reads the
+maximum historical IDs from DB1 to seed global numeric ID allocators, but it
+does not copy, update, or delete business rows. It requires direct Neon URLs for
+all four distinct projects:
+
+```sh
+pnpm --filter @workspace/db run migrate:storage-partitioning
+```
+
+The script prefers `NEON_DB1_DIRECT_URL`, `NEON_SOURCE_DIRECT_URL`,
+`MIGRATE_DATABASE_URL_3_DIRECT`, and `MIGRATE_DATABASE_URL_4_DIRECT`, falling
+back to the corresponding `DATABASE_URL_1`, `DATABASE_URL`, `DATABASE_URL_3`,
+and `DATABASE_URL_4` values. It refuses pooler endpoints and repeated Neon
+hosts. A missing historical table or an exhausted integer ID range stops before
+creating any partition schema.
+
+Applying this migration alone does **not** activate partitioned storage. Do not
+set `DATABASE_STORAGE_MODE=partitioned`, stop logical replication, or deploy a
+cutover until every API read/write path uses the partition repository, card
+operations have idempotent recovery tests, and a full read/revenue parity check
+has passed. DB1 remains the canonical source for pre-cutover rows; old copies on
+DB2–DB4 must be preserved but excluded from canonical reads to avoid duplicates.

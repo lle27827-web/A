@@ -1,16 +1,23 @@
 import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
-import { db, membersTable, memberVersionsTable, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
+import { db, isPartitionedStorageEnabled, membersTable, memberVersionsTable, readPartitionedTable, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
 import type { MemberInput, MemberRecord, MemberUpdate } from "@workspace/api-zod";
 import { MassageError, retainedMonthBounds } from "./massage";
 import { buildSampleMemberNames } from "./sample-member-names";
 
 function memberResponse(member: typeof membersTable.$inferSelect) {
-  return { ...member, createdAt: member.createdAt.toISOString(), deletedAt: member.deletedAt?.toISOString() ?? null };
+  return {
+    ...member,
+    createdAt: new Date(member.createdAt).toISOString(),
+    deletedAt: member.deletedAt ? new Date(member.deletedAt).toISOString() : null,
+  };
 }
 
 type MemberSnapshot = Omit<MemberRecord, "createdAt" | "deletedAt"> & { createdAt: string; deletedAt: string | null };
 
 export async function listMembersForPeriod(month?: string, memberId?: number): Promise<MemberSnapshot[]> {
+  if (isPartitionedStorageEnabled()) {
+    return listMembersAcrossPartitions(month, memberId);
+  }
   if (!month) {
     const rows = await db.select().from(membersTable)
       .where(and(isNull(membersTable.deletedAt), memberId ? eq(membersTable.id, memberId) : undefined))
@@ -60,6 +67,69 @@ export async function listMembersForPeriod(month?: string, memberId?: number): P
       };
     }).sort((a, b) => a.name.localeCompare(b.name, "vi"));
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
+}
+
+async function listMembersAcrossPartitions(month?: string, memberId?: number): Promise<MemberSnapshot[]> {
+  const [members, versions, sessions, cards] = await Promise.all([
+    readPartitionedTable("members"),
+    readPartitionedTable("member_versions"),
+    month ? readPartitionedTable("service_sessions") : Promise.resolve([]),
+    month ? readPartitionedTable("treatment_cards") : Promise.resolve([]),
+  ]);
+  const memberRows = members as unknown as (typeof membersTable.$inferSelect)[];
+  const versionRows = versions as unknown as (typeof memberVersionsTable.$inferSelect)[];
+  const sessionRows = sessions as unknown as (typeof serviceSessionsTable.$inferSelect)[];
+  const cardRows = cards as unknown as (typeof treatmentCardsTable.$inferSelect)[];
+
+  if (!month) {
+    return memberRows
+      .filter((member) => member.deletedAt === null && (memberId === undefined || member.id === memberId))
+      .map(memberResponse)
+      .sort((a, b) => a.name.localeCompare(b.name, "vi"));
+  }
+
+  const { start, end } = retainedMonthBounds(month);
+  const startInstant = new Date(`${start}T00:00:00+07:00`);
+  const endInstant = new Date(`${end}T00:00:00+07:00`);
+  const activeCardIds = new Set(cardRows.filter((card) => card.deletedAt === null).map((card) => card.id));
+  const monthSessions = sessionRows.filter((session) =>
+    session.workDate >= start &&
+    session.workDate < end &&
+    session.memberId !== null &&
+    (session.cardId === null || activeCardIds.has(session.cardId)),
+  ).sort((a, b) => b.workDate.localeCompare(a.workDate) || b.id - a.id);
+  const monthVersions = versionRows.filter((version) =>
+    new Date(version.recordedAt).getTime() < endInstant.getTime(),
+  ).sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime() || b.id - a.id);
+  const latestVersion = new Map<number, typeof versionRows[number]>();
+  const latestVisit = new Map<number, typeof monthSessions[number]>();
+  for (const version of monthVersions) {
+    if (!latestVersion.has(version.memberId)) latestVersion.set(version.memberId, version);
+  }
+  for (const session of monthSessions) {
+    if (session.memberId !== null && !latestVisit.has(session.memberId)) latestVisit.set(session.memberId, session);
+  }
+
+  return memberRows
+    .filter((member) => {
+      if (memberId !== undefined && member.id !== memberId) return false;
+      const createdAt = new Date(member.createdAt);
+      const deletedAt = member.deletedAt ? new Date(member.deletedAt) : null;
+      const existedDuringMonth =
+        createdAt < endInstant && (!deletedAt || deletedAt > startInstant);
+      return existedDuringMonth || latestVisit.has(member.id);
+    })
+    .map((member) => {
+      const version = latestVersion.get(member.id);
+      const visit = latestVisit.get(member.id);
+      return {
+        ...memberResponse(member),
+        name: version?.name ?? visit?.employeeName ?? member.name,
+        hourlyRate: version?.hourlyRate ?? visit?.hourlyRate ?? member.hourlyRate,
+        historicalNameSource: version ? "version" as const : visit ? "session" as const : "unverified" as const,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, "vi"));
 }
 
 export async function createEmployee(input: MemberInput) {

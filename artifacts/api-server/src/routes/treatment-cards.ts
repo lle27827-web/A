@@ -1,6 +1,14 @@
 import { Router, type IRouter } from "express";
 import { desc, inArray, isNull, sql } from "drizzle-orm";
-import { cardTopUpsTable, cardUsageHistoryTable, db, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
+import {
+  cardTopUpsTable,
+  cardUsageHistoryTable,
+  db,
+  isPartitionedStorageEnabled,
+  readPartitionedTable,
+  serviceSessionsTable,
+  treatmentCardsTable,
+} from "@workspace/db";
 import {
   CreateTreatmentCardBody, CreateTreatmentCardResponse, DeleteTreatmentCardParams,
   ListTreatmentCardsResponse, UpdateTreatmentCardBody, UpdateTreatmentCardParams, UpdateTreatmentCardResponse,
@@ -12,6 +20,34 @@ import { massageHandler, parseInput } from "./massage-errors";
 const router: IRouter = Router();
 router.get("/treatment-cards", massageHandler(async (_req, res) => {
   res.set("Cache-Control", "private, no-store");
+  if (isPartitionedStorageEnabled()) {
+    const [cardRows, sessionRows, archivedRows, topUpRows] = await Promise.all([
+      readPartitionedTable("treatment_cards"),
+      readPartitionedTable("service_sessions"),
+      readPartitionedTable("card_usage_history"),
+      readPartitionedTable("card_top_ups"),
+    ]);
+    const cards = (cardRows as unknown as (typeof treatmentCardsTable.$inferSelect)[])
+      .filter((card) => card.deletedAt === null)
+      .sort((a, b) => b.purchaseDate.localeCompare(a.purchaseDate) || b.id - a.id);
+    const sessions = sessionRows as unknown as (typeof serviceSessionsTable.$inferSelect)[];
+    const archivedUses = archivedRows as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
+    const topUps = topUpRows as unknown as (typeof cardTopUpsTable.$inferSelect)[];
+    const result = ListTreatmentCardsResponse.parse(cards.map((card) => {
+      const usedMinutes = sessions
+        .filter((session) => session.cardId === card.id)
+        .reduce((total, session) => total + Number(session.minutes), 0) +
+        archivedUses
+          .filter((use) => use.cardId === card.id)
+          .reduce((total, use) => total + Number(use.minutes), 0);
+      const payments = topUps
+        .filter((topUp) => topUp.cardId === card.id)
+        .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate) || b.id - a.id);
+      return cardResponse(card, usedMinutes, payments);
+    }));
+    res.json(result);
+    return;
+  }
   const result = await db.transaction(async (tx) => {
     const cards = await tx.select().from(treatmentCardsTable).where(isNull(treatmentCardsTable.deletedAt))
       .orderBy(desc(treatmentCardsTable.purchaseDate), desc(treatmentCardsTable.id));
@@ -45,7 +81,9 @@ router.get("/treatment-cards", massageHandler(async (_req, res) => {
 }));
 router.post("/treatment-cards", massageHandler(async (req, res) => {
   const input = parseInput(CreateTreatmentCardBody, req.body);
-  res.status(201).json(CreateTreatmentCardResponse.parse(await createCard(input)));
+  res.status(201).json(CreateTreatmentCardResponse.parse(
+    await createCard(input, req.get("Idempotency-Key") ?? undefined),
+  ));
 }));
 router.patch("/treatment-cards/:id", massageHandler(async (req, res) => {
   const { id } = parseInput(UpdateTreatmentCardParams, req.params);
@@ -56,7 +94,9 @@ router.patch("/treatment-cards/:id", massageHandler(async (req, res) => {
 router.post("/treatment-cards/:id/hours", massageHandler(async (req, res) => {
   const { id } = parseInput(AddTreatmentCardHoursParams, req.params);
   const { minutes, amount } = parseInput(AddTreatmentCardHoursBody, req.body);
-  res.json(AddTreatmentCardHoursResponse.parse(await addCardHours(id, minutes, amount)));
+  res.json(AddTreatmentCardHoursResponse.parse(
+    await addCardHours(id, minutes, amount, req.get("Idempotency-Key") ?? undefined),
+  ));
 }));
 router.delete("/treatment-cards/:id", massageHandler(async (req, res) => {
   const { id } = parseInput(DeleteTreatmentCardParams, req.params);

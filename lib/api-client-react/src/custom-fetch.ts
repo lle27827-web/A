@@ -17,6 +17,70 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+const inMemoryIdempotencyKeys = new Map<string, string>();
+const IDEMPOTENCY_STORAGE_PREFIX = "so-cong:pending-request:";
+const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
+
+function fingerprintRequest(value: string): string {
+  const seeds = [0x811c9dc5, 0x9e3779b9, 0x85ebca6b, 0xc2b2ae35];
+  const hashes = seeds.map((seed, index) => {
+    let hash = seed >>> 0;
+    for (let offset = index; offset < value.length; offset += 4) {
+      hash ^= value.charCodeAt(offset);
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return hash.toString(16).padStart(8, "0");
+  });
+  return hashes.join("");
+}
+
+function createIdempotencyUuid(): string {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+    const random = Math.floor(Math.random() * 16);
+    return (char === "x" ? random : (random & 0x3) | 0x8).toString(16);
+  });
+}
+
+function readStoredIdempotencyKey(storageKey: string): string | null {
+  try {
+    const value = globalThis.sessionStorage?.getItem(storageKey);
+    if (!value) return null;
+    const parsed = JSON.parse(value) as { key?: unknown; expiresAt?: unknown };
+    if (
+      typeof parsed.key === "string" &&
+      typeof parsed.expiresAt === "number" &&
+      parsed.expiresAt > Date.now()
+    ) {
+      return parsed.key;
+    }
+    globalThis.sessionStorage?.removeItem(storageKey);
+  } catch {
+    // Private browsing and non-browser runtimes may not provide sessionStorage.
+  }
+  return inMemoryIdempotencyKeys.get(storageKey) ?? null;
+}
+
+function writeStoredIdempotencyKey(storageKey: string, key: string): void {
+  inMemoryIdempotencyKeys.set(storageKey, key);
+  try {
+    globalThis.sessionStorage?.setItem(
+      storageKey,
+      JSON.stringify({ key, expiresAt: Date.now() + IDEMPOTENCY_TTL_MS }),
+    );
+  } catch {
+    // In-memory retries still use the same key for this page session.
+  }
+}
+
+function removeStoredIdempotencyKey(storageKey: string): void {
+  inMemoryIdempotencyKeys.delete(storageKey);
+  try {
+    globalThis.sessionStorage?.removeItem(storageKey);
+  } catch {
+    // The response has completed; clearing the in-memory entry is sufficient.
+  }
+}
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -349,6 +413,18 @@ export async function customFetch<T = unknown>(
   if (responseType === "json" && !headers.has("accept")) {
     headers.set("accept", DEFAULT_JSON_ACCEPT);
   }
+  const isMutation = !["GET", "HEAD", "OPTIONS"].includes(method);
+  const idempotencyStorageKey = isMutation && !headers.has("idempotency-key")
+    ? `${IDEMPOTENCY_STORAGE_PREFIX}${fingerprintRequest(
+        `${method}\n${resolveUrl(input)}\n${typeof init.body === "string" ? init.body : ""}`,
+      )}`
+    : null;
+  if (idempotencyStorageKey) {
+    const idempotencyKey =
+      readStoredIdempotencyKey(idempotencyStorageKey) ?? createIdempotencyUuid();
+    writeStoredIdempotencyKey(idempotencyStorageKey, idempotencyKey);
+    headers.set("Idempotency-Key", idempotencyKey);
+  }
 
   // Attach bearer token when an auth getter is configured and no
   // Authorization header has been explicitly provided.
@@ -365,8 +441,13 @@ export async function customFetch<T = unknown>(
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
+    if (idempotencyStorageKey && response.status < 500) {
+      removeStoredIdempotencyKey(idempotencyStorageKey);
+    }
     throw new ApiError(response, errorData, requestInfo);
   }
 
-  return (await parseSuccessBody(response, responseType, requestInfo)) as T;
+  const data = (await parseSuccessBody(response, responseType, requestInfo)) as T;
+  if (idempotencyStorageKey) removeStoredIdempotencyKey(idempotencyStorageKey);
+  return data;
 }
