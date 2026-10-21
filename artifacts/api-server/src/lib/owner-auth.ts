@@ -1,7 +1,7 @@
 import { createClerkClient } from "@clerk/backend";
 import { getAuth } from "@clerk/express";
 import type { NextFunction, Request, Response } from "express";
-import { db, attendanceTable, serviceSessionsTable } from "@workspace/db";
+import { db, attendanceTable, isPartitionedStorageEnabled, readPartitionedTable, serviceSessionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { FacilityPermissions } from "@workspace/api-zod";
 import { canEditEmployee, canViewEmployee, noPermissions, ownerPermissions, permissionsForEmail } from "./facility-permissions";
@@ -206,7 +206,10 @@ export async function managerRequestAllowed(req: Request, p: FacilityPermissions
   if (path === "/service-sessions" || sessionId) {
     if (!["POST", "PATCH", "DELETE"].includes(req.method) || !p.editEmployees) return false;
     if (sessionId) {
-      const [old] = await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, positiveId(sessionId[1]))).limit(1);
+      const old = isPartitionedStorageEnabled()
+        ? (await readPartitionedTable("service_sessions") as unknown as (typeof serviceSessionsTable.$inferSelect)[])
+          .find((row) => row.id === positiveId(sessionId[1]))
+        : (await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, positiveId(sessionId[1]))).limit(1))[0];
       if (!old || !(old.memberId === null && req.method === "DELETE" ? p.allEmployees : canEditEmployee(p, old.memberId ?? 0))
         || (old.cardId !== null && !(p.viewCards && p.editCards))) return false;
       if (req.method === "DELETE") return true;
@@ -217,7 +220,10 @@ export async function managerRequestAllowed(req: Request, p: FacilityPermissions
   if (path === "/attendance" || attendanceId) {
     if (!["POST", "PATCH", "DELETE"].includes(req.method) || !p.editEmployees) return false;
     if (attendanceId) {
-      const [old] = await db.select().from(attendanceTable).where(eq(attendanceTable.id, positiveId(attendanceId[1]))).limit(1);
+      const old = isPartitionedStorageEnabled()
+        ? (await readPartitionedTable("attendance") as unknown as (typeof attendanceTable.$inferSelect)[])
+          .find((row) => row.id === positiveId(attendanceId[1]))
+        : (await db.select().from(attendanceTable).where(eq(attendanceTable.id, positiveId(attendanceId[1]))).limit(1))[0];
       if (!old || !canEditEmployee(p, old.memberId ?? 0)) return false;
       if (req.method === "DELETE") return true;
       if (!Object.hasOwn(req.body ?? {}, "memberId")) return true;

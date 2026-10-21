@@ -1,6 +1,17 @@
 import { sql } from "drizzle-orm";
-import { db } from "@workspace/db";
+import { randomUUID } from "node:crypto";
+import {
+  attendanceTable,
+  cardUsageHistoryTable,
+  db,
+  isPartitionedStorageEnabled,
+  readPartitionedTable,
+  serviceSessionsTable,
+  personalSessionsTable,
+} from "@workspace/db";
 import { retentionCutoffDate } from "./retention-window";
+import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "./partitioned-mutations";
+import { MassageError } from "./massage";
 
 export type RetentionYearSummary = {
   year: number;
@@ -10,6 +21,29 @@ export type RetentionYearSummary = {
 };
 
 export async function listFacilityHistoryYears(): Promise<RetentionYearSummary[]> {
+  if (isPartitionedStorageEnabled()) {
+    const [attendanceRaw, sessionsRaw] = await Promise.all([
+      readPartitionedTable("attendance"),
+      readPartitionedTable("service_sessions"),
+    ]);
+    const attendance = attendanceRaw as unknown as (typeof attendanceTable.$inferSelect)[];
+    const sessions = sessionsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[];
+    const years = new Map<number, RetentionYearSummary>();
+    for (const row of attendance) {
+      const year = Number(row.workDate.slice(0, 4));
+      const summary = years.get(year) ?? { year, attendanceCount: 0, serviceSessionCount: 0, cardUseCount: 0 };
+      summary.attendanceCount += 1;
+      years.set(year, summary);
+    }
+    for (const row of sessions) {
+      const year = Number(row.workDate.slice(0, 4));
+      const summary = years.get(year) ?? { year, attendanceCount: 0, serviceSessionCount: 0, cardUseCount: 0 };
+      summary.serviceSessionCount += 1;
+      if (row.cardId !== null) summary.cardUseCount += 1;
+      years.set(year, summary);
+    }
+    return [...years.values()].sort((a, b) => b.year - a.year);
+  }
   const result = await db.execute(sql`
     SELECT year,
       sum(attendance_count)::int AS "attendanceCount",
@@ -47,9 +81,62 @@ export async function listFacilityHistoryYears(): Promise<RetentionYearSummary[]
   });
 }
 
-export async function deleteFacilityHistoryYear(year: number) {
+export async function deleteFacilityHistoryYear(year: number, operationId?: string) {
   const startDate = `${year}-01-01`;
   const endDate = `${year + 1}-01-01`;
+
+  if (isPartitionedStorageEnabled()) {
+    if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi xóa lịch sử.");
+    const [attendanceRaw, sessionsRaw, archivedRaw] = await Promise.all([
+      readPartitionedTable("attendance"),
+      readPartitionedTable("service_sessions"),
+      readPartitionedTable("card_usage_history"),
+    ]);
+    const attendance = (attendanceRaw as unknown as (typeof attendanceTable.$inferSelect)[])
+      .filter((row) => row.workDate >= startDate && row.workDate < endDate);
+    const sessions = (sessionsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[])
+      .filter((row) => row.workDate >= startDate && row.workDate < endDate);
+    const archived = archivedRaw as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
+    const archivedIds = new Set(archived.map((row) => row.sourceSessionId));
+    const cardUses = sessions.filter((row) => row.cardId !== null && !archivedIds.has(row.id));
+    const mutations = [
+      ...cardUses.map((row) => upsertMutation("card_usage_history", row.id, {
+        sourceSessionId: row.id,
+        cardId: row.cardId!,
+        memberId: row.memberId,
+        employeeName: row.employeeName,
+        customerName: row.customerName,
+        serviceType: row.serviceType,
+        serviceTypeId: row.serviceTypeId,
+        workDate: row.workDate,
+        minutes: row.minutes,
+        customerHourlyRate: row.customerHourlyRate,
+        customerCharge: row.customerCharge,
+        hourlyRate: row.hourlyRate,
+        earnings: row.earnings,
+        note: row.note,
+        createdAt: row.createdAt,
+      })),
+      ...sessions.map((row) => deleteMutation("service_sessions", row.id)),
+      ...attendance.map((row) => deleteMutation("attendance", row.id)),
+    ];
+    if (mutations.length) {
+      await commitPartitionedMutations({
+        operationId,
+        lockName: "retention",
+        action: "retention.delete-year",
+        request: { year },
+        expectedEventCount: mutations.length,
+        build: () => mutations,
+      });
+    }
+    return {
+      year,
+      deletedAttendance: attendance.length,
+      deletedServiceSessions: sessions.length,
+      archivedCardUses: cardUses.length,
+    };
+  }
 
   return db.transaction(async (tx) => {
     await tx.execute(sql`SET LOCAL lock_timeout = '15s'`);
@@ -105,6 +192,62 @@ export async function deleteFacilityHistoryYear(year: number) {
  */
 export async function cleanupExpiredHistory() {
   const cutoff = retentionCutoffDate();
+  if (isPartitionedStorageEnabled()) {
+    const [attendanceRaw, sessionsRaw, archivedRaw, personalRaw] = await Promise.all([
+      readPartitionedTable("attendance"),
+      readPartitionedTable("service_sessions"),
+      readPartitionedTable("card_usage_history"),
+      readPartitionedTable("personal_sessions"),
+    ]);
+    const attendance = (attendanceRaw as unknown as (typeof attendanceTable.$inferSelect)[])
+      .filter((row) => row.workDate < cutoff);
+    const sessions = (sessionsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[])
+      .filter((row) => row.workDate < cutoff);
+    const archived = archivedRaw as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
+    const archivedIds = new Set(archived.map((row) => row.sourceSessionId));
+    const cardUses = sessions.filter((row) => row.cardId !== null && !archivedIds.has(row.id));
+    const personalSessions = (personalRaw as unknown as (typeof personalSessionsTable.$inferSelect)[])
+      .filter((row) => row.workDate < cutoff);
+    const mutations = [
+      ...cardUses.map((row) => upsertMutation("card_usage_history", row.id, {
+        sourceSessionId: row.id,
+        cardId: row.cardId!,
+        memberId: row.memberId,
+        employeeName: row.employeeName,
+        customerName: row.customerName,
+        serviceType: row.serviceType,
+        serviceTypeId: row.serviceTypeId,
+        workDate: row.workDate,
+        minutes: row.minutes,
+        customerHourlyRate: row.customerHourlyRate,
+        customerCharge: row.customerCharge,
+        hourlyRate: row.hourlyRate,
+        earnings: row.earnings,
+        note: row.note,
+        createdAt: row.createdAt,
+      })),
+      ...sessions.map((row) => deleteMutation("service_sessions", row.id)),
+      ...attendance.map((row) => deleteMutation("attendance", row.id)),
+      ...personalSessions.map((row) => deleteMutation("personal_sessions", row.id)),
+    ];
+    if (mutations.length) {
+      await commitPartitionedMutations({
+        operationId: randomUUID(),
+        lockName: "retention",
+        action: "retention.cleanup",
+        request: { cutoff },
+        expectedEventCount: mutations.length,
+        build: () => mutations,
+      });
+    }
+    return {
+      cutoffDate: cutoff,
+      archivedCardUses: cardUses.length,
+      deletedServiceSessions: sessions.length,
+      deletedAttendance: attendance.length,
+      deletedPersonalSessions: personalSessions.length,
+    };
+  }
   return db.transaction(async (tx) => {
     await tx.execute(sql`SET LOCAL lock_timeout = '15s'`);
     await tx.execute(sql`SET LOCAL statement_timeout = '120s'`);

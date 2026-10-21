@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { asc, eq } from "drizzle-orm";
-import { db, appointmentsTable } from "@workspace/db";
+import { db, appointmentsTable, isPartitionedStorageEnabled, readPartitionedTable } from "@workspace/db";
 import {
   CreateAppointmentBody,
   CreateAppointmentResponse,
@@ -13,6 +13,7 @@ import {
 } from "@workspace/api-zod";
 import { MassageError } from "../lib/massage";
 import { massageHandler, parseInput } from "./massage-errors";
+import { commitPartitionedMutations, operationIdFromRequest, upsertMutation, deleteMutation } from "../lib/partitioned-mutations";
 
 const router: IRouter = Router();
 
@@ -39,12 +40,40 @@ function normalizedInput(input: AppointmentInput) {
 
 router.get("/appointments", massageHandler(async (_req, res) => {
   res.set("Cache-Control", "private, no-store");
-  const rows = await db.select().from(appointmentsTable).orderBy(asc(appointmentsTable.scheduledAt));
+  const rows = isPartitionedStorageEnabled()
+    ? (await readPartitionedTable("appointments") as unknown as (typeof appointmentsTable.$inferSelect)[])
+      .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime())
+    : await db.select().from(appointmentsTable).orderBy(asc(appointmentsTable.scheduledAt));
   res.json(ListAppointmentsResponse.parse(rows.map(output)));
 }));
 
 router.post("/appointments", massageHandler(async (req, res) => {
   const input = normalizedInput(parseInput(CreateAppointmentBody, req.body));
+  if (isPartitionedStorageEnabled()) {
+    const operationId = operationIdFromRequest(req.get("Idempotency-Key"), "lịch hẹn");
+    const operation = await commitPartitionedMutations({
+      operationId,
+      lockName: "appointments",
+      action: "appointment.create",
+      request: input,
+      expectedEventCount: 1,
+      idAllocations: { appointments: 1 },
+      build: (reserved) => {
+        const id = reserved.allocatedIds.appointments?.[0];
+        if (!id) throw new MassageError(503, "Không cấp được mã lịch hẹn.");
+        const now = new Date();
+        return [upsertMutation("appointments", id, {
+          ...input, id, status: "scheduled", createdAt: now, updatedAt: now,
+        })];
+      },
+    });
+    const id = operation.allocatedIds.appointments?.[0];
+    const row = (await readPartitionedTable("appointments") as unknown as (typeof appointmentsTable.$inferSelect)[])
+      .find((item) => item.id === id);
+    if (!row) throw new MassageError(503, "Không tải lại được lịch hẹn sau khi lưu.");
+    res.status(201).json(CreateAppointmentResponse.parse(output(row)));
+    return;
+  }
   const [row] = await db.insert(appointmentsTable).values(input).returning();
   res.status(201).json(CreateAppointmentResponse.parse(output(row)));
 }));
@@ -52,6 +81,26 @@ router.post("/appointments", massageHandler(async (req, res) => {
 router.patch("/appointments/:id", massageHandler(async (req, res) => {
   const { id } = parseInput(UpdateAppointmentParams, req.params);
   const input = normalizedInput(parseInput(UpdateAppointmentBody, req.body));
+  if (isPartitionedStorageEnabled()) {
+    const rows = await readPartitionedTable("appointments") as unknown as (typeof appointmentsTable.$inferSelect)[];
+    const old = rows.find((item) => item.id === id);
+    if (!old) throw new MassageError(404, "Không tìm thấy lịch hẹn.");
+    await commitPartitionedMutations({
+      operationId: operationIdFromRequest(req.get("Idempotency-Key"), "lịch hẹn"),
+      lockName: `appointment:${id}`,
+      action: "appointment.update",
+      request: { id, input },
+      expectedEventCount: 1,
+      build: () => [upsertMutation("appointments", id, {
+        ...old, ...input, updatedAt: new Date(),
+      })],
+    });
+    const row = (await readPartitionedTable("appointments") as unknown as (typeof appointmentsTable.$inferSelect)[])
+      .find((item) => item.id === id);
+    if (!row) throw new MassageError(503, "Không tải lại được lịch hẹn sau khi sửa.");
+    res.json(UpdateAppointmentResponse.parse(output(row)));
+    return;
+  }
   const [row] = await db.update(appointmentsTable)
     .set({ ...input, updatedAt: new Date() })
     .where(eq(appointmentsTable.id, id))
@@ -62,6 +111,20 @@ router.patch("/appointments/:id", massageHandler(async (req, res) => {
 
 router.delete("/appointments/:id", massageHandler(async (req, res) => {
   const { id } = parseInput(DeleteAppointmentParams, req.params);
+  if (isPartitionedStorageEnabled()) {
+    const rows = await readPartitionedTable("appointments") as unknown as (typeof appointmentsTable.$inferSelect)[];
+    if (!rows.some((item) => item.id === id)) throw new MassageError(404, "Không tìm thấy lịch hẹn.");
+    await commitPartitionedMutations({
+      operationId: operationIdFromRequest(req.get("Idempotency-Key"), "lịch hẹn"),
+      lockName: `appointment:${id}`,
+      action: "appointment.delete",
+      request: { id },
+      expectedEventCount: 1,
+      build: () => [deleteMutation("appointments", id)],
+    });
+    res.sendStatus(204);
+    return;
+  }
   const [row] = await db.delete(appointmentsTable)
     .where(eq(appointmentsTable.id, id))
     .returning({ id: appointmentsTable.id });

@@ -3,6 +3,8 @@ import { db, isPartitionedStorageEnabled, membersTable, memberVersionsTable, rea
 import type { MemberInput, MemberRecord, MemberUpdate } from "@workspace/api-zod";
 import { MassageError, retainedMonthBounds } from "./massage";
 import { buildSampleMemberNames } from "./sample-member-names";
+import { commitPartitionedMutations, operationIdFromRequest, upsertMutation } from "./partitioned-mutations";
+import { withPartitionWriteMutex } from "@workspace/db";
 
 function memberResponse(member: typeof membersTable.$inferSelect) {
   return {
@@ -132,9 +134,39 @@ async function listMembersAcrossPartitions(month?: string, memberId?: number): P
     .sort((a, b) => a.name.localeCompare(b.name, "vi"));
 }
 
-export async function createEmployee(input: MemberInput) {
+export async function createEmployee(input: MemberInput, operationId?: string) {
   const name = input.name.trim();
   if (!name) throw new MassageError(400, "Cần nhập tên nhân viên.");
+  if (isPartitionedStorageEnabled()) {
+    if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi thêm nhân viên.");
+    const now = new Date();
+    const operation = await commitPartitionedMutations({
+      operationId,
+      lockName: "members",
+      action: "member.create",
+      request: { ...input, name },
+      expectedEventCount: 2,
+      idAllocations: { members: 1, member_versions: 1 },
+      build: (reserved) => {
+        const id = reserved.allocatedIds.members?.[0];
+        const versionId = reserved.allocatedIds.member_versions?.[0];
+        if (!id || !versionId) throw new MassageError(503, "Không cấp được mã nhân viên.");
+        const member = { ...input, name, id, createdAt: now, deletedAt: null };
+        return [
+          upsertMutation("members", id, member),
+          upsertMutation("member_versions", versionId, {
+            id: versionId, memberId: id, name, hourlyRate: input.hourlyRate ?? 0,
+            isBaseline: false, recordedAt: now,
+          }),
+        ];
+      },
+    });
+    const id = operation.allocatedIds.members?.[0];
+    const [member] = (await readPartitionedTable("members") as unknown as (typeof membersTable.$inferSelect)[])
+      .filter((row) => row.id === id);
+    if (!member) throw new MassageError(503, "Không tải lại được nhân viên sau khi lưu.");
+    return memberResponse(member);
+  }
   return db.transaction(async (tx) => {
     const [member] = await tx.insert(membersTable).values({ ...input, name }).returning();
     await tx.insert(memberVersionsTable).values({
@@ -144,8 +176,54 @@ export async function createEmployee(input: MemberInput) {
   });
 }
 
-export async function createSampleEmployeesBatchOnce() {
+export async function createSampleEmployeesBatchOnce(operationId?: string) {
   const names = buildSampleMemberNames();
+  if (isPartitionedStorageEnabled()) {
+    if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi tạo dữ liệu mẫu.");
+    return withPartitionWriteMutex("members", async () => {
+      const current = await readPartitionedTable("members") as unknown as (typeof membersTable.$inferSelect)[];
+      const duplicates = new Set(current.filter((row) => names.includes(row.name)).map((row) => row.name));
+      if (duplicates.size) {
+        throw new MassageError(
+          409,
+          `Không tạo dữ liệu mẫu: đã có ${duplicates.size} tên trong dãy 1–1000. Không có bản ghi nào được thêm.`,
+        );
+      }
+      const now = new Date();
+      const reserved = await commitPartitionedMutations({
+        operationId,
+        lockName: "members-sample-batch",
+        action: "member.sample-batch",
+        request: { names },
+        expectedEventCount: names.length * 2,
+        idAllocations: { members: names.length, member_versions: names.length },
+        alreadyLocked: true,
+        build: (operation) => {
+          const memberIds = operation.allocatedIds.members ?? [];
+          const versionIds = operation.allocatedIds.member_versions ?? [];
+          if (memberIds.length !== names.length || versionIds.length !== names.length) {
+            throw new MassageError(503, "Không cấp đủ mã cho dữ liệu nhân viên mẫu.");
+          }
+          return names.flatMap((name, index) => {
+            const memberId = memberIds[index]!;
+            const versionId = versionIds[index]!;
+            return [
+              upsertMutation("members", memberId, {
+                id: memberId, name, hourlyRate: 0, createdAt: now, deletedAt: null,
+              }),
+              upsertMutation("member_versions", versionId, {
+                id: versionId, memberId, name, hourlyRate: 0, isBaseline: false, recordedAt: now,
+              }),
+            ];
+          });
+        },
+      });
+      if (reserved.allocatedIds.members?.length !== names.length) {
+        throw new MassageError(503, "Không xác định được kết quả tạo dữ liệu mẫu.");
+      }
+      return { createdCount: names.length, firstName: names[0]!, lastName: names.at(-1)! };
+    });
+  }
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(721001001::bigint)`);
     const existing = await tx.select({ name: membersTable.name })
@@ -180,9 +258,61 @@ export async function createSampleEmployeesBatchOnce() {
   });
 }
 
-export async function updateEmployee(id: number, input: MemberUpdate) {
+export async function updateEmployee(id: number, input: MemberUpdate, operationId?: string) {
   if (!Object.keys(input).length || (input.name !== undefined && !input.name.trim())) {
     throw new MassageError(400, "Cần thông tin cập nhật hợp lệ.");
+  }
+  if (isPartitionedStorageEnabled()) {
+    if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi sửa nhân viên.");
+    return withPartitionWriteMutex(`member:${id}`, async () => {
+      const [members, versions] = await Promise.all([
+        readPartitionedTable("members"),
+        readPartitionedTable("member_versions"),
+      ]);
+      const old = (members as unknown as (typeof membersTable.$inferSelect)[])
+        .find((row) => row.id === id && row.deletedAt === null);
+      if (!old) throw new MassageError(404, "Không tìm thấy nhân viên đang hoạt động.");
+      const memberVersions = versions as unknown as (typeof memberVersionsTable.$inferSelect)[];
+      const hasVersion = memberVersions.some((row) => row.memberId === id);
+      const nextName = input.name === undefined ? old.name : input.name.trim();
+      const nextRate = input.hourlyRate === undefined ? old.hourlyRate : input.hourlyRate;
+      const now = new Date();
+      await commitPartitionedMutations({
+        operationId,
+        lockName: `member:${id}`,
+        action: "member.update",
+        request: { id, input },
+        expectedEventCount: hasVersion ? 2 : 3,
+        idAllocations: { member_versions: hasVersion ? 1 : 2 },
+        alreadyLocked: true,
+        build: (reserved) => {
+          const versionIds = reserved.allocatedIds.member_versions ?? [];
+          const changes = [
+            upsertMutation("members", id, { ...old, ...input, name: nextName, hourlyRate: nextRate }),
+          ];
+          let index = 0;
+          if (!hasVersion) {
+            const baselineId = versionIds[index++];
+            if (!baselineId) throw new MassageError(503, "Không cấp được mã lịch sử nhân viên.");
+            changes.push(upsertMutation("member_versions", baselineId, {
+              id: baselineId, memberId: id, name: old.name, hourlyRate: old.hourlyRate,
+              isBaseline: true, recordedAt: now,
+            }));
+          }
+          const versionId = versionIds[index];
+          if (!versionId) throw new MassageError(503, "Không cấp được mã lịch sử nhân viên.");
+          changes.push(upsertMutation("member_versions", versionId, {
+            id: versionId, memberId: id, name: nextName, hourlyRate: nextRate,
+            isBaseline: false, recordedAt: now,
+          }));
+          return changes;
+        },
+      });
+      const member = (await readPartitionedTable("members") as unknown as (typeof membersTable.$inferSelect)[])
+        .find((row) => row.id === id);
+      if (!member) throw new MassageError(503, "Không tải lại được nhân viên sau khi sửa.");
+      return memberResponse(member);
+    });
   }
   return db.transaction(async (tx) => {
     const [old] = await tx.select().from(membersTable).where(and(eq(membersTable.id, id), isNull(membersTable.deletedAt))).for("update");

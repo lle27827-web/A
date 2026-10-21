@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
 import { and, asc, eq, gte, isNull, lt, sql } from "drizzle-orm";
-import { db, personalServicesTable as services, personalSessionsTable as sessions,
-  serviceSessionsTable as visits, treatmentCardsTable as cards } from "@workspace/db";
+import { db, isPartitionedStorageEnabled, personalServicesTable as services, personalSessionsTable as sessions,
+  readPartitionedTable, serviceSessionsTable as visits, treatmentCardsTable as cards } from "@workspace/db";
 import type { PersonalComparisonVisit, PersonalDiscrepancy, PersonalSyncInput } from "@workspace/api-zod";
 import { listMembersForPeriod } from "./employee-history";
 import { MassageError, retainedDate, retainedMonthBounds } from "./massage";
 import { lockPersonal, personalSettings, refreshFacilityServices, type PersonalTx } from "./personal-data";
+import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "./partitioned-mutations";
 
 type Visit = PersonalComparisonVisit;
 const normalize = (s: string) => s.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
@@ -63,6 +64,9 @@ async function comparisonSnapshot(tx: PersonalTx, userId: string, memberId: numb
   } };
 }
 export async function getPersonalComparison(userId: string, memberId: number, month: string, date: string) {
+  if (isPartitionedStorageEnabled()) {
+    return (await partitionedComparisonSnapshot(userId, memberId, month, date)).report;
+  }
   return db.transaction(async (tx) => {
     await lockPersonal(tx, userId);
     return (await comparisonSnapshot(tx, userId, memberId, month, date)).report;
@@ -70,8 +74,89 @@ export async function getPersonalComparison(userId: string, memberId: number, mo
 }
 
 /** Destructive only within the selected account AND explicitly confirmed day/month. */
-export async function syncPersonalNotebook(userId: string, input: PersonalSyncInput) {
+export async function syncPersonalNotebook(userId: string, input: PersonalSyncInput, operationId?: string) {
   if (!userId) throw new MassageError(401, "Vui lòng đăng nhập.");
+  if (isPartitionedStorageEnabled()) {
+    if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi đồng bộ sổ cá nhân.");
+    const snapshot = await partitionedComparisonSnapshot(userId, input.memberId, input.month, input.date);
+    const expectedRevision = input.scope === "day" ? snapshot.report.revisionDay : snapshot.report.revisionMonth;
+    if (input.revision !== expectedRevision) {
+      throw new MassageError(409, "Dữ liệu đã thay đổi. Hãy tải lại đối chiếu và xác nhận lại trước khi thay thế.");
+    }
+    const { start, end } = retainedMonthBounds(input.month);
+    const oldRows = snapshot.personal.filter((row) =>
+      input.scope === "day" ? row.workDate === input.date : row.workDate >= start && row.workDate < end,
+    );
+    const sourceRows = snapshot.reference.filter((row) =>
+      input.scope === "day" ? row.workDate === input.date : row.workDate >= start && row.workDate < end,
+    );
+    const { services: serviceRows, settings } = await personalPartitionedSnapshot();
+    const useFacilityRates = settings.find((row) => row.userId === userId)?.useFacilityRates ?? false;
+    const relevantServices = serviceRows.filter((row) => row.userId === userId);
+    const newlyNeeded = new Map<string, { name: string; hourlyRate: number; facilityServiceId: number | null }>();
+    const resolveServiceKey = (row: typeof snapshot.reference[number]) => {
+      const facilityId = useFacilityRates ? row.serviceTypeId : null;
+      const candidate = relevantServices.find((service) => service.deletedAt === null &&
+        (facilityId !== null
+          ? service.facilityServiceId === facilityId
+          : service.facilityServiceId === null && service.name === row.serviceType && service.hourlyRate === row.hourlyRate));
+      if (candidate) return `existing:${candidate.id}`;
+      const key = facilityId !== null
+        ? `facility:${facilityId}`
+        : `custom:${JSON.stringify([row.serviceType, row.hourlyRate])}`;
+      newlyNeeded.set(key, { name: row.serviceType, hourlyRate: row.hourlyRate, facilityServiceId: facilityId });
+      return key;
+    };
+    const serviceKeys = sourceRows.map(resolveServiceKey);
+    const operationIdValue = operationIdFromRequest(operationId, "đồng bộ sổ cá nhân");
+    const needsCount = newlyNeeded.size;
+    const expectedEventCount = oldRows.length + sourceRows.length + needsCount;
+    if (expectedEventCount === 0) return { removed: 0, imported: 0 };
+    const reserveCounts: Record<string, number> = {
+      personal_services: needsCount,
+      personal_sessions: sourceRows.length,
+    };
+    await commitPartitionedMutations({
+      operationId: operationIdValue,
+      lockName: `personal-sync:${createHash("sha256").update(userId).digest("hex").slice(0, 40)}`,
+      action: "personal-sync.replace",
+      request: { userId, input },
+      expectedEventCount,
+      idAllocations: reserveCounts,
+      build: (operation) => {
+        const mutations = oldRows.map((row) => deleteMutation("personal_sessions", row.id));
+        const allocatedServices = operation.allocatedIds.personal_services ?? [];
+        const allocatedSessions = operation.allocatedIds.personal_sessions ?? [];
+        const serviceIdByKey = new Map<string, number>();
+        for (const key of serviceKeys) {
+          if (key.startsWith("existing:")) serviceIdByKey.set(key, Number(key.slice("existing:".length)));
+        }
+        let serviceIndex = 0;
+        for (const [key, service] of newlyNeeded) {
+          const id = allocatedServices[serviceIndex++];
+          if (!id) throw new MassageError(503, "Không cấp được mã dịch vụ khi đồng bộ.");
+          serviceIdByKey.set(key, id);
+          mutations.push(upsertMutation("personal_services", id, {
+            id, userId, name: service.name, hourlyRate: service.hourlyRate,
+            createdAt: new Date(), deletedAt: null, facilityServiceId: service.facilityServiceId,
+          }));
+        }
+        sourceRows.forEach((row, index) => {
+          const id = allocatedSessions[index];
+          const serviceId = serviceIdByKey.get(serviceKeys[index]!);
+          if (!id || !serviceId) throw new MassageError(503, "Không cấp được mã ca khi đồng bộ.");
+          mutations.push(upsertMutation("personal_sessions", id, {
+            id, userId, serviceId, sourceSessionId: row.id, serviceName: row.serviceType,
+            customerName: row.customerName, workDate: row.workDate, minutes: row.minutes,
+            hourlyRate: row.hourlyRate, earnings: row.earnings, note: row.note,
+            requestId: null, createdAt: new Date(),
+          }));
+        });
+        return mutations;
+      },
+    });
+    return { removed: oldRows.length, imported: sourceRows.length };
+  }
   return db.transaction(async (tx) => {
     await lockPersonal(tx, userId);
     const snapshot = await comparisonSnapshot(tx, userId, input.memberId, input.month, input.date);
@@ -97,4 +182,70 @@ export async function syncPersonalNotebook(userId: string, input: PersonalSyncIn
     }
     return { removed: removed.length, imported: source.length };
   }, { isolationLevel: "repeatable read" });
+}
+
+async function personalPartitionedSnapshot() {
+  const [servicesRaw, sessionsRaw, settingsRaw] = await Promise.all([
+    readPartitionedTable("personal_services"),
+    readPartitionedTable("personal_sessions"),
+    readPartitionedTable("personal_settings"),
+  ]);
+  return {
+    services: servicesRaw as unknown as (typeof services.$inferSelect)[],
+    sessions: sessionsRaw as unknown as (typeof sessions.$inferSelect)[],
+    settings: settingsRaw as unknown as { userId: string; useFacilityRates: boolean }[],
+  };
+}
+
+async function partitionedComparisonSnapshot(userId: string, memberId: number, month: string, date: string) {
+  const { start, end } = retainedMonthBounds(month);
+  retainedDate(date);
+  if (date.slice(0, 7) !== month) throw new MassageError(400, "Ngày cần nằm trong tháng đã chọn.");
+  const [member] = await listMembersForPeriod(month, memberId);
+  if (!member) throw new MassageError(404, "Không có nhân viên này trong tháng đã chọn.");
+  const [personalSnapshot, visitsRaw, cardsRaw] = await Promise.all([
+    personalPartitionedSnapshot(),
+    readPartitionedTable("service_sessions"),
+    readPartitionedTable("treatment_cards"),
+  ]);
+  const personal = personalSnapshot.sessions.filter((row) =>
+    row.userId === userId && row.workDate >= start && row.workDate < end,
+  ).sort((a, b) => a.id - b.id);
+  const activeCardIds = new Set(
+    (cardsRaw as unknown as (typeof cards.$inferSelect)[])
+      .filter((card) => card.deletedAt === null)
+      .map((card) => card.id),
+  );
+  const reference = (visitsRaw as unknown as (typeof visits.$inferSelect)[])
+    .filter((row) => row.memberId === memberId && row.workDate >= start && row.workDate < end &&
+      (row.cardId === null || activeCardIds.has(row.cardId)))
+    .sort((a, b) => a.id - b.id);
+  const personalVisits: Visit[] = personal.map((row) => ({
+    id: row.id, workDate: row.workDate, serviceName: row.serviceName, customerName: row.customerName,
+    minutes: row.minutes, hourlyRate: row.hourlyRate, earnings: row.earnings, note: row.note,
+  }));
+  const referenceVisits: Visit[] = reference.map((row) => ({
+    id: row.id, workDate: row.workDate, serviceName: row.serviceType, customerName: row.customerName,
+    minutes: row.minutes, hourlyRate: row.hourlyRate, earnings: row.earnings, note: row.note,
+  }));
+  const total = (rows: Visit[], day?: string) => rows.reduce((sum, row) => sum + (!day || row.workDate === day ? row.earnings : 0), 0);
+  const revision = (day?: string) => createHash("sha256").update(JSON.stringify([
+    userId, memberId, month, day ?? "month",
+    personal.filter((row) => !day || row.workDate === day),
+    reference.filter((row) => !day || row.workDate === day),
+  ])).digest("hex");
+  const personalDay = total(personalVisits, date);
+  const personalMonth = total(personalVisits);
+  const referenceDay = total(referenceVisits, date);
+  const referenceMonth = total(referenceVisits);
+  return {
+    personal,
+    reference,
+    report: {
+      memberName: member.name, personalDay, personalMonth, referenceDay, referenceMonth,
+      differenceDay: personalDay - referenceDay, differenceMonth: personalMonth - referenceMonth,
+      personalVisits, referenceVisits, discrepancies: comparePersonalVisits(personalVisits, referenceVisits),
+      revisionDay: revision(date), revisionMonth: revision(),
+    },
+  };
 }

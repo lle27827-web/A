@@ -32,7 +32,10 @@ router.post("/members", massageHandler(async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  res.status(201).json(CreateMemberResponse.parse(await createEmployee(parsed.data)));
+  res.status(201).json(CreateMemberResponse.parse(await createEmployee(
+    parsed.data,
+    req.get("Idempotency-Key"),
+  )));
 }));
 
 router.post("/members/sample-batch", requireOwner, massageHandler(async (req, res): Promise<void> => {
@@ -47,14 +50,18 @@ router.post("/members/sample-batch", requireOwner, massageHandler(async (req, re
     return;
   }
 
-  const result = await createSampleEmployeesBatchOnce();
+  const result = await createSampleEmployeesBatchOnce(req.get("Idempotency-Key") ?? undefined);
   res.status(201).json(CreateSampleMembersBatchResponse.parse(result));
 }));
 
 router.patch("/members/:id", massageHandler(async (req, res) => {
   const { id } = parseInput(UpdateMemberParams, req.params);
   const input = parseInput(UpdateMemberBody, req.body);
-  res.json(UpdateMemberResponse.parse(await updateEmployee(id, input)));
+  res.json(UpdateMemberResponse.parse(await updateEmployee(
+    id,
+    input,
+    req.get("Idempotency-Key"),
+  )));
 }));
 
 router.delete("/members/:id", massageHandler(async (req, res): Promise<void> => {
@@ -63,7 +70,7 @@ router.delete("/members/:id", massageHandler(async (req, res): Promise<void> => 
     res.status(400).json({ error: params.error.message });
     return;
   }
-  await deleteMember(params.data.id);
+  await deleteMember(params.data.id, req.get("Idempotency-Key"));
   res.sendStatus(204);
 }));
 

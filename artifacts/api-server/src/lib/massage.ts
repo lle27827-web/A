@@ -25,6 +25,7 @@ import {
 import type { FacilityPermissions, ServiceSessionInput, TreatmentCardInput, TreatmentCardUpdate } from "@workspace/api-zod";
 import { canEditEmployee } from "./facility-permissions";
 import { isWithinRetention, retentionCutoffDate } from "./retention-window";
+import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "./partitioned-mutations";
 
 export class MassageError extends Error {
   constructor(public status: number, message: string, public details?: { mergeTargetId: number }) { super(message); }
@@ -295,7 +296,129 @@ async function createPartitionedCard(input: TreatmentCardInput, values: Omit<Tre
     throw new MassageError(503, "Không xác định được kết quả lưu thẻ.");
   });
 }
-export async function updateCard(id: number, input: TreatmentCardUpdate) {
+export async function updateCard(id: number, input: TreatmentCardUpdate, operationId?: string) {
+  if (isPartitionedStorageEnabled()) {
+    if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi sửa thẻ.");
+    return withPartitionWriteMutex("card-identities", () =>
+      withPartitionWriteMutex("card-ledger", async () => {
+        const [cardsRaw, topUpsRaw, sessionsRaw, archivedRaw] = await Promise.all([
+          readPartitionedTable("treatment_cards"),
+          readPartitionedTable("card_top_ups"),
+          readPartitionedTable("service_sessions"),
+          readPartitionedTable("card_usage_history"),
+        ]);
+        const cards = cardsRaw as unknown as (typeof treatmentCardsTable.$inferSelect)[];
+        const topUps = topUpsRaw as unknown as CardTopUpRow[];
+        const sessions = sessionsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[];
+        const archived = archivedRaw as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
+        const old = cards.find((row) => row.id === id && row.deletedAt === null);
+        if (!old) throw new MassageError(404, "Không tìm thấy thẻ.");
+        const used = sessions.filter((row) => row.cardId === id).reduce((sum, row) => sum + row.minutes, 0) +
+          archived.filter((row) => row.cardId === id).reduce((sum, row) => sum + row.minutes, 0);
+        const values = cardValues({ ...old, ...input });
+        if (values.totalMinutes < used) throw new MassageError(409, "Tổng giờ của thẻ không thể thấp hơn số giờ đã sử dụng.");
+        const oldTopUps = topUps.filter((row) => row.cardId === id);
+        const topUpMinutes = oldTopUps.reduce((sum, row) => sum + row.minutes, 0);
+        if (values.totalMinutes < topUpMinutes) {
+          throw new MassageError(409, "Tổng giờ không thể thấp hơn số giờ đã nạp trong lịch sử.");
+        }
+        const identity = [identityText(values.customerName), identityPhone(values.phone), identityText(values.serviceType)];
+        const target = cards.filter((row) => row.id !== id && row.deletedAt === null)
+          .sort((a, b) => a.id - b.id)
+          .find((row) =>
+            identityText(row.customerName) === identity[0] &&
+            identityPhone(row.phone) === identity[1] &&
+            identityText(row.serviceType) === identity[2],
+          );
+        if (target && input.mergeTargetId !== target.id) {
+          throw new MassageError(409, "Thẻ đã có. Xác nhận cộng giờ, tiền và lịch sử vào thẻ hiện có?", { mergeTargetId: target.id });
+        }
+        if (!target && input.mergeTargetId) throw new MassageError(409, "Thẻ cần gộp đã thay đổi. Hãy kiểm tra thông tin và lưu lại.");
+
+        const now = new Date();
+        if (!target) {
+          const updated = {
+            ...old,
+            customerName: values.customerName,
+            phone: values.phone,
+            serviceType: values.serviceType,
+            totalMinutes: values.totalMinutes,
+            purchaseAmount: values.purchaseAmount,
+            purchaseDate: values.purchaseDate,
+            note: values.note,
+          };
+          await commitPartitionedMutations({
+            operationId,
+            lockName: `card:${id}`,
+            action: "card.update",
+            request: { id, input },
+            expectedEventCount: 1,
+            alreadyLocked: true,
+            build: () => [upsertMutation("treatment_cards", id, updated)],
+          });
+          const refreshed = (await readPartitionedTable("treatment_cards") as unknown as (typeof treatmentCardsTable.$inferSelect)[])
+            .find((row) => row.id === id);
+          if (!refreshed) throw new MassageError(503, "Không tải lại được thẻ sau khi sửa.");
+          return cardResponse(refreshed, used, topUps.filter((row) => row.cardId === id));
+        }
+        if (target.totalMinutes + values.totalMinutes > 600000) {
+          throw new MassageError(400, "Tổng số giờ sau khi gộp không được vượt quá 10.000 giờ.");
+        }
+        const oldSessions = sessions.filter((row) => row.cardId === id);
+        const oldArchived = archived.filter((row) => row.cardId === id);
+        const oldFundingMinutes = values.totalMinutes - topUpMinutes;
+        const firstUsedAt = [target.firstUsedAt, old.firstUsedAt].filter((value): value is Date => Boolean(value))
+          .sort((a, b) => a.getTime() - b.getTime())[0] ?? (used > 0 ? now : null);
+        const eventCount = 3 + oldTopUps.length + oldSessions.length + oldArchived.length;
+        const operation = await commitPartitionedMutations({
+          operationId,
+          lockName: `card:${id}`,
+          action: "card.merge",
+          request: { id, input },
+          expectedEventCount: eventCount,
+          idAllocations: { card_top_ups: 1 },
+          alreadyLocked: true,
+          build: (reserved) => {
+            const topUpId = reserved.allocatedIds.card_top_ups?.[0];
+            if (!topUpId) throw new MassageError(503, "Không cấp được mã giao dịch gộp thẻ.");
+            return [
+              upsertMutation("treatment_cards", target.id, {
+                ...target,
+                totalMinutes: target.totalMinutes + values.totalMinutes,
+                firstUsedAt,
+              }),
+              upsertMutation("treatment_cards", old.id, { ...old, deletedAt: now }),
+              upsertMutation("card_top_ups", topUpId, {
+                id: topUpId,
+                cardId: target.id,
+                minutes: oldFundingMinutes,
+                amount: values.purchaseAmount,
+                paymentDate: values.purchaseDate,
+                source: "merged_card",
+                note: `Gộp thẻ #${old.id}${values.note ? ` · ${values.note}` : ""}`,
+                createdAt: now,
+              }),
+              ...oldTopUps.map((row) => upsertMutation("card_top_ups", row.id, { ...row, cardId: target.id })),
+              ...oldSessions.map((row) => upsertMutation("service_sessions", row.id, { ...row, cardId: target.id })),
+              ...oldArchived.map((row) => upsertMutation("card_usage_history", row.sourceSessionId, { ...row, cardId: target.id })),
+            ];
+          },
+        });
+        const targetCard = (await readPartitionedTable("treatment_cards") as unknown as (typeof treatmentCardsTable.$inferSelect)[])
+          .find((row) => row.id === target.id);
+        if (!targetCard) throw new MassageError(503, "Không tải lại được thẻ sau khi gộp.");
+        const refreshedTopUps = await readPartitionedTable("card_top_ups") as unknown as CardTopUpRow[];
+        const refreshedSessions = await readPartitionedTable("service_sessions") as unknown as (typeof serviceSessionsTable.$inferSelect)[];
+        const refreshedArchived = await readPartitionedTable("card_usage_history") as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
+        const targetUsed = refreshedSessions.filter((row) => row.cardId === target.id).reduce((sum, row) => sum + row.minutes, 0) +
+          refreshedArchived.filter((row) => row.cardId === target.id).reduce((sum, row) => sum + row.minutes, 0);
+        return {
+          ...cardResponse(targetCard, targetUsed, refreshedTopUps.filter((row) => row.cardId === target.id)),
+          mergedIntoExisting: true,
+        };
+      }),
+    );
+  }
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('so-cong:card-identities', 0))`);
     const [old] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
@@ -344,7 +467,46 @@ export async function updateCard(id: number, input: TreatmentCardUpdate) {
     return cardWithHistory(tx, row, used);
   });
 }
-export async function deleteCard(id: number) {
+export async function deleteCard(id: number, operationId?: string) {
+  if (isPartitionedStorageEnabled()) {
+    if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi xóa thẻ.");
+    return withPartitionWriteMutex("card-identities", () =>
+      withPartitionWriteMutex("card-ledger", async () => {
+        const [cardsRaw, topUpsRaw, sessionsRaw, archivedRaw] = await Promise.all([
+          readPartitionedTable("treatment_cards"),
+          readPartitionedTable("card_top_ups"),
+          readPartitionedTable("service_sessions"),
+          readPartitionedTable("card_usage_history"),
+        ]);
+        const cards = cardsRaw as unknown as (typeof treatmentCardsTable.$inferSelect)[];
+        const card = cards.find((row) => row.id === id && row.deletedAt === null);
+        if (!card) throw new MassageError(404, "Không tìm thấy thẻ.");
+        const topUps = (topUpsRaw as unknown as CardTopUpRow[]).filter((row) => row.cardId === id);
+        const sessions = (sessionsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[]).filter((row) => row.cardId === id);
+        const archived = (archivedRaw as unknown as (typeof cardUsageHistoryTable.$inferSelect)[]).filter((row) => row.cardId === id);
+        const used = sessions.reduce((sum, row) => sum + row.minutes, 0) + archived.reduce((sum, row) => sum + row.minutes, 0);
+        if (card.totalMinutes - used > 0) {
+          const latestFundingAt = Math.max(card.createdAt.getTime(), ...topUps.map((row) => row.createdAt.getTime()));
+          const usedSinceFunding =
+            Boolean(card.firstUsedAt && card.firstUsedAt.getTime() >= latestFundingAt) ||
+            sessions.some((row) => row.createdAt.getTime() >= latestFundingAt) ||
+            archived.some((row) => row.createdAt.getTime() >= latestFundingAt);
+          if (usedSinceFunding) {
+            throw new MassageError(409, "Thẻ còn giờ và đã có lượt dùng sau lần mua hoặc nạp gần nhất. Chỉ xóa khi đã dùng hết giờ hoặc chưa dùng từ lần mua/nạp gần nhất.");
+          }
+        }
+        await commitPartitionedMutations({
+          operationId,
+          lockName: `card:${id}`,
+          action: "card.delete",
+          request: { id },
+          expectedEventCount: 1,
+          alreadyLocked: true,
+          build: () => [upsertMutation("treatment_cards", id, { ...card, deletedAt: new Date() })],
+        });
+      }),
+    );
+  }
   await db.transaction(async (tx) => {
     const [card] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
     if (!card || card.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
@@ -387,7 +549,45 @@ export async function deleteCard(id: number) {
   });
 }
 
-export async function deleteMember(id: number) {
+export async function deleteMember(id: number, operationId?: string) {
+  if (isPartitionedStorageEnabled()) {
+    if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi xóa nhân viên.");
+    await withPartitionWriteMutex(`member:${id}`, async () => {
+      const [members, sessions, attendance] = await Promise.all([
+        readPartitionedTable("members"),
+        readPartitionedTable("service_sessions"),
+        readPartitionedTable("attendance"),
+      ]);
+      const member = (members as unknown as (typeof membersTable.$inferSelect)[])
+        .find((row) => row.id === id && row.deletedAt === null);
+      if (!member) throw new MassageError(404, "Không tìm thấy nhân viên.");
+      const currentMonthStart = `${currentBusinessDate().slice(0, 7)}-01`;
+      const currentSessions = (sessions as unknown as (typeof serviceSessionsTable.$inferSelect)[])
+        .filter((row) => row.memberId === id && row.workDate >= currentMonthStart);
+      const currentAttendance = (attendance as unknown as (typeof attendanceTable.$inferSelect)[])
+        .filter((row) => row.memberId === id && row.workDate >= currentMonthStart);
+      const cardUses = currentSessions.filter((row) => row.cardId !== null);
+      const walkIns = currentSessions.filter((row) => row.cardId === null);
+      const deletedAt = new Date();
+      await commitPartitionedMutations({
+        operationId,
+        lockName: `member-delete:${id}`,
+        action: "member.delete",
+        request: { id },
+        expectedEventCount: 1 + cardUses.length + walkIns.length + currentAttendance.length,
+        alreadyLocked: true,
+        build: () => [
+          ...cardUses.map((row) => upsertMutation("service_sessions", row.id, {
+            ...row, memberId: null, hourlyRate: 0, earnings: 0,
+          })),
+          ...walkIns.map((row) => deleteMutation("service_sessions", row.id)),
+          ...currentAttendance.map((row) => deleteMutation("attendance", row.id)),
+          upsertMutation("members", id, { ...member, deletedAt }),
+        ],
+      });
+    });
+    return;
+  }
   await db.transaction(async (tx) => {
     // Follow saveSession's session-before-member lock order to avoid deadlocks
     // with an edit already holding a visit row.

@@ -56,14 +56,27 @@ const BASE_TABLES = new Set([
   "appointments",
   "tasks",
 ]);
-const SERIAL_ENTITY_TYPES = new Set([...BASE_TABLES].filter((table) => table !== "personal_settings"));
+const SERIAL_ENTITY_TYPES = new Set([
+  "members",
+  "member_versions",
+  "attendance",
+  "treatment_cards",
+  "card_top_ups",
+  "service_sessions",
+  "service_types",
+  "manager_grants",
+  "personal_services",
+  "personal_sessions",
+  "appointments",
+  "tasks",
+]);
 const TABLE_KEY_COLUMN: Record<string, string> = {
   members: "id",
   member_versions: "id",
   attendance: "id",
   treatment_cards: "id",
   card_top_ups: "id",
-  card_usage_history: "id",
+  card_usage_history: "sourceSessionId",
   service_sessions: "id",
   service_types: "id",
   manager_grants: "id",

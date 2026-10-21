@@ -89,7 +89,7 @@ router.patch("/treatment-cards/:id", massageHandler(async (req, res) => {
   const { id } = parseInput(UpdateTreatmentCardParams, req.params);
   const input = parseInput(UpdateTreatmentCardBody, req.body);
   if (!Object.keys(input).length) { res.status(400).json({ error: "Chưa có thông tin cần cập nhật." }); return; }
-  res.json(UpdateTreatmentCardResponse.parse(await updateCard(id, input)));
+  res.json(UpdateTreatmentCardResponse.parse(await updateCard(id, input, req.get("Idempotency-Key") ?? undefined)));
 }));
 router.post("/treatment-cards/:id/hours", massageHandler(async (req, res) => {
   const { id } = parseInput(AddTreatmentCardHoursParams, req.params);
@@ -100,7 +100,7 @@ router.post("/treatment-cards/:id/hours", massageHandler(async (req, res) => {
 }));
 router.delete("/treatment-cards/:id", massageHandler(async (req, res) => {
   const { id } = parseInput(DeleteTreatmentCardParams, req.params);
-  await deleteCard(id);
+  await deleteCard(id, req.get("Idempotency-Key") ?? undefined);
   res.sendStatus(204);
 }));
 export default router;

@@ -28,7 +28,7 @@ router.delete("/retention/years/:year", requireOwner, async (req, res, next): Pr
 
   try {
     res.set("Cache-Control", "no-store");
-    const result = await deleteFacilityHistoryYear(params.data.year);
+    const result = await deleteFacilityHistoryYear(params.data.year, req.get("Idempotency-Key"));
     if (result.deletedAttendance === 0 && result.deletedServiceSessions === 0) {
       res.status(404).json({ error: "Năm này không còn lịch sử chấm công cơ sở." });
       return;

@@ -16,11 +16,15 @@ import { isWithinRetention, retentionCutoffDate } from "../lib/retention-window"
 import {
   db,
   attendanceTable,
+  isPartitionedStorageEnabled,
   membersTable,
+  readPartitionedTable,
   type AttendanceStatus,
 } from "@workspace/db";
 import { noPermissions } from "../lib/facility-permissions";
 import type { OwnerAuthStatus } from "../lib/owner-auth";
+import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "../lib/partitioned-mutations";
+import { MassageError } from "../lib/massage";
 
 const router: IRouter = Router();
 
@@ -78,11 +82,27 @@ router.get("/attendance", async (req, res): Promise<void> => {
     );
   }
 
-  const records = await db
-    .select()
-    .from(attendanceTable)
-    .where(filters.length ? and(...filters) : undefined)
-    .orderBy(desc(attendanceTable.workDate), asc(attendanceTable.employeeName));
+  let records: (typeof attendanceTable.$inferSelect)[];
+  if (isPartitionedStorageEnabled()) {
+    const searchText = search?.toLocaleLowerCase("vi");
+    records = (await readPartitionedTable("attendance") as unknown as (typeof attendanceTable.$inferSelect)[])
+      .filter((record) =>
+        record.workDate >= cutoff &&
+        (permissions.allEmployees || permissions.employeeIds.includes(record.memberId ?? 0)) &&
+        (!query.data.date || record.workDate === query.data.date) &&
+        (!query.data.status || record.status === query.data.status) &&
+        (query.data.memberId === undefined || record.memberId === query.data.memberId) &&
+        (!searchText || record.employeeName.toLocaleLowerCase("vi").includes(searchText) ||
+          (record.note ?? "").toLocaleLowerCase("vi").includes(searchText)),
+      )
+      .sort((a, b) => b.workDate.localeCompare(a.workDate) || a.employeeName.localeCompare(b.employeeName, "vi"));
+  } else {
+    records = await db
+      .select()
+      .from(attendanceTable)
+      .where(filters.length ? and(...filters) : undefined)
+      .orderBy(desc(attendanceTable.workDate), asc(attendanceTable.employeeName));
+  }
 
   res.json(ListAttendanceResponse.parse(records.map(toAttendanceResponse)));
 });
@@ -100,19 +120,36 @@ router.get("/attendance/summary", async (req, res): Promise<void> => {
     return;
   }
   const permissions = (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.permissions ?? noPermissions();
-  const [row] = await db
-    .select({
-      total: count(),
-      present: sql<number>`count(*) filter (where ${attendanceTable.status} = 'present')`,
-      late: sql<number>`count(*) filter (where ${attendanceTable.status} = 'late')`,
-      absent: sql<number>`count(*) filter (where ${attendanceTable.status} = 'absent')`,
-      leave: sql<number>`count(*) filter (where ${attendanceTable.status} = 'leave')`,
-      checkedIn: sql<number>`count(*) filter (where ${attendanceTable.checkIn} is not null)`,
-      checkedOut: sql<number>`count(*) filter (where ${attendanceTable.checkOut} is not null)`,
-    })
-    .from(attendanceTable)
-    .where(and(eq(attendanceTable.workDate, workDate),
-      permissions.allEmployees ? undefined : inArray(attendanceTable.memberId, permissions.employeeIds)));
+  let row: { total: number; present: number; late: number; absent: number; leave: number; checkedIn: number; checkedOut: number };
+  if (isPartitionedStorageEnabled()) {
+    const records = (await readPartitionedTable("attendance") as unknown as (typeof attendanceTable.$inferSelect)[])
+      .filter((item) => item.workDate === workDate &&
+        (permissions.allEmployees || permissions.employeeIds.includes(item.memberId ?? 0)));
+    row = {
+      total: records.length,
+      present: records.filter((item) => item.status === "present").length,
+      late: records.filter((item) => item.status === "late").length,
+      absent: records.filter((item) => item.status === "absent").length,
+      leave: records.filter((item) => item.status === "leave").length,
+      checkedIn: records.filter((item) => item.checkIn !== null).length,
+      checkedOut: records.filter((item) => item.checkOut !== null).length,
+    };
+  } else {
+    const [queryRow] = await db
+      .select({
+        total: count(),
+        present: sql<number>`count(*) filter (where ${attendanceTable.status} = 'present')`,
+        late: sql<number>`count(*) filter (where ${attendanceTable.status} = 'late')`,
+        absent: sql<number>`count(*) filter (where ${attendanceTable.status} = 'absent')`,
+        leave: sql<number>`count(*) filter (where ${attendanceTable.status} = 'leave')`,
+        checkedIn: sql<number>`count(*) filter (where ${attendanceTable.checkIn} is not null)`,
+        checkedOut: sql<number>`count(*) filter (where ${attendanceTable.checkOut} is not null)`,
+      })
+      .from(attendanceTable)
+      .where(and(eq(attendanceTable.workDate, workDate),
+        permissions.allEmployees ? undefined : inArray(attendanceTable.memberId, permissions.employeeIds)));
+    row = queryRow;
+  }
 
   res.json(GetAttendanceSummaryResponse.parse({
     date: workDate,
@@ -150,14 +187,39 @@ router.post("/attendance", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Cần chọn thành viên." });
     return;
   }
-  const [member] = await db.select().from(membersTable)
-    .where(and(eq(membersTable.id, values.memberId), isNull(membersTable.deletedAt))).limit(1);
+  const member = isPartitionedStorageEnabled()
+    ? (await readPartitionedTable("members") as unknown as (typeof membersTable.$inferSelect)[])
+      .find((item) => item.id === values.memberId && item.deletedAt === null)
+    : (await db.select().from(membersTable)
+      .where(and(eq(membersTable.id, values.memberId), isNull(membersTable.deletedAt))).limit(1))[0];
   if (!member) {
     res.status(400).json({ error: "Không tìm thấy thành viên được chọn." });
     return;
   }
   values.employeeName = member.name;
 
+  if (isPartitionedStorageEnabled()) {
+    const operation = await commitPartitionedMutations({
+      operationId: operationIdFromRequest(req.get("Idempotency-Key"), "chấm công"),
+      lockName: `attendance:${values.memberId}`,
+      action: "attendance.create",
+      request: values,
+      expectedEventCount: 1,
+      idAllocations: { attendance: 1 },
+      build: (reserved) => {
+        const id = reserved.allocatedIds.attendance?.[0];
+        if (!id) throw new MassageError(503, "Không cấp được mã chấm công.");
+        const now = new Date();
+        return [upsertMutation("attendance", id, { ...values, id, createdAt: now, updatedAt: now })];
+      },
+    });
+    const id = operation.allocatedIds.attendance?.[0];
+    const record = (await readPartitionedTable("attendance") as unknown as (typeof attendanceTable.$inferSelect)[])
+      .find((item) => item.id === id);
+    if (!record) throw new MassageError(503, "Không tải lại được chấm công sau khi lưu.");
+    res.status(201).json(CreateAttendanceResponse.parse(toAttendanceResponse(record)));
+    return;
+  }
   const [record] = await db.insert(attendanceTable).values(values).returning();
   res.status(201).json(CreateAttendanceResponse.parse(toAttendanceResponse(record)));
 });
@@ -187,8 +249,11 @@ router.patch("/attendance/:id", async (req, res): Promise<void> => {
     const memberId = parsed.data.memberId ?? null;
     update.memberId = memberId;
     if (memberId !== null) {
-      const [member] = await db.select().from(membersTable)
-        .where(and(eq(membersTable.id, memberId), isNull(membersTable.deletedAt))).limit(1);
+      const member = isPartitionedStorageEnabled()
+        ? (await readPartitionedTable("members") as unknown as (typeof membersTable.$inferSelect)[])
+          .find((item) => item.id === memberId && item.deletedAt === null)
+        : (await db.select().from(membersTable)
+          .where(and(eq(membersTable.id, memberId), isNull(membersTable.deletedAt))).limit(1))[0];
       if (!member) {
         res.status(400).json({ error: "Không tìm thấy thành viên được chọn." });
         return;
@@ -202,6 +267,28 @@ router.patch("/attendance/:id", async (req, res): Promise<void> => {
   if (parsed.data.status !== undefined) update.status = parsed.data.status as AttendanceStatus;
   if ("note" in parsed.data) update.note = parsed.data.note ?? null;
 
+  if (isPartitionedStorageEnabled()) {
+    const rows = await readPartitionedTable("attendance") as unknown as (typeof attendanceTable.$inferSelect)[];
+    const old = rows.find((item) => item.id === params.data.id && item.workDate >= retentionCutoffDate());
+    if (!old) {
+      res.status(404).json({ error: "Không tìm thấy bản ghi chấm công." });
+      return;
+    }
+    const next = { ...old, ...update, updatedAt: new Date() };
+    await commitPartitionedMutations({
+      operationId: operationIdFromRequest(req.get("Idempotency-Key"), "sửa chấm công"),
+      lockName: `attendance:${old.memberId ?? old.id}`,
+      action: "attendance.update",
+      request: { id: params.data.id, update },
+      expectedEventCount: 1,
+      build: () => [upsertMutation("attendance", old.id, next)],
+    });
+    const record = (await readPartitionedTable("attendance") as unknown as (typeof attendanceTable.$inferSelect)[])
+      .find((item) => item.id === old.id);
+    if (!record) throw new MassageError(503, "Không tải lại được chấm công sau khi sửa.");
+    res.json(UpdateAttendanceResponse.parse(toAttendanceResponse(record)));
+    return;
+  }
   const [record] = await db
     .update(attendanceTable)
     .set(update)
@@ -226,6 +313,25 @@ router.delete("/attendance/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  if (isPartitionedStorageEnabled()) {
+    const rows = await readPartitionedTable("attendance") as unknown as (typeof attendanceTable.$inferSelect)[];
+    const old = rows.find((item) => item.id === params.data.id);
+    if (!old || (!res.locals.facilityAuth?.permissions.allEmployees &&
+        !res.locals.facilityAuth?.permissions.employeeIds.includes(old.memberId ?? 0))) {
+      res.status(404).json({ error: "Không tìm thấy bản ghi chấm công." });
+      return;
+    }
+    await commitPartitionedMutations({
+      operationId: operationIdFromRequest(req.get("Idempotency-Key"), "xóa chấm công"),
+      lockName: `attendance:${old.memberId ?? old.id}`,
+      action: "attendance.delete",
+      request: { id: params.data.id },
+      expectedEventCount: 1,
+      build: () => [deleteMutation("attendance", old.id)],
+    });
+    res.sendStatus(204);
+    return;
+  }
   const [record] = await db
     .delete(attendanceTable)
     .where(and(eq(attendanceTable.id, params.data.id),
