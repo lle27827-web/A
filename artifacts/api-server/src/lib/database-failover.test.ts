@@ -18,6 +18,7 @@ import {
   getNextBackend,
   getReplicationEdge,
   replicationTableSetsMatch,
+  resolveFailoverCoordinatorBackend,
   resolveDatabaseNodes,
 } from "../../../../lib/db/src/failover-topology";
 import {
@@ -157,6 +158,24 @@ test("four-database failover order preserves the existing DATABASE_URL slot", ()
   assert.equal(nodes[1]?.adminUrl, "postgres://fallback-direct");
   assert.equal(nodes[2]?.projectId, "project-3");
   assert.equal(nodes[3]?.projectId, "project-4");
+});
+
+test("DB4 can be selected as the coordinator only when its node is configured", () => {
+  const nodes = resolveDatabaseNodes({
+    DATABASE_URL_1: "postgres://primary",
+    DATABASE_URL: "postgres://fallback",
+    DATABASE_URL_3: "postgres://replica3",
+    DATABASE_URL_4: "postgres://replica4",
+  });
+  assert.equal(resolveFailoverCoordinatorBackend(undefined, nodes), "database_url");
+  assert.equal(
+    resolveFailoverCoordinatorBackend("database_url_4", nodes),
+    "database_url_4",
+  );
+  assert.throws(
+    () => resolveFailoverCoordinatorBackend("database_url_4", nodes.slice(0, 3)),
+    /requires that database URL to be configured/,
+  );
 });
 
 test("manual switching is limited to adjacent configured databases in either direction", () => {

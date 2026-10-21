@@ -21,6 +21,7 @@ import {
   getReplicationEdge,
   isPersistedDatabaseBackend,
   replicationTableSetsMatch,
+  resolveFailoverCoordinatorBackend,
   resolveDatabaseNodes,
   type DatabaseBackend,
   type DatabaseNodeConfig,
@@ -47,12 +48,21 @@ const configuredNodes = resolveDatabaseNodes(process.env);
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const failoverCoordinatorUrl =
   process.env.DATABASE_FAILOVER_COORDINATOR_URL?.trim();
+const stateBackend = resolveFailoverCoordinatorBackend(
+  process.env.DATABASE_FAILOVER_COORDINATOR_BACKEND,
+  configuredNodes,
+);
 const failoverEnabled =
   isVercel &&
   Boolean(process.env.DATABASE_URL_1?.trim() && databaseUrl) &&
   configuredNodes.length >= 2;
-const stateBackend: DatabaseBackend = "database_url";
 const neonApiKey = process.env.NEON_API_KEY?.trim();
+
+if (failoverCoordinatorUrl && process.env.DATABASE_FAILOVER_COORDINATOR_BACKEND) {
+  throw new Error(
+    "Configure either DATABASE_FAILOVER_COORDINATOR_URL or DATABASE_FAILOVER_COORDINATOR_BACKEND, not both.",
+  );
+}
 
 function usesNeonPooler(connectionString: string): boolean {
   try {
@@ -129,7 +139,7 @@ const failoverCoordinatorPool = failoverCoordinatorUrl
 if (failoverEnabled) {
   if (!failoverCoordinatorPool) {
     console.warn(
-      "[db-failover] DATABASE_FAILOVER_COORDINATOR_URL is not configured; using the legacy failover-state table on DATABASE_URL. Failover cannot be coordinated if that database is unavailable.",
+      `[db-failover] Using ${stateBackend} for failover coordination. Failover cannot be coordinated if that database is unavailable.`,
     );
   } else {
     console.info(
@@ -1451,11 +1461,13 @@ async function getSwitchTargetStatus(
 
 export async function getDatabaseFailoverStatus(): Promise<{
   activeBackend: PersistedDatabaseBackend;
+  coordinatorBackend: FailoverCoordinatorBackend;
   switchTargets: Awaited<ReturnType<typeof getSwitchTargetStatus>>[];
 }> {
   const activeBackend = await refreshDatabaseBackend();
   return {
     activeBackend,
+    coordinatorBackend: failoverCoordinatorPool ? "independent" : stateBackend,
     switchTargets: await Promise.all(
       allDatabaseBackends.map((backend) =>
         getSwitchTargetStatus(activeBackend, backend),

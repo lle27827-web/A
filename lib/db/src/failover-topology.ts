@@ -5,6 +5,7 @@ export type DatabaseBackend =
   | "database_url_4";
 
 export type PersistedDatabaseBackend = DatabaseBackend | "switching";
+export type FailoverCoordinatorBackend = DatabaseBackend | "independent";
 
 export type DatabaseNodeConfig = {
   backend: DatabaseBackend;
@@ -140,6 +141,24 @@ export function resolveDatabaseNodes(
     prefix.push(node);
   }
   return prefix;
+}
+
+export function resolveFailoverCoordinatorBackend(
+  value: string | undefined,
+  nodes: readonly Pick<DatabaseNodeConfig, "backend">[],
+): DatabaseBackend {
+  const backend = value?.trim() || "database_url";
+  if (backend !== "database_url" && backend !== "database_url_4") {
+    throw new Error(
+      "DATABASE_FAILOVER_COORDINATOR_BACKEND must be database_url or database_url_4.",
+    );
+  }
+  if (!nodes.some((node) => node.backend === backend)) {
+    throw new Error(
+      `DATABASE_FAILOVER_COORDINATOR_BACKEND=${backend} requires that database URL to be configured.`,
+    );
+  }
+  return backend;
 }
 
 export function getReplicationEdge(
