@@ -59,6 +59,19 @@ paths:
               schema: { $ref: "#/components/schemas/RetentionYearDeleteResult" }
         "400": { description: Năm không hợp lệ }
         "404": { description: Năm này không còn lịch sử chấm công cơ sở }
+  /database/storage-status:
+    get:
+      operationId: getDatabaseStorageStatus
+      tags: [database]
+      summary: Chủ sở hữu xem trạng thái định tuyến và dung lượng bốn kho
+      responses:
+        "200":
+          description: Trạng thái chỉ đọc của cơ chế lưu trữ
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DatabaseStorageStatus" }
+        "401": { description: Cần đăng nhập }
+        "403": { description: Chỉ chủ sở hữu được xem }
   /database/failover:
     get:
       operationId: getDatabaseFailoverStatus
@@ -1070,6 +1083,35 @@ components:
         switchTargets:
           type: array
           items: { $ref: "#/components/schemas/DatabaseFailoverSwitchTarget" }
+    DatabaseStorageStatus:
+      type: object
+      required: [enabled, strategy, coordinatorBackend, coordinatorReady, writeCursor, nextRevision, eventSchemasReady, readsRequireDb1, readsRequireAllStores, storageLimitBytes, computeLimitHours, stores, blockers]
+      properties:
+        enabled: { type: boolean }
+        strategy: { type: string, enum: [replication_failover, partitioned_forward_only] }
+        coordinatorBackend: { type: string, enum: [database_url_4] }
+        coordinatorReady: { type: ["boolean", "null"] }
+        writeCursor: { type: ["string", "null"] }
+        nextRevision: { type: ["string", "null"] }
+        eventSchemasReady: { type: ["boolean", "null"] }
+        readsRequireDb1: { type: boolean }
+        readsRequireAllStores: { type: boolean }
+        storageLimitBytes: { type: string }
+        computeLimitHours: { type: number }
+        stores:
+          type: array
+          items: { $ref: "#/components/schemas/DatabaseStorageStore" }
+        blockers:
+          type: array
+          items: { type: string }
+    DatabaseStorageStore:
+      type: object
+      required: [backend, configured, capacity, eventJournalReady]
+      properties:
+        backend: { $ref: "#/components/schemas/DatabaseFailoverTarget" }
+        configured: { type: boolean }
+        capacity: { type: string, enum: [available, full, unavailable, unknown, not_checked] }
+        eventJournalReady: { type: ["boolean", "null"] }
     DatabaseFailoverSwitchTarget:
       type: object
       required: [backend, configured, active, canSwitch, message]

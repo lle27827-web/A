@@ -3,6 +3,8 @@ import { useAuth } from '@clerk/react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetDatabaseFailoverStatusQueryKey,
+  getGetDatabaseStorageStatusQueryKey,
+  useGetDatabaseStorageStatus,
   useGetDatabaseFailoverStatus,
   useRequestDatabaseFailover,
   type DatabaseFailoverTarget,
@@ -30,6 +32,14 @@ const backendLabels: Record<string, string> = {
   independent: 'Kho độc lập',
 };
 
+const capacityLabels: Record<string, string> = {
+  available: 'Sẵn sàng',
+  full: 'Đã chạm giới hạn',
+  unavailable: 'Không truy cập được',
+  unknown: 'Chưa xác minh',
+  not_checked: 'Chưa kiểm tra',
+};
+
 function backendLabel(backend?: string) {
   return backend ? backendLabels[backend] ?? 'Không xác định' : 'Chưa tải';
 }
@@ -40,6 +50,14 @@ export function DatabaseFailoverDialog({ onClose }: { onClose: () => void }) {
   const status = useGetDatabaseFailoverStatus({
     query: {
       queryKey: getGetDatabaseFailoverStatusQueryKey(),
+      staleTime: 0,
+      refetchOnMount: 'always',
+      retry: 1,
+    },
+  });
+  const storageStatus = useGetDatabaseStorageStatus({
+    query: {
+      queryKey: getGetDatabaseStorageStatusQueryKey(),
       staleTime: 0,
       refetchOnMount: 'always',
       retry: 1,
@@ -103,6 +121,9 @@ export function DatabaseFailoverDialog({ onClose }: { onClose: () => void }) {
           setConfirmation('');
           await queryClient.invalidateQueries({
             queryKey: getGetDatabaseFailoverStatusQueryKey(),
+          });
+          await queryClient.invalidateQueries({
+            queryKey: getGetDatabaseStorageStatusQueryKey(),
           });
         },
       },
@@ -188,6 +209,7 @@ export function DatabaseFailoverDialog({ onClose }: { onClose: () => void }) {
       setCapacityTestRunning(false);
       setCapacityTestConfirmation('');
       await queryClient.invalidateQueries({ queryKey: getGetDatabaseFailoverStatusQueryKey() });
+      await queryClient.invalidateQueries({ queryKey: getGetDatabaseStorageStatusQueryKey() });
     }
   }
 
@@ -224,6 +246,73 @@ export function DatabaseFailoverDialog({ onClose }: { onClose: () => void }) {
               Tải lại
             </button>
           </div>
+
+          <section className="stack" aria-labelledby="storage-routing-status-title" style={{ marginTop: 14 }}>
+            <div className="dialog-head">
+              <h2 id="storage-routing-status-title" className="section-title">Trạng thái chuyển kho</h2>
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={() => void storageStatus.refetch()}
+                disabled={storageStatus.isFetching}
+                aria-label="Tải lại trạng thái định tuyến bốn kho"
+                data-testid="button-refresh-storage-routing-status"
+              >
+                {storageStatus.isFetching
+                  ? <LoaderCircle size={14} className="spin" aria-hidden="true" />
+                  : <RotateCw size={14} aria-hidden="true" />}
+                Tải lại
+              </button>
+            </div>
+            {storageStatus.isLoading ? (
+              <Skeleton rows={2} label="Đang kiểm tra định tuyến và trạng thái bốn kho" />
+            ) : storageStatus.isError ? (
+              <ErrorBanner text={errorText(storageStatus.error, 'Không tải được trạng thái định tuyến.')} onRetry={() => void storageStatus.refetch()} />
+            ) : storageStatus.data ? (
+              <>
+                <div className="banner soft" role="status" data-testid="status-storage-routing-mode">
+                  <Database size={15} aria-hidden="true" />
+                  <span>
+                    Chế độ: <strong>{storageStatus.data.enabled ? 'Phân vùng ghi tiến về phía trước' : 'Failover replication hiện có'}</strong>
+                    <br />
+                    Bộ điều phối phân vùng: <strong>{backendLabel(storageStatus.data.coordinatorBackend)}</strong>
+                    {storageStatus.data.enabled && (
+                      <>
+                        <br />
+                        Con trỏ ghi: <strong>{backendLabel(storageStatus.data.writeCursor ?? undefined)}</strong>
+                      </>
+                    )}
+                  </span>
+                </div>
+                <div className="stack" aria-label="Dung lượng và trạng thái bốn kho">
+                  {storageStatus.data.stores.map((store) => (
+                    <div className="banner soft" key={store.backend} data-testid={`storage-routing-${store.backend}`}>
+                      <span>
+                        <strong>{backendLabel(store.backend)}</strong>
+                        {' · '}{store.configured ? 'Đã cấu hình' : 'Chưa cấu hình'}
+                        {' · '}{capacityLabels[store.capacity] ?? store.capacity}
+                        {store.eventJournalReady === true && ' · Nhật ký sẵn sàng'}
+                        {store.eventJournalReady === false && ' · Thiếu nhật ký'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="muted small">
+                  Ngưỡng phân vùng: {Number(storageStatus.data.storageLimitBytes) / 1_000_000_000} GB hoặc {storageStatus.data.computeLimitHours} CU-giờ.
+                </p>
+                {storageStatus.data.blockers.length > 0 && (
+                  <ul className="hint warn" role="status" data-testid="storage-routing-blockers">
+                    {storageStatus.data.blockers.map((blocker, index) => <li key={`${index}-${blocker}`}>{blocker}</li>)}
+                  </ul>
+                )}
+                {storageStatus.data.enabled && storageStatus.data.readsRequireAllStores && (
+                  <p className="hint warn" role="note">
+                    Lượt đọc hiện cần DB1 cùng nhật ký ở cả bốn kho. Nếu một kho ngắt kết nối, lượt đọc có thể bị chặn dù ghi mới đã chuyển tiếp.
+                  </p>
+                )}
+              </>
+            ) : null}
+          </section>
 
           {completed ? (
             <div className="banner success" role="status" data-testid="status-database-failover-complete">

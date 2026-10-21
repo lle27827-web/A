@@ -132,6 +132,127 @@ export function isPartitionedStorageEnabled(): boolean {
   return isPartitionedMode;
 }
 
+export type PartitionedStorageStatus = {
+  enabled: boolean;
+  strategy: "replication_failover" | "partitioned_forward_only";
+  coordinatorBackend: "database_url_4";
+  coordinatorReady: boolean | null;
+  writeCursor: DatabaseBackend | null;
+  nextRevision: string | null;
+  eventSchemasReady: boolean | null;
+  readsRequireDb1: boolean;
+  readsRequireAllStores: boolean;
+  storageLimitBytes: string;
+  computeLimitHours: number;
+  stores: Array<{
+    backend: DatabaseBackend;
+    configured: boolean;
+    capacity: PartitionCapacityState | "not_checked";
+    eventJournalReady: boolean | null;
+  }>;
+  blockers: string[];
+};
+
+/** Read-only owner diagnostics; never exposes connection strings or Neon keys. */
+export async function getPartitionedStorageStatus(): Promise<PartitionedStorageStatus> {
+  const configuredBackends = new Set(nodes.map((node) => node.backend));
+  const blockers: string[] = [];
+  let coordinatorReady: boolean | null = null;
+  let writeCursor: DatabaseBackend | null = null;
+  let nextRevision: string | null = null;
+  let eventSchemasReady: boolean | null = null;
+  const journalReadyByBackend = new Map<DatabaseBackend, boolean | null>(
+    BACKEND_ORDER.map((backend) => [backend, null]),
+  );
+
+  if (isPartitionedMode) {
+    if (nodes.length !== BACKEND_ORDER.length ||
+        BACKEND_ORDER.some((backend, index) => nodes[index]?.backend !== backend)) {
+      blockers.push("Cần cấu hình đủ bốn kho theo thứ tự DB1 → DB2 → DB3 → DB4.");
+    } else {
+      try {
+        await verifySchema();
+        eventSchemasReady = true;
+        for (const backend of BACKEND_ORDER) journalReadyByBackend.set(backend, true);
+        const coordinator = nodesByBackend.get("database_url_4")!;
+        const result = await coordinator.pool.query(
+          `SELECT write_backend, next_revision::text
+           FROM ${STATE_TABLE} WHERE id = 1`,
+        );
+        const row = result.rows[0];
+        if (!row) {
+          throw new PartitionStorageError(
+            "DB4 partition coordinator has not been initialized.",
+            "partition_schema_missing",
+          );
+        }
+        coordinatorReady = true;
+        writeCursor = row.write_backend as DatabaseBackend;
+        nextRevision = String(row.next_revision);
+      } catch (error) {
+        const known = error instanceof PartitionStorageError ? error : null;
+        coordinatorReady = false;
+        eventSchemasReady = false;
+        blockers.push(
+          known?.message ?? "Không xác minh được schema phân vùng hoặc trạng thái điều phối.",
+        );
+      }
+    }
+  } else {
+    blockers.push("Chế độ phân vùng chưa bật; ứng dụng đang dùng cơ chế failover replication hiện có.");
+  }
+
+  const stores = await Promise.all(BACKEND_ORDER.map(async (backend) => {
+    const configured = configuredBackends.has(backend);
+    const node = nodesByBackend.get(backend);
+    let capacity: PartitionCapacityState | "not_checked" = "not_checked";
+    if (isPartitionedMode && node) {
+      capacity = await checkCapacity(node);
+      if (capacity !== "available") {
+        blockers.push(capacity === "full"
+          ? `${backend} đã đạt giới hạn dung lượng hoặc CU.`
+          : capacity === "unavailable"
+            ? `${backend} hiện không truy cập được.`
+            : `Không xác minh được dung lượng hoặc CU của ${backend}.`);
+      }
+    }
+    return {
+      backend,
+      configured,
+      capacity,
+      eventJournalReady: journalReadyByBackend.get(backend) ?? null,
+    };
+  }));
+
+  if (isPartitionedMode) {
+    blockers.push(
+      "Đọc dữ liệu cần DB1 và nhật ký ở cả bốn kho; mất kết nối một kho có thể làm lượt đọc thất bại.",
+    );
+    if (!configuredBackends.has("database_url_1")) {
+      blockers.push("DB1 là nguồn dữ liệu gốc và hiện chưa được cấu hình.");
+    }
+    if (!configuredBackends.has("database_url_4")) {
+      blockers.push("DB4 là bộ điều phối; nếu không truy cập được, ghi mới sẽ bị chặn.");
+    }
+  }
+
+  return {
+    enabled: isPartitionedMode,
+    strategy: isPartitionedMode ? "partitioned_forward_only" : "replication_failover",
+    coordinatorBackend: "database_url_4",
+    coordinatorReady,
+    writeCursor,
+    nextRevision,
+    eventSchemasReady,
+    readsRequireDb1: isPartitionedMode,
+    readsRequireAllStores: isPartitionedMode,
+    storageLimitBytes: DATABASE_STORAGE_LIMIT_BYTES.toString(),
+    computeLimitHours: DATABASE_COMPUTE_LIMIT_SECONDS / 3600,
+    stores,
+    blockers,
+  };
+}
+
 export function hashPartitionRequest(value: unknown): string {
   return createHash("sha256").update(stableJson(value)).digest("hex");
 }

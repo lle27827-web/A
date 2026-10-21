@@ -10,9 +10,11 @@ import {
   appointmentsTable,
   db,
   getDatabaseFailoverStatus,
+  getPartitionedStorageStatus,
   refreshDatabaseBackend,
   requestOwnerDatabaseFailover,
 } from "@workspace/db";
+import { GetDatabaseStorageStatusResponse } from "@workspace/api-zod";
 import { requireOwner } from "../lib/owner-auth";
 import { getCapacityProbeReadiness } from "../lib/database-failover-readiness";
 
@@ -23,6 +25,15 @@ const backendNames: Record<string, string> = {
   database_url_3: "DB3",
   database_url_4: "DB4",
 };
+
+router.get("/database/storage-status", requireOwner, async (_req, res, next): Promise<void> => {
+  try {
+    res.set("Cache-Control", "private, no-store");
+    res.json(GetDatabaseStorageStatusResponse.parse(await getPartitionedStorageStatus()));
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.get("/database/failover", requireOwner, async (_req, res, next): Promise<void> => {
   try {

@@ -29,6 +29,7 @@ export {
   appendReservedPartitionOperation,
   getReservedPartitionOperation,
   hashPartitionRequest,
+  getPartitionedStorageStatus,
   isPartitionedStorageEnabled,
   partitionEntityKey,
   reconcilePartitionOperation,
@@ -37,6 +38,7 @@ export {
   withPartitionWriteMutex,
   PartitionStorageError,
   type ReservedOperation,
+  type PartitionedStorageStatus,
 } from "./partitioned-storage-runtime";
 export type { MutationDraft } from "./partitioned-storage-runtime";
 export * from "./schema";

@@ -33,6 +33,7 @@ import type {
   DatabaseFailoverInput,
   DatabaseFailoverResult,
   DatabaseFailoverStatus,
+  DatabaseStorageStatus,
   GetAttendanceSummaryParams,
   GetMassageSummaryParams,
   GetMemberPayrollParams,
@@ -317,6 +318,83 @@ export const useDeleteRetentionYear = <TError = ErrorType<void>,
       > => {
       return useMutation(getDeleteRetentionYearMutationOptions(options));
     }
+
+export const getGetDatabaseStorageStatusUrl = () => {
+
+
+
+
+  return `/api/database/storage-status`
+}
+
+/**
+ * @summary Chủ sở hữu xem trạng thái định tuyến và dung lượng bốn kho
+ */
+export const getDatabaseStorageStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<DatabaseStorageStatus> => {
+
+  return customFetch<DatabaseStorageStatus>(getGetDatabaseStorageStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDatabaseStorageStatusQueryKey = () => {
+    return [
+    `/api/database/storage-status`
+    ] as const;
+    }
+
+
+export const getGetDatabaseStorageStatusQueryOptions = <TData = Awaited<ReturnType<typeof getDatabaseStorageStatus>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDatabaseStorageStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDatabaseStorageStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDatabaseStorageStatus>>> = ({ signal }) => getDatabaseStorageStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDatabaseStorageStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDatabaseStorageStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getDatabaseStorageStatus>>>
+export type GetDatabaseStorageStatusQueryError = ErrorType<void>
+
+
+/**
+ * @summary Chủ sở hữu xem trạng thái định tuyến và dung lượng bốn kho
+ */
+
+export function useGetDatabaseStorageStatus<TData = Awaited<ReturnType<typeof getDatabaseStorageStatus>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDatabaseStorageStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDatabaseStorageStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetDatabaseFailoverStatusUrl = () => {
 
