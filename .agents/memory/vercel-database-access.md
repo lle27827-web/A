@@ -9,11 +9,11 @@ Replit-managed PostgreSQL is not externally accessible from Vercel; its injected
 
 **How to apply:** For Vercel, provision an external PostgreSQL database, apply the app schema, and configure its URL in Vercel's environment settings. Copy existing data separately if needed. Never put the database URL in source control or chat.
 
-The user now chooses partitioned storage instead of replicated failover: keep historical data in its original store, route new writes to the next store when the current one reaches capacity, and store edits/deletes of old records as append-only changes in the next store. The user accepts cross-store references and multi-step transactions.
+The user changed the availability strategy: keep two copies of each data segment so complete reads can continue during a single-store outage, rather than relying on one copy per partition. This reduces usable aggregate storage and writes must confirm both copies.
 
-**Why:** the user wants each full store's existing data to remain usable without copying it forward, while later writes continue in another store.
+**Why:** the user chose two copies per data segment to preserve full reads if one store is unavailable, while using less capacity than four full replicas.
 
-**How to apply:** Treat DB1 as the source for pre-partition history, preserve all existing copies during cutover, and do not enable routing until global IDs, cross-store reads, change overlays/tombstones, and card-use transaction recovery are implemented and verified. A simple active-connection switch does not satisfy this design.
+**How to apply:** Before any writes or overwrites, compare all four stores read-only and confirm the canonical source. Do not enable partition routing until the two-copy mapping, cross-store reads, operation recovery, and single-store outage behavior are implemented and tested. Do not claim one-store write availability while DB4 remains the sole coordinator.
 
 The four Neon stores are ordered DB1=`DATABASE_URL_1`, DB2=`DATABASE_URL`, DB3=`DATABASE_URL_3`, DB4=`DATABASE_URL_4`. DB4 is the chosen routing coordinator; the user accepts it as a single point of failure.
 
