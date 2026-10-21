@@ -167,7 +167,11 @@ test("DB4 can be selected as the coordinator only when its node is configured", 
     DATABASE_URL_3: "postgres://replica3",
     DATABASE_URL_4: "postgres://replica4",
   });
-  assert.equal(resolveFailoverCoordinatorBackend(undefined, nodes), "database_url");
+  assert.equal(resolveFailoverCoordinatorBackend(undefined, nodes), "database_url_4");
+  assert.equal(
+    resolveFailoverCoordinatorBackend(undefined, nodes.slice(0, 3)),
+    "database_url",
+  );
   assert.equal(
     resolveFailoverCoordinatorBackend("database_url_4", nodes),
     "database_url_4",

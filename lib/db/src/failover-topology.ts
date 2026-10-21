@@ -147,7 +147,11 @@ export function resolveFailoverCoordinatorBackend(
   value: string | undefined,
   nodes: readonly Pick<DatabaseNodeConfig, "backend">[],
 ): DatabaseBackend {
-  const backend = value?.trim() || "database_url";
+  const backend =
+    value?.trim() ||
+    (nodes.some((node) => node.backend === "database_url_4")
+      ? "database_url_4"
+      : "database_url");
   if (backend !== "database_url" && backend !== "database_url_4") {
     throw new Error(
       "DATABASE_FAILOVER_COORDINATOR_BACKEND must be database_url or database_url_4.",

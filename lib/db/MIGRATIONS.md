@@ -101,10 +101,12 @@ Do not add the migration to a Vercel build hook.
 
 ### DB4 as the failover coordinator
 
-The runtime can use DB4 as the coordinator after its single state row has been
-initialized from DB2. This moves the control-plane failure point from DB2 to DB4;
-if DB4 is unavailable or full, promotion cannot be coordinated. The state table
-is intentionally not included in application-data replication.
+The runtime automatically uses DB4 as the coordinator when DB4 is configured,
+after its single state row has been initialized from DB2. This moves the
+control-plane failure point from DB2 to DB4; if DB4 is unavailable or full,
+promotion cannot be coordinated. The state table is intentionally not included
+in application-data replication. `DATABASE_FAILOVER_COORDINATOR_BACKEND` can
+explicitly override the default when needed.
 
 Before deploying the runtime setting, pause manual failover and run the explicit
 migration with direct URLs from DB2 and DB4:
@@ -117,10 +119,9 @@ pnpm --filter @workspace/db run migrate:database-failover-state-to-db4
 
 The script locks the DB2 state row while it initializes DB4, refuses to overwrite
 a conflicting DB4 state, copies only `db_failover_state`, and does not copy
-employee or business records. After it reports success, set
-`DATABASE_FAILOVER_COORDINATOR_BACKEND=database_url_4` in Vercel Production and
-redeploy. Do not set the variable before the migration succeeds; the runtime
-fails closed if the coordinator state table is missing.
+employee or business records. After it reports success, deploy the runtime code.
+Do not deploy the new coordinator selection before the migration succeeds; the
+runtime fails closed if the coordinator state table is missing.
 
 ### Independent failover coordinator
 
