@@ -1,10 +1,10 @@
 ---
-name: Failover coordinator placement
-description: The user's chosen control-plane location and its accepted availability tradeoff.
+name: Partition coordinator placement
+description: The user's chosen write-routing control plane and its accepted availability tradeoff.
 ---
 
-Use DB4 as the failover-state coordinator. The user explicitly accepted that DB4 is a single point of failure.
+Use DB4 as the partition-routing coordinator. The user explicitly accepted that DB4 is a single point of failure.
 
 **Why:** the user requested DB4 coordination rather than creating a fifth, independent database.
 
-**How to apply:** keep the coordinator row on DB4 after its explicit state migration. Do not claim failover is guaranteed when DB4 is unavailable/full. Continue to block promotion if replication catch-up cannot be verified; do not risk split-brain or silently lose unreplicated writes.
+**How to apply:** store the write-shard cursor and saga/idempotency coordination on DB4. If DB4 is unavailable/full, block new routed writes until coordination recovers; never pick a shard independently per server instance.

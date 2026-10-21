@@ -29,3 +29,4 @@ export * from "./service-types";
 export * from "./manager-grants";
 export * from "./personal-notebook";
 export * from "./appointments";
+export * from "./storage-partitioning";

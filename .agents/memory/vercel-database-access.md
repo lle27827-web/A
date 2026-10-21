@@ -9,45 +9,35 @@ Replit-managed PostgreSQL is not externally accessible from Vercel; its injected
 
 **How to apply:** For Vercel, provision an external PostgreSQL database, apply the app schema, and configure its URL in Vercel's environment settings. Copy existing data separately if needed. Never put the database URL in source control or chat.
 
-For this app, the existing Vercel data is in one Neon project and `DATABASE_URL_1` is a separate Neon project. Initial data/schema synchronization and ongoing logical replication were verified in both directions. The intended arrangement is `DATABASE_URL_1` as primary and `DATABASE_URL` as fallback.
+The user now chooses partitioned storage instead of replicated failover: keep historical data in its original store, route new writes to the next store when the current one reaches capacity, and store edits/deletes of old records as append-only changes in the next store. The user accepts cross-store references and multi-step transactions.
 
-**Why:** The user confirmed the projects are separate, the current Vercel records are in `DATABASE_URL`, and requested automatic fallback to that database if `DATABASE_URL_1` fills. Switching before synchronization would split writes or hide records.
+**Why:** the user wants each full store's existing data to remain usable without copying it forward, while later writes continue in another store.
 
-**How to apply:** Keep both database variables configured in Vercel and do not claim production has switched until the failover-capable code is deployed there. Replit secrets do not automatically configure Vercel. Runtime checks run on API requests (not while idle), use a 1 GB storage threshold by default, and check 100 CU-hours through Neon’s project API. Successful checks are cached for 30 seconds; a missing or failed CU/storage check must fail closed and must not cache the failure. Neon’s usage metric may lag, so a reported 100 CU-hours is not a guarantee of switching at the exact instant the limit is consumed.
+**How to apply:** Treat DB1 as the source for pre-partition history, preserve all existing copies during cutover, and do not enable routing until global IDs, cross-store reads, change overlays/tombstones, and card-use transaction recovery are implemented and verified. A simple active-connection switch does not satisfy this design.
 
-**Why:** continuing writes after a failed capacity check would silently defeat the CU limit and could lead to an unavailable or full database.
+The four Neon stores are ordered DB1=`DATABASE_URL_1`, DB2=`DATABASE_URL`, DB3=`DATABASE_URL_3`, DB4=`DATABASE_URL_4`. DB4 is the chosen routing coordinator; the user accepts it as a single point of failure.
 
-**How to apply:** Require the API key and project ID for every configured Neon node; return 503 when capacity cannot be verified, and retry the check on the next API request.
+**Why:** the user explicitly selected DB4 rather than creating a fifth database.
 
-As of 2026-10-19, the user confirmed Vercel has `DATABASE_URL_3` and `DATABASE_URL_4` configured with pooling disabled, and has configured `NEON_PROJECT_ID_3`, `NEON_PROJECT_ID_4`, and the direct URL overrides discussed for pooled database URLs.
+**How to apply:** Store the routing cursor and idempotent operation coordination on DB4; if DB4 is unavailable or full, stop new routed writes rather than guessing a shard or risking conflicting operations.
 
-**Why:** The user explicitly confirmed these Vercel settings; they are needed to check candidate CU usage and manage subscriptions safely.
+The four stores were previously configured as logical replicas. At the last verified coordinator-state copy, DB1 (`database_url_1`) was active. Do not delete replica data when changing models; establish a cutover boundary and treat pre-cutover rows from DB1 as canonical to avoid duplicate history.
 
-**How to apply:** Recheck the production deployment after environment changes; keep automatic promotion fail-closed until every link in `DATABASE_URL_1` → `DATABASE_URL` → `DATABASE_URL_3` → `DATABASE_URL_4` is synchronized and can be checked for capacity.
+**Why:** the user requires historical data to remain and explicitly asked not to move it.
 
-The user requires owner-controlled switching in both directions only between adjacent databases, and only after the target is synchronized. Do not allow direct jumps or switch to a stale standby; pause writes and fail closed if replication or rollback cannot be verified.
+**How to apply:** Disable replication only as part of a controlled cutover after partition-aware reads and writes are ready; do not assume the application already supports partitioning.
 
-**Why:** The user chose reversible, stepwise switching; an unsynchronized target can hide newer records or split writes across databases.
+The user confirmed all four database URLs, Neon project IDs/API setup, and that DB3/DB4 pooling is disabled. Capacity checking is request-triggered, with 1 GB and 100 CU-hour thresholds, and previously cached successful checks for 30 seconds.
 
-**How to apply:** Keep each active replication edge aligned with the current primary. Before every switch, verify the current-to-target stream and capacity; if reverse replication cannot be established and checked, leave the existing database active or keep writes paused.
+**Why:** these are the user's confirmed production topology and monitoring limits.
 
-At any point, replication should flow outward from the single active database along the adjacent chain. Disable the opposite-direction subscription on the active node before treating the chain as healthy.
+**How to apply:** Check each candidate's capacity before routing; keep capacity uncertainty fail-closed. Neon usage metrics may lag, so do not promise an exact-instant transition at the provider limit.
 
-**Why:** parallel reverse subscriptions can make the write direction ambiguous and block a safe promotion.
+Do not replay a failed database write automatically after an ambiguous connection loss. The database may have committed before the response was lost.
 
-**How to apply:** Verify each outward subscription is enabled, ready for every application table, and caught up; verify the opposite subscription is disabled. Rebuild the direction after a controlled failover rather than leaving both directions enabled.
+**Why:** retrying blindly can duplicate card use, appointments, or attendance.
 
-Availability errors may trigger the same guarded adjacent promotion, but the failed SQL operation must never be replayed automatically: a disconnected client may have lost the response after the database committed. The operation's outcome must be verified before any retry.
-
-**Why:** retrying a write after an ambiguous commit can create duplicate attendance, appointments, or card transactions.
-
-**How to apply:** Trigger promotion only for classified infrastructure/availability errors, not ordinary SQL validation failures. Let later requests use the new active database, and tell users to verify the failed operation before resubmitting it.
-
-Runtime coordination can use a separate PostgreSQL database through `DATABASE_FAILOVER_COORDINATOR_URL`; until that coordinator is initialized and configured, the application falls back to the legacy state row on DB2. If the configured coordinator is unavailable, fail closed.
-
-**Why:** all Vercel instances need a shared, writable coordination record to pause writes and prevent split-brain; keeping that record on DB2 prevents safe failover when DB2 is unavailable.
-
-**How to apply:** Initialize the independent coordinator by copying only the current active-backend state from DB2, then configure Vercel to use it. Keep it outside the four data stores; do not migrate the state row to one of those four or enable the new URL before the migration succeeds.
+**How to apply:** Use persistent idempotency keys and a recoverable operation journal for cross-store sagas; verify operation outcome before retrying.
 
 Keep the retention cleanup schedule disabled until the permanent card-use ledger exists on both Neon databases and the publication/subscription reports that table ready. The runtime failover guard checks publication, subscription, and table counts, but that code check does not confirm live Neon configuration.
 

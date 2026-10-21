@@ -14,4 +14,12 @@ export {
   isSameDatabaseFailureDomain,
   parseDatabaseCapacityLimit,
 } from "./failover-utils";
+export {
+  applyPartitionMutations,
+  comparePartitionRevisions,
+  makePartitionEntityKey,
+  nextPartitionWriteBackend,
+  type PartitionMutation,
+  type PartitionMutationAction,
+} from "./storage-partitioning";
 export * from "./schema";
