@@ -88,3 +88,10 @@ test("database failover status and promotion are reserved for the owner", async 
   assert.equal(await managerRequestAllowed(request("GET", "/database/failover"), maximumManagerPermissions), false);
   assert.equal(await managerRequestAllowed(request("POST", "/database/failover"), maximumManagerPermissions), false);
 });
+
+test("one-time sample employee batch is reserved for the owner", async () => {
+  assert.equal(
+    await managerRequestAllowed(request("POST", "/members/sample-batch"), ownerPermissions()),
+    false,
+  );
+});

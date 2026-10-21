@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, or, sql } from "drizz
 import { db, membersTable, memberVersionsTable, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
 import type { MemberInput, MemberRecord, MemberUpdate } from "@workspace/api-zod";
 import { MassageError, retainedMonthBounds } from "./massage";
+import { buildSampleMemberNames } from "./sample-member-names";
 
 function memberResponse(member: typeof membersTable.$inferSelect) {
   return { ...member, createdAt: member.createdAt.toISOString(), deletedAt: member.deletedAt?.toISOString() ?? null };
@@ -70,6 +71,42 @@ export async function createEmployee(input: MemberInput) {
       memberId: member.id, name: member.name, hourlyRate: member.hourlyRate, recordedAt: member.createdAt,
     });
     return memberResponse(member);
+  });
+}
+
+export async function createSampleEmployeesBatchOnce() {
+  const names = buildSampleMemberNames();
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(721001001::bigint)`);
+    const existing = await tx.select({ name: membersTable.name })
+      .from(membersTable)
+      .where(inArray(membersTable.name, names));
+    if (existing.length > 0) {
+      const examples = existing.slice(0, 3).map(({ name }) => `“${name}”`).join(", ");
+      throw new MassageError(
+        409,
+        `Không tạo dữ liệu mẫu: đã có ${existing.length} tên trong dãy 1–1000 (${examples}${existing.length > 3 ? ", …" : ""}). Không có bản ghi nào được thêm.`,
+      );
+    }
+
+    const created = await tx.insert(membersTable)
+      .values(names.map((name) => ({ name, hourlyRate: 0 })))
+      .returning();
+    if (created.length !== names.length) {
+      throw new Error("The sample employee batch was not fully inserted.");
+    }
+    await tx.insert(memberVersionsTable).values(created.map((member) => ({
+      memberId: member.id,
+      name: member.name,
+      hourlyRate: member.hourlyRate,
+      recordedAt: member.createdAt,
+    })));
+
+    return {
+      createdCount: created.length,
+      firstName: names[0]!,
+      lastName: names.at(-1)!,
+    };
   });
 }
 

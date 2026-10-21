@@ -421,6 +421,30 @@ export interface MemberUpdate {
   hourlyRate?: number;
 }
 
+export type SampleMembersBatchInputConfirmation = typeof SampleMembersBatchInputConfirmation[keyof typeof SampleMembersBatchInputConfirmation];
+
+
+export const SampleMembersBatchInputConfirmation = {
+  TAO_1000_NHAN_VIEN_MAU: 'TAO_1000_NHAN_VIEN_MAU',
+} as const;
+
+export interface SampleMembersBatchInput {
+  confirmation: SampleMembersBatchInputConfirmation;
+}
+
+export type SampleMembersBatchResultCreatedCount = typeof SampleMembersBatchResultCreatedCount[keyof typeof SampleMembersBatchResultCreatedCount];
+
+
+export const SampleMembersBatchResultCreatedCount = {
+  NUMBER_1000: 1000,
+} as const;
+
+export interface SampleMembersBatchResult {
+  createdCount: SampleMembersBatchResultCreatedCount;
+  firstName: string;
+  lastName: string;
+}
+
 export interface CardTopUp {
   id: number;
   minutes: number;

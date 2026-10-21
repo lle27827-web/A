@@ -1504,6 +1504,25 @@ function installCapacityErrorHandling(node: RuntimeNode): void {
   const rawPoolQuery = pool.query.bind(pool) as (
     ...args: any[]
   ) => any;
+  const handleConnectionFailure = async (error: unknown): Promise<void> => {
+    if (
+      !isDatabaseFailoverTriggerError(error) ||
+      activeBackend !== node.backend ||
+      failoverPromise
+    ) {
+      return;
+    }
+
+    try {
+      if (isDatabaseCapacityError(error)) {
+        await requestFailover("storage");
+      } else {
+        await requestAvailabilityFailover();
+      }
+    } catch {
+      // Keep the original connection error; later requests will re-check readiness.
+    }
+  };
   const handleResult = (result: any, isCapacityProbe: boolean): any => {
     if (!isPromiseLike(result)) return result;
     return result.catch(async (error: unknown) => {
@@ -1537,13 +1556,22 @@ function installCapacityErrorHandling(node: RuntimeNode): void {
       return rawConnect(
         (error: unknown, client: pg.PoolClient, release: () => void) => {
           if (client) installClientHandler(client, node);
-          callback(error, client, release);
+          if (!error) {
+            callback(error, client, release);
+            return;
+          }
+          void handleConnectionFailure(error).finally(() => {
+            callback(error, client, release);
+          });
         },
       );
     }
     return rawConnect().then((client: pg.PoolClient) => {
       installClientHandler(client, node);
       return client;
+    }).catch(async (error: unknown) => {
+      await handleConnectionFailure(error);
+      throw error;
     });
   };
   (pool as unknown as { connect: (...args: any[]) => any }).connect =

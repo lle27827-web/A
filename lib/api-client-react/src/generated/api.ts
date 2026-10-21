@@ -58,6 +58,8 @@ import type {
   PersonalSyncResult,
   RetentionYearDeleteResult,
   RetentionYearSummary,
+  SampleMembersBatchInput,
+  SampleMembersBatchResult,
   ServiceSession,
   ServiceSessionInput,
   ServiceTypeInput,
@@ -2620,6 +2622,94 @@ export const useDeleteMember = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getDeleteMemberMutationOptions(options));
+    }
+
+export const getCreateSampleMembersBatchUrl = () => {
+
+
+
+
+  return `/api/members/sample-batch`
+}
+
+/**
+ * @summary Tạo một lần 1.000 nhân viên mẫu, chỉ dành cho chủ sở hữu trên Vercel Production
+ */
+export const createSampleMembersBatch = async (sampleMembersBatchInput: SampleMembersBatchInput, options?: Parameters<typeof customFetch>[1]): Promise<SampleMembersBatchResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<SampleMembersBatchResult>(getCreateSampleMembersBatchUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(sampleMembersBatchInput)
+  }
+);}
+
+
+
+
+
+export const getCreateSampleMembersBatchMutationKey = () => ['createSampleMembersBatch'] as const;
+
+export const getCreateSampleMembersBatchMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSampleMembersBatch>>, TError,CreateSampleMembersBatchMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSampleMembersBatch>>, TError,CreateSampleMembersBatchMutationVariables, TContext> => {
+
+const mutationKey = getCreateSampleMembersBatchMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSampleMembersBatch>>, CreateSampleMembersBatchMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSampleMembersBatch(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSampleMembersBatchMutationResult = NonNullable<Awaited<ReturnType<typeof createSampleMembersBatch>>>
+    export type CreateSampleMembersBatchMutationBody = BodyType<SampleMembersBatchInput>
+    export type CreateSampleMembersBatchMutationError = ErrorType<void>
+    export type CreateSampleMembersBatchMutationVariables = {data: BodyType<SampleMembersBatchInput>}
+
+    /**
+ * @summary Tạo một lần 1.000 nhân viên mẫu, chỉ dành cho chủ sở hữu trên Vercel Production
+ */
+export const useCreateSampleMembersBatch = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSampleMembersBatch>>, TError,CreateSampleMembersBatchMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSampleMembersBatch>>,
+        TError,
+        CreateSampleMembersBatchMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateSampleMembersBatchMutationOptions(options));
     }
 
 export const getListAttendanceUrl = (params?: ListAttendanceParams,) => {

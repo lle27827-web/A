@@ -868,6 +868,20 @@ export const DeleteMemberResponse = zod.void()
 
 
 /**
+ * @summary Tạo một lần 1.000 nhân viên mẫu, chỉ dành cho chủ sở hữu trên Vercel Production
+ */
+export const CreateSampleMembersBatchBody = zod.object({
+  "confirmation": zod.enum(['TAO_1000_NHAN_VIEN_MAU'])
+})
+
+export const CreateSampleMembersBatchResponse = zod.object({
+  "createdCount": zod.literal(1000),
+  "firstName": zod.string(),
+  "lastName": zod.string()
+})
+
+
+/**
  * @summary Xem danh sách chấm công
  */
 export const listAttendanceQueryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');

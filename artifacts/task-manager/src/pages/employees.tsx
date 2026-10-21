@@ -13,6 +13,7 @@ import { SessionDialog } from '@/components/session-dialog';
 import { initial, localDate, normalize, formatShortDate } from '@/lib/attendance';
 import { errorText, formatMonth, formatVnd, SESSION_FRESHNESS, useRefreshMassage } from '@/lib/massage';
 import { summarizeEmployeeSessions } from '@/lib/employee-list-summary';
+import { SampleMembersDialog } from '@/components/sample-members-dialog';
 
 export function MemberTags({ member }: { member: MemberRecord }) {
   const deleted = !!member.deletedAt;
@@ -27,9 +28,10 @@ export function MemberTags({ member }: { member: MemberRecord }) {
 }
 
 export default function EmployeesPage() {
-  const { members, membersLoading, membersError, retryMembers, canViewEmployees, canEditEmployees: canEdit, canAddEmployees, canEditCards, query, notify, fail, historyMonth, period, withHistory } = useShell();
+  const { members, membersLoading, membersError, retryMembers, canViewEmployees, canEditEmployees: canEdit, canAddEmployees, canEditCards, isOwner, query, notify, fail, historyMonth, period, withHistory } = useShell();
   const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
+  const [sampleMembersOpen, setSampleMembersOpen] = useState(false);
   const [dialogError, setDialogError] = useState('');
   const [choice, setChoice] = useState<MemberRecord | null>(null);
   const [quick, setQuick] = useState<MemberRecord | null>(null);
@@ -77,7 +79,19 @@ export default function EmployeesPage() {
     <section className="panel page" aria-labelledby="emp-title">
       <div className="panel-head wrap">
         <div><h1 id="emp-title" className="page-title">Quản lý nhân viên</h1><p className="sub">{members.length} nhân viên{historyMonth ? ` · ${formatMonth(historyMonth).toLowerCase()}` : ''}</p></div>
-        {canAddEmployees && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setOpen(true); }} data-testid="button-add-member"><Plus size={15} />Thêm nhân viên</button>}
+        <div className="dialog-actions">
+          {isOwner && !historyMonth && (
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => setSampleMembersOpen(true)}
+              data-testid="button-open-sample-members"
+            >
+              <Users size={15} aria-hidden="true" />Tạo 1.000 nhân viên mẫu
+            </button>
+          )}
+          {canAddEmployees && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setOpen(true); }} data-testid="button-add-member"><Plus size={15} />Thêm nhân viên</button>}
+        </div>
       </div>
       {membersLoading ? <Skeleton rows={5} label="Đang tải nhân viên" /> : membersError ? <ErrorBanner text="Không tải được danh sách nhân viên." onRetry={retryMembers} /> : list.length === 0 ? (
         <div className="empty"><Users size={22} /><p>{members.length ? 'Không có nhân viên khớp tìm kiếm.' : historyMonth ? `Không có nhân viên nào trong ${formatMonth(historyMonth).toLowerCase()}.` : 'Chưa có nhân viên nào.'}</p>{historyMonth && !members.length && <Link href="/employees" className="btn" data-testid="link-empty-current">Về danh sách hiện tại</Link>}
@@ -136,6 +150,16 @@ export default function EmployeesPage() {
             onSuccess: (m) => { refresh({ members: true }); setOpen(false); notify(`Đã thêm nhân viên ${m.name}.`); navigate(`/employees/${m.id}`); },
             onError: (e) => { setDialogError(errorText(e)); fail(e); },
           })} />
+      )}
+      {sampleMembersOpen && isOwner && !historyMonth && (
+        <SampleMembersDialog
+          onClose={() => setSampleMembersOpen(false)}
+          onCreated={(count) => {
+            refresh({ members: true });
+            setSampleMembersOpen(false);
+            notify(`Đã tạo ${count} nhân viên mẫu.`);
+          }}
+        />
       )}
       {confirm && <ConfirmDialog state={confirm} busy={del.isPending} onClose={() => setConfirm(null)} />}
     </section>
