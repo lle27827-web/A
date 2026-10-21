@@ -21,6 +21,7 @@ export * from './cardHoursInput';
 export * from './cardTopUp';
 export * from './dailyRevenue';
 export * from './databaseFailoverBackend';
+export * from './databaseFailoverCoordinatorBackend';
 export * from './databaseFailoverInput';
 export * from './databaseFailoverResult';
 export * from './databaseFailoverStatus';

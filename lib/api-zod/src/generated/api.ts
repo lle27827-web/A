@@ -49,6 +49,7 @@ export const DeleteRetentionYearResponse = zod.object({
  */
 export const GetDatabaseFailoverStatusResponse = zod.object({
   "activeBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4', 'switching']),
+  "coordinatorBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4', 'independent']),
   "switchTargets": zod.array(zod.object({
   "backend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4']),
   "configured": zod.boolean(),

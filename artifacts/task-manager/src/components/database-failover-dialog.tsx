@@ -27,6 +27,7 @@ const backendLabels: Record<string, string> = {
   database_url_3: 'DB3',
   database_url_4: 'DB4',
   switching: 'Đang chuyển',
+  independent: 'Kho độc lập',
 };
 
 function backendLabel(backend?: string) {
@@ -204,7 +205,11 @@ export function DatabaseFailoverDialog({ onClose }: { onClose: () => void }) {
         <>
           <div className="banner soft" role="status" data-testid="status-active-database">
             <Database size={15} aria-hidden="true" />
-            <span>Database đang hoạt động: <strong>{backendLabel(status.data?.activeBackend)}</strong></span>
+            <span>
+              Database hoạt động: <strong>{backendLabel(status.data?.activeBackend)}</strong>
+              <br />
+              Bộ điều phối: <strong>{backendLabel(status.data?.coordinatorBackend)}</strong>
+            </span>
             <button
               type="button"
               className="btn ghost"
@@ -232,6 +237,11 @@ export function DatabaseFailoverDialog({ onClose }: { onClose: () => void }) {
                   Ứng dụng chỉ chuyển giữa hai kho liền kề sau khi kiểm tra replication, giao dịch đang chạy, dung lượng và CU. Nếu bất kỳ bước nào không đạt, kho hiện tại được giữ nguyên.
                 </span>
               </div>
+              {status.data?.coordinatorBackend === 'database_url_4' && (
+                <p className="hint warn" role="note">
+                  DB4 đang điều phối trạng thái và là điểm lỗi đơn; nếu DB4 đầy hoặc mất kết nối, việc chuyển kho sẽ bị chặn.
+                </p>
+              )}
 
               <div className="stack" aria-label="Trạng thái bốn kho database">
                 {status.data?.switchTargets.map((item) => (

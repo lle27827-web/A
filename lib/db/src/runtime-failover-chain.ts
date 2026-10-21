@@ -23,6 +23,7 @@ import {
   replicationTableSetsMatch,
   resolveFailoverCoordinatorBackend,
   resolveDatabaseNodes,
+  type FailoverCoordinatorBackend,
   type DatabaseBackend,
   type DatabaseNodeConfig,
   type PersistedDatabaseBackend,

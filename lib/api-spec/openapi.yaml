@@ -1058,11 +1058,15 @@ components:
     DatabaseFailoverBackend:
       type: string
       enum: [database_url_1, database_url, database_url_3, database_url_4, switching]
+    DatabaseFailoverCoordinatorBackend:
+      type: string
+      enum: [database_url_1, database_url, database_url_3, database_url_4, independent]
     DatabaseFailoverStatus:
       type: object
-      required: [activeBackend, switchTargets]
+      required: [activeBackend, coordinatorBackend, switchTargets]
       properties:
         activeBackend: { $ref: "#/components/schemas/DatabaseFailoverBackend" }
+        coordinatorBackend: { $ref: "#/components/schemas/DatabaseFailoverCoordinatorBackend" }
         switchTargets:
           type: array
           items: { $ref: "#/components/schemas/DatabaseFailoverSwitchTarget" }

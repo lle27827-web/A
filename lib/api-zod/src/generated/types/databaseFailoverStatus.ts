@@ -6,9 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DatabaseFailoverBackend } from './databaseFailoverBackend';
+import type { DatabaseFailoverCoordinatorBackend } from './databaseFailoverCoordinatorBackend';
 import type { DatabaseFailoverSwitchTarget } from './databaseFailoverSwitchTarget';
 
 export interface DatabaseFailoverStatus {
   activeBackend: DatabaseFailoverBackend;
+  coordinatorBackend: DatabaseFailoverCoordinatorBackend;
   switchTargets: DatabaseFailoverSwitchTarget[];
 }

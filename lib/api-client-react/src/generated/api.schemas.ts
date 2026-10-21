@@ -340,6 +340,17 @@ export const DatabaseFailoverBackend = {
   switching: 'switching',
 } as const;
 
+export type DatabaseFailoverCoordinatorBackend = typeof DatabaseFailoverCoordinatorBackend[keyof typeof DatabaseFailoverCoordinatorBackend];
+
+
+export const DatabaseFailoverCoordinatorBackend = {
+  database_url_1: 'database_url_1',
+  database_url: 'database_url',
+  database_url_3: 'database_url_3',
+  database_url_4: 'database_url_4',
+  independent: 'independent',
+} as const;
+
 export type DatabaseFailoverTarget = typeof DatabaseFailoverTarget[keyof typeof DatabaseFailoverTarget];
 
 
@@ -360,6 +371,7 @@ export interface DatabaseFailoverSwitchTarget {
 
 export interface DatabaseFailoverStatus {
   activeBackend: DatabaseFailoverBackend;
+  coordinatorBackend: DatabaseFailoverCoordinatorBackend;
   switchTargets: DatabaseFailoverSwitchTarget[];
 }
 
