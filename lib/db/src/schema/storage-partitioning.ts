@@ -20,7 +20,7 @@ import {
 export const storagePartitionStateTable = pgTable("storage_partition_state", {
   id: smallint("id").primaryKey(),
   writeBackend: text("write_backend").notNull(),
-  nextRevision: bigint("next_revision", { mode: "string" }).notNull().default("1"),
+  nextRevision: bigint("next_revision", { mode: "bigint" }).notNull().default(1n),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   check("storage_partition_state_singleton_check", sql`${table.id} = 1`),
@@ -38,7 +38,7 @@ export const storagePartitionStateTable = pgTable("storage_partition_state", {
 export const storagePartitionEventsTable = pgTable("storage_partition_events", {
   eventId: uuid("event_id").primaryKey(),
   operationId: uuid("operation_id").notNull(),
-  revision: bigint("revision", { mode: "string" }).notNull(),
+  revision: bigint("revision", { mode: "bigint" }).notNull(),
   sourceBackend: text("source_backend").notNull(),
   entityType: text("entity_type").notNull(),
   entityKey: text("entity_key").notNull(),

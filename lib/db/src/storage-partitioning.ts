@@ -16,7 +16,7 @@ export function makePartitionEntityKey(
   sourceBackend: DatabaseBackend,
   localId: string | number,
 ): string {
-  const normalizedId = String(localId).trim();
+  const normalizedId = String(localId);
   if (!/^[1-9]\d*$/.test(normalizedId)) {
     throw new Error("Partitioned entity IDs must be positive integers.");
   }
