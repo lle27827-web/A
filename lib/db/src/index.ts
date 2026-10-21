@@ -19,11 +19,13 @@ export {
   comparePartitionRevisions,
   makePartitionEntityKey,
   nextPartitionWriteBackend,
+  resolvePartitionWritePair,
   resolvePartitionWriteBackend,
   PartitionRoutingError,
   type PartitionMutation,
   type PartitionMutationAction,
   type PartitionCapacityState,
+  type PartitionReplicaPair,
 } from "./storage-partitioning";
 export {
   appendReservedPartitionOperation,

@@ -11,7 +11,7 @@ import {
   parseNeonComputeTimeSeconds,
 } from "./failover-utils";
 import {
-  resolvePartitionWriteBackend,
+  resolvePartitionWritePair,
   type PartitionCapacityState,
   type PartitionMutation,
 } from "./storage-partitioning";
@@ -27,6 +27,7 @@ export type ReservedOperation = {
   operationId: string;
   requestHash: string;
   targetBackend: DatabaseBackend;
+  replicaBackend: DatabaseBackend;
   revision: string;
   expectedEventCount: number;
   allocatedIds: IdAllocation;
@@ -108,7 +109,7 @@ const nodes: RuntimeNode[] = configuredNodes.map((node) => ({
 const nodesByBackend = new Map(nodes.map((node) => [node.backend, node]));
 
 let capacityCache = new Map<DatabaseBackend, { expiresAt: number; state: PartitionCapacityState }>();
-let schemaReadyUntil = 0;
+let coordinatorSchemaReadyUntil = 0;
 
 export class PartitionStorageError extends Error {
   constructor(
@@ -171,9 +172,18 @@ export async function getPartitionedStorageStatus(): Promise<PartitionedStorageS
       blockers.push("Cần cấu hình đủ bốn kho theo thứ tự DB1 → DB2 → DB3 → DB4.");
     } else {
       try {
-        await verifySchema();
-        eventSchemasReady = true;
-        for (const backend of BACKEND_ORDER) journalReadyByBackend.set(backend, true);
+        await verifyCoordinatorSchema();
+        const journalStates = await Promise.all(nodes.map(async (node) => {
+          try {
+            await verifyEventSchema(node);
+            journalReadyByBackend.set(node.backend, true);
+            return true;
+          } catch {
+            journalReadyByBackend.set(node.backend, false);
+            return false;
+          }
+        }));
+        eventSchemasReady = journalStates.filter(Boolean).length >= 3;
         const coordinator = nodesByBackend.get("database_url_4")!;
         const result = await coordinator.pool.query(
           `SELECT write_backend, next_revision::text
@@ -226,13 +236,13 @@ export async function getPartitionedStorageStatus(): Promise<PartitionedStorageS
 
   if (isPartitionedMode) {
     blockers.push(
-      "Đọc dữ liệu cần DB1 và nhật ký ở cả bốn kho; mất kết nối một kho có thể làm lượt đọc thất bại.",
+      "Đọc cần ít nhất ba kho có nhật ký hoạt động; mỗi lần ghi mới phải có hai bản sao đã xác nhận.",
     );
-    if (!configuredBackends.has("database_url_1")) {
-      blockers.push("DB1 là nguồn dữ liệu gốc và hiện chưa được cấu hình.");
-    }
     if (!configuredBackends.has("database_url_4")) {
       blockers.push("DB4 là bộ điều phối; nếu không truy cập được, ghi mới sẽ bị chặn.");
+    }
+    if (eventSchemasReady === false) {
+      blockers.push("Cần có schema nhật ký trên ít nhất ba kho để đọc đủ dữ liệu khi một kho lỗi.");
     }
   }
 
@@ -244,8 +254,8 @@ export async function getPartitionedStorageStatus(): Promise<PartitionedStorageS
     writeCursor,
     nextRevision,
     eventSchemasReady,
-    readsRequireDb1: isPartitionedMode,
-    readsRequireAllStores: isPartitionedMode,
+    readsRequireDb1: false,
+    readsRequireAllStores: false,
     storageLimitBytes: DATABASE_STORAGE_LIMIT_BYTES.toString(),
     computeLimitHours: DATABASE_COMPUTE_LIMIT_SECONDS / 3600,
     stores,
@@ -288,7 +298,7 @@ export async function withPartitionWriteMutex<T>(
     throw new PartitionStorageError("Invalid partition lock name.", "partition_operation_conflict", 400);
   }
   requireConfiguredNodes();
-  await verifySchema();
+  await verifyCoordinatorSchema();
   const coordinator = nodesByBackend.get("database_url_4")!;
   const hostname = new URL(coordinator.url).hostname;
   if (/-pooler(?:\.|$)/i.test(hostname)) {
@@ -342,23 +352,38 @@ function requireConfiguredNodes(): RuntimeNode[] {
   return nodes;
 }
 
-async function verifySchema(): Promise<void> {
-  const now = Date.now();
-  if (schemaReadyUntil > now) return;
-  const configured = requireConfiguredNodes();
+async function verifyEventSchema(node: RuntimeNode): Promise<void> {
   try {
-    for (const node of configured) {
-      const result = await node.pool.query(
-        "SELECT to_regclass($1) AS events",
-        [EVENT_TABLE],
+    const result = await node.pool.query(
+      `SELECT to_regclass($1) AS events,
+        EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'storage_partition_events'
+            AND column_name = 'committed'
+        ) AS has_commit_marker`,
+      [EVENT_TABLE],
+    );
+    if (!result.rows[0]?.events || result.rows[0]?.has_commit_marker !== true) {
+      throw new PartitionStorageError(
+        `Partition event schema is incomplete on ${node.backend}.`,
+        "partition_schema_missing",
       );
-      if (!result.rows[0]?.events) {
-        throw new PartitionStorageError(
-          `Partition event schema is missing on ${node.backend}.`,
-          "partition_schema_missing",
-        );
-      }
     }
+  } catch (error) {
+    if (error instanceof PartitionStorageError) throw error;
+    throw new PartitionStorageError(
+      `Partition event schema could not be verified on ${node.backend}.`,
+      "partition_schema_missing",
+    );
+  }
+}
+
+async function verifyCoordinatorSchema(): Promise<void> {
+  const now = Date.now();
+  if (coordinatorSchemaReadyUntil > now) return;
+  requireConfiguredNodes();
+  try {
     const coordinator = nodesByBackend.get("database_url_4")!;
     const coordinatorResult = await coordinator.pool.query(
       `SELECT
@@ -374,7 +399,7 @@ async function verifySchema(): Promise<void> {
         "partition_schema_missing",
       );
     }
-    schemaReadyUntil = now + 30_000;
+    coordinatorSchemaReadyUntil = now + 5_000;
   } catch (error) {
     if (error instanceof PartitionStorageError) throw error;
     throw new PartitionStorageError(
@@ -425,11 +450,27 @@ async function checkCapacity(node: RuntimeNode): Promise<PartitionCapacityState>
 }
 
 function parseReservedOperation(row: Record<string, unknown>): ReservedOperation {
-  const result = row.result as { allocatedIds?: IdAllocation } | null;
+  let result = row.result as { allocatedIds?: IdAllocation; replicaBackend?: DatabaseBackend } | null;
+  if (typeof result === "string") {
+    try {
+      result = JSON.parse(result) as typeof result;
+    } catch {
+      result = null;
+    }
+  }
+  const targetBackend = row.target_backend as DatabaseBackend;
+  const replicaBackend = result?.replicaBackend;
+  if (!replicaBackend || replicaBackend === targetBackend || !BACKEND_ORDER.includes(replicaBackend)) {
+    throw new PartitionStorageError(
+      "Partition operation is missing its verified second copy.",
+      "partition_operation_incomplete",
+    );
+  }
   return {
     operationId: String(row.operation_id),
     requestHash: String(row.request_hash),
-    targetBackend: row.target_backend as DatabaseBackend,
+    targetBackend,
+    replicaBackend,
     revision: String(row.revision),
     expectedEventCount: Number(row.expected_event_count),
     allocatedIds: result?.allocatedIds ?? {},
@@ -444,7 +485,7 @@ export async function reservePartitionOperation(input: {
   idAllocations: Readonly<Record<string, number>>;
 }): Promise<ReservedOperation> {
   requireConfiguredNodes();
-  await verifySchema();
+  await verifyCoordinatorSchema();
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.operationId) ||
     !/^[a-f0-9]{64}$/i.test(input.requestHash) ||
@@ -461,18 +502,19 @@ export async function reservePartitionOperation(input: {
   }
 
   const coordinator = nodesByBackend.get("database_url_4")!;
-  const baseline = nodesByBackend.get("database_url_1")!;
-  try {
-    await baseline.pool.query("SELECT 1");
-  } catch {
-    throw new PartitionStorageError(
-      "DB1 canonical history is unavailable; partitioned writes are blocked.",
-      "partition_coordinator_unavailable",
-    );
-  }
 
   const capacity = new Map<DatabaseBackend, PartitionCapacityState>();
-  for (const node of nodes) capacity.set(node.backend, await checkCapacity(node));
+  for (const node of nodes) {
+    let state = await checkCapacity(node);
+    if (state === "available") {
+      try {
+        await verifyEventSchema(node);
+      } catch {
+        state = "unavailable";
+      }
+    }
+    capacity.set(node.backend, state);
+  }
 
   const client = await coordinator.pool.connect();
   try {
@@ -512,11 +554,13 @@ export async function reservePartitionOperation(input: {
         "partition_schema_missing",
       );
     }
-    const targetBackend = resolvePartitionWriteBackend(
+    const pair = resolvePartitionWritePair(
       state.write_backend as DatabaseBackend,
       BACKEND_ORDER,
       capacity,
     );
+    const targetBackend = pair.primary;
+    const replicaBackend = pair.replica;
     const allocatedIds: IdAllocation = {};
     for (const [entityType, count] of Object.entries(input.idAllocations)) {
       if (count === 0) {
@@ -557,7 +601,7 @@ export async function reservePartitionOperation(input: {
         revision,
         input.expectedEventCount,
         input.requestHash,
-        JSON.stringify({ allocatedIds }),
+         JSON.stringify({ allocatedIds, replicaBackend }),
       ],
     );
     await client.query("COMMIT");
@@ -565,6 +609,7 @@ export async function reservePartitionOperation(input: {
       operationId: input.operationId,
       requestHash: input.requestHash,
       targetBackend,
+      replicaBackend,
       revision,
       expectedEventCount: input.expectedEventCount,
       allocatedIds,
@@ -587,7 +632,7 @@ export async function getReservedPartitionOperation(
   requestHash: string,
 ): Promise<ReservedOperation | undefined> {
   requireConfiguredNodes();
-  await verifySchema();
+  await verifyCoordinatorSchema();
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(operationId) ||
     !/^[a-f0-9]{64}$/i.test(requestHash)
@@ -626,36 +671,37 @@ export async function reconcilePartitionOperation(
 ): Promise<ReservedOperation> {
   if (operation.state === "committed") return operation;
   const target = nodesByBackend.get(operation.targetBackend);
+  const replica = nodesByBackend.get(operation.replicaBackend);
   const coordinator = nodesByBackend.get("database_url_4");
-  if (!target || !coordinator) {
+  if (!target || !replica || !coordinator) {
     throw new PartitionStorageError("Partition operation stores are unavailable.", "partition_not_configured");
   }
-  const result = await target.pool.query(
-    `SELECT event_id FROM ${EVENT_TABLE} WHERE operation_id = $1`,
-    [operation.operationId],
-  );
-  if (result.rows.length === 0) return operation;
-  const expected = Array.from(
-    { length: operation.expectedEventCount },
-    (_, index) => deterministicEventId(operation.operationId, index),
-  ).sort();
-  const actual = result.rows.map((row) => String(row.event_id)).sort();
-  const exact = expected.length === actual.length &&
-    expected.every((eventId, index) => eventId === actual[index]);
-  const client = await coordinator.pool.connect();
-  try {
-    if (!exact) {
-      await client.query(
-        `UPDATE ${OPERATIONS_TABLE}
-         SET state = 'needs_reconciliation', error_code = 'event_set_mismatch', updated_at = now()
-         WHERE operation_id = $1 AND state <> 'committed'`,
+  let completeCopies = 0;
+  for (const node of [target, replica]) {
+    try {
+      const result = await node.pool.query(
+        `SELECT event_id
+         FROM ${EVENT_TABLE}
+         WHERE operation_id = $1 AND committed = true
+         ORDER BY event_id`,
         [operation.operationId],
       );
-      throw new PartitionStorageError(
-        "Stored partition events do not match their operation journal; writes are blocked for this operation.",
-        "partition_operation_incomplete",
-      );
+      const actual = result.rows.map((row) => String(row.event_id)).sort();
+      const expected = Array.from(
+        { length: operation.expectedEventCount },
+        (_, index) => deterministicEventId(operation.operationId, index),
+      ).sort();
+      if (actual.length === expected.length &&
+          expected.every((eventId, index) => eventId === actual[index])) {
+        completeCopies += 1;
+      }
+    } catch {
+      // A store outage is handled by the retry path; it must not hide the other copy.
     }
+  }
+  if (completeCopies !== 2) return operation;
+  const client = await coordinator.pool.connect();
+  try {
     await client.query(
       `UPDATE ${OPERATIONS_TABLE}
        SET state = 'committed', error_code = NULL, updated_at = now()
@@ -668,12 +714,67 @@ export async function reconcilePartitionOperation(
   }
 }
 
+async function writePendingEventsToNode(
+  node: RuntimeNode,
+  operation: ReservedOperation,
+  events: readonly PartitionMutation[],
+): Promise<void> {
+  const client = await node.pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SET LOCAL statement_timeout = '20s'");
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+      [`so-cong:partition-operation:${operation.operationId}`],
+    );
+    const existing = await client.query(
+      `SELECT event_id FROM ${EVENT_TABLE} WHERE operation_id = $1`,
+      [operation.operationId],
+    );
+    const expectedIds = events.map((event) => event.eventId).sort();
+    const existingIds = existing.rows.map((row) => String(row.event_id)).sort();
+    const exactReplay = expectedIds.length === existingIds.length &&
+      expectedIds.every((eventId, index) => eventId === existingIds[index]);
+    if (existing.rows.length !== 0 && !exactReplay) {
+      throw new PartitionStorageError(
+        `Stored events on ${node.backend} do not match the reserved operation.`,
+        "partition_operation_incomplete",
+      );
+    }
+    if (existing.rows.length === 0) {
+      for (const event of events) {
+        await client.query(
+          `INSERT INTO ${EVENT_TABLE}
+           (event_id, operation_id, revision, source_backend, entity_type, entity_key, action, payload, committed)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, false)`,
+          [
+            event.eventId,
+            event.operationId,
+            event.revision,
+            operation.targetBackend,
+            event.entityType,
+            event.entityKey,
+            event.action,
+            event.payload === null ? null : JSON.stringify(event.payload),
+          ],
+        );
+      }
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function appendReservedPartitionOperation(
   operation: ReservedOperation,
   mutations: readonly MutationDraft[],
 ): Promise<void> {
   requireConfiguredNodes();
-  await verifySchema();
+  await verifyCoordinatorSchema();
   operation = await reconcilePartitionOperation(operation);
   if (operation.state === "committed") return;
   if (mutations.length !== operation.expectedEventCount) {
@@ -684,43 +785,74 @@ export async function appendReservedPartitionOperation(
     );
   }
   const target = nodesByBackend.get(operation.targetBackend);
+  const replica = nodesByBackend.get(operation.replicaBackend);
   const coordinator = nodesByBackend.get("database_url_4")!;
-  if (!target) {
+  if (!target || !replica) {
     throw new PartitionStorageError("Reserved database is not configured.", "partition_not_configured");
   }
   const persistCommitted = async () => {
-    const client = await coordinator.pool.connect();
     try {
-      await client.query(
+      for (const node of [target, replica]) {
+        const marked = await node.pool.query(
+          `UPDATE ${EVENT_TABLE} SET committed = true
+           WHERE operation_id = $1 RETURNING event_id`,
+          [operation.operationId],
+        );
+        if (marked.rows.length !== operation.expectedEventCount) {
+          throw new Error(`Incomplete event copy on ${node.backend}.`);
+        }
+      }
+      const committed = await coordinator.pool.query(
         `UPDATE ${OPERATIONS_TABLE}
          SET state = 'committed', error_code = NULL, updated_at = now()
          WHERE operation_id = $1 AND request_hash = $2`,
         [operation.operationId, operation.requestHash],
       );
+      if (committed.rowCount !== 1) {
+        throw new Error("DB4 operation journal did not confirm the commit.");
+      }
     } catch {
       throw new PartitionStorageError(
         "The database write may be committed, but DB4 could not confirm it. Retry with the same operation ID.",
         "partition_operation_incomplete",
       );
-    } finally {
-      client.release();
     }
   };
   const reroute = async (
+    failedBackend: DatabaseBackend,
     failedState: "full" | "unavailable",
     errorCode: string,
   ): Promise<ReservedOperation> => {
     const capacity = new Map<DatabaseBackend, PartitionCapacityState>();
-    for (const node of nodes) capacity.set(node.backend, await checkCapacity(node));
-    capacity.set(operation.targetBackend, failedState);
-    const nextBackend = resolvePartitionWriteBackend(
+    for (const node of nodes) {
+      let state = await checkCapacity(node);
+      if (state === "available") {
+        try {
+          await verifyEventSchema(node);
+        } catch {
+          state = "unavailable";
+        }
+      }
+      capacity.set(node.backend, state);
+    }
+    capacity.set(failedBackend, failedState);
+    let nextPair: ReturnType<typeof resolvePartitionWritePair>;
+    try {
+      nextPair = resolvePartitionWritePair(
       operation.targetBackend,
       BACKEND_ORDER,
       capacity,
-    );
-    if (nextBackend === operation.targetBackend) {
+      );
+    } catch {
       throw new PartitionStorageError(
-        "The current database cannot accept this operation.",
+        "Two verified writable stores are not available for this operation.",
+        "partition_operation_incomplete",
+      );
+    }
+    if (nextPair.primary === operation.targetBackend &&
+        nextPair.replica === operation.replicaBackend) {
+      throw new PartitionStorageError(
+        "No alternate two-store route is available for this operation.",
         "partition_operation_incomplete",
       );
     }
@@ -746,22 +878,29 @@ export async function appendReservedPartitionOperation(
       }
       await client.query(
         `UPDATE ${OPERATIONS_TABLE}
-         SET target_backend = $2, state = 'pending', error_code = $3, updated_at = now()
+         SET target_backend = $2,
+             result = coalesce(result, '{}'::jsonb) || jsonb_build_object('replicaBackend', $3),
+             state = 'pending', error_code = $4, updated_at = now()
          WHERE operation_id = $1`,
-        [operation.operationId, nextBackend, errorCode],
+        [operation.operationId, nextPair.primary, nextPair.replica, errorCode],
       );
       const stateResult = await client.query(
         `SELECT write_backend FROM ${STATE_TABLE} WHERE id = 1 FOR UPDATE`,
       );
       const cursor = stateResult.rows[0]?.write_backend as DatabaseBackend | undefined;
-      if (cursor && BACKEND_ORDER.indexOf(nextBackend) > BACKEND_ORDER.indexOf(cursor)) {
+      if (cursor && BACKEND_ORDER.indexOf(nextPair.primary) > BACKEND_ORDER.indexOf(cursor)) {
         await client.query(
           `UPDATE ${STATE_TABLE} SET write_backend = $1, updated_at = now() WHERE id = 1`,
-          [nextBackend],
+          [nextPair.primary],
         );
       }
       await client.query("COMMIT");
-      return { ...operation, targetBackend: nextBackend, state: "pending" };
+      return {
+        ...operation,
+        targetBackend: nextPair.primary,
+        replicaBackend: nextPair.replica,
+        state: "pending",
+      };
     } catch (error) {
       await client.query("ROLLBACK").catch(() => undefined);
       if (error instanceof PartitionStorageError) throw error;
@@ -809,6 +948,39 @@ export async function appendReservedPartitionOperation(
     };
   });
 
+  const writableState = async (node: RuntimeNode): Promise<PartitionCapacityState> => {
+    const state = await checkCapacity(node);
+    if (state !== "available") return state;
+    try {
+      await verifyEventSchema(node);
+      return "available";
+    } catch {
+      return "unavailable";
+    }
+  };
+  const targetCapacity = await writableState(target);
+  if (targetCapacity === "full" || targetCapacity === "unavailable") {
+    const next = await reroute(target.backend, targetCapacity, `target_${targetCapacity}`);
+    return appendReservedPartitionOperation(next, mutations);
+  }
+  if (targetCapacity === "unknown") {
+    throw new PartitionStorageError(
+      `Capacity for ${target.backend} could not be verified; writes are blocked.`,
+      "partition_operation_incomplete",
+    );
+  }
+  const replicaCapacity = await writableState(replica);
+  if (replicaCapacity === "full" || replicaCapacity === "unavailable") {
+    const next = await reroute(replica.backend, replicaCapacity, `replica_${replicaCapacity}`);
+    return appendReservedPartitionOperation(next, mutations);
+  }
+  if (replicaCapacity === "unknown") {
+    throw new PartitionStorageError(
+      `Capacity for ${replica.backend} could not be verified; a second copy cannot be confirmed.`,
+      "partition_operation_incomplete",
+    );
+  }
+
   let existingCount: number;
   try {
     const result = await target.pool.query(
@@ -823,6 +995,20 @@ export async function appendReservedPartitionOperation(
     );
   }
   if (existingCount === operation.expectedEventCount) {
+    try {
+      await writePendingEventsToNode(replica, operation, events);
+    } catch (error) {
+      const failedState = isDatabaseCapacityError(error)
+        ? "full"
+        : isDatabaseAvailabilityError(error)
+          ? "unavailable"
+          : undefined;
+      if (failedState) {
+        const next = await reroute(replica.backend, failedState, `replica_${failedState}`);
+        return appendReservedPartitionOperation(next, mutations);
+      }
+      throw error;
+    }
     await persistCommitted();
     return;
   }
@@ -832,18 +1018,6 @@ export async function appendReservedPartitionOperation(
       "partition_operation_incomplete",
     );
   }
-  const targetCapacity = await checkCapacity(target);
-  if (targetCapacity === "full" || targetCapacity === "unavailable") {
-    const next = await reroute(targetCapacity, `target_${targetCapacity}`);
-    return appendReservedPartitionOperation(next, mutations);
-  }
-  if (targetCapacity === "unknown") {
-    throw new PartitionStorageError(
-      `Capacity for ${target.backend} could not be verified; writes are blocked.`,
-      "partition_operation_incomplete",
-    );
-  }
-
   const targetClient = await target.pool.connect();
   let targetCommitted = false;
   let writeError: unknown;
@@ -908,6 +1082,20 @@ export async function appendReservedPartitionOperation(
       // An unreachable target might have committed; moving it would risk duplication.
     }
     if (postFailureCount === operation.expectedEventCount) {
+      try {
+        await writePendingEventsToNode(replica, operation, events);
+      } catch (error) {
+        const failedState = isDatabaseCapacityError(error)
+          ? "full"
+          : isDatabaseAvailabilityError(error)
+            ? "unavailable"
+            : undefined;
+        if (failedState) {
+          const next = await reroute(replica.backend, failedState, `replica_${failedState}`);
+          return appendReservedPartitionOperation(next, mutations);
+        }
+        throw error;
+      }
       await persistCommitted();
       return;
     }
@@ -917,7 +1105,7 @@ export async function appendReservedPartitionOperation(
         ? "unavailable"
         : undefined;
     if (postFailureCount === 0 && failedState) {
-      const next = await reroute(failedState, `target_${failedState}`);
+      const next = await reroute(target.backend, failedState, `target_${failedState}`);
       return appendReservedPartitionOperation(next, mutations);
     }
     const client = await coordinator.pool.connect();
@@ -937,6 +1125,20 @@ export async function appendReservedPartitionOperation(
   }
 
   if (!targetCommitted) return;
+  try {
+    await writePendingEventsToNode(replica, operation, events);
+  } catch (error) {
+    const failedState = isDatabaseCapacityError(error)
+      ? "full"
+      : isDatabaseAvailabilityError(error)
+        ? "unavailable"
+        : undefined;
+    if (failedState) {
+      const next = await reroute(replica.backend, failedState, `replica_${failedState}`);
+      return appendReservedPartitionOperation(next, mutations);
+    }
+    throw error;
+  }
   await persistCommitted();
 }
 
@@ -962,39 +1164,76 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
   tableName: string,
 ): Promise<T[]> {
   requireConfiguredNodes();
-  await verifySchema();
   const keyColumn = TABLE_KEY_COLUMN[tableName];
   if (!keyColumn || !BASE_TABLES.has(tableName)) {
     throw new PartitionStorageError("Unsupported partition table.", "partition_entity_invalid", 400);
   }
-  const baseline = nodesByBackend.get("database_url_1")!;
-  const rows = await baseline.pool.query(`SELECT * FROM public."${tableName}"`);
+  const availableNodes: RuntimeNode[] = [];
+  const mutationsById = new Map<string, PartitionMutation>();
+  for (const node of nodes) {
+    try {
+      const result = await node.pool.query(
+        `SELECT event_id, operation_id, revision::text, entity_type, entity_key, action, payload
+         FROM ${EVENT_TABLE}
+         WHERE committed = true AND entity_type = $1
+         ORDER BY revision ASC, event_id ASC`,
+        [tableName],
+      );
+      availableNodes.push(node);
+      for (const row of result.rows) {
+        const mutation: PartitionMutation = {
+          eventId: String(row.event_id),
+          operationId: String(row.operation_id),
+          revision: String(row.revision),
+          entityType: String(row.entity_type),
+          entityKey: String(row.entity_key),
+          action: row.action,
+          payload: row.payload === null ? null : normalizeEventPayload(row.payload) as Record<string, unknown>,
+        };
+        const existing = mutationsById.get(mutation.eventId);
+        if (existing && stableJson(existing) !== stableJson(mutation)) {
+          throw new PartitionStorageError(
+            "Replicated event copies differ; read is stopped to avoid returning inconsistent data.",
+            "partition_operation_incomplete",
+          );
+        }
+        mutationsById.set(mutation.eventId, mutation);
+      }
+    } catch (error) {
+      if (error instanceof PartitionStorageError) throw error;
+      // An unavailable or not-yet-migrated store is treated as one failed replica.
+    }
+  }
+  if (availableNodes.length < 3) {
+    throw new PartitionStorageError(
+      "Fewer than three event stores are readable; complete history cannot be guaranteed after one-store failure.",
+      "partition_operation_incomplete",
+    );
+  }
+
+  let rows: pg.QueryResult | undefined;
+  let baseReadSucceeded = false;
+  for (const node of availableNodes) {
+    try {
+      rows = await node.pool.query(`SELECT * FROM public."${tableName}"`);
+      baseReadSucceeded = true;
+      break;
+    } catch (error) {
+      void error;
+    }
+  }
+  if (!baseReadSucceeded) {
+    throw new PartitionStorageError(
+      "No healthy store can provide the canonical base data.",
+      "partition_operation_incomplete",
+    );
+  }
   const baseRows = new Map<string, T>();
-  for (const row of rows.rows as T[]) {
+  for (const row of rows!.rows as T[]) {
     const key = partitionEntityKey(tableName, row[keyColumn] as string | number);
     baseRows.set(key, row);
   }
 
-  const mutations: PartitionMutation[] = [];
-  for (const node of nodes) {
-    const result = await node.pool.query(
-      `SELECT event_id, operation_id, revision::text, entity_type, entity_key, action, payload
-       FROM ${EVENT_TABLE} WHERE entity_type = $1 ORDER BY revision ASC, event_id ASC`,
-      [tableName],
-    );
-    for (const row of result.rows) {
-      mutations.push({
-        eventId: String(row.event_id),
-        operationId: String(row.operation_id),
-        revision: String(row.revision),
-        entityType: String(row.entity_type),
-        entityKey: String(row.entity_key),
-        action: row.action,
-        payload: row.payload === null ? null : normalizeEventPayload(row.payload) as Record<string, unknown>,
-      });
-    }
-  }
-
   const { applyPartitionMutations } = await import("./storage-partitioning");
-  return [...applyPartitionMutations(baseRows, mutations).values()];
+  return [...applyPartitionMutations(baseRows, [...mutationsById.values()]).values()];
 }

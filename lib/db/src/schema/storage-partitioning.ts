@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   check,
   index,
   jsonb,
@@ -44,12 +45,15 @@ export const storagePartitionEventsTable = pgTable("storage_partition_events", {
   entityKey: text("entity_key").notNull(),
   action: text("action").notNull(),
   payload: jsonb("payload").$type<Record<string, unknown> | null>(),
+  committed: boolean("committed").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   uniqueIndex("storage_partition_events_entity_revision_unique")
     .on(table.entityType, table.entityKey, table.revision),
   index("storage_partition_events_operation_idx").on(table.operationId),
   index("storage_partition_events_entity_idx").on(table.entityType, table.entityKey, table.revision),
+  index("storage_partition_events_committed_entity_idx")
+    .on(table.committed, table.entityType, table.revision),
   check(
     "storage_partition_events_action_check",
     sql`${table.action} IN ('upsert', 'delete')`,

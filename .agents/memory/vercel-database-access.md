@@ -9,11 +9,11 @@ Replit-managed PostgreSQL is not externally accessible from Vercel; its injected
 
 **How to apply:** For Vercel, provision an external PostgreSQL database, apply the app schema, and configure its URL in Vercel's environment settings. Copy existing data separately if needed. Never put the database URL in source control or chat.
 
-The user changed the availability strategy: keep two copies of each data segment so complete reads can continue during a single-store outage, rather than relying on one copy per partition. This reduces usable aggregate storage and writes must confirm both copies.
+The user chose two copies per new data segment. A write must persist the complete event set to two distinct stores before acknowledging it; readers can use any healthy base copy and need at least three readable event stores to tolerate one store outage. Keep DB4 as the write coordinator and single point of failure for new writes.
 
 **Why:** the user chose two copies per data segment to preserve full reads if one store is unavailable, while using less capacity than four full replicas.
 
-**How to apply:** Before any writes or overwrites, compare all four stores read-only and confirm the canonical source. Do not enable partition routing until the two-copy mapping, cross-store reads, operation recovery, and single-store outage behavior are implemented and tested. Do not claim one-store write availability while DB4 remains the sole coordinator.
+**How to apply:** Use a per-event commit marker so incomplete writes remain hidden. Before activating partition routing, compare all four stores read-only, apply the additive event schema, verify Neon capacity-monitoring configuration on every store, deploy the matching runtime, then explicitly enable partition mode. Do not claim one-store write availability while DB4 remains the sole coordinator.
 
 The four Neon stores are ordered DB1=`DATABASE_URL_1`, DB2=`DATABASE_URL`, DB3=`DATABASE_URL_3`, DB4=`DATABASE_URL_4`. DB4 is the chosen routing coordinator; the user accepts it as a single point of failure.
 
@@ -32,6 +32,12 @@ The user confirmed all four database URLs, Neon project IDs/API setup, and that 
 **Why:** these are the user's confirmed production topology and monitoring limits.
 
 **How to apply:** Check each candidate's capacity before routing; keep capacity uncertainty fail-closed. Neon usage metrics may lag, so do not promise an exact-instant transition at the provider limit.
+
+All four production Neon stores have PostgreSQL's default TOAST compression set to LZ4. This changes compression for future TOAST values; it does not rewrite existing rows.
+
+**Why:** the user requested storage savings while preserving ordinary reads, and the four stores were verified to support LZ4.
+
+**How to apply:** Keep this setting on all four stores and do not claim existing data has been compacted; verify the default after reconnecting sessions.
 
 Do not replay a failed database write automatically after an ambiguous connection loss. The database may have committed before the response was lost.
 
