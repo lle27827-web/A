@@ -24,6 +24,7 @@
     "migrate:database-failover-state-to-db4": "node ./scripts/apply-database-failover-state-to-db4.mjs",
     "migrate:database-failover-coordinator": "node ./scripts/apply-database-failover-coordinator.mjs",
     "migrate:storage-partitioning": "node ./scripts/apply-storage-partitioning.mjs",
+    "migrate:retention-range-indexes": "node ./scripts/apply-retention-range-indexes.mjs",
     "storage-compression:check": "node ./scripts/apply-storage-compression.mjs",
     "storage-compression:apply": "node ./scripts/apply-storage-compression.mjs --apply",
     "push": "drizzle-kit push --config ./drizzle.config.ts",

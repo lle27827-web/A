@@ -27,8 +27,8 @@ Facility and personal attendance/work-session history is retained for a rolling 
 
 **How to apply:** calculate the cutoff by Vietnam calendar date; archive card-backed sessions and delete the source rows in one transaction. Keep archived snapshots out of employee payroll/history views, include them in card balances and card detail history, and retain the used-card deletion restriction.
 
-Manual year-based history deletion is facility-only. Preserve personal notebook sessions and permanent card-use history; archive card-backed facility sessions before deleting their source records, without changing card balances or consumed minutes.
+Manual history deletion uses a user-selected inclusive date range and is facility-only. Preview the affected counts, preserve personal notebook sessions and permanent card-use history, and archive card-backed facility sessions before deleting their source records. Never change card balances or consumed minutes. Until physical compaction is supported, block manual deletion when partitioned storage is active because tombstones do not reclaim storage.
 
-**Why:** the user confirmed that choosing a year to delete applies only to facility history and must keep the personal notebook and card-use ledger.
+**Why:** the user chose custom date-range deletion and previously confirmed that manual cleanup applies only to facility history; card balances, permanent use history, and personal records must remain untouched. Logical tombstones would increase partition-event storage instead of freeing it.
 
-**How to apply:** keep this boundary in both the owner-only Settings flow and the server transaction for manual annual deletion.
+**How to apply:** require owner access, preview counts, use indexed date bounds, archive card use and delete facility rows atomically, and fail closed in partitioned mode until cleanup compacts all copies safely.

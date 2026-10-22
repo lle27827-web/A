@@ -141,7 +141,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
 
           {isOwner && (
             <button type="button" className="settings-link" onClick={() => { onOpenChange(false); setDeleteHistoryOpen(true); }} data-testid="button-open-delete-history">
-              <Trash2 size={15} aria-hidden="true" /><span className="grow"><strong>Xóa lịch sử chấm công</strong><span className="muted">Chọn năm cần xóa</span></span><ChevronRight size={16} aria-hidden="true" />
+              <Trash2 size={15} aria-hidden="true" /><span className="grow"><strong>Xóa lịch sử chấm công</strong><span className="muted">Chọn khoảng ngày cần xóa</span></span><ChevronRight size={16} aria-hidden="true" />
             </button>
           )}
 

@@ -24,6 +24,7 @@ export const serviceSessionsTable = pgTable("service_sessions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("service_sessions_member_date_idx").on(table.memberId, table.workDate),
+  index("service_sessions_work_date_idx").on(table.workDate),
   index("service_sessions_card_idx").on(table.cardId),
   index("service_sessions_service_type_idx").on(table.serviceTypeId),
 ]);

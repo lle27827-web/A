@@ -59,6 +59,47 @@ paths:
               schema: { $ref: "#/components/schemas/RetentionYearDeleteResult" }
         "400": { description: Năm không hợp lệ }
         "404": { description: Năm này không còn lịch sử chấm công cơ sở }
+  /retention/range:
+    get:
+      operationId: previewRetentionDateRange
+      tags: [retention]
+      summary: Xem trước số dữ liệu cơ sở trong khoảng ngày
+      parameters:
+        - in: query
+          name: fromDate
+          required: true
+          schema: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        - in: query
+          name: toDate
+          required: true
+          schema: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+      responses:
+        "200":
+          description: Số dòng trong khoảng ngày đã chọn
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RetentionDateRangeSummary" }
+        "400": { description: Khoảng ngày không hợp lệ }
+        "403": { description: Chỉ chủ sở hữu được xem }
+        "409": { description: Tạm khóa trong chế độ phân vùng để tránh tăng dung lượng nhật ký }
+    delete:
+      operationId: deleteRetentionDateRange
+      tags: [retention]
+      summary: Xóa lịch sử cơ sở trong khoảng ngày đã chọn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RetentionDateRangeInput" }
+      responses:
+        "200":
+          description: Đã xóa dữ liệu cơ sở và giữ nhật ký dùng thẻ
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RetentionDateRangeDeleteResult" }
+        "400": { description: Khoảng ngày không hợp lệ }
+        "403": { description: Chỉ chủ sở hữu được xóa }
+        "409": { description: Tạm khóa trong chế độ phân vùng để tránh tăng dung lượng nhật ký }
   /database/storage-status:
     get:
       operationId: getDatabaseStorageStatus
@@ -1065,6 +1106,30 @@ components:
       required: [year, deletedAttendance, deletedServiceSessions, archivedCardUses]
       properties:
         year: { type: integer }
+        deletedAttendance: { type: integer }
+        deletedServiceSessions: { type: integer }
+        archivedCardUses: { type: integer }
+    RetentionDateRangeInput:
+      type: object
+      required: [fromDate, toDate]
+      properties:
+        fromDate: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        toDate: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+    RetentionDateRangeSummary:
+      type: object
+      required: [fromDate, toDate, attendanceCount, serviceSessionCount, cardUseCount]
+      properties:
+        fromDate: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        toDate: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        attendanceCount: { type: integer }
+        serviceSessionCount: { type: integer }
+        cardUseCount: { type: integer }
+    RetentionDateRangeDeleteResult:
+      type: object
+      required: [fromDate, toDate, deletedAttendance, deletedServiceSessions, archivedCardUses]
+      properties:
+        fromDate: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        toDate: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
         deletedAttendance: { type: integer }
         deletedServiceSessions: { type: integer }
         archivedCardUses: { type: integer }

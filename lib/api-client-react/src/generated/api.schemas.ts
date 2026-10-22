@@ -329,6 +329,33 @@ export interface RetentionYearDeleteResult {
   archivedCardUses: number;
 }
 
+export interface RetentionDateRangeInput {
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  fromDate: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  toDate: string;
+}
+
+export interface RetentionDateRangeSummary {
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  fromDate: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  toDate: string;
+  attendanceCount: number;
+  serviceSessionCount: number;
+  cardUseCount: number;
+}
+
+export interface RetentionDateRangeDeleteResult {
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  fromDate: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  toDate: string;
+  deletedAttendance: number;
+  deletedServiceSessions: number;
+  archivedCardUses: number;
+}
+
 export type DatabaseFailoverBackend = typeof DatabaseFailoverBackend[keyof typeof DatabaseFailoverBackend];
 
 
@@ -787,6 +814,17 @@ export interface MemberPayroll {
   totalMinutes: number;
   totalSalary: number;
 }
+
+export type PreviewRetentionDateRangeParams = {
+/**
+ * @pattern ^\d{4}-\d{2}-\d{2}$
+ */
+fromDate: string;
+/**
+ * @pattern ^\d{4}-\d{2}-\d{2}$
+ */
+toDate: string;
+};
 
 export type GetPersonalNotebookParams = {
 /**

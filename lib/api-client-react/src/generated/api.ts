@@ -57,6 +57,10 @@ import type {
   PersonalSettingsInput,
   PersonalSyncInput,
   PersonalSyncResult,
+  PreviewRetentionDateRangeParams,
+  RetentionDateRangeDeleteResult,
+  RetentionDateRangeInput,
+  RetentionDateRangeSummary,
   RetentionYearDeleteResult,
   RetentionYearSummary,
   SampleMembersBatchInput,
@@ -317,6 +321,178 @@ export const useDeleteRetentionYear = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getDeleteRetentionYearMutationOptions(options));
+    }
+
+export const getPreviewRetentionDateRangeUrl = (params: PreviewRetentionDateRangeParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/retention/range?${stringifiedParams}` : `/api/retention/range`
+}
+
+/**
+ * @summary Xem trước số dữ liệu cơ sở trong khoảng ngày
+ */
+export const previewRetentionDateRange = async (params: PreviewRetentionDateRangeParams, options?: Parameters<typeof customFetch>[1]): Promise<RetentionDateRangeSummary> => {
+
+  return customFetch<RetentionDateRangeSummary>(getPreviewRetentionDateRangeUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getPreviewRetentionDateRangeQueryKey = (params?: PreviewRetentionDateRangeParams,) => {
+    return [
+    `/api/retention/range`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getPreviewRetentionDateRangeQueryOptions = <TData = Awaited<ReturnType<typeof previewRetentionDateRange>>, TError = ErrorType<void>>(params: PreviewRetentionDateRangeParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof previewRetentionDateRange>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPreviewRetentionDateRangeQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof previewRetentionDateRange>>> = ({ signal }) => previewRetentionDateRange(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof previewRetentionDateRange>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type PreviewRetentionDateRangeQueryResult = NonNullable<Awaited<ReturnType<typeof previewRetentionDateRange>>>
+export type PreviewRetentionDateRangeQueryError = ErrorType<void>
+
+
+/**
+ * @summary Xem trước số dữ liệu cơ sở trong khoảng ngày
+ */
+
+export function usePreviewRetentionDateRange<TData = Awaited<ReturnType<typeof previewRetentionDateRange>>, TError = ErrorType<void>>(
+ params: PreviewRetentionDateRangeParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof previewRetentionDateRange>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getPreviewRetentionDateRangeQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDeleteRetentionDateRangeUrl = () => {
+
+
+
+
+  return `/api/retention/range`
+}
+
+/**
+ * @summary Xóa lịch sử cơ sở trong khoảng ngày đã chọn
+ */
+export const deleteRetentionDateRange = async (retentionDateRangeInput: RetentionDateRangeInput, options?: Parameters<typeof customFetch>[1]): Promise<RetentionDateRangeDeleteResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RetentionDateRangeDeleteResult>(getDeleteRetentionDateRangeUrl(),
+  {
+    ...options,
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(retentionDateRangeInput)
+  }
+);}
+
+
+
+
+
+export const getDeleteRetentionDateRangeMutationKey = () => ['deleteRetentionDateRange'] as const;
+
+export const getDeleteRetentionDateRangeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRetentionDateRange>>, TError,DeleteRetentionDateRangeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteRetentionDateRange>>, TError,DeleteRetentionDateRangeMutationVariables, TContext> => {
+
+const mutationKey = getDeleteRetentionDateRangeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRetentionDateRange>>, DeleteRetentionDateRangeMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  deleteRetentionDateRange(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteRetentionDateRangeMutationResult = NonNullable<Awaited<ReturnType<typeof deleteRetentionDateRange>>>
+    export type DeleteRetentionDateRangeMutationBody = BodyType<RetentionDateRangeInput>
+    export type DeleteRetentionDateRangeMutationError = ErrorType<void>
+    export type DeleteRetentionDateRangeMutationVariables = {data: BodyType<RetentionDateRangeInput>}
+
+    /**
+ * @summary Xóa lịch sử cơ sở trong khoảng ngày đã chọn
+ */
+export const useDeleteRetentionDateRange = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRetentionDateRange>>, TError,DeleteRetentionDateRangeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteRetentionDateRange>>,
+        TError,
+        DeleteRetentionDateRangeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteRetentionDateRangeMutationOptions(options));
     }
 
 export const getGetDatabaseStorageStatusUrl = () => {

@@ -16,12 +16,19 @@ test("retention archives card use atomically and never refunds used minutes", {
 
   process.env.DATABASE_URL = testDatabaseUrl!;
   process.env.VERCEL = "";
+  delete process.env.DATABASE_STORAGE_MODE;
   delete process.env.DATABASE_URL_1;
   delete process.env.DATABASE_URL_1_MAX_BYTES;
   delete process.env.NEON_DB1_DIRECT_URL;
   delete process.env.NEON_SOURCE_DIRECT_URL;
 
-  const [{ db, pool }, { cleanupExpiredHistory, deleteFacilityHistoryYear, listFacilityHistoryYears }] = await Promise.all([
+  const [{ db, pool }, {
+    cleanupExpiredHistory,
+    deleteFacilityHistoryDateRange,
+    deleteFacilityHistoryYear,
+    listFacilityHistoryYears,
+    previewFacilityHistoryDateRange,
+  }] = await Promise.all([
     import("@workspace/db"),
     import("./retention"),
   ]);
@@ -197,6 +204,52 @@ test("retention archives card use atomically and never refunds used minutes", {
     assert.deepEqual(await listFacilityHistoryYears(), [
       { year: otherYear, attendanceCount: 1, serviceSessionCount: 2, cardUseCount: 1 },
     ]);
+
+    const rangePreview = await previewFacilityHistoryDateRange({
+      fromDate: `${otherYear}-06-01`,
+      toDate: `${otherYear}-06-01`,
+    });
+    assert.deepEqual(rangePreview, {
+      fromDate: `${otherYear}-06-01`,
+      toDate: `${otherYear}-06-01`,
+      attendanceCount: 1,
+      serviceSessionCount: 2,
+      cardUseCount: 1,
+    });
+
+    const rangeDelete = await deleteFacilityHistoryDateRange({
+      fromDate: `${otherYear}-06-01`,
+      toDate: `${otherYear}-06-01`,
+    });
+    assert.deepEqual(rangeDelete, {
+      fromDate: `${otherYear}-06-01`,
+      toDate: `${otherYear}-06-01`,
+      deletedAttendance: 1,
+      deletedServiceSessions: 2,
+      archivedCardUses: 1,
+    });
+    assert.deepEqual(await previewFacilityHistoryDateRange({
+      fromDate: `${otherYear}-06-01`,
+      toDate: `${otherYear}-06-01`,
+    }), {
+      fromDate: `${otherYear}-06-01`,
+      toDate: `${otherYear}-06-01`,
+      attendanceCount: 0,
+      serviceSessionCount: 0,
+      cardUseCount: 0,
+    });
+    assert.equal(Number((await setupPool.query("SELECT count(*) AS count FROM public.personal_sessions")).rows[0].count), 2);
+    assert.equal(Number((await setupPool.query("SELECT count(*) AS count FROM public.service_sessions")).rows[0].count), 0);
+    assert.equal(Number((await setupPool.query("SELECT count(*) AS count FROM public.card_usage_history")).rows[0].count), 3);
+
+    const balanceAfterRangeDelete = await setupPool.query(`
+      SELECT total_minutes
+        - (SELECT coalesce(sum(minutes), 0) FROM public.card_usage_history WHERE card_id = 1)
+        - (SELECT coalesce(sum(minutes), 0) FROM public.service_sessions WHERE card_id = 1)
+        AS remaining
+      FROM public.treatment_cards WHERE id = 1
+    `);
+    assert.equal(Number(balanceAfterRangeDelete.rows[0].remaining), 65);
   } finally {
     await pool.end();
   }

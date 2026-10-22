@@ -45,6 +45,56 @@ export const DeleteRetentionYearResponse = zod.object({
 
 
 /**
+ * @summary Xem trước số dữ liệu cơ sở trong khoảng ngày
+ */
+export const previewRetentionDateRangeQueryFromDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const previewRetentionDateRangeQueryToDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const PreviewRetentionDateRangeQueryParams = zod.object({
+  "fromDate": zod.coerce.string().regex(previewRetentionDateRangeQueryFromDateRegExp),
+  "toDate": zod.coerce.string().regex(previewRetentionDateRangeQueryToDateRegExp)
+})
+
+export const previewRetentionDateRangeResponseFromDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const previewRetentionDateRangeResponseToDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const PreviewRetentionDateRangeResponse = zod.object({
+  "fromDate": zod.string().regex(previewRetentionDateRangeResponseFromDateRegExp),
+  "toDate": zod.string().regex(previewRetentionDateRangeResponseToDateRegExp),
+  "attendanceCount": zod.number().int(),
+  "serviceSessionCount": zod.number().int(),
+  "cardUseCount": zod.number().int()
+})
+
+
+/**
+ * @summary Xóa lịch sử cơ sở trong khoảng ngày đã chọn
+ */
+export const deleteRetentionDateRangeBodyFromDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const deleteRetentionDateRangeBodyToDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const DeleteRetentionDateRangeBody = zod.object({
+  "fromDate": zod.string().regex(deleteRetentionDateRangeBodyFromDateRegExp),
+  "toDate": zod.string().regex(deleteRetentionDateRangeBodyToDateRegExp)
+})
+
+export const deleteRetentionDateRangeResponseFromDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const deleteRetentionDateRangeResponseToDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const DeleteRetentionDateRangeResponse = zod.object({
+  "fromDate": zod.string().regex(deleteRetentionDateRangeResponseFromDateRegExp),
+  "toDate": zod.string().regex(deleteRetentionDateRangeResponseToDateRegExp),
+  "deletedAttendance": zod.number().int(),
+  "deletedServiceSessions": zod.number().int(),
+  "archivedCardUses": zod.number().int()
+})
+
+
+/**
  * @summary Chủ sở hữu xem trạng thái định tuyến và dung lượng bốn kho
  */
 export const GetDatabaseStorageStatusResponse = zod.object({

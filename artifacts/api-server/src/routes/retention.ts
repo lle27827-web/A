@@ -1,10 +1,20 @@
 import { Router, type IRouter } from "express";
 import {
+  DeleteRetentionDateRangeBody,
+  DeleteRetentionDateRangeResponse,
   DeleteRetentionYearParams,
   DeleteRetentionYearResponse,
   ListRetentionYearsResponse,
+  PreviewRetentionDateRangeQueryParams,
+  PreviewRetentionDateRangeResponse,
 } from "@workspace/api-zod";
-import { cleanupExpiredHistory, deleteFacilityHistoryYear, listFacilityHistoryYears } from "../lib/retention";
+import {
+  cleanupExpiredHistory,
+  deleteFacilityHistoryDateRange,
+  deleteFacilityHistoryYear,
+  listFacilityHistoryYears,
+  previewFacilityHistoryDateRange,
+} from "../lib/retention";
 import { requireOwner } from "../lib/owner-auth";
 
 const router: IRouter = Router();
@@ -34,6 +44,38 @@ router.delete("/retention/years/:year", requireOwner, async (req, res, next): Pr
       return;
     }
     res.json(DeleteRetentionYearResponse.parse(result));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/retention/range", requireOwner, async (req, res, next): Promise<void> => {
+  const query = PreviewRetentionDateRangeQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: "Chọn ngày bắt đầu và ngày kết thúc hợp lệ." });
+    return;
+  }
+
+  try {
+    res.set("Cache-Control", "no-store");
+    const summary = await previewFacilityHistoryDateRange(query.data);
+    res.json(PreviewRetentionDateRangeResponse.parse(summary));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete("/retention/range", requireOwner, async (req, res, next): Promise<void> => {
+  const input = DeleteRetentionDateRangeBody.safeParse(req.body);
+  if (!input.success) {
+    res.status(400).json({ error: "Chọn ngày bắt đầu và ngày kết thúc hợp lệ." });
+    return;
+  }
+
+  try {
+    res.set("Cache-Control", "no-store");
+    const result = await deleteFacilityHistoryDateRange(input.data);
+    res.json(DeleteRetentionDateRangeResponse.parse(result));
   } catch (error) {
     next(error);
   }

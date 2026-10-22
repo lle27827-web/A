@@ -81,61 +81,15 @@ export async function listFacilityHistoryYears(): Promise<RetentionYearSummary[]
   });
 }
 
-export async function deleteFacilityHistoryYear(year: number, operationId?: string) {
+export async function deleteFacilityHistoryYear(year: number, _operationId?: string) {
   const startDate = `${year}-01-01`;
   const endDate = `${year + 1}-01-01`;
 
   if (isPartitionedStorageEnabled()) {
-    if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi xóa lịch sử.");
-    const [attendanceRaw, sessionsRaw, archivedRaw] = await Promise.all([
-      readPartitionedTable("attendance"),
-      readPartitionedTable("service_sessions"),
-      readPartitionedTable("card_usage_history"),
-    ]);
-    const attendance = (attendanceRaw as unknown as (typeof attendanceTable.$inferSelect)[])
-      .filter((row) => row.workDate >= startDate && row.workDate < endDate);
-    const sessions = (sessionsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[])
-      .filter((row) => row.workDate >= startDate && row.workDate < endDate);
-    const archived = archivedRaw as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
-    const archivedIds = new Set(archived.map((row) => row.sourceSessionId));
-    const cardUses = sessions.filter((row) => row.cardId !== null && !archivedIds.has(row.id));
-    const mutations = [
-      ...cardUses.map((row) => upsertMutation("card_usage_history", row.id, {
-        sourceSessionId: row.id,
-        cardId: row.cardId!,
-        memberId: row.memberId,
-        employeeName: row.employeeName,
-        customerName: row.customerName,
-        serviceType: row.serviceType,
-        serviceTypeId: row.serviceTypeId,
-        workDate: row.workDate,
-        minutes: row.minutes,
-        customerHourlyRate: row.customerHourlyRate,
-        customerCharge: row.customerCharge,
-        hourlyRate: row.hourlyRate,
-        earnings: row.earnings,
-        note: row.note,
-        createdAt: row.createdAt,
-      })),
-      ...sessions.map((row) => deleteMutation("service_sessions", row.id)),
-      ...attendance.map((row) => deleteMutation("attendance", row.id)),
-    ];
-    if (mutations.length) {
-      await commitPartitionedMutations({
-        operationId,
-        lockName: "retention",
-        action: "retention.delete-year",
-        request: { year },
-        expectedEventCount: mutations.length,
-        build: () => mutations,
-      });
-    }
-    return {
-      year,
-      deletedAttendance: attendance.length,
-      deletedServiceSessions: sessions.length,
-      archivedCardUses: cardUses.length,
-    };
+    throw new MassageError(
+      409,
+      "Xóa thủ công đang tạm khóa khi bật kho phân vùng vì tombstone không giải phóng dung lượng. Cần hoàn tất cơ chế nén/xóa gọn trên cả bốn kho trước.",
+    );
   }
 
   return db.transaction(async (tx) => {
@@ -146,41 +100,176 @@ export async function deleteFacilityHistoryYear(year: number, operationId?: stri
     `);
 
     const archived = await tx.execute(sql`
-      INSERT INTO public.card_usage_history (
-        source_session_id, card_id, member_id, employee_name, customer_name,
-        service_type, service_type_id, work_date, minutes, customer_hourly_rate,
-        customer_charge, hourly_rate, earnings, note, created_at
+      WITH inserted AS (
+        INSERT INTO public.card_usage_history (
+          source_session_id, card_id, member_id, employee_name, customer_name,
+          service_type, service_type_id, work_date, minutes, customer_hourly_rate,
+          customer_charge, hourly_rate, earnings, note, created_at
+        )
+        SELECT
+          id, card_id, member_id, employee_name, customer_name,
+          service_type, service_type_id, work_date, minutes, customer_hourly_rate,
+          customer_charge, hourly_rate, earnings, note, created_at
+        FROM public.service_sessions
+        WHERE card_id IS NOT NULL
+          AND work_date >= ${startDate}::date
+          AND work_date < ${endDate}::date
+        ON CONFLICT (source_session_id) DO NOTHING
+        RETURNING 1
       )
-      SELECT
-        id, card_id, member_id, employee_name, customer_name,
-        service_type, service_type_id, work_date, minutes, customer_hourly_rate,
-        customer_charge, hourly_rate, earnings, note, created_at
-      FROM public.service_sessions
-      WHERE card_id IS NOT NULL
-        AND work_date >= ${startDate}::date
-        AND work_date < ${endDate}::date
-      ON CONFLICT (source_session_id) DO NOTHING
-      RETURNING source_session_id
+      SELECT count(*)::int AS count FROM inserted
     `);
 
     const deletedSessions = await tx.execute(sql`
-      DELETE FROM public.service_sessions
-      WHERE work_date >= ${startDate}::date
-        AND work_date < ${endDate}::date
-      RETURNING id
+      WITH deleted AS (
+        DELETE FROM public.service_sessions
+        WHERE work_date >= ${startDate}::date
+          AND work_date < ${endDate}::date
+        RETURNING 1
+      )
+      SELECT count(*)::int AS count FROM deleted
     `);
     const deletedAttendance = await tx.execute(sql`
-      DELETE FROM public.attendance
-      WHERE work_date >= ${startDate}::date
-        AND work_date < ${endDate}::date
-      RETURNING id
+      WITH deleted AS (
+        DELETE FROM public.attendance
+        WHERE work_date >= ${startDate}::date
+          AND work_date < ${endDate}::date
+        RETURNING 1
+      )
+      SELECT count(*)::int AS count FROM deleted
+    `);
+    return {
+      year,
+      deletedAttendance: Number(deletedAttendance.rows[0]?.count ?? 0),
+      deletedServiceSessions: Number(deletedSessions.rows[0]?.count ?? 0),
+      archivedCardUses: Number(archived.rows[0]?.count ?? 0),
+    };
+  });
+}
+
+export type RetentionDateRange = {
+  fromDate: string;
+  toDate: string;
+};
+
+function isCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+export function validateRetentionDateRange(range: RetentionDateRange): RetentionDateRange {
+  if (!isCalendarDate(range.fromDate) || !isCalendarDate(range.toDate)) {
+    throw new MassageError(400, "Ngày cần dùng định dạng YYYY-MM-DD hợp lệ.");
+  }
+  if (range.fromDate > range.toDate) {
+    throw new MassageError(400, "Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.");
+  }
+  return range;
+}
+
+function ensureRangeDeleteSupported(): void {
+  if (isPartitionedStorageEnabled()) {
+    throw new MassageError(
+      409,
+      "Xóa thủ công đang tạm khóa khi bật kho phân vùng vì tombstone không giải phóng dung lượng. Cần hoàn tất cơ chế nén/xóa gọn trên cả bốn kho trước.",
+    );
+  }
+}
+
+/**
+ * Count only the selected date range. The work_date indexes keep the preview
+ * from scanning unrelated history; the response contains counts, not records.
+ */
+export async function previewFacilityHistoryDateRange(input: RetentionDateRange) {
+  const { fromDate, toDate } = validateRetentionDateRange(input);
+  ensureRangeDeleteSupported();
+
+  const result = await db.execute(sql`
+    SELECT
+      (SELECT count(*)::int FROM public.attendance
+        WHERE work_date >= ${fromDate}::date AND work_date <= ${toDate}::date) AS "attendanceCount",
+      sessions.service_session_count AS "serviceSessionCount",
+      sessions.card_use_count AS "cardUseCount"
+    FROM (
+      SELECT
+        count(*)::int AS service_session_count,
+        count(*) FILTER (WHERE card_id IS NOT NULL)::int AS card_use_count
+      FROM public.service_sessions
+      WHERE work_date >= ${fromDate}::date AND work_date <= ${toDate}::date
+    ) AS sessions
+  `);
+  const row = result.rows[0] as Record<string, unknown>;
+  return {
+    fromDate,
+    toDate,
+    attendanceCount: Number(row.attendanceCount ?? 0),
+    serviceSessionCount: Number(row.serviceSessionCount ?? 0),
+    cardUseCount: Number(row.cardUseCount ?? 0),
+  };
+}
+
+/**
+ * Delete only facility attendance and service sessions in an inclusive date
+ * range. Card-use snapshots are inserted first in the same transaction, so
+ * card balances never change and the permanent usage ledger remains intact.
+ */
+export async function deleteFacilityHistoryDateRange(input: RetentionDateRange) {
+  const { fromDate, toDate } = validateRetentionDateRange(input);
+  ensureRangeDeleteSupported();
+
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SET LOCAL lock_timeout = '15s'`);
+    await tx.execute(sql`SET LOCAL statement_timeout = '120s'`);
+    await tx.execute(sql`
+      SELECT pg_advisory_xact_lock(hashtextextended('so-cong:history-retention', 0))
+    `);
+
+    const archived = await tx.execute(sql`
+      WITH inserted AS (
+        INSERT INTO public.card_usage_history (
+          source_session_id, card_id, member_id, employee_name, customer_name,
+          service_type, service_type_id, work_date, minutes, customer_hourly_rate,
+          customer_charge, hourly_rate, earnings, note, created_at
+        )
+        SELECT
+          id, card_id, member_id, employee_name, customer_name,
+          service_type, service_type_id, work_date, minutes, customer_hourly_rate,
+          customer_charge, hourly_rate, earnings, note, created_at
+        FROM public.service_sessions
+        WHERE card_id IS NOT NULL
+          AND work_date >= ${fromDate}::date
+          AND work_date <= ${toDate}::date
+        ON CONFLICT (source_session_id) DO NOTHING
+        RETURNING 1
+      )
+      SELECT count(*)::int AS count FROM inserted
+    `);
+    const deletedSessions = await tx.execute(sql`
+      WITH deleted AS (
+        DELETE FROM public.service_sessions
+        WHERE work_date >= ${fromDate}::date
+          AND work_date <= ${toDate}::date
+        RETURNING 1
+      )
+      SELECT count(*)::int AS count FROM deleted
+    `);
+    const deletedAttendance = await tx.execute(sql`
+      WITH deleted AS (
+        DELETE FROM public.attendance
+        WHERE work_date >= ${fromDate}::date
+          AND work_date <= ${toDate}::date
+        RETURNING 1
+      )
+      SELECT count(*)::int AS count FROM deleted
     `);
 
     return {
-      year,
-      deletedAttendance: deletedAttendance.rows.length,
-      deletedServiceSessions: deletedSessions.rows.length,
-      archivedCardUses: archived.rows.length,
+      fromDate,
+      toDate,
+      deletedAttendance: Number(deletedAttendance.rows[0]?.count ?? 0),
+      deletedServiceSessions: Number(deletedSessions.rows[0]?.count ?? 0),
+      archivedCardUses: Number(archived.rows[0]?.count ?? 0),
     };
   });
 }

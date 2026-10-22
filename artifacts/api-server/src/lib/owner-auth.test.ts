@@ -81,6 +81,8 @@ test("yearly history deletion is reserved for the owner", async () => {
   const maximumManagerPermissions = ownerPermissions();
   assert.equal(await managerRequestAllowed(request("GET", "/retention/years"), maximumManagerPermissions), false);
   assert.equal(await managerRequestAllowed(request("DELETE", "/retention/years/2025"), maximumManagerPermissions), false);
+  assert.equal(await managerRequestAllowed(request("GET", "/retention/range"), maximumManagerPermissions), false);
+  assert.equal(await managerRequestAllowed(request("DELETE", "/retention/range"), maximumManagerPermissions), false);
 });
 
 test("database failover status and promotion are reserved for the owner", async () => {

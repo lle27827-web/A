@@ -1,5 +1,5 @@
 import { createInsertSchema } from "drizzle-zod";
-import { date, integer, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { date, index, integer, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
 import { z } from "zod/v4";
 import { membersTable } from "./members";
 
@@ -21,7 +21,9 @@ export const attendanceTable = pgTable("attendance", {
     .notNull()
     .defaultNow()
     .$onUpdate(() => new Date()),
-});
+}, (table) => [
+  index("attendance_work_date_idx").on(table.workDate),
+]);
 
 export const insertAttendanceSchema = createInsertSchema(attendanceTable).omit({
   id: true,
