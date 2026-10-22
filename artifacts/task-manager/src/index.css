@@ -563,6 +563,9 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .reader-rate-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 700; }
 .reader-rate-heading output { color: hsl(var(--primary)); font-variant-numeric: tabular-nums; }
 .reader-speech-range { width: 100%; min-width: 0; accent-color: hsl(var(--primary)); }
+.reader-setting-label { display: block; margin-top: 4px; font-weight: 700; }
+.reader-voice-select { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; min-height: 42px; padding: 8px 10px; border: 1px solid hsl(var(--border)); border-radius: 9px; background: hsl(var(--background)); color: hsl(var(--foreground)); font: inherit; }
+.reader-settings-help { color: hsl(var(--muted-foreground)); font-size: 12px; line-height: 1.45; }
 .reader-rate-limits { display: flex; justify-content: space-between; color: hsl(var(--muted-foreground)); font-size: 12px; }
 .reader-settings-toggle { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: start; gap: 10px; padding: 12px; border: 1px solid hsl(var(--border)); border-radius: 12px; cursor: pointer; }
 .reader-settings-toggle input { width: 18px; height: 18px; margin: 1px 0 0; accent-color: hsl(var(--primary)); }

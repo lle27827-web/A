@@ -27,11 +27,11 @@ The four Neon stores are ordered DB1=`DATABASE_URL_1`, DB2=`DATABASE_URL`, DB3=`
 
 **How to apply:** Store the routing cursor and idempotent operation coordination on DB4; if DB4 is unavailable or full, stop new routed writes rather than guessing a shard or risking conflicting operations.
 
-The four stores were previously configured as logical replicas. At the last verified coordinator-state copy, DB1 (`database_url_1`) was active. Do not delete replica data when changing models; establish a cutover boundary and treat pre-cutover rows from DB1 as canonical to avoid duplicate history.
+The live logical replication topology is directional: DB1 → DB2 → DB3 → DB4. DB1's reverse subscription from DB2 is disabled. Treat DB1 as the canonical source; do not directly delete rows on downstream subscribers while replication is active.
 
-**Why:** the user requires historical data to remain and explicitly asked not to move it.
+**Why:** direct subscriber deletes can conflict with pending upstream changes or allow data to reappear; the live topology is not bidirectional.
 
-**How to apply:** Disable replication only as part of a controlled cutover after partition-aware reads and writes are ready; do not assume the application already supports partitioning.
+**How to apply:** For an authorized full purge, pause application writes, verify the active subscription chain and matching row counts, delete only on DB1 in a foreign-key-safe transaction, then wait for and verify the same result on DB2–DB4. Preserve the subscriptions and explicitly verify any tables that must remain.
 
 The user confirmed all four database URLs, Neon project IDs/API setup, and that DB3/DB4 pooling is disabled. Capacity checking is request-triggered, with 1 GB and 100 CU-hour thresholds, and previously cached successful checks for 30 seconds.
 

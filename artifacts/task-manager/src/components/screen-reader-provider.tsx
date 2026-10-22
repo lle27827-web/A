@@ -1,11 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { ScreenReaderAssistant } from '@/components/screen-reader-assistant';
 import { ScreenReaderContext } from '@/components/screen-reader-context';
-import { normalizeSpeechRate } from '@/components/screen-reader-gestures';
+import { normalizeSpeechRate, normalizeSpeechVolume } from '@/components/screen-reader-gestures';
 
 const DEFAULT_STORAGE_KEY = 'so-cong:screen-reader-enabled';
 const DEFAULT_SETTINGS = {
   speechRate: 1,
+  speechVolume: 0.8,
+  voiceURI: '',
+  autoReadFocus: true,
   focusSwipesEnabled: true,
   shortcutSwipesEnabled: true,
 };
@@ -32,6 +35,11 @@ function readState(storageKey: string): ReaderState {
         const value = parsed as Record<string, unknown>;
         preferences = {
           speechRate: normalizeSpeechRate(value.speechRate),
+          speechVolume: normalizeSpeechVolume(value.speechVolume),
+          voiceURI: typeof value.voiceURI === 'string' ? value.voiceURI : '',
+          autoReadFocus: typeof value.autoReadFocus === 'boolean'
+            ? value.autoReadFocus
+            : DEFAULT_SETTINGS.autoReadFocus,
           focusSwipesEnabled:
             typeof value.focusSwipesEnabled === 'boolean'
               ? value.focusSwipesEnabled
@@ -73,6 +81,9 @@ export function ScreenReaderAssistantProvider({ children, userId }: {
         `${storageKey}:settings`,
         JSON.stringify({
           speechRate: state.speechRate,
+          speechVolume: state.speechVolume,
+          voiceURI: state.voiceURI,
+          autoReadFocus: state.autoReadFocus,
           focusSwipesEnabled: state.focusSwipesEnabled,
           shortcutSwipesEnabled: state.shortcutSwipesEnabled,
         }),
@@ -100,6 +111,12 @@ export function ScreenReaderAssistantProvider({ children, userId }: {
       setEnabled: (enabled) => updateState({ enabled }),
       speechRate: current.speechRate,
       setSpeechRate: (speechRate) => updateState({ speechRate: normalizeSpeechRate(speechRate) }),
+      speechVolume: current.speechVolume,
+      setSpeechVolume: (speechVolume) => updateState({ speechVolume: normalizeSpeechVolume(speechVolume) }),
+      voiceURI: current.voiceURI,
+      setVoiceURI: (voiceURI) => updateState({ voiceURI }),
+      autoReadFocus: current.autoReadFocus,
+      setAutoReadFocus: (autoReadFocus) => updateState({ autoReadFocus }),
       focusSwipesEnabled: current.focusSwipesEnabled,
       setFocusSwipesEnabled: (focusSwipesEnabled) => updateState({ focusSwipesEnabled }),
       shortcutSwipesEnabled: current.shortcutSwipesEnabled,

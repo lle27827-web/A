@@ -5,6 +5,12 @@ export type ScreenReaderContextValue = {
   setEnabled: (enabled: boolean) => void;
   speechRate: number;
   setSpeechRate: (rate: number) => void;
+  speechVolume: number;
+  setSpeechVolume: (volume: number) => void;
+  voiceURI: string;
+  setVoiceURI: (voiceURI: string) => void;
+  autoReadFocus: boolean;
+  setAutoReadFocus: (enabled: boolean) => void;
   focusSwipesEnabled: boolean;
   setFocusSwipesEnabled: (enabled: boolean) => void;
   shortcutSwipesEnabled: boolean;
