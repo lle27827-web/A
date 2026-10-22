@@ -41,9 +41,10 @@ export function ServiceList({ services, busy, useFacility, settingBusy, settingE
   );
 }
 
-export function ShiftList({ title, sessions, busy, emptyText, onEdit, onDelete, testId }: {
+export function ShiftList({ title, sessions, busy, emptyText, onEdit, onDelete, testId, onSelectDate }: {
   title?: string; sessions: PersonalSession[]; busy: boolean; emptyText: string;
   onEdit: (s: PersonalSession) => void; onDelete: (s: PersonalSession) => void; testId: string;
+  onSelectDate?: (workDate: string) => void;
 }) {
   return (
     <div data-testid={`list-${testId}`}>
@@ -54,7 +55,17 @@ export function ShiftList({ title, sessions, busy, emptyText, onEdit, onDelete, 
         <ul className="p-list">
           {sessions.map((s) => (
             <li key={s.id} className="p-row" data-testid={`row-personal-shift-${s.id}`}>
-              <span className="p-date mono">{formatShortDate(s.workDate)}</span>
+              {onSelectDate ? (
+                <button
+                  type="button"
+                  className="p-date p-date-button mono"
+                  onClick={() => onSelectDate(s.workDate)}
+                  aria-label={`Mở sổ ngày ${formatShortDate(s.workDate)}`}
+                  data-testid={`button-open-personal-day-${s.id}`}
+                >
+                  {formatShortDate(s.workDate)}
+                </button>
+              ) : <span className="p-date mono">{formatShortDate(s.workDate)}</span>}
               <span className="grow">
                 <strong>{s.serviceName}</strong>
                 {s.customerName && <span className="small" data-testid={`text-personal-shift-customer-${s.id}`}>Khách: {s.customerName}</span>}

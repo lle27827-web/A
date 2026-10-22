@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { asc, eq } from "drizzle-orm";
-import { db, serviceTypesTable, serviceSessionsTable, isPartitionedStorageEnabled, readPartitionedTable } from "@workspace/db";
+import { db, serviceTypesTable, isPartitionedStorageEnabled, readPartitionedTable } from "@workspace/db";
 import {
   CreateServiceTypeBody, CreateServiceTypeResponse, ListServiceTypesResponse,
   UpdateServiceTypeBody, UpdateServiceTypeParams, UpdateServiceTypeResponse, DeleteServiceTypeParams,
@@ -77,15 +77,9 @@ router.patch("/service-types/:id", massageHandler(async (req, res) => {
 router.delete("/service-types/:id", massageHandler(async (req, res) => {
   const { id } = parseInput(DeleteServiceTypeParams, req.params);
   if (isPartitionedStorageEnabled()) {
-    const [services, sessions] = await Promise.all([
-      readPartitionedTable("service_types"),
-      readPartitionedTable("service_sessions"),
-    ]);
+    const services = await readPartitionedTable("service_types");
     if (!(services as unknown as (typeof serviceTypesTable.$inferSelect)[]).some((item) => item.id === id)) {
       throw new MassageError(404, "Không tìm thấy dịch vụ.");
-    }
-    if ((sessions as unknown as (typeof serviceSessionsTable.$inferSelect)[]).some((item) => item.serviceTypeId === id)) {
-      throw new MassageError(409, "Dịch vụ đã có ca chấm công nên không thể xóa. Bạn có thể sửa giá cho các ca mới.");
     }
     await commitPartitionedMutations({
       operationId: operationIdFromRequest(req.get("Idempotency-Key"), "dịch vụ"),
@@ -101,9 +95,6 @@ router.delete("/service-types/:id", massageHandler(async (req, res) => {
   await db.transaction(async (tx) => {
     const [row] = await tx.select().from(serviceTypesTable).where(eq(serviceTypesTable.id, id)).for("update");
     if (!row) throw new MassageError(404, "Không tìm thấy dịch vụ.");
-    const [used] = await tx.select({ id: serviceSessionsTable.id }).from(serviceSessionsTable)
-      .where(eq(serviceSessionsTable.serviceTypeId, id)).limit(1);
-    if (used) throw new MassageError(409, "Dịch vụ đã có ca chấm công nên không thể xóa. Bạn có thể sửa giá cho các ca mới.");
     await tx.delete(serviceTypesTable).where(eq(serviceTypesTable.id, id));
   });
   res.sendStatus(204);

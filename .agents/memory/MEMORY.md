@@ -17,3 +17,4 @@
 - [Concise accessibility](concise-accessibility.md) — short titles and discrepancy summaries; keep controls, financial data, errors and destructive warnings accessible.
 - [GitHub push verification](github-push-verification.md) — a local main commit is not deployed until push authentication succeeds; verify the remote before claiming Vercel changed.
 - [Touch save/back gestures](screen-reader-gestures.md) — keep only continuous save/back gestures; accessibility reading stays with VoiceOver/TalkBack.
+- [Service catalog deletion](service-catalog-deletion.md) — removing a service from choices must preserve recorded history; a same-name recreation is a new identity.

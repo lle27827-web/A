@@ -13,6 +13,7 @@
     "test:retention-integration": "esbuild src/lib/retention.integration.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-retention-integration.cjs && node --test /tmp/so-cong-retention-integration.cjs",
     "test:permissions": "esbuild src/lib/facility-permissions.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-permission-tests.cjs && node --test /tmp/so-cong-permission-tests.cjs",
     "test:massage": "esbuild src/lib/massage.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/cung-lam-massage-tests.cjs && node --test /tmp/cung-lam-massage-tests.cjs",
+    "test:service-types": "esbuild src/routes/service-types.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-service-type-tests.cjs && node --test /tmp/so-cong-service-type-tests.cjs",
     "test:revenue": "esbuild src/lib/facility-revenue.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-revenue-tests.cjs && node --test /tmp/so-cong-revenue-tests.cjs",
     "test:card-topups": "esbuild src/lib/card-topups.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-card-topup-tests.cjs && node --test /tmp/so-cong-card-topup-tests.cjs",
     "test:employee-history": "esbuild src/lib/employee-history.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-employee-history-tests.cjs && node --test /tmp/so-cong-employee-history-tests.cjs",

@@ -185,7 +185,8 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
                 ? <ShiftList sessions={daySessions} busy={deleteShift.isPending} emptyText="Chưa có ca nào trong ngày này." testId="day-shifts"
                     onEdit={(s) => open({ kind: 'shift', item: s })} onDelete={askDeleteShift} />
                 : <ShiftList sessions={sessions} busy={deleteShift.isPending} emptyText="Tháng này chưa có ca." testId="month-shifts"
-                    onEdit={(s) => open({ kind: 'shift', item: s })} onDelete={askDeleteShift} />}
+                    onEdit={(s) => open({ kind: 'shift', item: s })} onDelete={askDeleteShift}
+                    onSelectDate={(workDate) => { setMode('day'); goPeriod(monthOf(workDate), workDate); }} />}
             </section>
             <ServiceList services={services} busy={deleteService.isPending} useFacility={useFacility} settingBusy={updateSettings.isPending} settingError={settingError} onToggleFacility={toggleFacility} onAdd={() => open({ kind: 'service', item: null })}
               onEdit={(s) => open({ kind: 'service', item: s })} onDelete={askDeleteService} />

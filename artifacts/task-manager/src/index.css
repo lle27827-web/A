@@ -602,6 +602,9 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .p-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 11px 12px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--muted) / .35); }
 .p-row .grow { display: flex; flex-direction: column; gap: 2px; min-width: 140px; }
 .p-date { padding: 4px 8px; border-radius: 8px; background: hsl(var(--jade) / .12); color: hsl(var(--jade)); font-size: 12px; font-weight: 800; }
+.p-date-button { border: 0; font: inherit; cursor: pointer; text-align: left; }
+.p-date-button:hover { background: hsl(var(--jade) / .2); }
+.p-date-button:focus-visible { outline: 2px solid hsl(var(--primary)); outline-offset: 2px; }
 .p-note { font-size: 12px; overflow-wrap: anywhere; }
 .p-earn { font-size: 15px; }
 .danger-text { color: hsl(var(--destructive)); }

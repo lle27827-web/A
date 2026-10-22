@@ -25,6 +25,7 @@ export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
   const [dialogError, setDialogError] = useState('');
   const [loginPrompt, setLoginPrompt] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const list = q.data ?? [];
 
   function save(data: { name: string; customerHourlyRate: number; hourlyRate: number }) {
@@ -58,24 +59,55 @@ export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
     if (!canEdit) return;
     setConfirm({
       title: `Xóa dịch vụ ${s.name}?`,
-      body: <p>Chỉ xóa được dịch vụ chưa dùng trong ca nào. Nếu đã có ca dùng dịch vụ này, hệ thống sẽ từ chối để giữ nguyên lịch sử và lương đã tính.</p>,
+      body: <p>Tên dịch vụ sẽ bị xóa khỏi danh sách lựa chọn mới. Các ca, tiền công, thẻ và lịch sử đã ghi vẫn giữ nguyên tên và số tiền. Nếu tạo lại tên này sau đó, hệ thống sẽ tạo dịch vụ mới, không nối với dịch vụ đã xóa.</p>,
       confirmLabel: 'Xóa dịch vụ',
       onConfirm: () => del.mutate({ id: s.id }, {
-        onSuccess: () => { refresh({ services: true }); setConfirm(null); notify(`Đã xóa dịch vụ ${s.name}.`); },
+        onSuccess: () => { refresh({ services: true }); setConfirm(null); notify(`Đã xóa tên dịch vụ ${s.name}; lịch sử cũ được giữ nguyên.`); },
         onError: (e) => {
           setConfirm(null);
-          if (statusCode(e) === 409) fail({ data: { error: `Không thể xóa ${s.name}: dịch vụ đã được dùng trong ca phục vụ. Lịch sử được giữ nguyên — bạn có thể đổi tên hoặc giá cho ca mới.` } });
-          else fail(e);
+          fail(e);
         },
       }),
     });
+  }
+  function askDeleteAll() {
+    if (!canEdit || !list.length || bulkDeleting) return;
+    const targets = [...list];
+    setConfirm({
+      title: `Xóa tất cả ${targets.length} tên dịch vụ?`,
+      body: <p>Tên dịch vụ sẽ bị gỡ khỏi danh sách dùng cho ca mới. Các ca cũ, tiền công, thẻ và lịch sử vẫn giữ nguyên tên cùng số tiền. Sau đó cần thêm dịch vụ mới để tiếp tục ghi ca hoặc bán thẻ; nhập lại tên cũ sẽ tạo dịch vụ riêng. Nếu kết nối gián đoạn giữa chừng, có thể còn một phần chưa xóa.</p>,
+      confirmLabel: 'Xóa tất cả tên dịch vụ',
+      onConfirm: () => { void deleteAllServices(targets); },
+    });
+  }
+  async function deleteAllServices(targets: ServiceTypeRecord[]) {
+    setBulkDeleting(true);
+    let deletedCount = 0;
+    try {
+      for (const service of targets) {
+        await del.mutateAsync({ id: service.id });
+        deletedCount += 1;
+      }
+      refresh({ services: true });
+      setConfirm(null);
+      notify(`Đã xóa ${deletedCount} tên dịch vụ; dữ liệu cũ vẫn được giữ nguyên.`);
+    } catch (error) {
+      refresh({ services: true });
+      setConfirm(null);
+      fail({ data: { error: `Đã xóa ${deletedCount}/${targets.length} tên dịch vụ. Các dữ liệu cũ vẫn an toàn; hãy tải lại danh sách để thử tiếp phần còn lại.` } });
+    } finally {
+      setBulkDeleting(false);
+    }
   }
 
   return (
     <section className={`panel${embedded ? '' : ' page'}`} aria-labelledby="svc-title" data-testid="section-services">
       <div className="panel-head wrap">
         <div>{embedded ? <h2 id="svc-title">Dịch vụ &amp; bảng giá</h2> : <h1 id="svc-title" className="page-title">Dịch vụ &amp; bảng giá</h1>}</div>
-        {canEdit && <button type="button" className="btn primary" onClick={() => { setDialogError(''); setDialog({ service: null }); }} data-testid="button-add-service"><Plus size={15} />Thêm dịch vụ</button>}
+        {canEdit && <div className="head-actions">
+          {list.length > 0 && <button type="button" className="btn danger" onClick={askDeleteAll} disabled={bulkDeleting || del.isPending} data-testid="button-delete-all-services"><Trash2 size={15} aria-hidden="true" />Xóa tất cả tên dịch vụ</button>}
+          <button type="button" className="btn primary" onClick={() => { setDialogError(''); setDialog({ service: null }); }} data-testid="button-add-service"><Plus size={15} aria-hidden="true" />Thêm dịch vụ</button>
+        </div>}
       </div>
       {q.isLoading ? <Skeleton rows={4} label="Đang tải dịch vụ" /> : q.isError
         ? statusCode(q.error) === 401 || statusCode(q.error) === 403
@@ -100,7 +132,7 @@ export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
         </ul>
       )}
       {dialog && canEdit && <ServiceDialog service={dialog.service} busy={create.isPending || update.isPending} serverError={dialogError} authError={loginPrompt} onClose={() => setDialog(null)} onSubmit={save} />}
-      {confirm && <ConfirmDialog state={confirm} busy={del.isPending} onClose={() => setConfirm(null)} />}
+      {confirm && <ConfirmDialog state={confirm} busy={del.isPending || bulkDeleting} onClose={() => setConfirm(null)} />}
     </section>
   );
 }
