@@ -15,6 +15,12 @@ The user chose two copies per new data segment. A write must persist the complet
 
 **How to apply:** Use a per-event commit marker so incomplete writes remain hidden. Before activating partition routing, compare all four stores read-only, apply the additive event schema, verify Neon capacity-monitoring configuration on every store, deploy the matching runtime, then explicitly enable partition mode. Do not claim one-store write availability while DB4 remains the sole coordinator.
 
+On 2026-10-22, after read-only hashes and schemas matched across all 14 business tables on DB1–DB4, the additive partition journal/coordinator schema was applied to all four production stores. DB4 starts routing from DB1 and has 12 initialized ID counters; the migration copied, changed, and deleted no business rows. This did not deploy or enable partition mode.
+
+**Why:** the user approved the schema migration only after a fresh all-store parity check, while keeping the application cutover separate.
+
+**How to apply:** Before cutover, recheck data parity and capacity-monitoring project IDs on Vercel, deploy the matching runtime, and obtain separate authorization to enable partition mode.
+
 The four Neon stores are ordered DB1=`DATABASE_URL_1`, DB2=`DATABASE_URL`, DB3=`DATABASE_URL_3`, DB4=`DATABASE_URL_4`. DB4 is the chosen routing coordinator; the user accepts it as a single point of failure.
 
 **Why:** the user explicitly selected DB4 rather than creating a fifth database.
