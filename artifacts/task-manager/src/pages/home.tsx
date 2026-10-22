@@ -70,14 +70,21 @@ export default function HomePage() {
             : <ErrorBanner text="Không tải được doanh thu. Hãy thử tải lại; nếu vẫn lỗi, kiểm tra kết nối database của máy chủ." onRetry={() => void summary.refetch()} />
           : (
           <>
-            <p className="rev-value mono" data-testid="text-revenue">{formatVnd(summary.data?.revenue ?? 0)}</p>
+            <p
+              className="rev-value mono"
+              data-testid="text-revenue"
+              tabIndex={0}
+              aria-label={`Tổng doanh thu cơ sở: ${formatVnd(summary.data?.revenue ?? 0)}`}
+            >
+              {formatVnd(summary.data?.revenue ?? 0)}
+            </p>
             <dl className="rev-breakdown">
-              <div><dt>Doanh thu khách lẻ (tháng)</dt><dd className="mono" data-testid="text-service-revenue">{formatVnd(summary.data?.serviceRevenue ?? 0)}</dd></div>
-              <div><dt>Doanh thu bán và nạp thẻ (tháng)</dt><dd className="mono" data-testid="text-card-revenue">{formatVnd(summary.data?.cardRevenue ?? 0)}</dd></div>
-              <div className="net-revenue-row rev-key"><dt>Doanh thu đã khấu trừ trong tháng</dt><dd className="mono" data-testid="text-net-revenue"><strong>{formatVnd(summary.data?.netRevenue ?? 0)}</strong></dd></div>
-              <div><dt>Khách lẻ (tháng)</dt><dd className="mono" data-testid="text-walk-in-visits">{summary.data?.walkInVisits ?? 0} lượt</dd></div>
-              <div><dt>Khách thẻ (tháng)</dt><dd className="mono" data-testid="text-card-visits">{summary.data?.cardVisits ?? 0} lượt</dd></div>
-              <div data-testid="row-top-service-by-customer-type">
+              <div tabIndex={0}><dt>Doanh thu khách lẻ (tháng)</dt><dd className="mono" data-testid="text-service-revenue">{formatVnd(summary.data?.serviceRevenue ?? 0)}</dd></div>
+              <div tabIndex={0}><dt>Doanh thu bán và nạp thẻ (tháng)</dt><dd className="mono" data-testid="text-card-revenue">{formatVnd(summary.data?.cardRevenue ?? 0)}</dd></div>
+              <div className="net-revenue-row rev-key" tabIndex={0}><dt>Doanh thu đã khấu trừ trong tháng</dt><dd className="mono" data-testid="text-net-revenue"><strong>{formatVnd(summary.data?.netRevenue ?? 0)}</strong></dd></div>
+              <div tabIndex={0}><dt>Khách lẻ (tháng)</dt><dd className="mono" data-testid="text-walk-in-visits">{summary.data?.walkInVisits ?? 0} lượt</dd></div>
+              <div tabIndex={0}><dt>Khách thẻ (tháng)</dt><dd className="mono" data-testid="text-card-visits">{summary.data?.cardVisits ?? 0} lượt</dd></div>
+              <div data-testid="row-top-service-by-customer-type" tabIndex={0}>
                 <dt>Dịch vụ bán chạy nhất tháng</dt>
                 <dd className="mono">
                   Khách lẻ: {summary.data?.mostUsedWalkInService
@@ -89,24 +96,24 @@ export default function HomePage() {
                     : 'chưa có lượt'}
                 </dd>
               </div>
-              <div data-testid="row-top-sold-card-service">
+              <div data-testid="row-top-sold-card-service" tabIndex={0}>
                 <dt>Gói thẻ bán nhiều nhất tháng</dt>
                 <dd className="mono">{summary.data?.topSoldCardService
                   ? `${summary.data.topSoldCardService.serviceType} · ${summary.data.topSoldCardService.cardsSold} thẻ`
                   : 'Chưa có thẻ bán trong tháng'}</dd>
               </div>
-              <div data-testid="row-most-used-service">
+              <div data-testid="row-most-used-service" tabIndex={0}>
                 <dt>Loại dịch vụ được sử dụng nhiều nhất tháng</dt>
                 <dd className="mono">{summary.data?.mostUsedService
                   ? `${summary.data.mostUsedService.serviceType} · ${summary.data.mostUsedService.visits} lượt · ${formatMinutes(summary.data.mostUsedService.minutes)} · khách lẻ và thẻ`
                   : 'Chưa có lượt sử dụng trong tháng'}</dd>
               </div>
-              <div className="today-heading rev-key"><dt>Doanh thu {dayLabel}{date === today ? ` · ${formatShortDate(date)}` : ''}</dt><dd className="mono" data-testid="text-today-revenue">{formatVnd(summary.data?.today.revenue ?? 0)}</dd></div>
-              <div><dt>Khách lẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-service-revenue">{formatVnd(summary.data?.today.serviceRevenue ?? 0)}</dd></div>
-              <div><dt>Bán và nạp thẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-card-revenue">{formatVnd(summary.data?.today.cardRevenue ?? 0)}</dd></div>
-              <div className="net-revenue-row rev-key"><dt>Doanh thu đã khấu trừ {dayLabel}</dt><dd className="mono" data-testid="text-today-net-revenue"><strong>{formatVnd(summary.data?.today.netRevenue ?? 0)}</strong></dd></div>
-              <div><dt>Khách lẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-walk-in-visits">{summary.data?.today.walkInVisits ?? 0} lượt</dd></div>
-              <div><dt>Khách thẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-card-visits">{summary.data?.today.cardVisits ?? 0} lượt</dd></div>
+              <div className="today-heading rev-key" tabIndex={0}><dt>Doanh thu {dayLabel}{date === today ? ` · ${formatShortDate(date)}` : ''}</dt><dd className="mono" data-testid="text-today-revenue">{formatVnd(summary.data?.today.revenue ?? 0)}</dd></div>
+              <div tabIndex={0}><dt>Khách lẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-service-revenue">{formatVnd(summary.data?.today.serviceRevenue ?? 0)}</dd></div>
+              <div tabIndex={0}><dt>Bán và nạp thẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-card-revenue">{formatVnd(summary.data?.today.cardRevenue ?? 0)}</dd></div>
+              <div className="net-revenue-row rev-key" tabIndex={0}><dt>Doanh thu đã khấu trừ {dayLabel}</dt><dd className="mono" data-testid="text-today-net-revenue"><strong>{formatVnd(summary.data?.today.netRevenue ?? 0)}</strong></dd></div>
+              <div tabIndex={0}><dt>Khách lẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-walk-in-visits">{summary.data?.today.walkInVisits ?? 0} lượt</dd></div>
+              <div tabIndex={0}><dt>Khách thẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-card-visits">{summary.data?.today.cardVisits ?? 0} lượt</dd></div>
             </dl>
           </>
         )}

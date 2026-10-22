@@ -303,6 +303,10 @@ export function ScreenReaderAssistant() {
       moveFocus(navigation);
       return;
     }
+    if (direction === 'down' && !safeSaveTarget()) {
+      moveFocus('next');
+      return;
+    }
     recordSwipe(direction);
   }
 
@@ -680,7 +684,7 @@ export function ScreenReaderAssistant() {
           </header>
           <p className="screen-reader-status" role="status" aria-live="polite">{announcement || 'Đang bật.'}</p>
           <p className="screen-reader-gestures">
-            Chạm hoặc rê ngón tay: chọn và đọc mục bên dưới · Chạm nhanh 2 lần ở bất kỳ đâu: kích hoạt tiêu điểm hiện tại · Vuốt trái/phải: mục trước/sau · Vuốt lên: trở về · Vẽ nét ∧ liền: Nhân viên · Vẽ nét V liền: Thẻ · Kéo 2 ngón: cuộn
+            Chạm hoặc rê ngón tay: chọn và đọc mục bên dưới · Chạm nhanh 2 lần ở bất kỳ đâu: kích hoạt tiêu điểm hiện tại · Vuốt trái/phải: mục trước/sau · Vuốt lên: trở về · Vẽ nét ∧ liền: Thẻ · Vẽ nét V liền: Nhân viên · Vuốt xuống: lưu biểu mẫu hoặc đến mục kế tiếp · Kéo 2 ngón: cuộn
           </p>
           <div className="screen-reader-actions">
             <button type="button" className="btn" onClick={() => speak(pageHeading())} data-testid="button-reader-title">
@@ -721,7 +725,7 @@ export function ScreenReaderAssistant() {
               Dừng đọc
             </button>
           </div>
-          <p className="screen-reader-footnote">Vuốt lên: trở về từng màn hình · Vuốt xuống: lưu biểu mẫu · Nét ∧ liền: Nhân viên · Nét V liền: Thẻ. VoiceOver/TalkBack có thể nhận cử chỉ trước ứng dụng.</p>
+          <p className="screen-reader-footnote">Vuốt lên: trở về từng màn hình · Vuốt xuống: lưu biểu mẫu nếu đang mở, nếu không thì đến mục kế tiếp · Nét ∧ liền: Thẻ · Nét V liền: Nhân viên. VoiceOver/TalkBack có thể nhận cử chỉ trước ứng dụng.</p>
         </section>
       )}
     </aside>

@@ -48,7 +48,7 @@ test('the screen reader only accepts Vietnamese voices', () => {
   assert.equal(isVietnameseScreenReaderVoice({ lang: 'en-US' }), false);
 });
 
-test('continuous inverted-V and V gestures map to employees and cards', () => {
+test('continuous inverted-V and V gestures map to cards and employees', () => {
   const invertedV = [
     { x: 20, y: 150 },
     { x: 48, y: 92 },
@@ -70,8 +70,8 @@ test('continuous inverted-V and V gestures map to employees and cards', () => {
   assert.deepEqual(screenReaderTouchShortcutGesture(invertedV), ['up', 'down']);
   assert.deepEqual(screenReaderTouchShortcutGesture(v), ['down', 'up']);
   assert.equal(screenReaderTouchShortcutGesture(flat), null);
-  assert.equal(screenReaderActionForSwipes(['up', 'down']), 'employees');
-  assert.equal(screenReaderActionForSwipes(['down', 'up']), 'cards');
+  assert.equal(screenReaderActionForSwipes(['up', 'down']), 'cards');
+  assert.equal(screenReaderActionForSwipes(['down', 'up']), 'employees');
 });
 
 test('unknown gesture sequences do nothing', () => {

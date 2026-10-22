@@ -83,8 +83,8 @@ export function screenReaderActionForSwipes(
   }
 
   if (directions.length === 2) {
-    if (directions[0] === 'up' && directions[1] === 'down') return 'employees';
-    if (directions[0] === 'down' && directions[1] === 'up') return 'cards';
+    if (directions[0] === 'up' && directions[1] === 'down') return 'cards';
+    if (directions[0] === 'down' && directions[1] === 'up') return 'employees';
   }
 
   return null;
