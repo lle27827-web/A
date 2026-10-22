@@ -2,8 +2,6 @@ import { Router, type IRouter } from "express";
 import {
   CreateMemberBody,
   CreateMemberResponse,
-  CreateSampleMembersBatchBody,
-  CreateSampleMembersBatchResponse,
   DeleteMemberParams,
   ListMembersResponse,
   ListMembersQueryParams,
@@ -12,10 +10,10 @@ import {
   UpdateMemberResponse,
 } from "@workspace/api-zod";
 import { deleteMember } from "../lib/massage";
-import { createEmployee, createSampleEmployeesBatchOnce, listMembersForPeriod, updateEmployee } from "../lib/employee-history";
+import { createEmployee, listMembersForPeriod, updateEmployee } from "../lib/employee-history";
 import { massageHandler, parseInput } from "./massage-errors";
 import { canViewEmployee, noPermissions } from "../lib/facility-permissions";
-import { requireOwner, type OwnerAuthStatus } from "../lib/owner-auth";
+import type { OwnerAuthStatus } from "../lib/owner-auth";
 
 const router: IRouter = Router();
 
@@ -36,22 +34,6 @@ router.post("/members", massageHandler(async (req, res): Promise<void> => {
     parsed.data,
     req.get("Idempotency-Key"),
   )));
-}));
-
-router.post("/members/sample-batch", requireOwner, massageHandler(async (req, res): Promise<void> => {
-  if (process.env.VERCEL !== "1" || process.env.VERCEL_ENV !== "production") {
-    res.status(409).json({ error: "Chỉ được tạo dữ liệu mẫu trên Vercel Production." });
-    return;
-  }
-
-  const parsed = CreateSampleMembersBatchBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "Cần xác nhận tạo đúng 1.000 nhân viên mẫu." });
-    return;
-  }
-
-  const result = await createSampleEmployeesBatchOnce(req.get("Idempotency-Key") ?? undefined);
-  res.status(201).json(CreateSampleMembersBatchResponse.parse(result));
 }));
 
 router.patch("/members/:id", massageHandler(async (req, res) => {

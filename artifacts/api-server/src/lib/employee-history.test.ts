@@ -3,10 +3,9 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { eq, inArray, sql } from "drizzle-orm";
 import { db, pool, attendanceTable, membersTable, memberVersionsTable, serviceSessionsTable, serviceTypesTable, treatmentCardsTable } from "@workspace/db";
-import { createEmployee, createSampleEmployeesBatchOnce, listMembersForPeriod, updateEmployee } from "./employee-history";
+import { createEmployee, listMembersForPeriod, updateEmployee } from "./employee-history";
 import { createCard, currentBusinessDate, deleteMember, MassageError, saveSession } from "./massage";
 import { getFacilityRevenue } from "./facility-revenue";
-import { buildSampleMemberNames } from "./sample-member-names";
 
 test("deleting employees hides current records while keeping prior-month history and card hours unchanged", async () => {
   const marker = `History-${randomUUID()}`;
@@ -31,23 +30,6 @@ test("deleting employees hides current records while keeping prior-month history
   };
   const status = (code: number) => (error: unknown) => error instanceof MassageError && error.status === code;
   try {
-    const sampleNames = buildSampleMemberNames();
-    const sampleResult = await createSampleEmployeesBatchOnce();
-    const sampleRows = await db.select({ id: membersTable.id })
-      .from(membersTable)
-      .where(inArray(membersTable.name, sampleNames));
-    employees.push(...sampleRows.map(({ id }) => id));
-    assert.equal(sampleResult.createdCount, 1000);
-    assert.equal(sampleRows.length, 1000);
-    assert.equal(
-      await db.select({ id: memberVersionsTable.id })
-        .from(memberVersionsTable)
-        .where(inArray(memberVersionsTable.memberId, sampleRows.map(({ id }) => id)))
-        .then((rows) => rows.length),
-      1000,
-    );
-    await assert.rejects(createSampleEmployeesBatchOnce(), status(409));
-
     const original = await makeEmployee(`${marker}-old`, "2025-01-05T03:00:00Z");
     const later = await makeEmployee(`${marker}-new`);
     const [service] = await db.insert(serviceTypesTable).values({

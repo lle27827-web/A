@@ -57,11 +57,11 @@ Keep the retention cleanup schedule disabled until the permanent card-use ledger
 
 **How to apply:** Re-enable the Vercel cron only after read-only checks confirm `card_usage_history` is published and its subscription relation is ready on the fallback.
 
-The production CU probe must be owner-triggered and bounded: no more than 60 short transactions, spaced at least 31 seconds apart, each inserting and deleting its probe appointment within the same transaction. It may confirm that a real threshold-triggered switch occurs, but it must not claim to consume 100 CU-hours on demand.
+The user requested removal of the 1,000-employee sample generator and production-side database test tools, including the CU probe that writes a temporary appointment. Keep production test-data generation and probe endpoints out of the app; do not remove existing business rows as part of removing the tools.
 
-**Why:** CU-hours are real provider usage, so an unbounded load loop can create unexpected cost; short transactions are reversible but may not move usage to the threshold.
+**Why:** the user asked to remove the sample-employee creation feature and the tools that run database tests, while preserving the actual storage system.
 
-**How to apply:** Keep the endpoint production-only and owner-authorized, stop on a backend change or any error, and explain that a run can finish without reaching 100 CU-hours.
+**How to apply:** Keep automatic capacity monitoring, partition routing, and manual failover behavior intact. Remove production routes and UI that create synthetic test data. Ordinary developer unit tests are not user-facing test tools and may remain.
 
 The user asked to remove the database-switching/status lines from the Settings UI; this removes the visible manual failover and CU-probe entry points, not the backend's automatic routing logic or database data.
 

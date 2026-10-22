@@ -2,7 +2,6 @@ import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, or, sql } from "drizz
 import { db, isPartitionedStorageEnabled, membersTable, memberVersionsTable, readPartitionedTable, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
 import type { MemberInput, MemberRecord, MemberUpdate } from "@workspace/api-zod";
 import { MassageError, retainedMonthBounds } from "./massage";
-import { buildSampleMemberNames } from "./sample-member-names";
 import { commitPartitionedMutations, operationIdFromRequest, upsertMutation } from "./partitioned-mutations";
 import { withPartitionWriteMutex } from "@workspace/db";
 
@@ -173,88 +172,6 @@ export async function createEmployee(input: MemberInput, operationId?: string) {
       memberId: member.id, name: member.name, hourlyRate: member.hourlyRate, recordedAt: member.createdAt,
     });
     return memberResponse(member);
-  });
-}
-
-export async function createSampleEmployeesBatchOnce(operationId?: string) {
-  const names = buildSampleMemberNames();
-  if (isPartitionedStorageEnabled()) {
-    if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi tạo dữ liệu mẫu.");
-    return withPartitionWriteMutex("members", async () => {
-      const current = await readPartitionedTable("members") as unknown as (typeof membersTable.$inferSelect)[];
-      const duplicates = new Set(current.filter((row) => names.includes(row.name)).map((row) => row.name));
-      if (duplicates.size) {
-        throw new MassageError(
-          409,
-          `Không tạo dữ liệu mẫu: đã có ${duplicates.size} tên trong dãy 1–1000. Không có bản ghi nào được thêm.`,
-        );
-      }
-      const now = new Date();
-      const reserved = await commitPartitionedMutations({
-        operationId,
-        lockName: "members-sample-batch",
-        action: "member.sample-batch",
-        request: { names },
-        expectedEventCount: names.length * 2,
-        idAllocations: { members: names.length, member_versions: names.length },
-        alreadyLocked: true,
-        build: (operation) => {
-          const memberIds = operation.allocatedIds.members ?? [];
-          const versionIds = operation.allocatedIds.member_versions ?? [];
-          if (memberIds.length !== names.length || versionIds.length !== names.length) {
-            throw new MassageError(503, "Không cấp đủ mã cho dữ liệu nhân viên mẫu.");
-          }
-          return names.flatMap((name, index) => {
-            const memberId = memberIds[index]!;
-            const versionId = versionIds[index]!;
-            return [
-              upsertMutation("members", memberId, {
-                id: memberId, name, hourlyRate: 0, createdAt: now, deletedAt: null,
-              }),
-              upsertMutation("member_versions", versionId, {
-                id: versionId, memberId, name, hourlyRate: 0, isBaseline: false, recordedAt: now,
-              }),
-            ];
-          });
-        },
-      });
-      if (reserved.allocatedIds.members?.length !== names.length) {
-        throw new MassageError(503, "Không xác định được kết quả tạo dữ liệu mẫu.");
-      }
-      return { createdCount: names.length, firstName: names[0]!, lastName: names.at(-1)! };
-    });
-  }
-  return db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(721001001::bigint)`);
-    const existing = await tx.select({ name: membersTable.name })
-      .from(membersTable)
-      .where(inArray(membersTable.name, names));
-    if (existing.length > 0) {
-      const examples = existing.slice(0, 3).map(({ name }) => `“${name}”`).join(", ");
-      throw new MassageError(
-        409,
-        `Không tạo dữ liệu mẫu: đã có ${existing.length} tên trong dãy 1–1000 (${examples}${existing.length > 3 ? ", …" : ""}). Không có bản ghi nào được thêm.`,
-      );
-    }
-
-    const created = await tx.insert(membersTable)
-      .values(names.map((name) => ({ name, hourlyRate: 0 })))
-      .returning();
-    if (created.length !== names.length) {
-      throw new Error("The sample employee batch was not fully inserted.");
-    }
-    await tx.insert(memberVersionsTable).values(created.map((member) => ({
-      memberId: member.id,
-      name: member.name,
-      hourlyRate: member.hourlyRate,
-      recordedAt: member.createdAt,
-    })));
-
-    return {
-      createdCount: created.length,
-      firstName: names[0]!,
-      lastName: names.at(-1)!,
-    };
   });
 }
 

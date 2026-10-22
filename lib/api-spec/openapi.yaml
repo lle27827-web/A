@@ -526,26 +526,6 @@ paths:
           description: Thành viên đã được xóa; lịch sử ca làm được giữ lại
         "404":
           description: Không tìm thấy thành viên
-  /members/sample-batch:
-    post:
-      operationId: createSampleMembersBatch
-      tags: [members]
-      summary: Tạo một lần 1.000 nhân viên mẫu, chỉ dành cho chủ sở hữu trên Vercel Production
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/SampleMembersBatchInput" }
-      responses:
-        "201":
-          description: Đã tạo các hồ sơ mẫu và lịch sử hồ sơ
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/SampleMembersBatchResult" }
-        "400": { description: Xác nhận không hợp lệ }
-        "401": { description: Cần đăng nhập chủ sở hữu }
-        "403": { description: Chỉ chủ sở hữu được phép }
-        "409": { description: Chỉ chạy trên Vercel Production hoặc đã có tên trùng }
   /attendance:
     get:
       operationId: listAttendance
@@ -1236,20 +1216,6 @@ components:
       properties:
         name: { type: string, minLength: 1, maxLength: 120 }
         hourlyRate: { type: integer, minimum: 0, maximum: 10000000 }
-    SampleMembersBatchInput:
-      type: object
-      required: [confirmation]
-      properties:
-        confirmation:
-          type: string
-          enum: [TAO_1000_NHAN_VIEN_MAU]
-    SampleMembersBatchResult:
-      type: object
-      required: [createdCount, firstName, lastName]
-      properties:
-        createdCount: { type: integer, enum: [1000] }
-        firstName: { type: string }
-        lastName: { type: string }
     TreatmentCard:
       type: object
       required: [id, customerName, phone, serviceType, totalMinutes, usedMinutes, remainingMinutes, purchaseAmount, totalPaidAmount, topUps, purchaseDate, note, createdAt]

@@ -26,7 +26,6 @@ import {
   type SequenceSnapshot,
 } from "../../../../lib/db/src/failover-sequences";
 import { describeReplicationBlocker } from "../../../../lib/db/src/failover-replication-readiness";
-import { getCapacityProbeReadiness } from "./database-failover-readiness";
 
 function sequenceSnapshot(
   overrides: Partial<SequenceSnapshot> = {},
@@ -197,22 +196,6 @@ test("manual switching is limited to adjacent configured databases in either dir
   assert.equal(areAdjacentBackends("database_url_1", "database_url_4", nodes), false);
 });
 
-test("capacity probe reports the next database's exact readiness blocker", () => {
-  const readiness = getCapacityProbeReadiness("database_url", [
-    {
-      backend: "database_url_3",
-      configured: true,
-      canSwitch: false,
-      message: "Chưa tạo subscription “socong_db3_from_source_v1” trên kho đích.",
-    },
-  ]);
-  assert.deepEqual(readiness, {
-    canRun: false,
-    targetBackend: "database_url_3",
-    message: "DB3 chưa sẵn sàng: Chưa tạo subscription “socong_db3_from_source_v1” trên kho đích.",
-  });
-});
-
 test("replication blockers identify subscription and table setup problems", () => {
   assert.match(
     describeReplicationBlocker({
@@ -254,34 +237,6 @@ test("replication blockers report apply-worker and lag details", () => {
     describeReplicationBlocker({ kind: "query_failed" }),
     /kết nối trực tiếp và quyền PostgreSQL/,
   );
-});
-
-test("capacity probe explains why it cannot continue past the last database", () => {
-  const readiness = getCapacityProbeReadiness("database_url_4", []);
-  assert.equal(readiness.canRun, false);
-  assert.match(readiness.message ?? "", /DB4 là kho cuối/);
-});
-
-test("capacity probe refuses to run while a switch is in progress", () => {
-  const readiness = getCapacityProbeReadiness("switching", []);
-  assert.equal(readiness.canRun, false);
-  assert.match(readiness.message ?? "", /Đang có thao tác chuyển/);
-});
-
-test("capacity probe permits only a ready adjacent target", () => {
-  const readiness = getCapacityProbeReadiness("database_url_1", [
-    {
-      backend: "database_url",
-      configured: true,
-      canSwitch: true,
-      message: "Đã đồng bộ; có thể chuyển an toàn.",
-    },
-  ]);
-  assert.deepEqual(readiness, {
-    canRun: true,
-    targetBackend: "database_url",
-    message: null,
-  });
 });
 
 test("additional replica cannot skip a missing link in the failover order", () => {
