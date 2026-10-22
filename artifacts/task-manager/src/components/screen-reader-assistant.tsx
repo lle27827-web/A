@@ -300,12 +300,9 @@ export function ScreenReaderAssistant() {
   }
 
   function handleTouchSwipe(direction: ScreenReaderSwipeDirection) {
-    if (direction === 'left') {
-      moveFocus('next');
-      return;
-    }
-    if (direction === 'right') {
-      moveFocus('previous');
+    const navigation = screenReaderFocusNavigationForSwipe(direction);
+    if (navigation) {
+      moveFocus(navigation);
       return;
     }
     recordSwipe(direction);

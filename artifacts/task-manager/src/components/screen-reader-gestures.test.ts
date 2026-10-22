@@ -66,6 +66,18 @@ test('focus navigation starts at the nearest end and stops at page boundaries', 
   assert.equal(nextScreenReaderFocusIndex(0, 0, 'next'), null);
 });
 
+test('repeated next swipes traverse the full focus list in order without returning to the top', () => {
+  const visited: number[] = [];
+  let current = -1;
+  while (true) {
+    const next = nextScreenReaderFocusIndex(current, 5, 'next');
+    if (next === null) break;
+    visited.push(next);
+    current = next;
+  }
+  assert.deepEqual(visited, [0, 1, 2, 3, 4]);
+});
+
 test('reader keyboard shortcuts navigate headings and items or open safe sections', () => {
   const shortcut = (code: string) => screenReaderKeyboardActionForKey({
     code, altKey: true, shiftKey: true, ctrlKey: false, metaKey: false,
