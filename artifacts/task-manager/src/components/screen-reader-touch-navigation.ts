@@ -5,17 +5,23 @@ export type ScreenReaderTouchPoint = { x: number; y: number };
 export type ScreenReaderTouchNavigationOptions = {
   resolveTarget: (target: EventTarget | null, point?: ScreenReaderTouchPoint) => HTMLElement | null;
   onSwipe: (direction: ScreenReaderSwipeDirection) => void;
+  onShortcutGesture: (directions: readonly [ScreenReaderSwipeDirection, ScreenReaderSwipeDirection]) => void;
   onTap: (target: HTMLElement | null) => void;
+  onExplore: (target: HTMLElement) => void;
   onActivate: () => void;
-  onMultiTouchStart: () => void;
 };
 
 type SingleTouch = {
   identifier: number;
   startX: number;
   startY: number;
+  startedAt: number;
   target: HTMLElement | null;
-  swiped: boolean;
+  moved: boolean;
+  exploredDuringDrag: boolean;
+  quickDirectionalSwipe: boolean;
+  doubleTapCandidate: boolean;
+  points: ScreenReaderTouchPoint[];
 };
 
 type MultiTouch = {
@@ -31,6 +37,7 @@ const SWIPE_DISTANCE_PX = 38;
 const TAP_DISTANCE_PX = 18;
 const DOUBLE_TAP_WINDOW_MS = 750;
 const PINCH_DISTANCE_PX = 26;
+const PATH_SAMPLE_DISTANCE_PX = 7;
 
 export function isScreenReaderDoubleTap(
   previousTapTime: number | null,
@@ -82,6 +89,45 @@ export function screenReaderTouchSwipeDirection(
   return null;
 }
 
+export function screenReaderTouchShortcutGesture(
+  points: readonly ScreenReaderTouchPoint[],
+): readonly [ScreenReaderSwipeDirection, ScreenReaderSwipeDirection] | null {
+  if (points.length < 3) return null;
+  const first = points[0];
+  const last = points[points.length - 1];
+  const minX = Math.min(...points.map((point) => point.x));
+  const maxX = Math.max(...points.map((point) => point.x));
+  if (maxX - minX < 36) return null;
+
+  const apexCandidates = [
+    { index: points.reduce((best, point, index) => point.y < points[best].y ? index : best, 0), directions: ['up', 'down'] as const },
+    { index: points.reduce((best, point, index) => point.y > points[best].y ? index : best, 0), directions: ['down', 'up'] as const },
+  ];
+
+  for (const { index, directions } of apexCandidates) {
+    if (index === 0 || index === points.length - 1) continue;
+    const apex = points[index];
+    const firstVertical = apex.y - first.y;
+    const secondVertical = last.y - apex.y;
+    const firstX = apex.x - first.x;
+    const secondX = last.x - apex.x;
+    const verticalMatches = directions[0] === 'up'
+      ? firstVertical <= -SWIPE_DISTANCE_PX && secondVertical >= SWIPE_DISTANCE_PX
+      : firstVertical >= SWIPE_DISTANCE_PX && secondVertical <= -SWIPE_DISTANCE_PX;
+    const horizontalMatches = Math.abs(firstX) >= 8
+      && Math.abs(secondX) >= 8
+      && Math.sign(firstX) === Math.sign(secondX);
+    const branchRatio = Math.abs(firstVertical) / Math.max(1, Math.abs(secondVertical));
+    if (
+      verticalMatches
+      && horizontalMatches
+      && branchRatio >= 0.35
+      && branchRatio <= 2.85
+    ) return directions;
+  }
+  return null;
+}
+
 export function attachScreenReaderTouchNavigation(
   options: ScreenReaderTouchNavigationOptions,
 ): () => void {
@@ -102,7 +148,6 @@ export function attachScreenReaderTouchNavigation(
       const first = event.touches.item(0);
       const second = event.touches.item(1);
       if (!first || !second) return;
-      options.onMultiTouchStart();
       singleTouch = null;
       lastTap = null;
       const center = {
@@ -140,8 +185,13 @@ export function attachScreenReaderTouchNavigation(
       identifier: touch.identifier,
       startX: touch.clientX,
       startY: touch.clientY,
+      startedAt: Date.now(),
       target: focusTarget,
-      swiped: false,
+      moved: false,
+      exploredDuringDrag: false,
+      quickDirectionalSwipe: false,
+      doubleTapCandidate: screenReaderTapDecision(lastTap?.time ?? null, Date.now()) === 'activate-current-focus',
+      points: [{ x: touch.clientX, y: touch.clientY }],
     };
     multiTouch = null;
     if (event.cancelable) event.preventDefault();
@@ -174,16 +224,37 @@ export function attachScreenReaderTouchNavigation(
     const touch = event.touches.length === 1 ? event.touches.item(0) : null;
     if (!touch || !singleTouch || touch.identifier !== singleTouch.identifier) return;
     if (event.cancelable) event.preventDefault();
-    if (singleTouch.swiped) return;
+    const point = { x: touch.clientX, y: touch.clientY };
+    const deltaX = point.x - singleTouch.startX;
+    const deltaY = point.y - singleTouch.startY;
+    const distanceFromStart = Math.hypot(deltaX, deltaY);
+    if (distanceFromStart > TAP_DISTANCE_PX) {
+      singleTouch.moved = true;
+      if (singleTouch.doubleTapCandidate) singleTouch.doubleTapCandidate = false;
+      lastTap = null;
+    }
+    const horizontalMotion = Math.abs(deltaX) > Math.abs(deltaY) * 1.2;
+    const verticalMotion = Math.abs(deltaY) > Math.abs(deltaX) * 1.2;
+    if (
+      distanceFromStart >= 32
+      && (horizontalMotion || verticalMotion)
+      && Date.now() - singleTouch.startedAt <= 260
+    ) {
+      singleTouch.quickDirectionalSwipe = true;
+    }
+    const previousPoint = singleTouch.points[singleTouch.points.length - 1];
+    if (Math.hypot(point.x - previousPoint.x, point.y - previousPoint.y) >= PATH_SAMPLE_DISTANCE_PX) {
+      singleTouch.points.push(point);
+    }
 
-    const direction = screenReaderTouchSwipeDirection(
-      touch.clientX - singleTouch.startX,
-      touch.clientY - singleTouch.startY,
-    );
-    if (!direction) return;
-    singleTouch.swiped = true;
-    lastTap = null;
-    options.onSwipe(direction);
+    if (!singleTouch.doubleTapCandidate && singleTouch.moved && !singleTouch.quickDirectionalSwipe) {
+      const target = options.resolveTarget(event.target, point);
+      if (target && target !== singleTouch.target) {
+        singleTouch.target = target;
+        singleTouch.exploredDuringDrag = true;
+        options.onExplore(target);
+      }
+    }
   }
 
   function onTouchEnd(event: TouchEvent) {
@@ -199,26 +270,38 @@ export function attachScreenReaderTouchNavigation(
     if (!ended) return;
     singleTouch = null;
     if (event.cancelable) event.preventDefault();
-    if (current.swiped) {
-      lastTap = null;
-      return;
-    }
-
     const endTouch = Array.from(event.changedTouches)
       .find((touch) => touch.identifier === current.identifier);
     if (!endTouch) return;
     const moved = Math.hypot(endTouch.clientX - current.startX, endTouch.clientY - current.startY);
-    if (moved > TAP_DISTANCE_PX) {
-      lastTap = null;
-      return;
-    }
-
-    const now = Date.now();
-    if (screenReaderTapDecision(lastTap?.time ?? null, now) === 'activate-current-focus') {
+    if (current.doubleTapCandidate && moved <= TAP_DISTANCE_PX) {
       lastTap = null;
       options.onActivate();
       return;
     }
+
+    if (moved > TAP_DISTANCE_PX) {
+      lastTap = null;
+      const finalPoint = { x: endTouch.clientX, y: endTouch.clientY };
+      const previousPoint = current.points[current.points.length - 1];
+      if (Math.hypot(finalPoint.x - previousPoint.x, finalPoint.y - previousPoint.y) > 1) {
+        current.points.push(finalPoint);
+      }
+      const shortcut = screenReaderTouchShortcutGesture(current.points);
+      if (shortcut) {
+        options.onShortcutGesture(shortcut);
+        return;
+      }
+      const direction = screenReaderTouchSwipeDirection(
+        endTouch.clientX - current.startX,
+        endTouch.clientY - current.startY,
+      );
+      if (direction && (!current.exploredDuringDrag || current.quickDirectionalSwipe)) options.onSwipe(direction);
+      else if (!current.exploredDuringDrag && current.target) options.onExplore(current.target);
+      return;
+    }
+
+    const now = Date.now();
     lastTap = { time: now };
     options.onTap(current.target);
   }

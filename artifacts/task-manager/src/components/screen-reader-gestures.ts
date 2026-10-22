@@ -13,8 +13,6 @@ export const MIN_SCREEN_READER_RATE = 0.6;
 export const MAX_SCREEN_READER_RATE = 1.8;
 export const MIN_SCREEN_READER_VOLUME = 0.1;
 export const MAX_SCREEN_READER_VOLUME = 1;
-export const SCREEN_READER_COMBO_WINDOW_MS = 1200;
-
 export function isVietnameseScreenReaderVoice(voice: { lang: string }): boolean {
   return voice.lang.toLowerCase().startsWith('vi');
 }

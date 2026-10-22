@@ -138,7 +138,7 @@ export function ScreenReaderSettingsDialog({ onClose }: { onClose: () => void })
               onChange={(event) => screenReader.setTouchNavigationEnabled(event.target.checked)}
               data-testid="switch-reader-touch-navigation"
             />
-            <span><strong>Dùng cử chỉ chạm riêng</strong><small>Chạm 1 lần để chọn và đọc mục dưới ngón tay; chạm 2 lần ở bất kỳ đâu để kích hoạt mục vừa chọn, không đổi theo vị trí chạm thứ hai. Vuốt 1 ngón trái/phải đổi mục; vuốt lên rồi xuống vào Nhân viên, xuống rồi lên vào Thẻ. Kéo 2 ngón để cuộn. Tắt nếu cử chỉ VoiceOver/TalkBack bị xung đột.</small></span>
+            <span><strong>Dùng cử chỉ chạm riêng</strong><small>Chạm hoặc rê ngón tay để chọn và đọc mục bên dưới. Chạm nhanh 2 lần ở bất kỳ đâu để kích hoạt tiêu điểm hiện tại; lần chạm thứ hai không đổi tiêu điểm. Vuốt trái/phải để chuyển mục. Vẽ một nét liền ∧ (lên rồi xuống) để mở Nhân viên; vẽ một nét liền V (xuống rồi lên) để mở Thẻ. Kéo 2 ngón để cuộn.</small></span>
           </label>
 
           <label className="reader-settings-toggle">
@@ -158,7 +158,7 @@ export function ScreenReaderSettingsDialog({ onClose }: { onClose: () => void })
               onChange={(event) => screenReader.setShortcutSwipesEnabled(event.target.checked)}
               data-testid="switch-reader-shortcut-gestures"
             />
-            <span><strong>Bật cử chỉ lối tắt lên/xuống</strong><small>Vuốt lên: trở về từng màn hình · Vuốt xuống: lưu biểu mẫu · Vuốt lên rồi xuống trong 1,2 giây: Nhân viên · Vuốt xuống rồi lên trong 1,2 giây: Thẻ.</small></span>
+            <span><strong>Bật cử chỉ lối tắt lên/xuống</strong><small>Vuốt lên: trở về từng màn hình · Vuốt xuống: lưu biểu mẫu · Vẽ một nét liền ∧: Nhân viên · Vẽ một nét liền V: Thẻ.</small></span>
           </label>
 
           <div className="reader-gesture-help" role="note">

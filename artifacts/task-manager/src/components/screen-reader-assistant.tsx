@@ -7,7 +7,6 @@ import {
   isVietnameseScreenReaderVoice,
   nextScreenReaderFocusIndex,
   previousScreenReaderLocation,
-  SCREEN_READER_COMBO_WINDOW_MS,
   screenReaderActionForSwipes,
   screenReaderFocusNavigationForSwipe,
   screenReaderKeyboardActionForKey,
@@ -186,8 +185,6 @@ export function ScreenReaderAssistant() {
   const pointerStart = useRef<{ x: number; y: number; pointerId: number } | null>(null);
   const lastFocusedPageElement = useRef<HTMLElement | null>(null);
   const activeUtterance = useRef<SpeechSynthesisUtterance | null>(null);
-  const pendingDirection = useRef<ScreenReaderSwipeDirection | null>(null);
-  const pendingTimer = useRef<number | null>(null);
   const routeHistory = useRef<string[]>([]);
   const suppressClick = useRef(false);
   const previousLocation = useRef(location);
@@ -300,12 +297,6 @@ export function ScreenReaderAssistant() {
     target.click();
   }
 
-  function cancelPendingSwipeSequence() {
-    if (pendingTimer.current) window.clearTimeout(pendingTimer.current);
-    pendingTimer.current = null;
-    pendingDirection.current = null;
-  }
-
   function handleTouchSwipe(direction: ScreenReaderSwipeDirection) {
     const navigation = screenReaderFocusNavigationForSwipe(direction);
     if (navigation) {
@@ -315,6 +306,12 @@ export function ScreenReaderAssistant() {
     recordSwipe(direction);
   }
 
+  function handleTouchShortcutGesture(
+    directions: readonly [ScreenReaderSwipeDirection, ScreenReaderSwipeDirection],
+  ) {
+    runSwipeSequence(directions);
+  }
+
   useEffect(() => {
     if (!enabled) {
       setExpanded(false);
@@ -322,9 +319,6 @@ export function ScreenReaderAssistant() {
       activeUtterance.current = null;
       setSpeechActive(false);
       setSpeechPaused(false);
-      if (pendingTimer.current) window.clearTimeout(pendingTimer.current);
-      pendingTimer.current = null;
-      pendingDirection.current = null;
       previousLocation.current = location;
       return;
     }
@@ -380,9 +374,10 @@ export function ScreenReaderAssistant() {
     return attachScreenReaderTouchNavigation({
       resolveTarget: touchFocusTarget,
       onSwipe: handleTouchSwipe,
+      onShortcutGesture: handleTouchShortcutGesture,
       onTap: handleTouchTap,
+      onExplore: selectTouchTarget,
       onActivate: activateCurrentTouchFocus,
-      onMultiTouchStart: cancelPendingSwipeSequence,
     });
   }, [
     enabled,
@@ -397,7 +392,6 @@ export function ScreenReaderAssistant() {
   ]);
 
   useEffect(() => () => {
-    if (pendingTimer.current) window.clearTimeout(pendingTimer.current);
     activeUtterance.current = null;
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   }, []);
@@ -616,32 +610,7 @@ export function ScreenReaderAssistant() {
   }
 
   function recordSwipe(direction: ScreenReaderSwipeDirection) {
-    const first = pendingDirection.current;
-    if (pendingTimer.current) window.clearTimeout(pendingTimer.current);
-    pendingTimer.current = null;
-
-    if (!first) {
-      pendingDirection.current = direction;
-      setAnnouncement(`Đã nhận vuốt ${direction === 'up' ? 'lên' : 'xuống'}; chờ cử chỉ tiếp theo.`);
-      pendingTimer.current = window.setTimeout(() => {
-        pendingDirection.current = null;
-        runSwipeSequence([direction]);
-      }, SCREEN_READER_COMBO_WINDOW_MS);
-      return;
-    }
-
-    pendingDirection.current = null;
-    if (first !== direction) {
-      runSwipeSequence([first, direction]);
-      return;
-    }
-
-    // Repeated swipes in the same direction are treated as one single-swipe action.
-    pendingDirection.current = direction;
-    pendingTimer.current = window.setTimeout(() => {
-      pendingDirection.current = null;
-      runSwipeSequence([direction]);
-    }, SCREEN_READER_COMBO_WINDOW_MS);
+    runSwipeSequence([direction]);
   }
 
   function onPointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
@@ -711,7 +680,7 @@ export function ScreenReaderAssistant() {
           </header>
           <p className="screen-reader-status" role="status" aria-live="polite">{announcement || 'Đang bật.'}</p>
           <p className="screen-reader-gestures">
-            Chạm 1 lần: chọn và đọc mục dưới ngón tay · Chạm 2 lần ở bất kỳ đâu: kích hoạt mục đã chọn · Vuốt trái/phải: mục trước/sau · Vuốt lên: trở về · Lên-xuống trong 1,2 giây: Nhân viên · Xuống-lên trong 1,2 giây: Thẻ · Kéo 2 ngón: cuộn
+            Chạm hoặc rê ngón tay: chọn và đọc mục bên dưới · Chạm nhanh 2 lần ở bất kỳ đâu: kích hoạt tiêu điểm hiện tại · Vuốt trái/phải: mục trước/sau · Vuốt lên: trở về · Vẽ nét ∧ liền: Nhân viên · Vẽ nét V liền: Thẻ · Kéo 2 ngón: cuộn
           </p>
           <div className="screen-reader-actions">
             <button type="button" className="btn" onClick={() => speak(pageHeading())} data-testid="button-reader-title">
@@ -752,7 +721,7 @@ export function ScreenReaderAssistant() {
               Dừng đọc
             </button>
           </div>
-          <p className="screen-reader-footnote">Vuốt lên: trở về từng màn hình · Vuốt xuống: lưu biểu mẫu · Lên-xuống trong 1,2 giây: Nhân viên · Xuống-lên trong 1,2 giây: Thẻ. VoiceOver/TalkBack có thể nhận cử chỉ trước ứng dụng.</p>
+          <p className="screen-reader-footnote">Vuốt lên: trở về từng màn hình · Vuốt xuống: lưu biểu mẫu · Nét ∧ liền: Nhân viên · Nét V liền: Thẻ. VoiceOver/TalkBack có thể nhận cử chỉ trước ứng dụng.</p>
         </section>
       )}
     </aside>

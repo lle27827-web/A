@@ -5,7 +5,6 @@ import {
   isVietnameseScreenReaderVoice,
   nextScreenReaderFocusIndex,
   previousScreenReaderLocation,
-  SCREEN_READER_COMBO_WINDOW_MS,
   normalizeSpeechRate,
   normalizeSpeechVolume,
   screenReaderActionForSwipes,
@@ -14,6 +13,7 @@ import {
 } from './screen-reader-gestures.ts';
 import {
   isScreenReaderDoubleTap,
+  screenReaderTouchShortcutGesture,
   screenReaderTapDecision,
   screenReaderTouchSwipeDirection,
 } from './screen-reader-touch-navigation.ts';
@@ -21,7 +21,6 @@ import {
 test('single upward swipe returns one screen and downward swipe submits a safe form', () => {
   assert.equal(screenReaderActionForSwipes(['up']), 'back');
   assert.equal(screenReaderActionForSwipes(['down']), 'save');
-  assert.equal(SCREEN_READER_COMBO_WINDOW_MS, 1200);
 });
 
 test('back navigation unwinds the in-app route stack without looping', () => {
@@ -49,7 +48,28 @@ test('the screen reader only accepts Vietnamese voices', () => {
   assert.equal(isVietnameseScreenReaderVoice({ lang: 'en-US' }), false);
 });
 
-test('opposite two-swipe gestures open the requested sections', () => {
+test('continuous inverted-V and V gestures map to employees and cards', () => {
+  const invertedV = [
+    { x: 20, y: 150 },
+    { x: 48, y: 92 },
+    { x: 72, y: 44 },
+    { x: 105, y: 150 },
+  ];
+  const v = [
+    { x: 20, y: 35 },
+    { x: 48, y: 92 },
+    { x: 72, y: 140 },
+    { x: 105, y: 35 },
+  ];
+  const flat = [
+    { x: 20, y: 50 },
+    { x: 55, y: 50 },
+    { x: 105, y: 50 },
+  ];
+
+  assert.deepEqual(screenReaderTouchShortcutGesture(invertedV), ['up', 'down']);
+  assert.deepEqual(screenReaderTouchShortcutGesture(v), ['down', 'up']);
+  assert.equal(screenReaderTouchShortcutGesture(flat), null);
   assert.equal(screenReaderActionForSwipes(['up', 'down']), 'employees');
   assert.equal(screenReaderActionForSwipes(['down', 'up']), 'cards');
 });
