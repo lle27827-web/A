@@ -56,7 +56,9 @@ test("editing duplicate identity requires consent and preserves receipts, balanc
     assert.equal(afterFebruary.cardRevenue, beforeFebruary.cardRevenue);
     assert.equal(afterFebruary.netRevenue, beforeFebruary.netRevenue);
     assert.equal(afterFebruary.payroll, beforeFebruary.payroll);
-    await assert.rejects(deleteCard(target.id), (e: unknown) => e instanceof MassageError && e.status === 409);
+    await deleteCard(target.id);
+    const [archivedTarget] = await db.select().from(cards).where(eq(cards.id, target.id));
+    assert.ok(archivedTarget.deletedAt, "a merged, used card can be archived without removing its history");
     await assert.rejects(updateCard(source.id, { ...draft, mergeTargetId: target.id }),
       (e: unknown) => e instanceof MassageError && e.status === 404);
 

@@ -81,7 +81,7 @@ export default function CardDetailPage() {
       body: <div>
         <p>Thẻ sẽ bị ẩn khỏi danh sách và không thể nạp thêm hoặc ghi lượt dùng. Số giờ còn lại ({formatMinutes(Math.max(0, card.remainingMinutes))}) sẽ bị hủy; không hoàn tiền tự động.</p>
         <p>Các ca đã chấm công, giờ đã dùng và tiền công nhân viên được giữ nguyên. Tiền mua/nạp {formatVnd(card.totalPaidAmount)} không còn tính trong báo cáo doanh thu; lịch sử thanh toán vẫn được lưu.</p>
-        <p>Chỉ xóa được khi đã dùng hết giờ hoặc chưa phát sinh lượt dùng sau lần mua/nạp gần nhất. Thao tác không thể hoàn tác.</p>
+        <p>Có thể xóa thẻ bất cứ lúc nào. Thao tác không thể hoàn tác.</p>
       </div>,
       confirmLabel: 'Xóa thẻ',
       onConfirm: () => deleteCard.mutate({ id: card.id }, { onSuccess: () => { refresh(); setConfirm(null); notify('Đã xóa thẻ khỏi danh sách; lịch sử ca nhân viên vẫn được giữ.'); navigate('/cards'); }, onError: (e) => { setConfirm(null); fail(e); } }),

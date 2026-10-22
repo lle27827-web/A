@@ -133,17 +133,19 @@ test("card balance and service payroll stay consistent through edits and concurr
     });
     cards.push(removedCard.id);
     const linkedSession = await record({ ...input, cardId: removedCard.id, minutes: 60, workDate: "2099-12-01" });
-    await assert.rejects(deleteCard(removedCard.id), fails(409));
-    const [protectedCard] = await db.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, removedCard.id));
-    assert.equal(protectedCard.deletedAt, null);
-    assert.ok(protectedCard.firstUsedAt);
-    assert.equal(cardResponse(protectedCard, 60).hasBeenUsed, true);
+    await deleteCard(removedCard.id);
+    const [archivedUsedCard] = await db.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, removedCard.id));
+    assert.ok(archivedUsedCard.deletedAt, "a partially used card can be archived at any time");
+    assert.ok(archivedUsedCard.firstUsedAt);
+    assert.equal(cardResponse(archivedUsedCard, 60).hasBeenUsed, true);
     assert.equal(await balance(removedCard.id), 60);
     const formerlyUsed = await makeCard(60);
     const lastVisit = await record({ ...input, cardId: formerlyUsed.id, minutes: 30 });
     await deleteSession(lastVisit.id);
     assert.equal(await balance(formerlyUsed.id), 0);
-    await assert.rejects(deleteCard(formerlyUsed.id), fails(409));
+    await deleteCard(formerlyUsed.id);
+    const [deletedFormerlyUsed] = await db.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, formerlyUsed.id));
+    assert.ok(deletedFormerlyUsed.deletedAt, "a previously used card can be archived after its visit is removed");
 
     const exhausted = await makeCard(30);
     const exhaustedVisit = await record({ ...input, cardId: exhausted.id, minutes: 30 });
@@ -178,14 +180,13 @@ test("card balance and service payroll stay consistent through edits and concurr
       record({ ...input, cardId: racing.id, minutes: 30 }),
       deleteCard(racing.id),
     ]);
-    assert.equal(race.filter((result) => result.status === "fulfilled").length, 1);
+    assert.equal(race[1].status, "fulfilled", "deletion succeeds whether it wins or follows a concurrent use");
     const [raceCard] = await db.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, racing.id));
+    assert.ok(raceCard.deletedAt);
     if (race[0].status === "fulfilled") {
-      assert.equal(raceCard.deletedAt, null);
       assert.ok(raceCard.firstUsedAt);
       assert.equal(await balance(racing.id), 30);
     } else {
-      assert.ok(raceCard.deletedAt);
       assert.equal(await balance(racing.id), 0);
     }
     // Existing archives still retain visits and disallow further use.

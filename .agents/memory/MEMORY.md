@@ -1,7 +1,7 @@
 - [React workspace compatibility](react-workspace-compatibility.md) — keep Clerk's web React peer range isolated from the Expo-pinned workspace versions.
 - [Orval parameter collisions](orval-parameter-collisions.md) — mixed path/query parameters can generate duplicate exports; fix the contract, not generated files.
 - [Scrollable table accessibility](scrollable-table-accessibility.md) — position scrollports so absolute screen-reader labels cannot escape clipping and widen the document.
-- [Archived treatment cards](archived-cards.md) — preserve used-card history permanently; count archived minutes as used and keep used-card deletion blocked.
+- [Archived treatment cards](archived-cards.md) — preserve card-use history permanently; cards can be archived at any time without refunding used minutes.
 - [Card-use revenue reporting](card-use-revenue-reporting.md) — separate service price/pay, label customer charges “Tiền dịch vụ,” and count card revenue only on purchase.
 - [OpenAPI date query strings](openapi-date-query-strings.md) — keep URL dates as validated `YYYY-MM-DD` strings; Express query values arrive as text.
 - [Vercel database access](vercel-database-access.md) — keep historical rows in their original store; route new rows and append-only edits/deletes to the next shard.

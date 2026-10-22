@@ -472,29 +472,10 @@ export async function deleteCard(id: number, operationId?: string) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi xóa thẻ.");
     return withPartitionWriteMutex("card-identities", () =>
       withPartitionWriteMutex("card-ledger", async () => {
-        const [cardsRaw, topUpsRaw, sessionsRaw, archivedRaw] = await Promise.all([
-          readPartitionedTable("treatment_cards"),
-          readPartitionedTable("card_top_ups"),
-          readPartitionedTable("service_sessions"),
-          readPartitionedTable("card_usage_history"),
-        ]);
+        const cardsRaw = await readPartitionedTable("treatment_cards");
         const cards = cardsRaw as unknown as (typeof treatmentCardsTable.$inferSelect)[];
         const card = cards.find((row) => row.id === id && row.deletedAt === null);
         if (!card) throw new MassageError(404, "Không tìm thấy thẻ.");
-        const topUps = (topUpsRaw as unknown as CardTopUpRow[]).filter((row) => row.cardId === id);
-        const sessions = (sessionsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[]).filter((row) => row.cardId === id);
-        const archived = (archivedRaw as unknown as (typeof cardUsageHistoryTable.$inferSelect)[]).filter((row) => row.cardId === id);
-        const used = sessions.reduce((sum, row) => sum + row.minutes, 0) + archived.reduce((sum, row) => sum + row.minutes, 0);
-        if (card.totalMinutes - used > 0) {
-          const latestFundingAt = Math.max(card.createdAt.getTime(), ...topUps.map((row) => row.createdAt.getTime()));
-          const usedSinceFunding =
-            Boolean(card.firstUsedAt && card.firstUsedAt.getTime() >= latestFundingAt) ||
-            sessions.some((row) => row.createdAt.getTime() >= latestFundingAt) ||
-            archived.some((row) => row.createdAt.getTime() >= latestFundingAt);
-          if (usedSinceFunding) {
-            throw new MassageError(409, "Thẻ còn giờ và đã có lượt dùng sau lần mua hoặc nạp gần nhất. Chỉ xóa khi đã dùng hết giờ hoặc chưa dùng từ lần mua/nạp gần nhất.");
-          }
-        }
         await commitPartitionedMutations({
           operationId,
           lockName: `card:${id}`,
@@ -510,39 +491,6 @@ export async function deleteCard(id: number, operationId?: string) {
   await db.transaction(async (tx) => {
     const [card] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
     if (!card || card.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
-    const used = await usedMinutes(tx, id);
-    const remaining = card.totalMinutes - used;
-    if (remaining > 0) {
-      const latestFundingAt = sql`GREATEST(
-        ${card.createdAt}::timestamptz,
-        COALESCE(
-          (SELECT max(${cardTopUpsTable.createdAt}) FROM ${cardTopUpsTable}
-            WHERE ${cardTopUpsTable.cardId} = ${id}),
-          ${card.createdAt}::timestamptz
-        )
-      )`;
-      const [useSinceLatestFunding] = await tx.select({
-        found: sql<boolean>`(
-          (${card.firstUsedAt} IS NOT NULL AND ${card.firstUsedAt} >= ${latestFundingAt})
-          OR EXISTS (
-            SELECT 1 FROM ${serviceSessionsTable} AS card_sessions
-            WHERE card_sessions.card_id = ${id}
-              AND card_sessions.created_at >= ${latestFundingAt}
-          )
-          OR EXISTS (
-            SELECT 1 FROM ${cardUsageHistoryTable} AS archived_uses
-            WHERE archived_uses.card_id = ${id}
-              AND archived_uses.created_at >= ${latestFundingAt}
-          )
-        )`,
-      }).from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id));
-      if (useSinceLatestFunding.found) {
-        throw new MassageError(
-          409,
-          "Thẻ còn giờ và đã có lượt dùng sau lần mua hoặc nạp gần nhất. Chỉ xóa khi đã dùng hết giờ hoặc chưa dùng từ lần mua/nạp gần nhất.",
-        );
-      }
-    }
     // Keep the card, payments, and every employee visit as audit history.
     // Active card lists and card-sale revenue exclude this archived card.
     await tx.update(treatmentCardsTable).set({ deletedAt: new Date() }).where(eq(treatmentCardsTable.id, id));
