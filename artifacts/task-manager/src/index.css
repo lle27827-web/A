@@ -547,6 +547,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .screen-reader-handle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 112px; min-height: 46px; padding: 8px 14px; border: 1px solid hsl(var(--primary) / .65); border-radius: 999px; background: hsl(var(--card)); color: hsl(var(--foreground)); box-shadow: 0 8px 28px hsl(0 0% 0% / .35); font: inherit; font-weight: 750; touch-action: none; user-select: none; pointer-events: auto; }
 .screen-reader-handle svg { color: hsl(var(--primary)); }
 .screen-reader-handle:focus-visible, .screen-reader-actions .btn:focus-visible { outline: 3px solid hsl(var(--primary)); outline-offset: 3px; }
+[data-reader-touch-focus="true"] { outline: 3px solid hsl(var(--primary)) !important; outline-offset: 3px; }
 .screen-reader-panel { box-sizing: border-box; width: 100%; max-height: min(60dvh, 440px); overflow: auto; overscroll-behavior: contain; padding: 14px; border: 1px solid hsl(var(--border)); border-radius: 16px; background: hsl(var(--card)); box-shadow: 0 12px 40px hsl(0 0% 0% / .45); pointer-events: auto; }
 .screen-reader-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .screen-reader-panel-head h2 { min-width: 0; margin: 0; font-family: var(--app-font-display); font-size: 16px; }

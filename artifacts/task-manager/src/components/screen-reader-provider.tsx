@@ -9,6 +9,7 @@ const DEFAULT_SETTINGS = {
   speechVolume: 0.8,
   voiceURI: '',
   autoReadFocus: true,
+  touchNavigationEnabled: true,
   focusSwipesEnabled: true,
   shortcutSwipesEnabled: true,
 };
@@ -40,6 +41,9 @@ function readState(storageKey: string): ReaderState {
           autoReadFocus: typeof value.autoReadFocus === 'boolean'
             ? value.autoReadFocus
             : DEFAULT_SETTINGS.autoReadFocus,
+          touchNavigationEnabled: typeof value.touchNavigationEnabled === 'boolean'
+            ? value.touchNavigationEnabled
+            : DEFAULT_SETTINGS.touchNavigationEnabled,
           focusSwipesEnabled:
             typeof value.focusSwipesEnabled === 'boolean'
               ? value.focusSwipesEnabled
@@ -84,6 +88,7 @@ export function ScreenReaderAssistantProvider({ children, userId }: {
           speechVolume: state.speechVolume,
           voiceURI: state.voiceURI,
           autoReadFocus: state.autoReadFocus,
+          touchNavigationEnabled: state.touchNavigationEnabled,
           focusSwipesEnabled: state.focusSwipesEnabled,
           shortcutSwipesEnabled: state.shortcutSwipesEnabled,
         }),
@@ -117,6 +122,8 @@ export function ScreenReaderAssistantProvider({ children, userId }: {
       setVoiceURI: (voiceURI) => updateState({ voiceURI }),
       autoReadFocus: current.autoReadFocus,
       setAutoReadFocus: (autoReadFocus) => updateState({ autoReadFocus }),
+      touchNavigationEnabled: current.touchNavigationEnabled,
+      setTouchNavigationEnabled: (touchNavigationEnabled) => updateState({ touchNavigationEnabled }),
       focusSwipesEnabled: current.focusSwipesEnabled,
       setFocusSwipesEnabled: (focusSwipesEnabled) => updateState({ focusSwipesEnabled }),
       shortcutSwipesEnabled: current.shortcutSwipesEnabled,

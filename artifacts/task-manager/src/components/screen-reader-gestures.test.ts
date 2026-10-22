@@ -9,6 +9,7 @@ import {
   screenReaderFocusNavigationForSwipe,
   screenReaderKeyboardActionForKey,
 } from './screen-reader-gestures.ts';
+import { screenReaderTouchSwipeDirection } from './screen-reader-touch-navigation.ts';
 
 test('single swipes return home or save the active form', () => {
   assert.equal(screenReaderActionForSwipes(['up']), 'home');
@@ -34,6 +35,15 @@ test('horizontal swipes map to previous or next, separate from vertical shortcut
   assert.equal(screenReaderFocusNavigationForSwipe('down'), null);
   assert.equal(screenReaderActionForSwipes(['left']), null);
   assert.equal(screenReaderActionForSwipes(['right']), null);
+});
+
+test('touch swipes require a clear direction and ignore short or diagonal movement', () => {
+  assert.equal(screenReaderTouchSwipeDirection(-80, 8), 'left');
+  assert.equal(screenReaderTouchSwipeDirection(75, -4), 'right');
+  assert.equal(screenReaderTouchSwipeDirection(3, -90), 'up');
+  assert.equal(screenReaderTouchSwipeDirection(-2, 70), 'down');
+  assert.equal(screenReaderTouchSwipeDirection(12, 14), null);
+  assert.equal(screenReaderTouchSwipeDirection(45, 40), null);
 });
 
 test('focus navigation starts at the nearest end and stops at page boundaries', () => {

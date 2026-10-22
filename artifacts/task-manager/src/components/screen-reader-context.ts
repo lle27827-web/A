@@ -11,6 +11,8 @@ export type ScreenReaderContextValue = {
   setVoiceURI: (voiceURI: string) => void;
   autoReadFocus: boolean;
   setAutoReadFocus: (enabled: boolean) => void;
+  touchNavigationEnabled: boolean;
+  setTouchNavigationEnabled: (enabled: boolean) => void;
   focusSwipesEnabled: boolean;
   setFocusSwipesEnabled: (enabled: boolean) => void;
   shortcutSwipesEnabled: boolean;

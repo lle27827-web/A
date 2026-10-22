@@ -78,6 +78,7 @@ export function attachScreenReaderTouchNavigation(
     if (target instanceof Element && target.closest('.screen-reader-assistant')) {
       singleTouch = null;
       multiTouch = null;
+      lastTap = null;
       return;
     }
 
@@ -87,19 +88,20 @@ export function attachScreenReaderTouchNavigation(
       if (!first || !second) return;
       options.onMultiTouchStart();
       singleTouch = null;
+      lastTap = null;
       multiTouch = {
         target: options.resolveTarget(target),
         lastY: (first.clientY + second.clientY) / 2,
         initialDistance: distanceBetween(first, second),
         pinching: false,
       };
-      if (lastTap && Date.now() - lastTap.time > DOUBLE_TAP_WINDOW_MS) lastTap = null;
       return;
     }
 
     if (event.touches.length !== 1) {
       singleTouch = null;
       multiTouch = null;
+      lastTap = null;
       return;
     }
 
@@ -176,7 +178,10 @@ export function attachScreenReaderTouchNavigation(
     if (!ended) return;
     singleTouch = null;
     if (event.cancelable) event.preventDefault();
-    if (current.swiped || !current.target) return;
+    if (current.swiped || !current.target) {
+      lastTap = null;
+      return;
+    }
 
     const endTouch = Array.from(event.changedTouches)
       .find((touch) => touch.identifier === current.identifier);

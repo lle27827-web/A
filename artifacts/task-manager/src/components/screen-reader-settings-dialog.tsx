@@ -135,11 +135,21 @@ export function ScreenReaderSettingsDialog({ onClose }: { onClose: () => void })
           <label className="reader-settings-toggle">
             <input
               type="checkbox"
+              checked={screenReader.touchNavigationEnabled}
+              onChange={(event) => screenReader.setTouchNavigationEnabled(event.target.checked)}
+              data-testid="switch-reader-touch-navigation"
+            />
+            <span><strong>Dùng cử chỉ chạm riêng</strong><small>Chạm 1 lần để đọc, chạm 2 lần để kích hoạt; vuốt 1 ngón chuyển mục, kéo 2 ngón để cuộn. Tắt nếu cử chỉ VoiceOver/TalkBack bị xung đột.</small></span>
+          </label>
+
+          <label className="reader-settings-toggle">
+            <input
+              type="checkbox"
               checked={screenReader.focusSwipesEnabled}
               onChange={(event) => screenReader.setFocusSwipesEnabled(event.target.checked)}
               data-testid="switch-reader-focus-gestures"
             />
-            <span><strong>Vuốt trên nút Trợ đọc để chuyển tiêu đề</strong><small>Dùng nút hoặc phím tắt để duyệt mọi nút, liên kết và ô nhập.</small></span>
+            <span><strong>Bật vuốt chuyển tiêu điểm</strong><small>Vuốt trái/phải để đọc lần lượt tiêu đề, nút, liên kết và ô nhập.</small></span>
           </label>
 
           <label className="reader-settings-toggle">
@@ -153,7 +163,7 @@ export function ScreenReaderSettingsDialog({ onClose }: { onClose: () => void })
           </label>
 
           <div className="reader-gesture-help" role="note">
-            Phím tắt khi tiêu điểm ở Trợ đọc: Alt+Shift+←/→ tiêu đề, ↑/↓ mọi mục, H trang chính, S lưu, E nhân viên, C thẻ. Vuốt chỉ nhận trên nút nổi; VoiceOver/TalkBack vẫn xử lý chạm hai lần.
+            Lối tắt lên/xuống chỉ chạy khi bật Trợ đọc. VoiceOver/TalkBack có thể giữ cử chỉ ở cấp thiết bị; nếu cử chỉ của ứng dụng không nhận, hãy tắt chế độ chạm riêng hoặc tạm tắt trình đọc hệ thống. Khi tắt chế độ chạm riêng, thao tác chạm thông thường được giữ nguyên.
           </div>
         </section>
       </div>
