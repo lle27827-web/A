@@ -5,7 +5,7 @@ description: Why removed customer cards retain stored history and how financial 
 
 Cards with a deletion timestamp stay in the database as audit records. Do not physically delete these rows or drop the timestamp column by default. Hide archived cards from active card lists and exclude their purchase/top-up revenue and card-use metrics, but keep all employee shifts and wages in employee history and payroll.
 
-**Why:** a schema change that dropped the archive marker reported five existing card rows with data. The user also requires deleted cards' employee attendance and pay to remain unchanged.
+**Why:** a schema change that dropped the archive marker reported five existing card rows with data. The user requires deleted cards' employee attendance and pay to remain unchanged, card-sale/top-up revenue to leave active reports, and archived cards to stay hidden from the active list without a separate archive view.
 
 **How to apply:** when changing card deletion, balances, employee payroll or daily/monthly revenue, test that archived card sales are excluded, employee shifts/pay are retained, and all stored history remains intact.
 
