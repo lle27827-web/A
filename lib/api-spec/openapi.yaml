@@ -1361,7 +1361,7 @@ components:
         note: { type: string, maxLength: 2000 }
     MassageSummary:
       type: object
-      required: [month, revenue, netRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits, topSoldCardService, mostUsedCardService, mostUsedWalkInService, mostUsedService, today]
+      required: [month, revenue, netRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits, topSoldCardService, mostUsedCardService, mostUsedWalkInService, mostUsedService, serviceBreakdown, today]
       properties:
         month: { type: string }
         revenue: { type: number, description: "Tổng doanh thu gộp: tiền dịch vụ khách lẻ cộng tiền bán thẻ trong tháng; không cộng lại khi dùng thẻ." }
@@ -1401,10 +1401,20 @@ components:
             serviceType: { type: string }
             visits: { type: integer }
             minutes: { type: integer }
+        serviceBreakdown:
+          type: array
+          items: { $ref: "#/components/schemas/ServiceDurationBreakdown" }
         today: { $ref: "#/components/schemas/DailyRevenue" }
+    ServiceDurationBreakdown:
+      type: object
+      required: [serviceType, minutes, visits]
+      properties:
+        serviceType: { type: string }
+        minutes: { type: integer, description: "Thời lượng của từng ca trong nhóm." }
+        visits: { type: integer, description: "Số ca có cùng loại dịch vụ và thời lượng." }
     DailyRevenue:
       type: object
-      required: [date, revenue, netRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits]
+      required: [date, revenue, netRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits, serviceBreakdown]
       properties:
         date: { type: string, format: date }
         revenue: { type: number }
@@ -1418,6 +1428,9 @@ components:
         cardsSold: { type: integer }
         walkInVisits: { type: integer }
         cardVisits: { type: integer }
+        serviceBreakdown:
+          type: array
+          items: { $ref: "#/components/schemas/ServiceDurationBreakdown" }
     MemberPayroll:
       type: object
       required: [member, month, totalMinutes, totalSalary]

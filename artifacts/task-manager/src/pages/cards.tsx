@@ -53,20 +53,25 @@ export default function CardsPage() {
             return (
               <li key={c.id}>
                 <div className="card-list-item">
-                  <div className="card-list-copy">
+                  <Link
+                    href={`/cards/${c.id}`}
+                    onClick={() => setQuery('')}
+                    className="card-list-open"
+                    aria-label={`Mở nhật ký thẻ: ${c.customerName}, số điện thoại ${c.phone}, thẻ ${c.serviceType}, đã trả ${formatVnd(c.totalPaidAmount)}, còn ${formatMinutes(c.remainingMinutes)} trên ${formatMinutes(c.totalMinutes)}`}
+                    data-testid={`link-card-details-${c.id}`}
+                  >
                     <strong className="card-list-customer" data-testid={`text-card-list-customer-${c.id}`}>{c.customerName}</strong>
-                    <a href={`tel:${c.phone}`} className="card-list-phone" aria-label={`Số điện thoại ${c.phone}`} data-testid={`link-card-phone-${c.id}`}>
-                      <Phone size={14} aria-hidden="true" />{c.phone}
-                    </a>
-                    <Link href={`/cards/${c.id}`} onClick={() => setQuery('')} className="card-list-meta" data-testid={`link-card-details-${c.id}`}>
+                    <span className="card-list-phone" data-testid={`text-card-phone-${c.id}`}>{c.phone}</span>
+                    <span className="card-list-meta">
                       <span>Thẻ {c.serviceType} · mua {formatShortDate(c.purchaseDate)} · đã trả {formatVnd(c.totalPaidAmount)}</span>
                       <span className="meter" aria-hidden="true"><span style={{ transform: `scaleX(${pct / 100})` }} /></span>
-                    </Link>
-                  </div>
-                  <Link href={`/cards/${c.id}`} onClick={() => setQuery('')} className="card-list-balance" aria-label={`Mở thẻ của ${c.customerName}, còn ${formatMinutes(c.remainingMinutes)}`} data-testid={`link-card-balance-${c.id}`}>
+                    </span>
                     <span className="remain mono"><strong>{formatMinutes(c.remainingMinutes)}</strong><span className="muted">/ {formatMinutes(c.totalMinutes)}</span></span>
                     <ChevronRight size={18} aria-hidden="true" />
                   </Link>
+                  <a href={`tel:${c.phone}`} className="card-list-call" aria-label={`Gọi ${c.phone}`} data-testid={`link-card-phone-${c.id}`}>
+                    <Phone size={16} aria-hidden="true" />
+                  </a>
                 </div>
               </li>
             );

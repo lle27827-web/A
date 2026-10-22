@@ -1493,6 +1493,11 @@ export const GetMassageSummaryResponse = zod.object({
   "visits": zod.number().int(),
   "minutes": zod.number().int()
 }).nullable(),
+  "serviceBreakdown": zod.array(zod.object({
+  "serviceType": zod.string(),
+  "minutes": zod.number().int().describe('Thời lượng của từng ca trong nhóm.'),
+  "visits": zod.number().int().describe('Số ca có cùng loại dịch vụ và thời lượng.')
+})),
   "today": zod.object({
   "date": zod.coerce.date(),
   "revenue": zod.number(),
@@ -1505,7 +1510,12 @@ export const GetMassageSummaryResponse = zod.object({
   "payroll": zod.number(),
   "cardsSold": zod.number().int(),
   "walkInVisits": zod.number().int(),
-  "cardVisits": zod.number().int()
+  "cardVisits": zod.number().int(),
+  "serviceBreakdown": zod.array(zod.object({
+  "serviceType": zod.string(),
+  "minutes": zod.number().int().describe('Thời lượng của từng ca trong nhóm.'),
+  "visits": zod.number().int().describe('Số ca có cùng loại dịch vụ và thời lượng.')
+}))
 })
 })
 

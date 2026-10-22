@@ -6,6 +6,7 @@ import {
   useGetPersonalNotebook, useUpdatePersonalService, useUpdatePersonalSession, useUpdatePersonalSettings,
 } from '@workspace/api-client-react';
 import type { PersonalService, PersonalSession } from '@workspace/api-client-react';
+import { summarizeServiceDurations, serviceDurationLabel } from '@/lib/service-duration-summary';
 import { AlertCircle, ArrowLeft, BookHeart, CalendarDays, Check, ChevronLeft, ChevronRight, History, Home, LogIn, Plus, Scale, X } from 'lucide-react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { ConfirmDialog, ErrorBanner, Skeleton, type ConfirmState } from '@/components/modal';
@@ -107,6 +108,8 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
   const data = nb.data;
   const sessions = useMemo(() => [...(data?.sessions ?? [])].sort((a, b) => b.workDate.localeCompare(a.workDate) || b.id - a.id), [data?.sessions]);
   const daySessions = sessions.filter((s) => s.workDate === date);
+  const monthServiceDetails = useMemo(() => summarizeServiceDurations(sessions.map((s) => ({ serviceType: s.serviceName, minutes: s.minutes }))), [sessions]);
+  const dayServiceDetails = useMemo(() => summarizeServiceDurations(daySessions.map((s) => ({ serviceType: s.serviceName, minutes: s.minutes }))), [daySessions]);
   const monthMinutes = sessions.reduce((a, s) => a + s.minutes, 0);
   const services = data?.services ?? [];
   const useFacility = data?.useFacilityRates === true;
@@ -144,8 +147,16 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
           <p className="muted" data-testid="status-personal-totals-unavailable">Chưa xem được tổng thu nhập — sổ chưa tải được.</p>
         ) : (
           <div className="p-totals">
-            <div><span className="rev-label">Cả tháng</span><p className="p-big mono" data-testid="text-personal-month-total">{formatVnd(data?.totalMonth ?? 0)}</p><span className="muted small" data-testid="text-personal-month-count">{sessions.length} ca · {formatMinutes(monthMinutes)}</span></div>
-            <div><span className="rev-label">Ngày {formatShortDate(date)}</span><p className="p-mid mono" data-testid="text-personal-day-total">{formatVnd(data?.totalDay ?? 0)}</p><span className="muted small" data-testid="text-personal-day-count">{daySessions.length} ca</span></div>
+            <div><span className="rev-label">Tổng doanh thu tháng</span><p className="p-big mono" data-testid="text-personal-month-total">{formatVnd(data?.totalMonth ?? 0)}</p><span className="muted small" data-testid="text-personal-month-count">{sessions.length} ca · {formatMinutes(monthMinutes)}</span>
+              <ul className="service-duration-list" aria-label="Chi tiết ca dịch vụ trong tháng" data-testid="list-personal-month-service-durations">
+                {monthServiceDetails.length ? monthServiceDetails.map((item) => <li key={`${item.serviceType}-${item.minutes}`}>{serviceDurationLabel(item, formatMinutes)}</li>) : <li>Chưa có ca dịch vụ</li>}
+              </ul>
+            </div>
+            <div><span className="rev-label">Ngày {formatShortDate(date)}</span><p className="p-mid mono" data-testid="text-personal-day-total">{formatVnd(data?.totalDay ?? 0)}</p><span className="muted small" data-testid="text-personal-day-count">{daySessions.length} ca</span>
+              <ul className="service-duration-list" aria-label={`Chi tiết ca dịch vụ ngày ${formatShortDate(date)}`} data-testid="list-personal-day-service-durations">
+                {dayServiceDetails.length ? dayServiceDetails.map((item) => <li key={`${item.serviceType}-${item.minutes}`}>{serviceDurationLabel(item, formatMinutes)}</li>) : <li>Chưa có ca dịch vụ</li>}
+              </ul>
+            </div>
           </div>
         )}
         <div className="p-actions">

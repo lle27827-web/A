@@ -1,14 +1,12 @@
 import { useCallback, useContext, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
-import { ArrowLeft, BookHeart, ChevronRight, Database, History, Home, KeyRound, Settings, SlidersHorizontal, Trash2, Volume2, X } from 'lucide-react';
+import { ArrowLeft, BookHeart, ChevronRight, History, Home, KeyRound, Settings, Trash2, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
 import { AccessGrantsDialog } from '@/components/access-grants';
-import { DatabaseFailoverDialog } from '@/components/database-failover-dialog';
-import { ScreenReaderSettingsDialog } from '@/components/screen-reader-settings-dialog';
-import { ScreenReaderContext } from '@/components/screen-reader-context';
+import { AppGestureContext } from '@/components/app-gesture-context';
 
 export type ViewMode = 'owner' | 'employee';
 export type ViewPrefs = { mode: ViewMode; employeeId: number | null };
@@ -57,10 +55,8 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   const [, navigate] = useLocation();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [deleteHistoryOpen, setDeleteHistoryOpen] = useState(false);
-  const [failoverOpen, setFailoverOpen] = useState(false);
-  const [screenReaderSettingsOpen, setScreenReaderSettingsOpen] = useState(false);
-  const screenReader = useContext(ScreenReaderContext);
-  if (!screenReader) throw new Error('ViewSettings rendered outside the screen reader provider');
+  const appGestures = useContext(AppGestureContext);
+  if (!appGestures) throw new Error('App gesture settings rendered outside the app gesture provider');
 
   function pickHistory(month: string, date: string) {
     setHistoryOpen(false);
@@ -86,36 +82,28 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
             {isOwner ? 'Lịch sử, cấp quyền quản lý và sổ cá nhân.' : canManageGrants ? 'Lịch sử tháng, quyền quản lý trong phạm vi được cấp và sổ cá nhân.' : 'Lịch sử tháng và sổ cá nhân.'}
           </DialogPrimitive.Description>
 
-          <button
-            type="button"
-            role="switch"
-            aria-checked={screenReader.enabled}
-            aria-label="Trợ đọc SỔ CÔNG"
-            className={`settings-link screen-reader-setting${screenReader.enabled ? ' is-on' : ''}`}
-            onClick={() => screenReader.setEnabled(!screenReader.enabled)}
-            data-testid="button-toggle-screen-reader"
-          >
-            <Volume2 size={17} aria-hidden="true" />
-            <span className="grow">
-              <strong>Trợ đọc SỔ CÔNG</strong>
-              <span className="muted">{screenReader.enabled ? 'Đang bật' : 'Đang tắt'}</span>
-            </span>
-            <span className="screen-reader-switch-state" aria-hidden="true">{screenReader.enabled ? 'Bật' : 'Tắt'}</span>
-          </button>
-
-          <button
-            type="button"
-            className="settings-link"
-            onClick={() => { onOpenChange(false); setScreenReaderSettingsOpen(true); }}
-            data-testid="button-open-screen-reader-settings"
-          >
-            <SlidersHorizontal size={16} aria-hidden="true" />
-            <span className="grow">
-              <strong>Thiết lập Trợ đọc</strong>
-              <span className="muted">Cử chỉ và tốc độ giọng đọc</span>
-            </span>
-            <ChevronRight size={16} aria-hidden="true" />
-          </button>
+          <section className="app-gesture-settings" aria-labelledby="app-gesture-title">
+            <h3 id="app-gesture-title">Cử chỉ thao tác</h3>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={appGestures.enabled}
+              aria-label="Cử chỉ lưu và trở về"
+              className={`settings-link app-gesture-setting${appGestures.enabled ? ' is-on' : ''}`}
+              onClick={() => appGestures.setEnabled(!appGestures.enabled)}
+              data-testid="button-toggle-app-gestures"
+            >
+              <ArrowLeft size={17} aria-hidden="true" />
+              <span className="grow">
+                <strong>Cử chỉ lưu và trở về</strong>
+                <span className="muted">{appGestures.enabled ? 'Đang bật' : 'Đang tắt'}</span>
+              </span>
+              <span className="app-gesture-switch-state" aria-hidden="true">{appGestures.enabled ? 'Bật' : 'Tắt'}</span>
+            </button>
+            <p className="app-gesture-help">
+              Vẽ liền một nét lên → phải → trái để lưu biểu mẫu thông thường; trái → phải để trở về. Các lần vuốt thường, chạm và nhập liệu vẫn hoạt động như cũ.
+            </p>
+          </section>
 
           <Link href="/personal" className="settings-link personal-entry" onClick={() => onOpenChange(false)} data-testid="link-personal-notebook">
             <BookHeart size={17} aria-hidden="true" /><span className="grow"><strong>Chấm công cá nhân</strong><span className="muted">Sổ riêng của tài khoản bạn</span></span><ChevronRight size={16} aria-hidden="true" />
@@ -134,12 +122,6 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
           )}
 
           {isOwner && (
-            <button type="button" className="settings-link" onClick={() => { onOpenChange(false); setFailoverOpen(true); }} data-testid="button-open-database-failover">
-              <Database size={15} aria-hidden="true" /><span className="grow"><strong>Chuyển database dự phòng</strong><span className="muted">Chủ sở hữu · kho liền kề đã đồng bộ</span></span><ChevronRight size={16} aria-hidden="true" />
-            </button>
-          )}
-
-          {isOwner && (
             <button type="button" className="settings-link" onClick={() => { onOpenChange(false); setDeleteHistoryOpen(true); }} data-testid="button-open-delete-history">
               <Trash2 size={15} aria-hidden="true" /><span className="grow"><strong>Xóa lịch sử chấm công</strong><span className="muted">Chọn khoảng ngày cần xóa</span></span><ChevronRight size={16} aria-hidden="true" />
             </button>
@@ -154,9 +136,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
     </DialogPrimitive.Root>
     {historyOpen && <HistoryMonthsDialog listOnly onPick={pickHistory} onClose={() => setHistoryOpen(false)} />}
     {deleteHistoryOpen && isOwner && <HistoryDeleteDialog onClose={() => setDeleteHistoryOpen(false)} />}
-    {failoverOpen && isOwner && <DatabaseFailoverDialog onClose={() => setFailoverOpen(false)} />}
     {grantsOpen && canManageGrants && <AccessGrantsDialog members={members} isOwner={isOwner} permissions={permissions} onClose={() => setGrantsOpen(false)} />}
-    {screenReaderSettingsOpen && <ScreenReaderSettingsDialog onClose={() => setScreenReaderSettingsOpen(false)} />}
     </>
   );
 }

@@ -74,6 +74,7 @@ export * from './sampleMembersBatchInput';
 export * from './sampleMembersBatchInputConfirmation';
 export * from './sampleMembersBatchResult';
 export * from './sampleMembersBatchResultCreatedCount';
+export * from './serviceDurationBreakdown';
 export * from './serviceSession';
 export * from './serviceSessionInput';
 export * from './serviceTypeInput';

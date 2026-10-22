@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { MemberRecord, TreatmentCard, TreatmentCardInput } from '@workspace/api-client-react';
 import { getListServiceTypesQueryKey, useListServiceTypes } from '@workspace/api-client-react';
-import { AlertCircle, GitMerge, LoaderCircle, Phone } from 'lucide-react';
+import { AlertCircle, Check, ChevronRight, GitMerge, LoaderCircle, Phone } from 'lucide-react';
 import { Link } from 'wouter';
 import { Modal } from '@/components/modal';
 import { SESSION_FRESHNESS, formatMinutes, formatVnd, hoursValue, parseHoursToMinutes, parseMoney } from '@/lib/massage';
@@ -31,10 +31,12 @@ export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId
   const [hours, setHours] = useState(card ? hoursValue(card.totalMinutes) : '10');
   const [amount, setAmount] = useState(card ? String(card.purchaseAmount) : '');
   const [purchaseDate, setPurchaseDate] = useState(card?.purchaseDate ?? defaultDate);
+  const [servicePickerOpen, setServicePickerOpen] = useState(false);
   const note = card?.note ?? '';
   const [error, setError] = useState('');
   const catalog = servicesQuery.data ?? [];
   const legacy = card && card.serviceType && !catalog.some((s) => s.name === card.serviceType) ? card.serviceType : null;
+  const serviceOptions = [...(legacy ? [legacy] : []), ...catalog.map((service) => service.name)];
   const totalMinutes = parseHoursToMinutes(hours);
   const money = parseMoney(amount);
   const callHref = phoneCallHref(phone);
@@ -84,15 +86,31 @@ export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId
             {callHref && <a href={callHref} className="appointment-phone" aria-label={`Gọi ${phone.trim()}`} data-testid="link-card-phone-draft"><Phone size={13} aria-hidden="true" />Gọi {phone.trim()}</a>}
           </div>
         </div>
-        <label className="field" htmlFor="c-service">Loại dịch vụ
-          <select id="c-service" value={serviceType} onChange={(e) => setServiceType(e.target.value)} required disabled={servicesQuery.isLoading || (servicesQuery.isError && !legacy)} aria-busy={servicesQuery.isLoading} data-testid="select-card-service">
-            <option value="">{servicesQuery.isLoading ? 'Đang tải dịch vụ…' : servicesQuery.isError ? 'Không tải được dịch vụ' : catalog.length ? 'Chọn dịch vụ' : 'Chưa có dịch vụ'}</option>
-            {legacy && <option value={legacy}>{legacy} (không còn trong danh sách)</option>}
-            {catalog.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
-          </select>
+        <fieldset className="field service-pick">
+          <legend>Loại dịch vụ</legend>
+          <button id="c-service-picker-trigger" type="button" className="choice-row service-picker-trigger"
+            onClick={() => setServicePickerOpen((open) => !open)} aria-expanded={servicePickerOpen}
+            aria-controls="card-service-choices" aria-busy={servicesQuery.isLoading}
+            disabled={servicesQuery.isLoading || (servicesQuery.isError && !legacy)}
+            data-testid="button-open-card-service-picker">
+            <span className="grow"><strong>{serviceType || (servicesQuery.isLoading ? 'Đang tải dịch vụ…' : 'Chọn dịch vụ')}</strong></span>
+            <ChevronRight size={16} aria-hidden="true" />
+          </button>
+          {servicePickerOpen && (
+            <div id="card-service-choices" className="choice-list service-choice-list inline-service-choice-list" role="group" aria-label="Danh sách dịch vụ" data-testid="list-card-service-choices">
+              {serviceOptions.map((name) => (
+                <button key={name} type="button" className="choice-row service-choice-row" aria-pressed={serviceType === name}
+                  onClick={() => { setServiceType(name); setServicePickerOpen(false); setError(''); }}
+                  data-testid={`button-card-service-choice-${name}`}>
+                  <span className="grow"><strong>{name}</strong>{legacy === name && <span className="muted">Không còn trong danh sách</span>}</span>
+                  {serviceType === name ? <Check size={17} aria-label="Đã chọn" /> : <ChevronRight size={17} aria-hidden="true" />}
+                </button>
+              ))}
+            </div>
+          )}
           {servicesQuery.isError && <span className="hint warn" role="alert">Không tải được danh sách dịch vụ. <button type="button" className="link-soft as-button" onClick={() => void servicesQuery.refetch()}>Thử lại</button></span>}
           {!servicesQuery.isLoading && !servicesQuery.isError && catalog.length === 0 && <span className="hint warn" role="status">Chưa có dịch vụ nào. <Link href="/services" className="link-strong" onClick={onClose}>Thêm dịch vụ</Link></span>}
-        </label>
+        </fieldset>
         <div className="field-row">
           <label className="field" htmlFor="c-hours">{card ? 'Tổng số giờ (gồm đã nạp)' : 'Số giờ mua'}
             <input id="c-hours" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} required data-testid="input-card-hours" />

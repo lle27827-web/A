@@ -29,6 +29,20 @@ function topService<T extends { serviceType: string }>(rows: T[]) {
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "vi"))[0] ?? null;
 }
 
+function serviceBreakdown(rows: readonly { serviceType: string; minutes: number }[]) {
+  const groups = new Map<string, { serviceType: string; minutes: number; visits: number }>();
+  for (const row of rows) {
+    const serviceType = row.serviceType.trim() || "Không tên";
+    const key = `${serviceType}\u0000${row.minutes}`;
+    const group = groups.get(key);
+    if (group) group.visits += 1;
+    else groups.set(key, { serviceType, minutes: row.minutes, visits: 1 });
+  }
+  return [...groups.values()].sort((a, b) =>
+    a.serviceType.localeCompare(b.serviceType, "vi") || a.minutes - b.minutes,
+  );
+}
+
 async function getPartitionedFacilityRevenue(month: string, date: string, start: string, end: string) {
   const [allCards, allTopUps, allSessions] = await Promise.all([
     readPartitionedTable("treatment_cards"),
@@ -72,6 +86,10 @@ export function aggregatePartitionedFacilityRevenue(
   const monthWalkIns = monthSessions.filter((session) => session.cardId === null);
   const monthCardUses = monthSessions.filter((session) => session.cardId !== null && activeCardIds.has(session.cardId));
   const dayWalkIns = daySessions.filter((session) => session.cardId === null);
+  const activeMonthSessions = [...monthWalkIns, ...monthCardUses];
+  const activeDaySessions = [...dayWalkIns, ...daySessions.filter(
+    (session) => session.cardId !== null && activeCardIds.has(session.cardId),
+  )];
   const sum = <T,>(rows: T[], select: (row: T) => unknown) =>
     rows.reduce((total, row) => total + amount(select(row)), 0);
   const monthCardSales = activeCards.filter((card) => inMonth(card.purchaseDate));
@@ -119,6 +137,7 @@ export function aggregatePartitionedFacilityRevenue(
           minutes: sum(monthSessions.filter((row) => row.serviceType === mostUsedAll[0]), (row) => row.minutes),
         }
       : null,
+    serviceBreakdown: serviceBreakdown(activeMonthSessions),
     today: {
       date,
       ...revenueTotals(dayWalkInRevenue, dayCardRevenue, sum(dayWalkIns, (row) => row.earnings)),
@@ -131,8 +150,36 @@ export function aggregatePartitionedFacilityRevenue(
       cardsSold: dayCardSales.length,
       walkInVisits: dayWalkIns.length,
       cardVisits: daySessions.filter((row) => row.cardId !== null && activeCardIds.has(row.cardId)).length,
+      serviceBreakdown: serviceBreakdown(activeDaySessions),
     },
   };
+}
+
+async function getServiceBreakdown(start: string, end: string, date?: string) {
+  const period = date
+    ? sql`${serviceSessionsTable.workDate} = ${date}`
+    : sql`${serviceSessionsTable.workDate} >= ${start} and ${serviceSessionsTable.workDate} < ${end}`;
+  const rows = await db.select({
+    serviceType: serviceSessionsTable.serviceType,
+    minutes: serviceSessionsTable.minutes,
+    visits: sql<number>`count(*)`,
+  }).from(serviceSessionsTable).where(sql`
+    ${period}
+    and (
+      ${serviceSessionsTable.cardId} is null
+      or exists (
+        select 1 from ${treatmentCardsTable}
+        where ${treatmentCardsTable.id} = ${serviceSessionsTable.cardId}
+          and ${treatmentCardsTable.deletedAt} is null
+      )
+    )
+  `).groupBy(serviceSessionsTable.serviceType, serviceSessionsTable.minutes)
+    .orderBy(serviceSessionsTable.serviceType, serviceSessionsTable.minutes);
+  return rows.map((row) => ({
+    serviceType: row.serviceType.trim() || "Không tên",
+    minutes: row.minutes,
+    visits: Number(row.visits),
+  }));
 }
 
 /** Gross revenue recognizes walk-in service charges and card sales, not card redemptions. */
@@ -361,12 +408,17 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
     visits: Number(row.mostUsedServiceVisits),
     minutes: Number(row.mostUsedServiceMinutes),
   } : null;
+  const [monthlyServiceBreakdown, dailyServiceBreakdown] = await Promise.all([
+    getServiceBreakdown(start, end),
+    getServiceBreakdown(start, end, date),
+  ]);
   return {
     month, ...revenueTotals(walkInServiceRevenue, cardRevenue, walkInPayroll),
     serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, payroll,
     revenueExcludingCardSessions: walkInServiceRevenue + cardRevenue, cardRevenue, cardsSold: Number(row.cardsSold),
     walkInVisits: Number(row.walkInVisits), cardVisits: Number(row.cardVisits),
     topSoldCardService, mostUsedCardService, mostUsedWalkInService, mostUsedService,
+    serviceBreakdown: monthlyServiceBreakdown,
     today: {
       date, ...revenueTotals(dayWalkInServiceRevenue, dayCardRevenue, dayWalkInPayroll),
       serviceRevenue: dayServiceRevenue,
@@ -376,6 +428,7 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
       revenueExcludingCardSessions: dayWalkInServiceRevenue + dayCardRevenue,
       cardRevenue: dayCardRevenue, cardsSold: Number(row.dayCardsSold),
       walkInVisits: Number(row.dayWalkInVisits), cardVisits: Number(row.dayCardVisits),
+      serviceBreakdown: dailyServiceBreakdown,
     },
   };
 }

@@ -62,3 +62,9 @@ The production CU probe must be owner-triggered and bounded: no more than 60 sho
 **Why:** CU-hours are real provider usage, so an unbounded load loop can create unexpected cost; short transactions are reversible but may not move usage to the threshold.
 
 **How to apply:** Keep the endpoint production-only and owner-authorized, stop on a backend change or any error, and explain that a run can finish without reaching 100 CU-hours.
+
+The user asked to remove the database-switching/status lines from the Settings UI; this removes the visible manual failover and CU-probe entry points, not the backend's automatic routing logic or database data.
+
+**Why:** the request was to clean up the displayed controls without asking to disable automatic storage routing or alter the four stores.
+
+**How to apply:** Keep database status/probe dialogs out of Settings unless the user explicitly asks to restore them; do not change production routing or storage state as part of UI cleanup.

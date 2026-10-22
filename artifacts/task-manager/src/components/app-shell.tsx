@@ -122,6 +122,7 @@ export function AppShell({
     if (location === '/' || location === '/attendance') setQuery('');
     requestAnimationFrame(() => {
       const main = document.getElementById('main');
+      if (location === '/' || location === '/attendance') main?.scrollTo(0, 0);
       const target = main?.querySelector<HTMLElement>('h1, h2') ?? main;
       if (target && target.tabIndex < 0 && !target.hasAttribute('tabindex')) target.tabIndex = -1;
       target?.focus({ preventScroll: false });

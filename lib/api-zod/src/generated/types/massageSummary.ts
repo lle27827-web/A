@@ -10,6 +10,7 @@ import type { MassageSummaryMostUsedCardService } from './massageSummaryMostUsed
 import type { MassageSummaryMostUsedService } from './massageSummaryMostUsedService';
 import type { MassageSummaryMostUsedWalkInService } from './massageSummaryMostUsedWalkInService';
 import type { MassageSummaryTopSoldCardService } from './massageSummaryTopSoldCardService';
+import type { ServiceDurationBreakdown } from './serviceDurationBreakdown';
 
 export interface MassageSummary {
   month: string;
@@ -42,5 +43,6 @@ export interface MassageSummary {
   mostUsedWalkInService: MassageSummaryMostUsedWalkInService;
   /** @nullable */
   mostUsedService: MassageSummaryMostUsedService;
+  serviceBreakdown: ServiceDurationBreakdown[];
   today: DailyRevenue;
 }

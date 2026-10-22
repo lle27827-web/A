@@ -1,6 +1,7 @@
 import type { ServiceSession } from '@workspace/api-client-react';
+import { summarizeServiceDurations, type ServiceDurationDetail } from './service-duration-summary';
 
-export type ServiceCount = { serviceType: string; count: number };
+export type ServiceCount = ServiceDurationDetail;
 export type EmployeeListSummary = {
   monthEarnings: number;
   monthSessionCount: number;
@@ -13,22 +14,11 @@ export type EmployeeListSummary = {
 type MutableSummary = {
   monthEarnings: number;
   monthSessionCount: number;
-  monthServices: Map<string, number>;
+  monthSessions: { serviceType: string; minutes: number }[];
   dayEarnings: number;
   daySessionCount: number;
-  dayServices: Map<string, number>;
+  daySessions: { serviceType: string; minutes: number }[];
 };
-
-function addService(services: Map<string, number>, serviceType: string) {
-  const label = serviceType.trim() || 'Không tên';
-  services.set(label, (services.get(label) ?? 0) + 1);
-}
-
-function sortedCounts(services: Map<string, number>): ServiceCount[] {
-  return [...services.entries()]
-    .sort(([a], [b]) => a.localeCompare(b, 'vi'))
-    .map(([serviceType, count]) => ({ serviceType, count }));
-}
 
 export function summarizeEmployeeSessions(sessions: ServiceSession[], day: string): Map<number, EmployeeListSummary> {
   const summaries = new Map<number, MutableSummary>();
@@ -37,28 +27,28 @@ export function summarizeEmployeeSessions(sessions: ServiceSession[], day: strin
     let summary = summaries.get(session.memberId);
     if (!summary) {
       summary = {
-        monthEarnings: 0, monthSessionCount: 0, monthServices: new Map(),
-        dayEarnings: 0, daySessionCount: 0, dayServices: new Map(),
+        monthEarnings: 0, monthSessionCount: 0, monthSessions: [],
+        dayEarnings: 0, daySessionCount: 0, daySessions: [],
       };
       summaries.set(session.memberId, summary);
     }
 
     summary.monthEarnings += session.earnings;
     summary.monthSessionCount += 1;
-    addService(summary.monthServices, session.serviceType);
+    summary.monthSessions.push(session);
     if (session.workDate === day) {
       summary.dayEarnings += session.earnings;
       summary.daySessionCount += 1;
-      addService(summary.dayServices, session.serviceType);
+      summary.daySessions.push(session);
     }
   }
 
   return new Map([...summaries.entries()].map(([memberId, summary]) => [memberId, {
     monthEarnings: summary.monthEarnings,
     monthSessionCount: summary.monthSessionCount,
-    monthServices: sortedCounts(summary.monthServices),
+    monthServices: summarizeServiceDurations(summary.monthSessions),
     dayEarnings: summary.dayEarnings,
     daySessionCount: summary.daySessionCount,
-    dayServices: sortedCounts(summary.dayServices),
+    dayServices: summarizeServiceDurations(summary.daySessions),
   }]));
 }

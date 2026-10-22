@@ -6,8 +6,23 @@ import { useShell } from '@/components/app-shell';
 import { ErrorBanner } from '@/components/modal';
 import { formatShortDate, statusCode } from '@/lib/attendance';
 import { formatMinutes, formatMonth, formatVnd } from '@/lib/massage';
+import { serviceDurationLabel, type ServiceDurationDetail } from '@/lib/service-duration-summary';
 import { resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
 import './revenue-history.css';
+
+function ServiceBreakdownList({ items, label, testId }: {
+  items: ServiceDurationDetail[];
+  label: string;
+  testId: string;
+}) {
+  return (
+    <ul className="service-duration-list" aria-label={label} data-testid={testId}>
+      {items.length
+        ? items.map((item) => <li key={`${item.serviceType}-${item.minutes}`}>{serviceDurationLabel(item, formatMinutes)}</li>)
+        : <li>Chưa có ca dịch vụ</li>}
+    </ul>
+  );
+}
 
 export default function HomePage() {
   const { query, withHistory, permissions, canViewEmployees, canEditServices } = useShell();
@@ -79,6 +94,10 @@ export default function HomePage() {
               {formatVnd(summary.data?.revenue ?? 0)}
             </p>
             <dl className="rev-breakdown">
+              <div className="service-duration-row" tabIndex={0}>
+                <dt>Ca dịch vụ trong tháng</dt>
+                <dd><ServiceBreakdownList items={summary.data?.serviceBreakdown ?? []} label="Chi tiết ca dịch vụ trong tháng" testId="list-facility-month-service-durations" /></dd>
+              </div>
               <div tabIndex={0}><dt>Doanh thu khách lẻ (tháng)</dt><dd className="mono" data-testid="text-service-revenue">{formatVnd(summary.data?.serviceRevenue ?? 0)}</dd></div>
               <div tabIndex={0}><dt>Doanh thu bán và nạp thẻ (tháng)</dt><dd className="mono" data-testid="text-card-revenue">{formatVnd(summary.data?.cardRevenue ?? 0)}</dd></div>
               <div className="net-revenue-row rev-key" tabIndex={0}><dt>Doanh thu đã khấu trừ trong tháng</dt><dd className="mono" data-testid="text-net-revenue"><strong>{formatVnd(summary.data?.netRevenue ?? 0)}</strong></dd></div>
@@ -109,6 +128,10 @@ export default function HomePage() {
                   : 'Chưa có lượt sử dụng trong tháng'}</dd>
               </div>
               <div className="today-heading rev-key" tabIndex={0}><dt>Doanh thu {dayLabel}{date === today ? ` · ${formatShortDate(date)}` : ''}</dt><dd className="mono" data-testid="text-today-revenue">{formatVnd(summary.data?.today.revenue ?? 0)}</dd></div>
+              <div className="service-duration-row" tabIndex={0}>
+                <dt>Ca dịch vụ {dayLabel}</dt>
+                <dd><ServiceBreakdownList items={summary.data?.today.serviceBreakdown ?? []} label={`Chi tiết ca dịch vụ ${dayLabel}`} testId="list-facility-day-service-durations" /></dd>
+              </div>
               <div tabIndex={0}><dt>Khách lẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-service-revenue">{formatVnd(summary.data?.today.serviceRevenue ?? 0)}</dd></div>
               <div tabIndex={0}><dt>Bán và nạp thẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-card-revenue">{formatVnd(summary.data?.today.cardRevenue ?? 0)}</dd></div>
               <div className="net-revenue-row rev-key" tabIndex={0}><dt>Doanh thu đã khấu trừ {dayLabel}</dt><dd className="mono" data-testid="text-today-net-revenue"><strong>{formatVnd(summary.data?.today.netRevenue ?? 0)}</strong></dd></div>

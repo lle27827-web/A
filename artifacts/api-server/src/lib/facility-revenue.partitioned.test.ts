@@ -55,7 +55,9 @@ test("partitioned revenue counts card funding and walk-ins, but not card redempt
   assert.equal(result.cardsSold, 1);
   assert.equal(result.mostUsedService?.visits, 2);
   assert.equal(result.mostUsedService?.minutes, 120);
+  assert.deepEqual(result.serviceBreakdown, [{ serviceType: "Massage", minutes: 60, visits: 2 }]);
   assert.equal(result.today.revenue, 350_000);
   assert.equal(result.today.netRevenue, 300_000);
   assert.equal(result.today.cardVisits, 1);
+  assert.deepEqual(result.today.serviceBreakdown, [{ serviceType: "Massage", minutes: 60, visits: 2 }]);
 });

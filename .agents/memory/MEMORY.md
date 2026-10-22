@@ -16,4 +16,4 @@
 - [Personal synchronization](personal-synchronization.md) — importing replaces only the confirmed day/month; optional facility rates use employee pay and preserve historical wages.
 - [Concise accessibility](concise-accessibility.md) — short titles and discrepancy summaries; keep controls, financial data, errors and destructive warnings accessible.
 - [GitHub push verification](github-push-verification.md) — a local main commit is not deployed until push authentication succeeds; verify the remote before claiming Vercel changed.
-- [In-app reader gestures](screen-reader-gestures.md) — keep custom swipes on the floating control and preserve native VoiceOver/TalkBack gestures.
+- [Touch save/back gestures](screen-reader-gestures.md) — keep only continuous save/back gestures; accessibility reading stays with VoiceOver/TalkBack.

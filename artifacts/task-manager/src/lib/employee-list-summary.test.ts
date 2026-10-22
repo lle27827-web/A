@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { ServiceSession } from '@workspace/api-client-react';
@@ -20,6 +21,7 @@ function session(overrides: Partial<ServiceSession> & Pick<ServiceSession, 'id' 
     earnings: overrides.earnings,
     note: '',
     createdAt: '2026-10-17T00:00:00.000Z',
+    archived: false,
   };
 }
 
@@ -35,10 +37,10 @@ test('employee summaries total month pay and show per-service counts for the sel
   assert.deepEqual(summaries.get(5), {
     monthEarnings: 330_000,
     monthSessionCount: 3,
-    monthServices: [{ serviceType: 'Mát-xa', count: 2 }, { serviceType: 'Trị liệu', count: 1 }],
+    monthServices: [{ serviceType: 'Mát-xa', minutes: 60, visits: 2 }, { serviceType: 'Trị liệu', minutes: 60, visits: 1 }],
     dayEarnings: 250_000,
     daySessionCount: 2,
-    dayServices: [{ serviceType: 'Mát-xa', count: 1 }, { serviceType: 'Trị liệu', count: 1 }],
+    dayServices: [{ serviceType: 'Mát-xa', minutes: 60, visits: 1 }, { serviceType: 'Trị liệu', minutes: 60, visits: 1 }],
   });
   assert.equal(summaries.get(8)?.monthEarnings, 50_000);
   assert.equal(summaries.has(0), false);

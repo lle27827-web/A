@@ -758,6 +758,14 @@ export type MassageSummaryMostUsedService = {
   minutes: number;
 } | null;
 
+export interface ServiceDurationBreakdown {
+  serviceType: string;
+  /** Thời lượng của từng ca trong nhóm. */
+  minutes: number;
+  /** Số ca có cùng loại dịch vụ và thời lượng. */
+  visits: number;
+}
+
 export interface DailyRevenue {
   date: string;
   revenue: number;
@@ -772,6 +780,7 @@ export interface DailyRevenue {
   cardsSold: number;
   walkInVisits: number;
   cardVisits: number;
+  serviceBreakdown: ServiceDurationBreakdown[];
 }
 
 export interface MassageSummary {
@@ -805,6 +814,7 @@ export interface MassageSummary {
   mostUsedWalkInService: MassageSummaryMostUsedWalkInService;
   /** @nullable */
   mostUsedService: MassageSummaryMostUsedService;
+  serviceBreakdown: ServiceDurationBreakdown[];
   today: DailyRevenue;
 }
 

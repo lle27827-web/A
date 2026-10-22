@@ -129,9 +129,9 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
               <button
                 type="button"
                 className="choice-row service-picker-trigger"
-                onClick={() => setServicePickerOpen(true)}
-                aria-haspopup="dialog"
+                onClick={() => setServicePickerOpen((open) => !open)}
                 aria-expanded={servicePickerOpen}
+                aria-controls="session-service-choices"
                 data-testid="button-open-service-picker"
               >
                 <Sparkles size={18} aria-hidden="true" />
@@ -142,6 +142,30 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
                 <ChevronRight size={16} aria-hidden="true" />
               </button>
             )}
+          {servicePickerOpen && (
+            <div id="session-service-choices" className="choice-list service-choice-list inline-service-choice-list" role="group" aria-label="Danh sách loại hình dịch vụ" data-testid="dialog-service-picker">
+              {serviceChoices.map((service) => {
+                const isSelected = service.id === serviceId;
+                return (
+                  <button
+                    key={service.id}
+                    type="button"
+                    className="choice-row service-choice-row"
+                    aria-pressed={isSelected}
+                    onClick={() => { setServiceId(service.id); setError(''); setServicePickerOpen(false); }}
+                    data-testid={`button-service-choice-${service.id}`}
+                  >
+                    <Sparkles size={17} aria-hidden="true" />
+                    <span className="grow">
+                      <strong>{service.name}</strong>
+                      <span className="muted mono">{serviceSummary(service)}</span>
+                    </span>
+                    {isSelected ? <Check size={17} aria-label="Đã chọn" /> : <ChevronRight size={17} aria-hidden="true" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </fieldset>
         <DurationInputs hours={hours} minutes={extraMinutes}
           onHoursChange={(value) => { setHours(value); setError(''); }}
@@ -193,32 +217,6 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
           <button type="submit" className="btn primary" disabled={busy || catalogQuery.isLoading} data-testid="button-save-session">{busy && <LoaderCircle size={14} className="spin" />}Lưu ca</button>
         </div>
       </form>
-      {servicePickerOpen && (
-        <Modal title="Chọn loại hình dịch vụ" onClose={() => setServicePickerOpen(false)} testId="dialog-service-picker">
-          <div className="choice-list service-choice-list" aria-label="Danh sách loại hình dịch vụ">
-            {serviceChoices.map((service) => {
-              const isSelected = service.id === serviceId;
-              return (
-                <button
-                  key={service.id}
-                  type="button"
-                  className="choice-row service-choice-row"
-                  aria-pressed={isSelected}
-                  onClick={() => { setServiceId(service.id); setError(''); setServicePickerOpen(false); }}
-                  data-testid={`button-service-choice-${service.id}`}
-                >
-                  <Sparkles size={17} aria-hidden="true" />
-                  <span className="grow">
-                    <strong>{service.name}</strong>
-                    <span className="muted mono">{serviceSummary(service)}</span>
-                  </span>
-                  {isSelected ? <Check size={17} aria-label="Đã chọn" /> : <ChevronRight size={17} aria-hidden="true" />}
-                </button>
-              );
-            })}
-          </div>
-        </Modal>
-      )}
       {datePickerOpen && <DatePickerDialog value={date} title="Chọn ngày chấm công" onClose={() => setDatePickerOpen(false)}
         onSelect={(nextDate) => { setDate(nextDate); setDatePickerOpen(false); }} />}
     </Modal>

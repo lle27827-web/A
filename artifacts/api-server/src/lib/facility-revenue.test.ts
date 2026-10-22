@@ -45,6 +45,8 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     assert.equal(validatedServiceOnly.mostUsedCardService, null);
     assert.deepEqual(validatedServiceOnly.mostUsedWalkInService, { serviceType: popularService, visits: 1 });
     assert.deepEqual(validatedServiceOnly.mostUsedService, { serviceType: popularService, visits: 1, minutes: 30 });
+    assert.deepEqual(validatedServiceOnly.serviceBreakdown, [{ serviceType: popularService, minutes: 30, visits: 1 }]);
+    assert.deepEqual(validatedServiceOnly.today.serviceBreakdown, [{ serviceType: popularService, minutes: 30, visits: 1 }]);
     const cards = await db.insert(treatmentCardsTable).values([
       { customerName: "__facility_report_test", phone: "", serviceType: popularService, totalMinutes: 120, purchaseAmount: 800, purchaseDate: "2099-02-01", note: "" },
       { customerName: "__facility_report_test", phone: "", serviceType: popularService, totalMinutes: 60, purchaseAmount: 1200, purchaseDate: "2099-02-28", note: "" },
@@ -63,6 +65,9 @@ test("daily and monthly reports count recorded visits, and deleting a card remov
     assert.deepEqual(after.mostUsedCardService, { serviceType: popularService, visits: 2, minutes: 90 });
     assert.deepEqual(after.mostUsedWalkInService, { serviceType: `${popularService}_walkin`, visits: 1 });
     assert.deepEqual(after.mostUsedService, { serviceType: popularService, visits: 2, minutes: 90 });
+    assert.deepEqual(after.serviceBreakdown.find((item) => item.serviceType === popularService), { serviceType: popularService, minutes: 30, visits: 1 });
+    assert.deepEqual(after.serviceBreakdown.find((item) => item.serviceType === popularService && item.minutes === 60), { serviceType: popularService, minutes: 60, visits: 1 });
+    assert.deepEqual(after.today.serviceBreakdown, [{ serviceType: popularService, minutes: 60, visits: 1 }]);
     assert.equal(after.walkInVisits, baseline.walkInVisits + 1);
     assert.equal(after.cardVisits, baseline.cardVisits + 2);
     assert.equal(after.today.walkInVisits, baseline.today.walkInVisits);

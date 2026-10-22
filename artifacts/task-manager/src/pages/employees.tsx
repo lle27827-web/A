@@ -11,7 +11,7 @@ import { MemberDialog } from '@/components/entity-dialogs';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
 import { SessionDialog } from '@/components/session-dialog';
 import { initial, localDate, normalize, formatShortDate } from '@/lib/attendance';
-import { errorText, formatMonth, formatVnd, SESSION_FRESHNESS, useRefreshMassage } from '@/lib/massage';
+import { errorText, formatMinutes, formatMonth, formatVnd, SESSION_FRESHNESS, useRefreshMassage } from '@/lib/massage';
 import { summarizeEmployeeSessions } from '@/lib/employee-list-summary';
 import { SampleMembersDialog } from '@/components/sample-members-dialog';
 
@@ -102,8 +102,8 @@ export default function EmployeesPage() {
           <ul className="emp-list">
             {list.map((m) => {
               const summary = summaries.get(m.id);
-              const serviceText = (services: { serviceType: string; count: number }[]) =>
-                services.length ? services.map((service) => `${service.serviceType} ×${service.count}`).join(', ') : 'Chưa có ca';
+              const serviceText = (services: { serviceType: string; visits: number; minutes: number }[]) =>
+                services.length ? services.map((service) => `${service.serviceType} · ${service.visits} ca × ${formatMinutes(service.minutes)}`).join('; ') : 'Chưa có ca';
               return (
                 <li key={m.id} className="emp-item">
                   <button type="button" className="emp-row as-row" onClick={() => { if (historyMonth) navigate(withHistory(`/employees/${m.id}`)); else setChoice(m); }} aria-haspopup="dialog" data-testid={`button-employee-${m.id}`}>

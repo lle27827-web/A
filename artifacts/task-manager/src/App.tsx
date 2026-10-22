@@ -6,7 +6,7 @@ import { Route, Switch, Router as WouterRouter, Redirect, useLocation, useSearch
 import type { FacilityPermissions } from '@workspace/api-client-react';
 import { getAuthStatus, getGetAuthStatusQueryKey, setAuthTokenGetter, useGetAuthStatus } from '@workspace/api-client-react';
 import { ALL_PERMISSIONS, AppShell, NO_PERMISSIONS, hasFacilityAccess, useShell } from '@/components/app-shell';
-import { ScreenReaderAssistantProvider } from '@/components/screen-reader-provider';
+import { AppGestureProvider } from '@/components/app-gesture-provider';
 import { EmployeeDetail } from '@/components/employee-detail';
 import HomePage from '@/pages/home';
 import EmployeesPage from '@/pages/employees';
@@ -122,7 +122,7 @@ function SignedInApplication({
   const signedInDestination = postAuthPath(search);
   const facility = hasFacilityAccess(permissions);
   return (
-    <ScreenReaderAssistantProvider key={userId ?? 'account'} userId={userId ?? undefined}>
+    <AppGestureProvider key={userId ?? 'account'} userId={userId ?? undefined}>
       <Switch>
         <Route path="/sign-in/*?"><Redirect to={signedInDestination} replace /></Route>
         <Route path="/sign-up/*?"><Redirect to={signedInDestination} replace /></Route>
@@ -141,7 +141,7 @@ function SignedInApplication({
           ) : <NoFacilityAccessPage onSignOut={onSignOut} />}
         </Route>
       </Switch>
-    </ScreenReaderAssistantProvider>
+    </AppGestureProvider>
   );
 }
 

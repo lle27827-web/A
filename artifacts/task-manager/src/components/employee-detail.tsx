@@ -16,6 +16,7 @@ import { SessionRows } from '@/components/session-rows';
 import { formatDate, formatShortDate } from '@/lib/attendance';
 import { MemberTags } from '@/pages/employees';
 import { SESSION_FRESHNESS, errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth, useRefreshMassage } from '@/lib/massage';
+import { serviceDurationLabel, summarizeServiceDurations } from '@/lib/service-duration-summary';
 
 export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null; readOnly: boolean }) {
   const shell = useShell();
@@ -49,11 +50,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
 
   const sessions = useMemo(() => sessionsQuery.data ?? [], [sessionsQuery.data]);
   const daySessions = useMemo(() => sessions.filter((s) => s.workDate === day), [sessions, day]);
-  const dayTypes = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const s of daySessions) map.set(s.serviceType || 'Không tên', (map.get(s.serviceType || 'Không tên') ?? 0) + 1);
-    return [...map.entries()];
-  }, [daySessions]);
+  const dayTypes = useMemo(() => summarizeServiceDurations(daySessions), [daySessions]);
   const dayEarnings = daySessions.reduce((a, s) => a + s.earnings, 0);
 
   // Month/day live in the URL so history survives reload, back and direct links.
@@ -165,7 +162,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
           <>
             <p className="day-salary-value mono" data-testid="text-day-salary">{formatVnd(dayEarnings)}</p>
             {dayTypes.length > 0 ? (
-              <ul className="type-counts" aria-label="Số ca theo dịch vụ">{dayTypes.map(([name, n]) => <li key={name}>{name} <strong className="mono">{n} ca</strong></li>)}</ul>
+              <ul className="type-counts" aria-label="Số ca và thời lượng theo dịch vụ">{dayTypes.map((item) => <li key={`${item.serviceType}-${item.minutes}`}>{serviceDurationLabel(item, formatMinutes)}</li>)}</ul>
             ) : <p className="muted small">Chưa có ca.</p>}
           </>
         )}
