@@ -173,10 +173,10 @@ export function attachScreenReaderTouchNavigation(
     const touch = event.touches.item(0);
     if (!touch) return;
     const focusTarget = options.resolveTarget(target, { x: touch.clientX, y: touch.clientY });
-    const editingTarget = focusTarget?.matches('input, textarea, select, [contenteditable="true"]')
-      && document.activeElement === focusTarget;
-    if (editingTarget) {
+    const nativeInputTarget = focusTarget?.matches('input, textarea, select, [contenteditable="true"]');
+    if (nativeInputTarget) {
       singleTouch = null;
+      multiTouch = null;
       lastTap = null;
       return;
     }

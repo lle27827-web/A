@@ -7,6 +7,10 @@ Treat the optional in-app reader as an additional speech/navigation helper, not 
 
 **Why:** touch exploration must work independently from double-tap activation. The user’s current mapping is continuous up-then-down inverted-V → Cards and down-then-up V → Employees; when no safe form is open, downward navigation should advance the current focus so revenue rows can be read.
 
+When a native editable control is under the finger, do not prevent its touch events or route them through the helper. Let the device keyboard and operating-system screen reader handle entry; the in-app reader can announce the field label and current non-password value on focus, but must never read a password value.
+
+**Why:** the user chose the safer native-keyboard approach so editing, field switching, and device-level key announcements remain available.
+
 The browser speech API only controls speech it creates; it cannot set VoiceOver/TalkBack volume or reliably observe native accessibility focus. The app cannot guarantee control over gestures already captured by the operating system, so real-device testing is required. Provide an auto-read toggle and explicit focus/read buttons so users can avoid duplicate speech and still navigate with the app helper.
 
 **Why:** web pages do not have platform APIs for changing native screen-reader output or observing its focus consistently.

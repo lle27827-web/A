@@ -121,6 +121,9 @@ export function ScreenReaderSettingsDialog({ onClose }: { onClose: () => void })
 
         <section className="reader-gesture-settings" aria-labelledby="reader-gestures-title">
           <h3 id="reader-gestures-title">Cử chỉ Trợ đọc</h3>
+          <div className="reader-gesture-help" role="note">
+            Ô nhập dùng bàn phím của thiết bị. Khi chuyển vào ô, Trợ đọc đọc nhãn và nội dung hiện tại; mật khẩu chỉ đọc nhãn. Thao tác bên trong ô được để cho bàn phím và trình đọc của thiết bị xử lý.
+          </div>
           <label className="reader-settings-toggle">
             <input
               type="checkbox"

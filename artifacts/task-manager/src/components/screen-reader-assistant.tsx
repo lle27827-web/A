@@ -138,6 +138,13 @@ function elementLabel(active: HTMLElement): string {
   return text.slice(0, 100) || '';
 }
 
+function isEditableScreenReaderTarget(element: HTMLElement | null): boolean {
+  return element instanceof HTMLInputElement
+    || element instanceof HTMLTextAreaElement
+    || element instanceof HTMLSelectElement
+    || element?.isContentEditable === true;
+}
+
 function useScreenReaderAssistant() {
   const value = useContext(ScreenReaderContext);
   if (!value) throw new Error('Screen reader assistant rendered outside its provider');
@@ -332,12 +339,19 @@ export function ScreenReaderAssistant() {
     previousLocation.current = location;
     if (routeChanged) {
       lastFocusedPageElement.current = null;
-      speak(pageHeading());
+      const activeElement = document.activeElement;
+      speak(activeElement instanceof HTMLElement && isEditableScreenReaderTarget(activeElement)
+        ? elementLabel(activeElement)
+        : pageHeading());
       return;
     }
     const timer = window.setTimeout(() => {
-      const title = pageHeading();
-      speak(`Trợ đọc đang bật. ${title}`);
+      const activeElement = document.activeElement;
+      if (activeElement instanceof HTMLElement && isEditableScreenReaderTarget(activeElement)) {
+        speak(elementLabel(activeElement));
+      } else {
+        speak(`Trợ đọc đang bật. ${pageHeading()}`);
+      }
     }, 80);
     return () => window.clearTimeout(timer);
   }, [enabled, location]);
