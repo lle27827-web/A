@@ -9,7 +9,10 @@ import {
   screenReaderFocusNavigationForSwipe,
   screenReaderKeyboardActionForKey,
 } from './screen-reader-gestures.ts';
-import { screenReaderTouchSwipeDirection } from './screen-reader-touch-navigation.ts';
+import {
+  isScreenReaderDoubleTap,
+  screenReaderTouchSwipeDirection,
+} from './screen-reader-touch-navigation.ts';
 
 test('single swipes return home or save the active form', () => {
   assert.equal(screenReaderActionForSwipes(['up']), 'home');
@@ -44,6 +47,13 @@ test('touch swipes require a clear direction and ignore short or diagonal moveme
   assert.equal(screenReaderTouchSwipeDirection(-2, 70), 'down');
   assert.equal(screenReaderTouchSwipeDirection(12, 14), null);
   assert.equal(screenReaderTouchSwipeDirection(45, 40), null);
+});
+
+test('double tap is based on timing, not on where the second finger lands', () => {
+  assert.equal(isScreenReaderDoubleTap(1_000, 1_500), true);
+  assert.equal(isScreenReaderDoubleTap(1_000, 1_750), true);
+  assert.equal(isScreenReaderDoubleTap(1_000, 1_751), false);
+  assert.equal(isScreenReaderDoubleTap(null, 1_500), false);
 });
 
 test('focus navigation starts at the nearest end and stops at page boundaries', () => {

@@ -76,6 +76,14 @@ function touchFocusTarget(target: EventTarget | null): HTMLElement | null {
   return candidate;
 }
 
+function pageFocusTargetIndex(targets: HTMLElement[], target: HTMLElement | null): number {
+  if (!target) return -1;
+  const exactIndex = targets.indexOf(target);
+  return exactIndex >= 0
+    ? exactIndex
+    : targets.findIndex((candidate) => candidate.contains(target));
+}
+
 function visiblePageHeadings(): HTMLElement[] {
   const root = focusNavigationRoot();
   if (!root) return [];
@@ -224,13 +232,51 @@ export function ScreenReaderAssistant() {
     touchFocusedElement.current = target;
     target.setAttribute('data-reader-touch-focus', 'true');
     const targets = visiblePageFocusTargets();
-    const index = targets.findIndex((candidate) => candidate === target || candidate.contains(target));
+    const index = pageFocusTargetIndex(targets, target);
     if (index >= 0) currentFocusIndex.current = index;
     const headings = visiblePageHeadings();
     const headingIndex = headings.findIndex((heading) => heading === target || heading.contains(target));
     if (headingIndex >= 0) currentHeadingIndex.current = headingIndex;
     lastFocusedPageElement.current = target;
     speak(elementLabel(target));
+  }
+
+  function currentTouchFocus(): HTMLElement | null {
+    const targets = visiblePageFocusTargets();
+    if (touchFocusedElement.current && visible(touchFocusedElement.current)) {
+      return touchFocusedElement.current;
+    }
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && !active.closest('.screen-reader-assistant')) {
+      const activeTargetIndex = pageFocusTargetIndex(targets, active);
+      if (activeTargetIndex >= 0) return targets[activeTargetIndex];
+    }
+    if (lastFocusedPageElement.current && targets.includes(lastFocusedPageElement.current)
+      && visible(lastFocusedPageElement.current)) {
+      return lastFocusedPageElement.current;
+    }
+    return currentFocusIndex.current >= 0
+      ? targets[currentFocusIndex.current] ?? null
+      : null;
+  }
+
+  function handleTouchTap(target: HTMLElement | null) {
+    const focused = currentTouchFocus();
+    if (focused) {
+      speak(elementLabel(focused));
+      return;
+    }
+    if (target) selectTouchTarget(target);
+    else speak(pageHeading());
+  }
+
+  function activateCurrentTouchFocus() {
+    const focused = currentTouchFocus();
+    if (!focused) {
+      setAnnouncement('Chưa chọn mục nào. Vuốt trái hoặc phải để chuyển tiêu điểm trước.');
+      return;
+    }
+    activateTouchTarget(focused);
   }
 
   function activateTouchTarget(target: HTMLElement) {
@@ -301,7 +347,7 @@ export function ScreenReaderAssistant() {
       if (!(target instanceof HTMLElement) || target.closest('.screen-reader-assistant')) return;
       clearTouchFocus();
       const targets = visiblePageFocusTargets();
-      const targetIndex = targets.findIndex((candidate) => candidate === target || candidate.contains(target));
+      const targetIndex = pageFocusTargetIndex(targets, target);
       if (targetIndex < 0) return;
       currentFocusIndex.current = targetIndex;
       lastFocusedPageElement.current = targets[targetIndex];
@@ -323,8 +369,8 @@ export function ScreenReaderAssistant() {
     return attachScreenReaderTouchNavigation({
       resolveTarget: touchFocusTarget,
       onSwipe: handleTouchSwipe,
-      onSelect: selectTouchTarget,
-      onActivate: activateTouchTarget,
+      onTap: handleTouchTap,
+      onActivate: activateCurrentTouchFocus,
       onMultiTouchStart: cancelPendingSwipeSequence,
     });
   }, [
@@ -395,14 +441,20 @@ export function ScreenReaderAssistant() {
     }
     const active = document.activeElement;
     const activeTargetIndex = active instanceof HTMLElement
-      ? targets.findIndex((target) => target === active || target.contains(active))
+      ? pageFocusTargetIndex(targets, active)
       : -1;
     const touchTargetIndex = touchFocusedElement.current
-      ? targets.findIndex((target) => target === touchFocusedElement.current || target.contains(touchFocusedElement.current))
+      ? pageFocusTargetIndex(targets, touchFocusedElement.current)
+      : -1;
+    const lastFocusedIndex = pageFocusTargetIndex(targets, lastFocusedPageElement.current);
+    const storedIndex = currentFocusIndex.current >= 0 && currentFocusIndex.current < targets.length
+      ? currentFocusIndex.current
       : -1;
     const currentIndex = touchTargetIndex >= 0
       ? touchTargetIndex
-      : activeTargetIndex >= 0 ? activeTargetIndex : currentFocusIndex.current;
+      : lastFocusedIndex >= 0
+        ? lastFocusedIndex
+        : activeTargetIndex >= 0 ? activeTargetIndex : storedIndex;
     const nextIndex = nextScreenReaderFocusIndex(currentIndex, targets.length, direction);
     if (nextIndex === null) {
       setAnnouncement(direction === 'next' ? 'Đã đến mục cuối cùng.' : 'Đã đến mục đầu tiên.');
@@ -436,14 +488,20 @@ export function ScreenReaderAssistant() {
     }
     const active = document.activeElement;
     const activeHeadingIndex = active instanceof HTMLElement
-      ? headings.findIndex((heading) => heading === active || heading.contains(active))
+      ? pageFocusTargetIndex(headings, active)
       : -1;
     const touchHeadingIndex = touchFocusedElement.current
-      ? headings.findIndex((heading) => heading === touchFocusedElement.current || heading.contains(touchFocusedElement.current))
+      ? pageFocusTargetIndex(headings, touchFocusedElement.current)
+      : -1;
+    const lastHeadingIndex = pageFocusTargetIndex(headings, lastFocusedPageElement.current);
+    const storedHeadingIndex = currentHeadingIndex.current >= 0 && currentHeadingIndex.current < headings.length
+      ? currentHeadingIndex.current
       : -1;
     const currentIndex = touchHeadingIndex >= 0
       ? touchHeadingIndex
-      : activeHeadingIndex >= 0 ? activeHeadingIndex : currentHeadingIndex.current;
+      : lastHeadingIndex >= 0
+        ? lastHeadingIndex
+        : activeHeadingIndex >= 0 ? activeHeadingIndex : storedHeadingIndex;
     const nextIndex = nextScreenReaderFocusIndex(currentIndex, headings.length, direction);
     if (nextIndex === null) {
       setAnnouncement(direction === 'next' ? 'Đã đến tiêu đề cuối cùng.' : 'Đã đến tiêu đề đầu tiên.');
@@ -567,7 +625,7 @@ export function ScreenReaderAssistant() {
     if (isHorizontalSwipe) {
       const direction = deltaX < 0 ? 'left' : 'right';
       const navigation = screenReaderFocusNavigationForSwipe(direction);
-      if (navigation) moveHeadingFocus(navigation);
+      if (navigation) moveFocus(navigation);
     } else {
       recordSwipe(deltaY < 0 ? 'up' : 'down');
     }
@@ -612,7 +670,7 @@ export function ScreenReaderAssistant() {
           </header>
           <p className="screen-reader-status" role="status" aria-live="polite">{announcement || 'Đang bật.'}</p>
           <p className="screen-reader-gestures">
-            Chạm 1 lần: đọc mục · Chạm 2 lần: kích hoạt · Vuốt trái/phải: mục trước/sau · Kéo 2 ngón: cuộn
+            Chạm 1 lần: đọc tiêu điểm · Chạm 2 lần ở bất kỳ đâu: kích hoạt tiêu điểm · Vuốt trái/phải: mục trước/sau trên toàn trang · Kéo 2 ngón: cuộn
           </p>
           <div className="screen-reader-actions">
             <button type="button" className="btn" onClick={() => speak(pageHeading())} data-testid="button-reader-title">

@@ -3,8 +3,8 @@ import type { ScreenReaderSwipeDirection } from './screen-reader-gestures';
 export type ScreenReaderTouchNavigationOptions = {
   resolveTarget: (target: EventTarget | null) => HTMLElement | null;
   onSwipe: (direction: ScreenReaderSwipeDirection) => void;
-  onSelect: (target: HTMLElement) => void;
-  onActivate: (target: HTMLElement) => void;
+  onTap: (target: HTMLElement | null) => void;
+  onActivate: () => void;
   onMultiTouchStart: () => void;
 };
 
@@ -23,15 +23,20 @@ type MultiTouch = {
   pinching: boolean;
 };
 
-type TapCandidate = {
-  target: HTMLElement;
-  time: number;
-};
+type TapCandidate = { time: number };
 
 const SWIPE_DISTANCE_PX = 38;
 const TAP_DISTANCE_PX = 18;
 const DOUBLE_TAP_WINDOW_MS = 750;
 const PINCH_DISTANCE_PX = 26;
+
+export function isScreenReaderDoubleTap(
+  previousTapTime: number | null,
+  currentTapTime: number,
+): boolean {
+  return previousTapTime !== null
+    && currentTapTime - previousTapTime <= DOUBLE_TAP_WINDOW_MS;
+}
 
 function distanceBetween(first: Touch, second: Touch): number {
   return Math.hypot(first.clientX - second.clientX, first.clientY - second.clientY);
@@ -112,6 +117,7 @@ export function attachScreenReaderTouchNavigation(
       && document.activeElement === focusTarget;
     if (editingTarget) {
       singleTouch = null;
+      lastTap = null;
       return;
     }
 
@@ -178,7 +184,7 @@ export function attachScreenReaderTouchNavigation(
     if (!ended) return;
     singleTouch = null;
     if (event.cancelable) event.preventDefault();
-    if (current.swiped || !current.target) {
+    if (current.swiped) {
       lastTap = null;
       return;
     }
@@ -187,16 +193,19 @@ export function attachScreenReaderTouchNavigation(
       .find((touch) => touch.identifier === current.identifier);
     if (!endTouch) return;
     const moved = Math.hypot(endTouch.clientX - current.startX, endTouch.clientY - current.startY);
-    if (moved > TAP_DISTANCE_PX) return;
-
-    const now = Date.now();
-    if (lastTap?.target === current.target && now - lastTap.time <= DOUBLE_TAP_WINDOW_MS) {
+    if (moved > TAP_DISTANCE_PX) {
       lastTap = null;
-      options.onActivate(current.target);
       return;
     }
-    lastTap = { target: current.target, time: now };
-    options.onSelect(current.target);
+
+    const now = Date.now();
+    if (lastTap && isScreenReaderDoubleTap(lastTap.time, now)) {
+      lastTap = null;
+      options.onActivate();
+      return;
+    }
+    lastTap = { time: now };
+    options.onTap(current.target);
   }
 
   function onTouchCancel() {

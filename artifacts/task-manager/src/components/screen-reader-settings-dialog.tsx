@@ -139,7 +139,7 @@ export function ScreenReaderSettingsDialog({ onClose }: { onClose: () => void })
               onChange={(event) => screenReader.setTouchNavigationEnabled(event.target.checked)}
               data-testid="switch-reader-touch-navigation"
             />
-            <span><strong>Dùng cử chỉ chạm riêng</strong><small>Chạm 1 lần để đọc, chạm 2 lần để kích hoạt; vuốt 1 ngón chuyển mục, kéo 2 ngón để cuộn. Tắt nếu cử chỉ VoiceOver/TalkBack bị xung đột.</small></span>
+            <span><strong>Dùng cử chỉ chạm riêng</strong><small>Chạm 1 lần để đọc tiêu điểm hiện tại; chạm 2 lần ở bất kỳ đâu để kích hoạt mục đó. Vuốt 1 ngón trái/phải đổi mục; vuốt lên rồi xuống vào Nhân viên, xuống rồi lên vào Thẻ. Kéo 2 ngón để cuộn. Tắt nếu cử chỉ VoiceOver/TalkBack bị xung đột.</small></span>
           </label>
 
           <label className="reader-settings-toggle">
