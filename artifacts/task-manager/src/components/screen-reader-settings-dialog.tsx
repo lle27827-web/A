@@ -3,6 +3,7 @@ import { Volume2 } from 'lucide-react';
 import { ScreenReaderContext } from '@/components/screen-reader-context';
 import { Modal } from '@/components/modal';
 import {
+  isVietnameseScreenReaderVoice,
   MAX_SCREEN_READER_RATE,
   MIN_SCREEN_READER_RATE,
   MAX_SCREEN_READER_VOLUME,
@@ -16,8 +17,8 @@ function previewSpeech(rate: number, volume: number, voiceURI: string, voices: S
   utterance.lang = 'vi-VN';
   utterance.rate = rate;
   utterance.volume = volume;
-  const selectedVoice = voices.find((voice) => voice.voiceURI === voiceURI);
-  const vietnameseVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith('vi'));
+  const selectedVoice = voices.find((voice) => voice.voiceURI === voiceURI && isVietnameseScreenReaderVoice(voice));
+  const vietnameseVoice = voices.find(isVietnameseScreenReaderVoice);
   const voice = selectedVoice ?? vietnameseVoice;
   if (voice) utterance.voice = voice;
   window.speechSynthesis.speak(utterance);
@@ -30,13 +31,11 @@ export function ScreenReaderSettingsDialog({ onClose }: { onClose: () => void })
   useEffect(() => {
     if (!('speechSynthesis' in window)) return;
     const synthesis = window.speechSynthesis;
-    const updateVoices = () => {
-      setVoices(synthesis.getVoices().slice().sort((a, b) => {
-        const aVietnamese = a.lang.toLowerCase().startsWith('vi') ? 0 : 1;
-        const bVietnamese = b.lang.toLowerCase().startsWith('vi') ? 0 : 1;
-        return aVietnamese - bVietnamese || a.name.localeCompare(b.name);
-      }));
-    };
+      const updateVoices = () => {
+        setVoices(synthesis.getVoices()
+          .filter(isVietnameseScreenReaderVoice)
+          .sort((a, b) => a.name.localeCompare(b.name)));
+      };
     updateVoices();
     synthesis.addEventListener('voiceschanged', updateVoices);
     return () => synthesis.removeEventListener('voiceschanged', updateVoices);
@@ -73,7 +72,7 @@ export function ScreenReaderSettingsDialog({ onClose }: { onClose: () => void })
             data-testid="input-reader-speech-rate"
           />
           <div className="reader-rate-limits" aria-hidden="true"><span>Chậm</span><span>Nhanh</span></div>
-          <label className="reader-setting-label" htmlFor="reader-voice">Giọng đọc</label>
+          <label className="reader-setting-label" htmlFor="reader-voice">Giọng tiếng Việt</label>
           <select
             id="reader-voice"
             className="reader-voice-select"
@@ -88,7 +87,7 @@ export function ScreenReaderSettingsDialog({ onClose }: { onClose: () => void })
             ))}
           </select>
           <small id="reader-voice-help" className="reader-settings-help">
-            {voices.length ? 'Ưu tiên giọng tiếng Việt khi có sẵn trên thiết bị.' : 'Giọng đọc tùy thuộc trình duyệt và thiết bị.'}
+            {voices.length ? 'Chỉ hiển thị giọng tiếng Việt có trên thiết bị.' : 'Thiết bị chưa cung cấp giọng tiếng Việt; Trợ đọc vẫn yêu cầu đọc bằng tiếng Việt.'}
           </small>
           <div className="reader-rate-heading">
             <label htmlFor="reader-speech-volume">Âm lượng Trợ đọc</label>
@@ -139,7 +138,7 @@ export function ScreenReaderSettingsDialog({ onClose }: { onClose: () => void })
               onChange={(event) => screenReader.setTouchNavigationEnabled(event.target.checked)}
               data-testid="switch-reader-touch-navigation"
             />
-            <span><strong>Dùng cử chỉ chạm riêng</strong><small>Chạm 1 lần để đọc tiêu điểm hiện tại; chạm 2 lần ở bất kỳ đâu để kích hoạt mục đó. Vuốt 1 ngón trái/phải đổi mục; vuốt lên rồi xuống vào Nhân viên, xuống rồi lên vào Thẻ. Kéo 2 ngón để cuộn. Tắt nếu cử chỉ VoiceOver/TalkBack bị xung đột.</small></span>
+            <span><strong>Dùng cử chỉ chạm riêng</strong><small>Chạm 1 lần để chọn và đọc mục dưới ngón tay; chạm 2 lần ở bất kỳ đâu để kích hoạt mục vừa chọn, không đổi theo vị trí chạm thứ hai. Vuốt 1 ngón trái/phải đổi mục; vuốt lên rồi xuống vào Nhân viên, xuống rồi lên vào Thẻ. Kéo 2 ngón để cuộn. Tắt nếu cử chỉ VoiceOver/TalkBack bị xung đột.</small></span>
           </label>
 
           <label className="reader-settings-toggle">
@@ -159,7 +158,7 @@ export function ScreenReaderSettingsDialog({ onClose }: { onClose: () => void })
               onChange={(event) => screenReader.setShortcutSwipesEnabled(event.target.checked)}
               data-testid="switch-reader-shortcut-gestures"
             />
-            <span><strong>Bật cử chỉ lối tắt lên/xuống</strong><small>Vuốt lên: trang chính · Vuốt xuống: lưu biểu mẫu · Vuốt lên rồi xuống: Nhân viên · Vuốt xuống rồi lên: Thẻ.</small></span>
+            <span><strong>Bật cử chỉ lối tắt lên/xuống</strong><small>Vuốt lên: trở về từng màn hình · Vuốt xuống: lưu biểu mẫu · Vuốt lên rồi xuống trong 1,2 giây: Nhân viên · Vuốt xuống rồi lên trong 1,2 giây: Thẻ.</small></span>
           </label>
 
           <div className="reader-gesture-help" role="note">

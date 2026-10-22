@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   isSafeSaveLabel,
+  isVietnameseScreenReaderVoice,
   nextScreenReaderFocusIndex,
+  previousScreenReaderLocation,
+  SCREEN_READER_COMBO_WINDOW_MS,
   normalizeSpeechRate,
   normalizeSpeechVolume,
   screenReaderActionForSwipes,
@@ -11,12 +14,39 @@ import {
 } from './screen-reader-gestures.ts';
 import {
   isScreenReaderDoubleTap,
+  screenReaderTapDecision,
   screenReaderTouchSwipeDirection,
 } from './screen-reader-touch-navigation.ts';
 
-test('single swipes return home or save the active form', () => {
-  assert.equal(screenReaderActionForSwipes(['up']), 'home');
+test('single upward swipe returns one screen and downward swipe submits a safe form', () => {
+  assert.equal(screenReaderActionForSwipes(['up']), 'back');
   assert.equal(screenReaderActionForSwipes(['down']), 'save');
+  assert.equal(SCREEN_READER_COMBO_WINDOW_MS, 1200);
+});
+
+test('back navigation unwinds the in-app route stack without looping', () => {
+  const firstBack = previousScreenReaderLocation(['/', '/cards', '/cards/12'], '/cards/12');
+  assert.deepEqual(firstBack, { target: '/cards', history: ['/', '/cards'] });
+
+  const secondBack = previousScreenReaderLocation(firstBack.history, firstBack.target!);
+  assert.deepEqual(secondBack, { target: '/', history: ['/'] });
+
+  const atHome = previousScreenReaderLocation(secondBack.history, secondBack.target!);
+  assert.deepEqual(atHome, { target: null, history: ['/'] });
+});
+
+test('direct detail links fall back to their list before the home screen', () => {
+  const result = previousScreenReaderLocation([], '/employees/7?month=2026-10');
+  assert.deepEqual(result, {
+    target: '/employees?month=2026-10',
+    history: ['/employees?month=2026-10'],
+  });
+});
+
+test('the screen reader only accepts Vietnamese voices', () => {
+  assert.equal(isVietnameseScreenReaderVoice({ lang: 'vi-VN' }), true);
+  assert.equal(isVietnameseScreenReaderVoice({ lang: 'VI' }), true);
+  assert.equal(isVietnameseScreenReaderVoice({ lang: 'en-US' }), false);
 });
 
 test('opposite two-swipe gestures open the requested sections', () => {
@@ -54,6 +84,9 @@ test('double tap is based on timing, not on where the second finger lands', () =
   assert.equal(isScreenReaderDoubleTap(1_000, 1_750), true);
   assert.equal(isScreenReaderDoubleTap(1_000, 1_751), false);
   assert.equal(isScreenReaderDoubleTap(null, 1_500), false);
+  assert.equal(screenReaderTapDecision(null, 1_500), 'focus-touched-target');
+  assert.equal(screenReaderTapDecision(1_000, 1_500), 'activate-current-focus');
+  assert.equal(screenReaderTapDecision(1_000, 1_751), 'focus-touched-target');
 });
 
 test('focus navigation starts at the nearest end and stops at page boundaries', () => {

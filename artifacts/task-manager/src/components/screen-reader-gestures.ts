@@ -1,6 +1,6 @@
 export type ScreenReaderSwipeDirection = 'up' | 'down' | 'left' | 'right';
 
-export type ScreenReaderAction = 'employees' | 'cards' | 'home' | 'save';
+export type ScreenReaderAction = 'employees' | 'cards' | 'home' | 'back' | 'save';
 export type ScreenReaderFocusNavigation = 'previous' | 'next';
 export type ScreenReaderKeyboardAction =
   | ScreenReaderAction
@@ -13,6 +13,11 @@ export const MIN_SCREEN_READER_RATE = 0.6;
 export const MAX_SCREEN_READER_RATE = 1.8;
 export const MIN_SCREEN_READER_VOLUME = 0.1;
 export const MAX_SCREEN_READER_VOLUME = 1;
+export const SCREEN_READER_COMBO_WINDOW_MS = 1200;
+
+export function isVietnameseScreenReaderVoice(voice: { lang: string }): boolean {
+  return voice.lang.toLowerCase().startsWith('vi');
+}
 
 export function normalizeSpeechRate(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return 1;
@@ -76,7 +81,7 @@ export function screenReaderActionForSwipes(
   directions: readonly ScreenReaderSwipeDirection[],
 ): ScreenReaderAction | null {
   if (directions.length === 1) {
-    return directions[0] === 'up' ? 'home' : directions[0] === 'down' ? 'save' : null;
+    return directions[0] === 'up' ? 'back' : directions[0] === 'down' ? 'save' : null;
   }
 
   if (directions.length === 2) {
@@ -85,4 +90,35 @@ export function screenReaderActionForSwipes(
   }
 
   return null;
+}
+
+export function screenReaderBackFallback(location: string): string | null {
+  const queryIndex = location.indexOf('?');
+  const pathname = (queryIndex >= 0 ? location.slice(0, queryIndex) : location).replace(/\/+$/u, '') || '/';
+  const search = queryIndex >= 0 ? location.slice(queryIndex) : '';
+
+  if (/^\/employees\/[^/]+$/u.test(pathname)) return `/employees${search}`;
+  if (/^\/cards\/[^/]+$/u.test(pathname)) return `/cards${search}`;
+  if (pathname === '/' || pathname === '/attendance' || pathname === '/personal') return null;
+  if (pathname.startsWith('/personal/')) return '/personal';
+  return '/';
+}
+
+export function previousScreenReaderLocation(
+  history: readonly string[],
+  currentLocation: string,
+): { target: string | null; history: string[] } {
+  const currentIndex = history.lastIndexOf(currentLocation);
+  const nextHistory = currentIndex >= 0
+    ? history.slice(0, currentIndex + 1)
+    : [...history, currentLocation];
+
+  if (nextHistory.length > 1) {
+    nextHistory.pop();
+    return { target: nextHistory[nextHistory.length - 1], history: nextHistory };
+  }
+
+  const fallback = screenReaderBackFallback(currentLocation);
+  if (fallback) return { target: fallback, history: [fallback] };
+  return { target: null, history: [currentLocation] };
 }

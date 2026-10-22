@@ -1,10 +1,13 @@
 import { useContext, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { BookOpen, ChevronLeft, ChevronRight, CreditCard, Home, Pause, Play, Save, SkipBack, SkipForward, Volume2, Users, X } from 'lucide-react';
-import { useLocation } from 'wouter';
+import { useLocation, useSearch } from 'wouter';
 import { ScreenReaderContext } from '@/components/screen-reader-context';
 import {
   isSafeSaveLabel,
+  isVietnameseScreenReaderVoice,
   nextScreenReaderFocusIndex,
+  previousScreenReaderLocation,
+  SCREEN_READER_COMBO_WINDOW_MS,
   screenReaderActionForSwipes,
   screenReaderFocusNavigationForSwipe,
   screenReaderKeyboardActionForKey,
@@ -12,9 +15,8 @@ import {
   type ScreenReaderFocusNavigation,
   type ScreenReaderSwipeDirection,
 } from './screen-reader-gestures';
-import { attachScreenReaderTouchNavigation } from './screen-reader-touch-navigation';
+import { attachScreenReaderTouchNavigation, type ScreenReaderTouchPoint } from './screen-reader-touch-navigation';
 
-const COMBO_WINDOW_MS = 650;
 const SWIPE_DISTANCE_PX = 36;
 const PAGE_FOCUS_SELECTOR = [
   'h1, h2, h3, h4, h5, h6, [role="heading"]',
@@ -63,14 +65,16 @@ function visiblePageFocusTargets(): HTMLElement[] {
     .filter((target) => Boolean(elementLabel(target)));
 }
 
-function touchFocusTarget(target: EventTarget | null): HTMLElement | null {
-  if (!(target instanceof Element) || target.closest('.screen-reader-assistant')) return null;
+function touchFocusTarget(target: EventTarget | null, point?: ScreenReaderTouchPoint): HTMLElement | null {
+  const hit = point ? document.elementFromPoint(point.x, point.y) : null;
+  const source = hit ?? (target instanceof Element ? target : null);
+  if (!source || source.closest('.screen-reader-assistant')) return null;
   const root = focusNavigationRoot();
-  const label = target.closest('label');
+  const label = source.closest('label');
   const control = label instanceof HTMLLabelElement ? label.control : null;
   const candidate = control instanceof HTMLElement
     ? control
-    : target.closest<HTMLElement>(PAGE_FOCUS_SELECTOR);
+    : source.closest<HTMLElement>(PAGE_FOCUS_SELECTOR);
   if (!candidate || !root?.contains(candidate) || !visible(candidate)) return null;
   if (candidate.matches('[aria-disabled="true"], :disabled')) return null;
   return candidate;
@@ -175,6 +179,8 @@ export function ScreenReaderAssistant() {
     shortcutSwipesEnabled,
   } = useScreenReaderAssistant();
   const [location, navigate] = useLocation();
+  const search = useSearch();
+  const currentLocation = search ? `${location}?${search}` : location;
   const [expanded, setExpanded] = useState(false);
   const [announcement, setAnnouncement] = useState('');
   const pointerStart = useRef<{ x: number; y: number; pointerId: number } | null>(null);
@@ -182,6 +188,7 @@ export function ScreenReaderAssistant() {
   const activeUtterance = useRef<SpeechSynthesisUtterance | null>(null);
   const pendingDirection = useRef<ScreenReaderSwipeDirection | null>(null);
   const pendingTimer = useRef<number | null>(null);
+  const routeHistory = useRef<string[]>([]);
   const suppressClick = useRef(false);
   const previousLocation = useRef(location);
   const currentFocusIndex = useRef(-1);
@@ -204,8 +211,8 @@ export function ScreenReaderAssistant() {
     utterance.rate = speechRate;
     utterance.volume = speechVolume;
     const voices = window.speechSynthesis.getVoices();
-    const selectedVoice = voices.find((voice) => voice.voiceURI === voiceURI);
-    const vietnameseVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith('vi'));
+    const selectedVoice = voices.find((voice) => voice.voiceURI === voiceURI && isVietnameseScreenReaderVoice(voice));
+    const vietnameseVoice = voices.find(isVietnameseScreenReaderVoice);
     const voice = selectedVoice ?? vietnameseVoice;
     if (voice) utterance.voice = voice;
     activeUtterance.current = utterance;
@@ -261,12 +268,12 @@ export function ScreenReaderAssistant() {
   }
 
   function handleTouchTap(target: HTMLElement | null) {
-    const focused = currentTouchFocus();
-    if (focused) {
-      speak(elementLabel(focused));
+    if (target) {
+      selectTouchTarget(target);
       return;
     }
-    if (target) selectTouchTarget(target);
+    const focused = currentTouchFocus();
+    if (focused) speak(elementLabel(focused));
     else speak(pageHeading());
   }
 
@@ -359,6 +366,13 @@ export function ScreenReaderAssistant() {
   }, [enabled, speechRate, speechVolume, voiceURI, autoReadFocus]);
 
   useEffect(() => {
+    const previousIndex = routeHistory.current.lastIndexOf(currentLocation);
+    routeHistory.current = previousIndex >= 0
+      ? routeHistory.current.slice(0, previousIndex + 1)
+      : [...routeHistory.current, currentLocation];
+  }, [currentLocation]);
+
+  useEffect(() => {
     if (!enabled || !touchNavigationEnabled) {
       clearTouchFocus();
       return;
@@ -390,6 +404,29 @@ export function ScreenReaderAssistant() {
 
   if (!enabled) return null;
 
+  function returnToPreviousView() {
+    const dialogs = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]'))
+      .filter(visible);
+    const activeDialog = dialogs.at(-1);
+    if (activeDialog) {
+      const closeButton = activeDialog.querySelector<HTMLButtonElement>('button[aria-label*="đóng" i]');
+      if (closeButton) {
+        closeButton.click();
+        setAnnouncement('Đã đóng cửa sổ.');
+        return;
+      }
+    }
+
+    const result = previousScreenReaderLocation(routeHistory.current, currentLocation);
+    routeHistory.current = result.history;
+    if (result.target) {
+      navigate(result.target, { replace: true });
+      setAnnouncement('Đã trở về màn hình trước.');
+      return;
+    }
+    setAnnouncement('Đang ở màn hình chính.');
+  }
+
   function performAction(action: ScreenReaderAction) {
     if (action === 'employees') {
       navigate('/employees');
@@ -402,8 +439,14 @@ export function ScreenReaderAssistant() {
       return;
     }
     if (action === 'home') {
-      navigate(location.startsWith('/personal') ? '/personal' : '/');
+      const home = location.startsWith('/personal') ? '/personal' : '/';
+      routeHistory.current = [home];
+      navigate(home, { replace: true });
       setAnnouncement('Trở về trang chính.');
+      return;
+    }
+    if (action === 'back') {
+      returnToPreviousView();
       return;
     }
 
@@ -579,10 +622,11 @@ export function ScreenReaderAssistant() {
 
     if (!first) {
       pendingDirection.current = direction;
+      setAnnouncement(`Đã nhận vuốt ${direction === 'up' ? 'lên' : 'xuống'}; chờ cử chỉ tiếp theo.`);
       pendingTimer.current = window.setTimeout(() => {
         pendingDirection.current = null;
         runSwipeSequence([direction]);
-      }, COMBO_WINDOW_MS);
+      }, SCREEN_READER_COMBO_WINDOW_MS);
       return;
     }
 
@@ -597,7 +641,7 @@ export function ScreenReaderAssistant() {
     pendingTimer.current = window.setTimeout(() => {
       pendingDirection.current = null;
       runSwipeSequence([direction]);
-    }, COMBO_WINDOW_MS);
+    }, SCREEN_READER_COMBO_WINDOW_MS);
   }
 
   function onPointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
@@ -667,7 +711,7 @@ export function ScreenReaderAssistant() {
           </header>
           <p className="screen-reader-status" role="status" aria-live="polite">{announcement || 'Đang bật.'}</p>
           <p className="screen-reader-gestures">
-            Chạm 1 lần: đọc tiêu điểm · Chạm 2 lần ở bất kỳ đâu: kích hoạt tiêu điểm · Vuốt trái/phải: mục trước/sau trên toàn trang · Kéo 2 ngón: cuộn
+            Chạm 1 lần: chọn và đọc mục dưới ngón tay · Chạm 2 lần ở bất kỳ đâu: kích hoạt mục đã chọn · Vuốt trái/phải: mục trước/sau · Vuốt lên: trở về · Lên-xuống trong 1,2 giây: Nhân viên · Xuống-lên trong 1,2 giây: Thẻ · Kéo 2 ngón: cuộn
           </p>
           <div className="screen-reader-actions">
             <button type="button" className="btn" onClick={() => speak(pageHeading())} data-testid="button-reader-title">
@@ -708,7 +752,7 @@ export function ScreenReaderAssistant() {
               Dừng đọc
             </button>
           </div>
-          <p className="screen-reader-footnote">Vuốt lên: trang chính · Vuốt xuống: lưu · Lên-xuống: nhân viên · Xuống-lên: thẻ. VoiceOver/TalkBack có thể nhận cử chỉ trước ứng dụng.</p>
+          <p className="screen-reader-footnote">Vuốt lên: trở về từng màn hình · Vuốt xuống: lưu biểu mẫu · Lên-xuống trong 1,2 giây: Nhân viên · Xuống-lên trong 1,2 giây: Thẻ. VoiceOver/TalkBack có thể nhận cử chỉ trước ứng dụng.</p>
         </section>
       )}
     </aside>

@@ -1,7 +1,9 @@
 import type { ScreenReaderSwipeDirection } from './screen-reader-gestures';
 
+export type ScreenReaderTouchPoint = { x: number; y: number };
+
 export type ScreenReaderTouchNavigationOptions = {
-  resolveTarget: (target: EventTarget | null) => HTMLElement | null;
+  resolveTarget: (target: EventTarget | null, point?: ScreenReaderTouchPoint) => HTMLElement | null;
   onSwipe: (direction: ScreenReaderSwipeDirection) => void;
   onTap: (target: HTMLElement | null) => void;
   onActivate: () => void;
@@ -36,6 +38,15 @@ export function isScreenReaderDoubleTap(
 ): boolean {
   return previousTapTime !== null
     && currentTapTime - previousTapTime <= DOUBLE_TAP_WINDOW_MS;
+}
+
+export function screenReaderTapDecision(
+  previousTapTime: number | null,
+  currentTapTime: number,
+): 'focus-touched-target' | 'activate-current-focus' {
+  return isScreenReaderDoubleTap(previousTapTime, currentTapTime)
+    ? 'activate-current-focus'
+    : 'focus-touched-target';
 }
 
 function distanceBetween(first: Touch, second: Touch): number {
@@ -94,8 +105,12 @@ export function attachScreenReaderTouchNavigation(
       options.onMultiTouchStart();
       singleTouch = null;
       lastTap = null;
+      const center = {
+        x: (first.clientX + second.clientX) / 2,
+        y: (first.clientY + second.clientY) / 2,
+      };
       multiTouch = {
-        target: options.resolveTarget(target),
+        target: options.resolveTarget(target, center),
         lastY: (first.clientY + second.clientY) / 2,
         initialDistance: distanceBetween(first, second),
         pinching: false,
@@ -112,7 +127,7 @@ export function attachScreenReaderTouchNavigation(
 
     const touch = event.touches.item(0);
     if (!touch) return;
-    const focusTarget = options.resolveTarget(target);
+    const focusTarget = options.resolveTarget(target, { x: touch.clientX, y: touch.clientY });
     const editingTarget = focusTarget?.matches('input, textarea, select, [contenteditable="true"]')
       && document.activeElement === focusTarget;
     if (editingTarget) {
@@ -199,7 +214,7 @@ export function attachScreenReaderTouchNavigation(
     }
 
     const now = Date.now();
-    if (lastTap && isScreenReaderDoubleTap(lastTap.time, now)) {
+    if (screenReaderTapDecision(lastTap?.time ?? null, now) === 'activate-current-focus') {
       lastTap = null;
       options.onActivate();
       return;
