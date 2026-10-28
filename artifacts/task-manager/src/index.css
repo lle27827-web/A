@@ -63,33 +63,33 @@
 
 :root[data-color-theme="yellow"] {
   color-scheme: light;
-  --background: 48 100% 94%;
-  --foreground: 32 34% 15%;
-  --border: 42 43% 78%;
-  --input: 42 43% 72%;
-  --card: 46 100% 98%;
-  --card-foreground: 32 34% 15%;
-  --primary: 43 89% 44%;
-  --primary-foreground: 32 42% 12%;
-  --secondary: 45 72% 86%;
-  --secondary-foreground: 32 34% 18%;
-  --muted: 45 65% 90%;
-  --muted-foreground: 31 22% 38%;
-  --accent: 44 90% 82%;
-  --accent-foreground: 32 34% 15%;
+  --background: 42 59% 78%;
+  --foreground: 30 42% 14%;
+  --border: 38 44% 57%;
+  --input: 38 45% 52%;
+  --card: 42 73% 93%;
+  --card-foreground: 30 42% 14%;
+  --primary: 39 78% 44%;
+  --primary-foreground: 30 45% 12%;
+  --secondary: 40 49% 70%;
+  --secondary-foreground: 30 42% 16%;
+  --muted: 42 49% 75%;
+  --muted-foreground: 30 35% 25%;
+  --accent: 38 72% 67%;
+  --accent-foreground: 30 42% 14%;
   --destructive: 4 72% 44%;
   --destructive-foreground: 0 0% 100%;
-  --ring: 43 90% 40%;
-  --ok: 150 60% 32%;
-  --warn: 36 78% 40%;
-  --info: 200 72% 38%;
-  --shadow: 0 18px 50px rgba(95, 69, 9, .16);
+  --ring: 39 80% 32%;
+  --ok: 150 58% 30%;
+  --warn: 30 86% 35%;
+  --info: 199 70% 32%;
+  --shadow: 0 18px 50px rgba(77, 49, 9, .2);
 }
 
 
 @layer base {
   * { @apply border-border; }
-  body { @apply font-sans antialiased bg-background text-foreground; margin: 0; min-width: 320px; min-height: 100dvh; }
+  body { @apply font-sans antialiased bg-background text-foreground; margin: 0; min-width: 320px; min-height: 100dvh; font-weight: 500; }
   button, input, textarea, select { box-sizing: border-box; min-width: 0; max-width: 100%; font: inherit; }
   button { cursor: pointer; }
   button:disabled { cursor: not-allowed; opacity: .55; }
@@ -286,7 +286,7 @@ option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
 .theme-option input { flex: 0 0 auto; width: 17px; height: 17px; accent-color: hsl(var(--primary)); }
 .theme-swatch { flex: 0 0 auto; width: 34px; height: 30px; border: 1px solid hsl(var(--border)); border-radius: 7px; }
 .theme-swatch-default { background: linear-gradient(135deg, #0b0c0f 0 50%, #f6c84f 50%); }
-.theme-swatch-yellow { background: linear-gradient(135deg, #fff7d5 0 50%, #c18a00 50%); }
+.theme-swatch-yellow { background: linear-gradient(135deg, #e9d29f 0 50%, #c77d13 50%); }
 .theme-option-copy { min-width: 0; display: grid; gap: 2px; }
 .theme-option-copy strong { font-size: 13px; }
 .theme-option-copy > span { color: hsl(var(--muted-foreground)); font-size: 12px; }

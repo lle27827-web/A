@@ -231,14 +231,14 @@ function ClerkApplication() {
         ...clerkAppearance,
         variables: {
           ...clerkAppearance.variables,
-          colorPrimary: '#c18a00',
-          colorForeground: '#352a13',
-          colorMutedForeground: '#716142',
+          colorPrimary: '#c77d13',
+          colorForeground: '#382810',
+          colorMutedForeground: '#6f5931',
           colorDanger: '#a92318',
-          colorBackground: '#fff7d5',
-          colorInput: '#fffdf4',
-          colorInputForeground: '#352a13',
-          colorNeutral: '#ad965c',
+          colorBackground: '#e9d29f',
+          colorInput: '#faf2df',
+          colorInputForeground: '#382810',
+          colorNeutral: '#9d7c40',
         },
       }
     : clerkAppearance, [theme]);

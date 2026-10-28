@@ -111,8 +111,8 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
                 />
                 <span className="theme-swatch theme-swatch-yellow" aria-hidden="true" />
                 <span className="theme-option-copy">
-                  <strong>Nền vàng</strong>
-                  <span>Vàng nhạt, chữ đậm</span>
+                  <strong>Vàng sa mạc</strong>
+                  <span>Nền cát ấm, chữ nâu</span>
                 </span>
               </label>
             </fieldset>
