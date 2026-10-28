@@ -7,9 +7,9 @@ import {
 } from '@workspace/api-client-react';
 import { LoaderCircle, Trash2 } from 'lucide-react';
 import { ErrorBanner, Modal, Skeleton } from '@/components/modal';
+import { errorText } from '@/lib/massage';
 
 const count = new Intl.NumberFormat('vi-VN');
-const CONFIRMATION = 'XÓA';
 
 type DeleteResult = {
   fromDate: string;
@@ -24,7 +24,6 @@ export function HistoryDeleteDialog({ onClose }: { onClose: () => void }) {
   const removeRange = useDeleteRetentionDateRange();
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
-  const [confirmation, setConfirmation] = useState('');
   const [completed, setCompleted] = useState<DeleteResult | null>(null);
   const range = { fromDate, toDate };
   const validRange = Boolean(fromDate && toDate && fromDate <= toDate);
@@ -39,22 +38,18 @@ export function HistoryDeleteDialog({ onClose }: { onClose: () => void }) {
     previewCounts &&
     (previewCounts.attendanceCount > 0 || previewCounts.serviceSessionCount > 0),
   );
-  const confirming = confirmation.trim().toLocaleUpperCase('vi-VN') === CONFIRMATION;
-
   function updateDate(field: 'fromDate' | 'toDate', value: string) {
     if (field === 'fromDate') setFromDate(value);
     else setToDate(value);
-    setConfirmation('');
     setCompleted(null);
     removeRange.reset();
   }
 
   function deleteSelectedRange() {
-    if (!validRange || !hasRecords || !confirming || removeRange.isPending) return;
+    if (!validRange || !hasRecords || removeRange.isPending) return;
     removeRange.mutate({ data: range }, {
       onSuccess: async (result) => {
         setCompleted(result);
-        setConfirmation('');
         await Promise.all([
           cache.invalidateQueries({ queryKey: getPreviewRetentionDateRangeQueryKey(range) }),
           cache.invalidateQueries({
@@ -84,7 +79,7 @@ export function HistoryDeleteDialog({ onClose }: { onClose: () => void }) {
       testId="dialog-delete-attendance-history"
     >
       <p className="muted" role="note">
-        Chỉ xóa lịch sử cơ sở trong khoảng ngày đã chọn. Sổ cá nhân, nhật ký và số dư thẻ được giữ nguyên.
+        Chỉ xóa lịch sử cơ sở trong khoảng ngày đã chọn. Sổ cá nhân, nhật ký và số dư thẻ được giữ nguyên; kho phân vùng có thể chưa giảm dung lượng vật lý ngay.
       </p>
 
       {completed ? (
@@ -127,7 +122,7 @@ export function HistoryDeleteDialog({ onClose }: { onClose: () => void }) {
           )}
           {validRange && preview.isError && (
             <ErrorBanner
-              text="Không xem trước được. Nếu kho phân vùng đang bật, thao tác xóa tạm khóa để tránh tăng dung lượng nhật ký."
+              text={errorText(preview.error, 'Không xem trước được lịch sử trong khoảng ngày này.')}
               onRetry={() => void preview.refetch()}
             />
           )}
@@ -142,21 +137,9 @@ export function HistoryDeleteDialog({ onClose }: { onClose: () => void }) {
 
           {hasRecords && (
             <>
-              <label className="field" htmlFor="confirm-delete-history-range">
-                Nhập “XÓA” để xác nhận
-                <input
-                  id="confirm-delete-history-range"
-                  value={confirmation}
-                  autoComplete="off"
-                  disabled={removeRange.isPending}
-                  onChange={(event) => setConfirmation(event.target.value)}
-                  data-testid="input-confirm-delete-history-range"
-                />
-              </label>
-
               {removeRange.isError && (
                 <p className="form-error" role="alert">
-                  Không xóa được lịch sử. Dữ liệu chưa được xóa nếu giao dịch bị lỗi.
+                  {errorText(removeRange.error, 'Không xóa được lịch sử. Dữ liệu chưa được xóa nếu giao dịch bị lỗi.')}
                 </p>
               )}
             </>
@@ -176,11 +159,11 @@ export function HistoryDeleteDialog({ onClose }: { onClose: () => void }) {
               type="button"
               className="btn danger"
               onClick={deleteSelectedRange}
-              disabled={!validRange || !hasRecords || !confirming || removeRange.isPending}
+              disabled={!validRange || !hasRecords || preview.isLoading || preview.isError || removeRange.isPending}
               data-testid="button-confirm-delete-history"
             >
               {removeRange.isPending ? <LoaderCircle className="spin" size={14} /> : <Trash2 size={14} aria-hidden="true" />}
-              Xóa vĩnh viễn
+              Xóa lịch sử
             </button>
           </div>
         </>

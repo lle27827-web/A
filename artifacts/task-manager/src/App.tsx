@@ -7,6 +7,7 @@ import type { FacilityPermissions } from '@workspace/api-client-react';
 import { getAuthStatus, getGetAuthStatusQueryKey, setAuthTokenGetter, useGetAuthStatus } from '@workspace/api-client-react';
 import { ALL_PERMISSIONS, AppShell, NO_PERMISSIONS, hasFacilityAccess, useShell } from '@/components/app-shell';
 import { AppGestureProvider } from '@/components/app-gesture-provider';
+import { ColorThemeProvider, useColorTheme } from '@/components/color-theme-provider';
 import { EmployeeDetail } from '@/components/employee-detail';
 import HomePage from '@/pages/home';
 import EmployeesPage from '@/pages/employees';
@@ -224,11 +225,28 @@ function AuthenticatedApplication() {
 
 function ClerkApplication() {
   const [, setLocation] = useLocation();
+  const { theme } = useColorTheme();
+  const appearance = useMemo(() => theme === 'yellow'
+    ? {
+        ...clerkAppearance,
+        variables: {
+          ...clerkAppearance.variables,
+          colorPrimary: '#c18a00',
+          colorForeground: '#352a13',
+          colorMutedForeground: '#716142',
+          colorDanger: '#a92318',
+          colorBackground: '#fff7d5',
+          colorInput: '#fffdf4',
+          colorInputForeground: '#352a13',
+          colorNeutral: '#ad965c',
+        },
+      }
+    : clerkAppearance, [theme]);
 
   return (
     <ClerkProvider
       publishableKey={clerkPublishableKey!}
-      appearance={clerkAppearance}
+      appearance={appearance}
       signInUrl={signInPath}
       signUpUrl={signUpPath}
       signInFallbackRedirectUrl={basePath || '/'}
@@ -254,17 +272,19 @@ function ClerkApplication() {
 
 function App() {
   return (
-    <WouterRouter base={basePath}>
-      {clerkPublishableKey ? <ClerkApplication /> : (
-        <QueryClientProvider client={guestQueryClient}>
-          <Switch>
-            <Route path="/sign-in/*?"><AuthSetupPage /></Route>
-            <Route path="/sign-up/*?"><AuthSetupPage /></Route>
-            <Route><WelcomePage /></Route>
-          </Switch>
-        </QueryClientProvider>
-      )}
-    </WouterRouter>
+    <ColorThemeProvider>
+      <WouterRouter base={basePath}>
+        {clerkPublishableKey ? <ClerkApplication /> : (
+          <QueryClientProvider client={guestQueryClient}>
+            <Switch>
+              <Route path="/sign-in/*?"><AuthSetupPage /></Route>
+              <Route path="/sign-up/*?"><AuthSetupPage /></Route>
+              <Route><WelcomePage /></Route>
+            </Switch>
+          </QueryClientProvider>
+        )}
+      </WouterRouter>
+    </ColorThemeProvider>
   );
 }
 

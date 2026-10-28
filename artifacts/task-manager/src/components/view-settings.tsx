@@ -1,4 +1,4 @@
-import { useCallback, useContext, useState } from 'react';
+import { useCallback, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
 import { ArrowLeft, BookHeart, ChevronRight, History, Home, KeyRound, Settings, Trash2, X } from 'lucide-react';
@@ -6,7 +6,7 @@ import { Link, useLocation } from 'wouter';
 import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
 import { AccessGrantsDialog } from '@/components/access-grants';
-import { AppGestureContext } from '@/components/app-gesture-context';
+import { useColorTheme } from '@/components/color-theme-provider';
 
 export type ViewMode = 'owner' | 'employee';
 export type ViewPrefs = { mode: ViewMode; employeeId: number | null };
@@ -55,8 +55,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   const [, navigate] = useLocation();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [deleteHistoryOpen, setDeleteHistoryOpen] = useState(false);
-  const appGestures = useContext(AppGestureContext);
-  if (!appGestures) throw new Error('App gesture settings rendered outside the app gesture provider');
+  const { theme, setTheme } = useColorTheme();
 
   function pickHistory(month: string, date: string) {
     setHistoryOpen(false);
@@ -82,27 +81,41 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
             {isOwner ? 'Lịch sử, cấp quyền quản lý và sổ cá nhân.' : canManageGrants ? 'Lịch sử tháng, quyền quản lý trong phạm vi được cấp và sổ cá nhân.' : 'Lịch sử tháng và sổ cá nhân.'}
           </DialogPrimitive.Description>
 
-          <section className="app-gesture-settings" aria-labelledby="app-gesture-title">
-            <h3 id="app-gesture-title">Cử chỉ thao tác</h3>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={appGestures.enabled}
-              aria-label="Cử chỉ lưu và trở về"
-              className={`settings-link app-gesture-setting${appGestures.enabled ? ' is-on' : ''}`}
-              onClick={() => appGestures.setEnabled(!appGestures.enabled)}
-              data-testid="button-toggle-app-gestures"
-            >
-              <ArrowLeft size={17} aria-hidden="true" />
-              <span className="grow">
-                <strong>Cử chỉ lưu và trở về</strong>
-                <span className="muted">{appGestures.enabled ? 'Đang bật' : 'Đang tắt'}</span>
-              </span>
-              <span className="app-gesture-switch-state" aria-hidden="true">{appGestures.enabled ? 'Bật' : 'Tắt'}</span>
-            </button>
-            <p className="app-gesture-help">
-              Vẽ liền một nét lên → phải → trái để lưu biểu mẫu thông thường; trái → phải để trở về. Các lần vuốt thường, chạm và nhập liệu vẫn hoạt động như cũ.
-            </p>
+          <section className="theme-settings" aria-labelledby="theme-settings-title">
+            <h3 id="theme-settings-title">Giao diện</h3>
+            <fieldset className="theme-options">
+              <legend>Chọn màu nền</legend>
+              <label className={`theme-option${theme === 'default' ? ' selected' : ''}`}>
+                <input
+                  type="radio"
+                  name="app-color-theme"
+                  value="default"
+                  checked={theme === 'default'}
+                  onChange={() => setTheme('default')}
+                  data-testid="radio-theme-default"
+                />
+                <span className="theme-swatch theme-swatch-default" aria-hidden="true" />
+                <span className="theme-option-copy">
+                  <strong>Giao diện hiện tại</strong>
+                  <span>Nền tối</span>
+                </span>
+              </label>
+              <label className={`theme-option${theme === 'yellow' ? ' selected' : ''}`}>
+                <input
+                  type="radio"
+                  name="app-color-theme"
+                  value="yellow"
+                  checked={theme === 'yellow'}
+                  onChange={() => setTheme('yellow')}
+                  data-testid="radio-theme-yellow"
+                />
+                <span className="theme-swatch theme-swatch-yellow" aria-hidden="true" />
+                <span className="theme-option-copy">
+                  <strong>Nền vàng</strong>
+                  <span>Vàng nhạt, chữ đậm</span>
+                </span>
+              </label>
+            </fieldset>
           </section>
 
           <Link href="/personal" className="settings-link personal-entry" onClick={() => onOpenChange(false)} data-testid="link-personal-notebook">

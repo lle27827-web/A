@@ -86,10 +86,11 @@ export async function deleteFacilityHistoryYear(year: number, _operationId?: str
   const endDate = `${year + 1}-01-01`;
 
   if (isPartitionedStorageEnabled()) {
-    throw new MassageError(
-      409,
-      "Xóa thủ công đang tạm khóa khi bật kho phân vùng vì tombstone không giải phóng dung lượng. Cần hoàn tất cơ chế nén/xóa gọn trên cả bốn kho trước.",
-    );
+    const result = await deleteFacilityHistoryDateRange({
+      fromDate: startDate,
+      toDate: `${year}-12-31`,
+    });
+    return { year, ...result };
   }
 
   return db.transaction(async (tx) => {
@@ -168,13 +169,70 @@ export function validateRetentionDateRange(range: RetentionDateRange): Retention
   return range;
 }
 
-function ensureRangeDeleteSupported(): void {
-  if (isPartitionedStorageEnabled()) {
-    throw new MassageError(
-      409,
-      "Xóa thủ công đang tạm khóa khi bật kho phân vùng vì tombstone không giải phóng dung lượng. Cần hoàn tất cơ chế nén/xóa gọn trên cả bốn kho trước.",
-    );
-  }
+export function isWithinRetentionDateRange(workDate: string, range: RetentionDateRange): boolean {
+  return workDate >= range.fromDate && workDate <= range.toDate;
+}
+
+type AttendanceHistoryRow = Pick<typeof attendanceTable.$inferSelect, "id" | "workDate">;
+type ServiceHistoryRow = Pick<
+  typeof serviceSessionsTable.$inferSelect,
+  | "id"
+  | "cardId"
+  | "memberId"
+  | "employeeName"
+  | "customerName"
+  | "serviceType"
+  | "serviceTypeId"
+  | "workDate"
+  | "minutes"
+  | "customerHourlyRate"
+  | "customerCharge"
+  | "hourlyRate"
+  | "earnings"
+  | "note"
+  | "createdAt"
+>;
+type ArchivedCardUseRow = Pick<typeof cardUsageHistoryTable.$inferSelect, "sourceSessionId">;
+
+export function buildPartitionedHistoryDeleteMutations(
+  attendanceRows: readonly AttendanceHistoryRow[],
+  sessionRows: readonly ServiceHistoryRow[],
+  historyRows: readonly ArchivedCardUseRow[],
+  range: RetentionDateRange,
+) {
+  const attendance = attendanceRows.filter((row) => isWithinRetentionDateRange(row.workDate, range));
+  const sessions = sessionRows.filter((row) => isWithinRetentionDateRange(row.workDate, range));
+  const archivedSourceIds = new Set(historyRows.map((row) => row.sourceSessionId));
+  const cardUsesToArchive = sessions.filter(
+    (row) => row.cardId !== null && !archivedSourceIds.has(row.id),
+  );
+  const mutations = [
+    ...cardUsesToArchive.map((row) => upsertMutation("card_usage_history", row.id, {
+      sourceSessionId: row.id,
+      cardId: row.cardId!,
+      memberId: row.memberId,
+      employeeName: row.employeeName,
+      customerName: row.customerName,
+      serviceType: row.serviceType,
+      serviceTypeId: row.serviceTypeId,
+      workDate: row.workDate,
+      minutes: row.minutes,
+      customerHourlyRate: row.customerHourlyRate,
+      customerCharge: row.customerCharge,
+      hourlyRate: row.hourlyRate,
+      earnings: row.earnings,
+      note: row.note,
+      createdAt: row.createdAt,
+    })),
+    ...sessions.map((row) => deleteMutation("service_sessions", row.id)),
+    ...attendance.map((row) => deleteMutation("attendance", row.id)),
+  ];
+  return {
+    mutations,
+    deletedAttendance: attendance.length,
+    deletedServiceSessions: sessions.length,
+    archivedCardUses: cardUsesToArchive.length,
+  };
 }
 
 /**
@@ -183,7 +241,23 @@ function ensureRangeDeleteSupported(): void {
  */
 export async function previewFacilityHistoryDateRange(input: RetentionDateRange) {
   const { fromDate, toDate } = validateRetentionDateRange(input);
-  ensureRangeDeleteSupported();
+  if (isPartitionedStorageEnabled()) {
+    const [attendanceRaw, sessionsRaw] = await Promise.all([
+      readPartitionedTable("attendance"),
+      readPartitionedTable("service_sessions"),
+    ]);
+    const attendance = (attendanceRaw as unknown as (typeof attendanceTable.$inferSelect)[])
+      .filter((row) => isWithinRetentionDateRange(row.workDate, { fromDate, toDate }));
+    const sessions = (sessionsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[])
+      .filter((row) => isWithinRetentionDateRange(row.workDate, { fromDate, toDate }));
+    return {
+      fromDate,
+      toDate,
+      attendanceCount: attendance.length,
+      serviceSessionCount: sessions.length,
+      cardUseCount: sessions.filter((row) => row.cardId !== null).length,
+    };
+  }
 
   const result = await db.execute(sql`
     SELECT
@@ -216,7 +290,37 @@ export async function previewFacilityHistoryDateRange(input: RetentionDateRange)
  */
 export async function deleteFacilityHistoryDateRange(input: RetentionDateRange) {
   const { fromDate, toDate } = validateRetentionDateRange(input);
-  ensureRangeDeleteSupported();
+  if (isPartitionedStorageEnabled()) {
+    const [attendanceRaw, sessionsRaw, historyRaw] = await Promise.all([
+      readPartitionedTable("attendance"),
+      readPartitionedTable("service_sessions"),
+      readPartitionedTable("card_usage_history"),
+    ]);
+    const history = historyRaw as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
+    const deletion = buildPartitionedHistoryDeleteMutations(
+      attendanceRaw as unknown as AttendanceHistoryRow[],
+      sessionsRaw as unknown as ServiceHistoryRow[],
+      history,
+      { fromDate, toDate },
+    );
+    if (deletion.mutations.length > 0) {
+      await commitPartitionedMutations({
+        operationId: randomUUID(),
+        lockName: "retention",
+        action: "retention.manual-delete-range",
+        request: { fromDate, toDate },
+        expectedEventCount: deletion.mutations.length,
+        build: () => deletion.mutations,
+      });
+    }
+    return {
+      fromDate,
+      toDate,
+      deletedAttendance: deletion.deletedAttendance,
+      deletedServiceSessions: deletion.deletedServiceSessions,
+      archivedCardUses: deletion.archivedCardUses,
+    };
+  }
 
   return db.transaction(async (tx) => {
     await tx.execute(sql`SET LOCAL lock_timeout = '15s'`);
