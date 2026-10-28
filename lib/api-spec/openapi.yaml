@@ -920,7 +920,7 @@ components:
       required: [authConfigured, authenticated, isOwner, permissions]
     FacilityPermissions:
       type: object
-      required: [allEmployees, employeeIds, viewCards, viewRevenue, editEmployees, editCards, editServices, viewAppointments, editAppointments]
+      required: [allEmployees, employeeIds, viewCards, viewRevenue, editEmployees, deleteEmployees, editCards, editServices, viewAppointments, editAppointments]
       properties:
         allEmployees: { type: boolean }
         employeeIds:
@@ -931,6 +931,7 @@ components:
         viewCards: { type: boolean }
         viewRevenue: { type: boolean }
         editEmployees: { type: boolean }
+        deleteEmployees: { type: boolean }
         editCards: { type: boolean }
         editServices: { type: boolean }
         viewAppointments: { type: boolean }

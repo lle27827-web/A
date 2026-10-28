@@ -5,7 +5,7 @@ import {
   CreateServiceTypeBody, CreateServiceTypeResponse, ListServiceTypesResponse,
   UpdateServiceTypeBody, UpdateServiceTypeParams, UpdateServiceTypeResponse, DeleteServiceTypeParams,
 } from "@workspace/api-zod";
-import { MassageError } from "../lib/massage";
+import { idempotentTransaction, MassageError } from "../lib/massage";
 import { massageHandler, parseInput } from "./massage-errors";
 import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "../lib/partitioned-mutations";
 
@@ -44,7 +44,13 @@ router.post("/service-types", massageHandler(async (req, res) => {
     res.status(201).json(CreateServiceTypeResponse.parse(output(row)));
     return;
   }
-  const [row] = await db.insert(serviceTypesTable).values({ ...input, name }).returning();
+   const row = await idempotentTransaction(
+     operationIdFromRequest(req.get("Idempotency-Key"), "thêm dịch vụ"),
+     "thêm dịch vụ",
+     "service-type.create",
+     { ...input, name },
+     async (tx) => (await tx.insert(serviceTypesTable).values({ ...input, name }).returning())[0],
+   );
   res.status(201).json(CreateServiceTypeResponse.parse(output(row)));
 }));
 router.patch("/service-types/:id", massageHandler(async (req, res) => {
@@ -70,7 +76,13 @@ router.patch("/service-types/:id", massageHandler(async (req, res) => {
     res.json(UpdateServiceTypeResponse.parse(output(row)));
     return;
   }
-  const [row] = await db.update(serviceTypesTable).set({ ...input, name }).where(eq(serviceTypesTable.id, id)).returning();
+  const row = await idempotentTransaction(
+    operationIdFromRequest(req.get("Idempotency-Key"), "sửa dịch vụ"),
+    "sửa dịch vụ",
+    "service-type.update",
+    { id, input: { ...input, name } },
+    async (tx) => (await tx.update(serviceTypesTable).set({ ...input, name }).where(eq(serviceTypesTable.id, id)).returning())[0],
+  );
   if (!row) throw new MassageError(404, "Không tìm thấy dịch vụ.");
   res.json(UpdateServiceTypeResponse.parse(output(row)));
 }));
@@ -92,11 +104,17 @@ router.delete("/service-types/:id", massageHandler(async (req, res) => {
     res.sendStatus(204);
     return;
   }
-  await db.transaction(async (tx) => {
+  await idempotentTransaction(
+    operationIdFromRequest(req.get("Idempotency-Key"), "xóa dịch vụ"),
+    "xóa dịch vụ",
+    "service-type.delete",
+    { id },
+    async (tx) => {
     const [row] = await tx.select().from(serviceTypesTable).where(eq(serviceTypesTable.id, id)).for("update");
     if (!row) throw new MassageError(404, "Không tìm thấy dịch vụ.");
     await tx.delete(serviceTypesTable).where(eq(serviceTypesTable.id, id));
-  });
+    },
+  );
   res.sendStatus(204);
 }));
 export default router;

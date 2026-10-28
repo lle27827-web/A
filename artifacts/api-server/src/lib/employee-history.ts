@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { db, isPartitionedStorageEnabled, membersTable, memberVersionsTable, readPartitionedTable, serviceSessionsTable, treatmentCardsTable } from "@workspace/db";
 import type { MemberInput, MemberRecord, MemberUpdate } from "@workspace/api-zod";
-import { MassageError, retainedMonthBounds } from "./massage";
+import { idempotentTransaction, MassageError, retainedMonthBounds } from "./massage";
 import { commitPartitionedMutations, operationIdFromRequest, upsertMutation } from "./partitioned-mutations";
 import { withPartitionWriteMutex } from "@workspace/db";
 
@@ -166,7 +166,7 @@ export async function createEmployee(input: MemberInput, operationId?: string) {
     if (!member) throw new MassageError(503, "Không tải lại được nhân viên sau khi lưu.");
     return memberResponse(member);
   }
-  return db.transaction(async (tx) => {
+  return idempotentTransaction(operationId, "thêm nhân viên", "member.create", { ...input, name }, async (tx) => {
     const [member] = await tx.insert(membersTable).values({ ...input, name }).returning();
     await tx.insert(memberVersionsTable).values({
       memberId: member.id, name: member.name, hourlyRate: member.hourlyRate, recordedAt: member.createdAt,
@@ -231,7 +231,7 @@ export async function updateEmployee(id: number, input: MemberUpdate, operationI
       return memberResponse(member);
     });
   }
-  return db.transaction(async (tx) => {
+  return idempotentTransaction(operationId, "sửa nhân viên", "member.update", { id, input }, async (tx) => {
     const [old] = await tx.select().from(membersTable).where(and(eq(membersTable.id, id), isNull(membersTable.deletedAt))).for("update");
     if (!old) throw new MassageError(404, "Không tìm thấy nhân viên đang hoạt động.");
     // Older installations can lack versions. Capture only what is known now,

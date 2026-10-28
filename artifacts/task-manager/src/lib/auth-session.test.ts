@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { postAuthPath, retrySessionCheck, sessionScreen, SessionRestoringError, validateRestoredSession } from './auth-session';
 
-const permissions = { allEmployees: false, employeeIds: [], viewCards: false, viewRevenue: false, editEmployees: false, editCards: false, editServices: false, viewAppointments: false, editAppointments: false };
+const permissions = { allEmployees: false, employeeIds: [], viewCards: false, viewRevenue: false, editEmployees: false, deleteEmployees: false, editCards: false, editServices: false, viewAppointments: false, editAppointments: false };
 const guest = { authConfigured: true, authenticated: false, isOwner: false, permissions };
-const owner = { authConfigured: true, authenticated: true, isOwner: true, permissions: { ...permissions, allEmployees: true, viewCards: true, viewRevenue: true, editEmployees: true, editCards: true, editServices: true, viewAppointments: true, editAppointments: true } };
+const owner = { authConfigured: true, authenticated: true, isOwner: true, permissions: { ...permissions, allEmployees: true, viewCards: true, viewRevenue: true, editEmployees: true, deleteEmployees: true, editCards: true, editServices: true, viewAppointments: true, editAppointments: true } };
 const viewer = { authConfigured: true, authenticated: true, isOwner: false, permissions };
 
 test('restored sessions retain verified owner/viewer roles; anonymous visitors stay guests', () => {

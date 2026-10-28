@@ -6,6 +6,7 @@ export const managerGrantsTable = pgTable("manager_grants", {
   id: serial("id").primaryKey(),
   email: text("email").notNull(),
   permissions: jsonb("permissions").notNull().default({}),
+  grantedBy: text("granted_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [uniqueIndex("manager_grants_email_unique").on(table.email)]);
 

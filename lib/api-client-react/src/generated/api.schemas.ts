@@ -142,6 +142,7 @@ export interface FacilityPermissions {
   viewCards: boolean;
   viewRevenue: boolean;
   editEmployees: boolean;
+  deleteEmployees: boolean;
   editCards: boolean;
   editServices: boolean;
   viewAppointments: boolean;

@@ -3,6 +3,7 @@ import test from "node:test";
 import type { Request, Response } from "express";
 import { apiAuthorizationGate, isPublicEmployeeRead, managerRequestAllowed } from "./owner-auth";
 import { ownerPermissions } from "./facility-permissions";
+import { createAsyncTtlCache } from "./user-identity-cache";
 
 function request(method: string, path: string, query: Record<string, unknown> = {}): Request {
   return { method, path, query } as Request;
@@ -89,4 +90,33 @@ test("database failover status and promotion are reserved for the owner", async 
   const maximumManagerPermissions = ownerPermissions();
   assert.equal(await managerRequestAllowed(request("GET", "/database/failover"), maximumManagerPermissions), false);
   assert.equal(await managerRequestAllowed(request("POST", "/database/failover"), maximumManagerPermissions), false);
+});
+
+test("Clerk identity cache coalesces fetches, bounds entries, and evicts failed lookups", async () => {
+  const cache = createAsyncTtlCache<string>(60_000, 2);
+  let loads = 0;
+  const load = async () => { loads += 1; return "verified@example.com"; };
+
+  const [first, concurrent] = await Promise.all([
+    cache.get("user-1", load),
+    cache.get("user-1", load),
+  ]);
+  assert.equal(first, "verified@example.com");
+  assert.equal(concurrent, first);
+  assert.equal(loads, 1);
+
+  await cache.get("user-2", async () => "two");
+  await cache.get("user-3", async () => "three");
+  assert.equal(cache.size, 2);
+  assert.equal(await cache.get("user-1", load), "verified@example.com");
+  assert.equal(loads, 2, "least recently used identity should be evicted");
+
+  let failedLoads = 0;
+  const failingLookup = async () => {
+    failedLoads += 1;
+    throw new Error("temporary Clerk failure");
+  };
+  await assert.rejects(cache.get("failed-user", failingLookup));
+  await assert.rejects(cache.get("failed-user", failingLookup));
+  assert.equal(failedLoads, 2, "failed identity lookups must be retried, not cached");
 });

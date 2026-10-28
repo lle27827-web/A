@@ -15,6 +15,7 @@ import {
   AddTreatmentCardHoursBody, AddTreatmentCardHoursParams, AddTreatmentCardHoursResponse,
 } from "@workspace/api-zod";
 import { addCardHours, cardResponse, createCard, deleteCard, updateCard } from "../lib/massage";
+import { operationIdFromRequest } from "../lib/partitioned-mutations";
 import { massageHandler, parseInput } from "./massage-errors";
 
 const router: IRouter = Router();
@@ -82,25 +83,25 @@ router.get("/treatment-cards", massageHandler(async (_req, res) => {
 router.post("/treatment-cards", massageHandler(async (req, res) => {
   const input = parseInput(CreateTreatmentCardBody, req.body);
   res.status(201).json(CreateTreatmentCardResponse.parse(
-    await createCard(input, req.get("Idempotency-Key") ?? undefined),
+    await createCard(input, operationIdFromRequest(req.get("Idempotency-Key"), "bán thẻ")),
   ));
 }));
 router.patch("/treatment-cards/:id", massageHandler(async (req, res) => {
   const { id } = parseInput(UpdateTreatmentCardParams, req.params);
   const input = parseInput(UpdateTreatmentCardBody, req.body);
   if (!Object.keys(input).length) { res.status(400).json({ error: "Chưa có thông tin cần cập nhật." }); return; }
-  res.json(UpdateTreatmentCardResponse.parse(await updateCard(id, input, req.get("Idempotency-Key") ?? undefined)));
+  res.json(UpdateTreatmentCardResponse.parse(await updateCard(id, input, operationIdFromRequest(req.get("Idempotency-Key"), "sửa thẻ"))));
 }));
 router.post("/treatment-cards/:id/hours", massageHandler(async (req, res) => {
   const { id } = parseInput(AddTreatmentCardHoursParams, req.params);
   const { minutes, amount } = parseInput(AddTreatmentCardHoursBody, req.body);
   res.json(AddTreatmentCardHoursResponse.parse(
-    await addCardHours(id, minutes, amount, req.get("Idempotency-Key") ?? undefined),
+    await addCardHours(id, minutes, amount, operationIdFromRequest(req.get("Idempotency-Key"), "nạp thẻ")),
   ));
 }));
 router.delete("/treatment-cards/:id", massageHandler(async (req, res) => {
   const { id } = parseInput(DeleteTreatmentCardParams, req.params);
-  await deleteCard(id, req.get("Idempotency-Key") ?? undefined);
+  await deleteCard(id, operationIdFromRequest(req.get("Idempotency-Key"), "xóa thẻ"));
   res.sendStatus(204);
 }));
 export default router;

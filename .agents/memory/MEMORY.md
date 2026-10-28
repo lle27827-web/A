@@ -10,6 +10,7 @@
 - [Appointment access](appointment-access.md) — appointment records need a dedicated manager grant; editing requires viewing and never comes from other facility permissions.
 - [Vercel SPA routing](vercel-spa-routing.md) — use raw route regex and an index destination; path transforms alone cannot resolve static SPA pages.
 - [Migration baselines](database-migration-baseline.md) — existing tables may have an empty migration journal; do not replay or invent a baseline blindly.
+- [Drizzle snapshot serialization](drizzle-bigint-snapshot.md) — schema generation can fail while serializing BigInt snapshot values; preserve generated files and use audited additive migrations.
 - [Drizzle nested selects](drizzle-nested-selects.md) — raw selected SQL may strip column qualifiers; explicitly qualify joined subqueries.
 - [Employee history](employee-history.md) — retain facility/personal work history five years; archive older card uses permanently without refunding hours.
 - [Navigation placement](navigation-placement.md) — keep service pricing on the home screen; preserve its manager grant while keeping it out of Settings.

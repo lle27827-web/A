@@ -4,7 +4,7 @@ import express, { type Request } from "express";
 import { once } from "node:events";
 import { eq, inArray } from "drizzle-orm";
 import { attendanceTable, db, managerGrantsTable, membersTable, pool, serviceSessionsTable } from "@workspace/db";
-import { canViewEmployee, noPermissions, ownerPermissions, permissionsForEmail, permissionsWithinDelegationScope, safePermissions } from "./facility-permissions";
+import { canDeleteEmployee, canManageGrant, canViewEmployee, noPermissions, ownerPermissions, permissionsForEmail, permissionsWithinDelegationScope, safePermissions } from "./facility-permissions";
 import { managerRequestAllowed } from "./owner-auth";
 import membersRouter from "../routes/members";
 import attendanceRouter from "../routes/attendance";
@@ -23,6 +23,12 @@ test("permission policy denies by default; employee, card, revenue and edit righ
   assert.equal(canViewEmployee(scoped, 7), true);
   assert.equal(canViewEmployee(scoped, 8), false);
   assert.equal(canViewEmployee(ownerPermissions(), 0), false);
+  assert.equal(canDeleteEmployee({ ...scoped, deleteEmployees: true }, 7), true);
+  assert.equal(canDeleteEmployee({ ...scoped, editEmployees: true }, 7), false, "editing employees must not imply delete");
+  assert.equal(canManageGrant({ email: "manager@example.com", isOwner: false, permissions: ownerPermissions() },
+    { email: "staff@example.com", grantedBy: " MANAGER@example.com ", permissions: scoped }), true);
+  assert.equal(canManageGrant({ email: "manager@example.com", isOwner: false, permissions: ownerPermissions() },
+    { email: "staff@example.com", grantedBy: null, permissions: scoped }), false, "legacy grants without a creator remain owner-managed");
   for (const p of [none, scoped, ownerPermissions()]) {
     assert.equal(await managerRequestAllowed(req("GET", "/unknown"), p), false);
   }
@@ -46,6 +52,8 @@ test("permission policy denies by default; employee, card, revenue and edit righ
   assert.equal(await managerRequestAllowed(req("PATCH", "/members/7"), scoped), false);
   assert.equal(await managerRequestAllowed(req("PATCH", "/members/7"), { ...scoped, editEmployees: true }), true);
   assert.equal(await managerRequestAllowed(req("DELETE", "/members/8"), { ...scoped, editEmployees: true }), false);
+  assert.equal(await managerRequestAllowed(req("DELETE", "/members/7"), { ...scoped, editEmployees: true }), false);
+  assert.equal(await managerRequestAllowed(req("DELETE", "/members/7"), { ...scoped, deleteEmployees: true }), true);
   assert.equal(await managerRequestAllowed(req("POST", "/members"), { ...scoped, editEmployees: true }), false);
   assert.equal(await managerRequestAllowed(req("POST", "/members"), { ...scoped, editEmployees: true, allEmployees: true }), true);
   const cards = { ...none, viewCards: true };
@@ -66,7 +74,7 @@ test("permission policy denies by default; employee, card, revenue and edit righ
   assert.equal(await managerRequestAllowed(req("DELETE", "/appointments/1"), appointmentManager), true);
   assert.equal(await managerRequestAllowed(req("GET", "/appointments/1"), appointmentManager), false);
   const legacy = { allEmployees: true, employeeIds: [7], viewCards: true, viewRevenue: true, editEmployees: true, editCards: false, editServices: false };
-  assert.deepEqual(safePermissions(legacy), { ...legacy, viewAppointments: false, editAppointments: false });
+  assert.deepEqual(safePermissions(legacy), { ...legacy, viewAppointments: false, editAppointments: false, deleteEmployees: false });
 });
 
 test("scoped reads and delegated grants stay within persisted manager permissions", async () => {

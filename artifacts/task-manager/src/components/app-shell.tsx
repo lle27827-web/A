@@ -11,11 +11,11 @@ import { primeSaveChime } from '@/lib/save-chime';
 
 export const NO_PERMISSIONS: FacilityPermissions = {
   allEmployees: false, employeeIds: [], viewCards: false, viewRevenue: false,
-  editEmployees: false, editCards: false, editServices: false, viewAppointments: false, editAppointments: false,
+  editEmployees: false, deleteEmployees: false, editCards: false, editServices: false, viewAppointments: false, editAppointments: false,
 };
 export const ALL_PERMISSIONS: FacilityPermissions = {
   allEmployees: true, employeeIds: [], viewCards: true, viewRevenue: true,
-  editEmployees: true, editCards: true, editServices: true, viewAppointments: true, editAppointments: true,
+  editEmployees: true, deleteEmployees: true, editCards: true, editServices: true, viewAppointments: true, editAppointments: true,
 };
 export function hasFacilityAccess(p: FacilityPermissions): boolean {
   return p.allEmployees || p.employeeIds.length > 0 || p.viewCards || p.viewRevenue || p.editServices || p.viewAppointments || p.editAppointments;
@@ -32,6 +32,8 @@ type ShellCtx = {
   canEditEmployees: boolean;
   /** allEmployees + editEmployees, not in history. */
   canAddEmployees: boolean;
+  /** Separate destructive capability, scoped to visible employees. */
+  canDeleteEmployees: boolean;
   canEditCards: boolean;
   canEditServices: boolean;
   /** YYYY-MM when viewing a past month read-only, else null. */
@@ -150,6 +152,7 @@ export function AppShell({
     canViewEmployees,
     canEditEmployees: canViewEmployees && permissions.editEmployees && !historyMonth,
     canAddEmployees: permissions.allEmployees && permissions.editEmployees && !historyMonth,
+    canDeleteEmployees: canViewEmployees && permissions.deleteEmployees && !historyMonth,
     canEditCards: permissions.viewCards && permissions.editCards && !historyMonth,
     canEditServices: permissions.editServices && !historyMonth,
     historyMonth,

@@ -22,6 +22,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
   const shell = useShell();
   const { members, membersLoading, membersError, retryMembers, notify, fail } = shell;
   const canEdit = shell.canEditEmployees && !readOnly;
+  const canDelete = shell.canDeleteEmployees && !readOnly;
   const canUseCards = canEdit && shell.canEditCards;
   const canEditSession = (s: ServiceSession) => canEdit && (s.cardId === null || canUseCards);
   const [location, navigate] = useLocation();
@@ -87,7 +88,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
     });
   }
   function askDeleteMember() {
-    if (!canEdit || !member) return;
+    if (!canDelete || !member) return;
     setConfirm({
       title: `Xóa nhân viên ${member.name}?`,
       body: <p>Nhân viên sẽ bị ẩn khỏi danh sách hiện tại. Dữ liệu các tháng trước được giữ nguyên. Trong tháng hiện tại, lịch chấm công và ca khách lẻ của nhân viên sẽ bị xóa; lịch sử dùng thẻ vẫn được giữ nhưng tiền công của các ca này bị xóa. Số giờ đã dùng trên thẻ không được hoàn lại. Sổ cá nhân theo tài khoản riêng không bị ảnh hưởng.</p>,
@@ -173,6 +174,10 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
       {canEdit && (
         <div className="employee-management-actions" aria-label={`Thao tác với nhân viên ${member.name}`}>
           <button type="button" className="btn" onClick={() => { setDialogError(''); setMemberDialog(true); }} data-testid="button-edit-member"><Pencil size={14} />Sửa tên nhân viên</button>
+        </div>
+      )}
+      {canDelete && (
+        <div className="employee-management-actions">
           <button type="button" className="btn danger" onClick={askDeleteMember} data-testid="button-delete-member"><Trash2 size={14} />Xóa nhân viên</button>
         </div>
       )}

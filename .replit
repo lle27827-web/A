@@ -22,10 +22,6 @@ timeoutMs = 20000
 [nix]
 channel = "stable-25_05"
 
-[userenv]
-
-[userenv.shared]
-OWNER_EMAIL = "lle27827@gmail.com"
 
 [[ports]]
 localPort = 8080

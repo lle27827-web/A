@@ -148,7 +148,7 @@ function SignedInApplication({
 
 function permissionKey(p: FacilityPermissions | undefined, owner: boolean): string {
   if (!p) return 'none';
-  return JSON.stringify([owner, p.allEmployees, [...p.employeeIds].sort((a, b) => a - b), p.viewCards, p.viewRevenue, p.editEmployees, p.editCards, p.editServices, p.viewAppointments, p.editAppointments]);
+  return JSON.stringify([owner, p.allEmployees, [...p.employeeIds].sort((a, b) => a - b), p.viewCards, p.viewRevenue, p.editEmployees, p.deleteEmployees, p.editCards, p.editServices, p.viewAppointments, p.editAppointments]);
 }
 
 function AuthenticatedApplication() {

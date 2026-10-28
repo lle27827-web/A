@@ -27,6 +27,7 @@ export * from "./card-usage-history";
 export * from "./service-sessions";
 export * from "./service-types";
 export * from "./manager-grants";
+export * from "./api-write-operations";
 export * from "./personal-notebook";
 export * from "./appointments";
 export * from "./storage-partitioning";

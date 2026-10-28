@@ -11,11 +11,11 @@ import { errorText } from '@/lib/massage';
 type Scope = 'none' | 'all' | 'selected';
 type Draft = {
   id: number | null; email: string; scope: Scope; employeeIds: number[];
-  viewCards: boolean; editCards: boolean; viewRevenue: boolean; editEmployees: boolean; editServices: boolean;
+  viewCards: boolean; editCards: boolean; viewRevenue: boolean; editEmployees: boolean; deleteEmployees: boolean; editServices: boolean;
   viewAppointments: boolean; editAppointments: boolean;
 };
 
-const EMPTY: Draft = { id: null, email: '', scope: 'none', employeeIds: [], viewCards: false, editCards: false, viewRevenue: false, editEmployees: false, editServices: false, viewAppointments: false, editAppointments: false };
+const EMPTY: Draft = { id: null, email: '', scope: 'none', employeeIds: [], viewCards: false, editCards: false, viewRevenue: false, editEmployees: false, deleteEmployees: false, editServices: false, viewAppointments: false, editAppointments: false };
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function fromGrant(g: AccessGrant): Draft {
@@ -24,7 +24,7 @@ function fromGrant(g: AccessGrant): Draft {
     id: g.id, email: g.email,
     scope: p.allEmployees ? 'all' : p.employeeIds.length ? 'selected' : 'none',
     employeeIds: [...p.employeeIds], viewCards: p.viewCards || p.editCards, editCards: p.editCards,
-    viewRevenue: p.viewRevenue, editEmployees: p.editEmployees, editServices: p.editServices,
+    viewRevenue: p.viewRevenue, editEmployees: p.editEmployees, deleteEmployees: p.deleteEmployees, editServices: p.editServices,
     viewAppointments: p.viewAppointments || p.editAppointments, editAppointments: p.editAppointments,
   };
 }
@@ -39,6 +39,7 @@ function toPermissions(d: Draft): FacilityPermissions {
     editCards: d.editCards,
     viewRevenue: d.viewRevenue,
     editEmployees: hasScope && d.editEmployees,
+    deleteEmployees: hasScope && d.deleteEmployees,
     editServices: d.editServices,
     viewAppointments: d.viewAppointments || d.editAppointments,
     editAppointments: d.editAppointments,
@@ -53,6 +54,7 @@ function summary(p: FacilityPermissions, members: MemberRecord[]): string {
     parts.push(`Nhân viên: ${names.join(', ')}`);
   }
   if (p.editEmployees) parts.push('sửa nhân viên và ca');
+  if (p.deleteEmployees) parts.push('xóa nhân viên');
   if (p.editCards) parts.push('xem và sửa thẻ');
   else if (p.viewCards) parts.push('xem thẻ');
   if (p.viewRevenue) parts.push('xem doanh thu');
@@ -70,6 +72,7 @@ function permissionDetails(p: FacilityPermissions, members: MemberRecord[]): str
     details.push(`Xem nhân viên: ${names.join(', ')}`);
   } else details.push('Không có quyền xem nhân viên');
   if (p.editEmployees) details.push('Sửa nhân viên và ca');
+  if (p.deleteEmployees) details.push('Xóa nhân viên trong phạm vi được cấp');
   if (p.viewCards || p.editCards) details.push('Xem thẻ khách');
   if (p.editCards) details.push('Sửa thẻ khách');
   if (p.viewRevenue) details.push('Xem doanh thu');
@@ -169,7 +172,7 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
                 <label key={scope} className="grant-check">
                   <input type="radio" name="grant-scope" checked={draft.scope === scope}
                     disabled={scope === 'all' ? !canGrantAllEmployees : scope === 'selected' ? !canGrantSelectedEmployees : false}
-                    onChange={() => { setError(''); setDraft((d) => d ? { ...d, scope, editEmployees: scope === 'none' ? false : d.editEmployees } : d); }}
+                    onChange={() => { setError(''); setDraft((d) => d ? { ...d, scope, editEmployees: scope === 'none' ? false : d.editEmployees, deleteEmployees: scope === 'none' ? false : d.deleteEmployees } : d); }}
                     data-testid={`radio-grant-scope-${scope}`} />
                   <span>{scope === 'none' ? 'Không xem nhân viên' : scope === 'all' ? 'Tất cả nhân viên' : 'Nhân viên được chọn'}</span>
                 </label>
@@ -191,6 +194,11 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
                 <input type="checkbox" checked={hasScope && draft.editEmployees} disabled={!hasScope || (!isOwner && !permissions.editEmployees)}
                   onChange={(e) => set('editEmployees', e.target.checked)} data-testid="checkbox-grant-edit-employees" />
                 <span>Sửa nhân viên và ca trong phạm vi trên</span>
+              </label>
+              <label className="grant-check">
+                <input type="checkbox" checked={hasScope && draft.deleteEmployees} disabled={!hasScope || (!isOwner && !permissions.deleteEmployees)}
+                  onChange={(e) => set('deleteEmployees', e.target.checked)} data-testid="checkbox-grant-delete-employees" />
+                <span>Xóa nhân viên trong phạm vi trên</span>
               </label>
               {draft.scope === 'selected' && draft.editEmployees && <p className="hint">Thêm nhân viên mới cần quyền tất cả nhân viên.</p>}
             </fieldset>
@@ -294,5 +302,5 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
 }
 
 function hasAny(p: FacilityPermissions) {
-  return p.allEmployees || p.employeeIds.length > 0 || p.viewCards || p.viewRevenue || p.editServices || p.viewAppointments || p.editAppointments;
+  return p.allEmployees || p.employeeIds.length > 0 || p.viewCards || p.viewRevenue || p.editEmployees || p.deleteEmployees || p.editCards || p.editServices || p.viewAppointments || p.editAppointments;
 }

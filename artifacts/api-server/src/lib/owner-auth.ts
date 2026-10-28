@@ -1,11 +1,12 @@
 import { createClerkClient } from "@clerk/backend";
 import { getAuth } from "@clerk/express";
 import type { NextFunction, Request, Response } from "express";
-import { db, attendanceTable, isPartitionedStorageEnabled, readPartitionedTable, serviceSessionsTable } from "@workspace/db";
+import { db, attendanceTable, isPartitionedStorageEnabled, readPartitionedRowById, readPartitionedTable, serviceSessionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { FacilityPermissions } from "@workspace/api-zod";
-import { canEditEmployee, canViewEmployee, noPermissions, ownerPermissions, permissionsForEmail } from "./facility-permissions";
+import { canDeleteEmployee, canEditEmployee, canViewEmployee, noPermissions, ownerPermissions, permissionsForEmail } from "./facility-permissions";
 import { isValidRetentionCronAuthorization } from "./retention-auth";
+import { createAsyncTtlCache } from "./user-identity-cache";
 
 const secretKey = process.env.APP_CLERK_SECRET_KEY?.trim();
 const publishableKey = process.env.APP_CLERK_PUBLISHABLE_KEY?.trim();
@@ -15,6 +16,7 @@ const hasClerkKeys = Boolean(secretKey && publishableKey);
 const clerk = hasClerkKeys
   ? createClerkClient({ secretKey, publishableKey })
   : null;
+const clerkIdentityCache = createAsyncTtlCache<{ email: string | null; verified: boolean }>(45_000, 1_000);
 
 export type OwnerAuthStatus = {
   authConfigured: boolean;
@@ -38,15 +40,17 @@ export async function getOwnerAuthStatus(req: Request): Promise<OwnerAuthStatus>
     return { authConfigured: true, authenticated: false, isOwner: false, email: null, permissions: noPermissions() };
   }
 
-  const user = await clerk.users.getUser(userId);
-  const primaryEmail = user.primaryEmailAddress;
-  const isOwner = Boolean(
-    primaryEmail &&
-    primaryEmail.verification?.status === "verified" &&
-    primaryEmail.emailAddress.trim().toLowerCase() === ownerEmail,
-  );
-
-  const email = primaryEmail?.verification?.status === "verified" ? primaryEmail.emailAddress.trim().toLowerCase() : null;
+  const identity = await clerkIdentityCache.get(userId, async () => {
+    const user = await clerk.users.getUser(userId);
+    const primaryEmail = user.primaryEmailAddress;
+    const verified = primaryEmail?.verification?.status === "verified";
+    return {
+      email: verified ? primaryEmail.emailAddress.trim().toLowerCase() : null,
+      verified,
+    };
+  });
+  const email = identity.verified ? identity.email : null;
+  const isOwner = Boolean(email && email === ownerEmail);
   const permissions = isOwner ? ownerPermissions() : email ? await permissionsForEmail(email) : noPermissions();
   return { authConfigured: true, authenticated: true, isOwner, email, permissions };
 }
@@ -199,7 +203,8 @@ export async function managerRequestAllowed(req: Request, p: FacilityPermissions
     return p.editAppointments && p.viewAppointments;
   }
   if (path === "/members" && req.method === "POST") return p.allEmployees && p.editEmployees;
-  if (/^\/members\/[1-9]\d*$/.test(path) && ["PATCH", "DELETE"].includes(req.method)) return canEditEmployee(p, positiveId(path.split("/")[2]));
+  if (/^\/members\/[1-9]\d*$/.test(path) && req.method === "PATCH") return canEditEmployee(p, positiveId(path.split("/")[2]));
+  if (/^\/members\/[1-9]\d*$/.test(path) && req.method === "DELETE") return canDeleteEmployee(p, positiveId(path.split("/")[2]));
   if (/^\/service-types(?:\/[1-9]\d*)?$/.test(path)) return p.editServices && ["POST", "PATCH", "DELETE"].includes(req.method);
   if (/^\/treatment-cards(?:\/[1-9]\d*(?:\/hours)?)?$/.test(path)) return p.viewCards && p.editCards && ["POST", "PATCH", "DELETE"].includes(req.method);
   const sessionId = /^\/service-sessions\/([1-9]\d*)$/.exec(path);
@@ -207,8 +212,7 @@ export async function managerRequestAllowed(req: Request, p: FacilityPermissions
     if (!["POST", "PATCH", "DELETE"].includes(req.method) || !p.editEmployees) return false;
     if (sessionId) {
       const old = isPartitionedStorageEnabled()
-        ? (await readPartitionedTable("service_sessions") as unknown as (typeof serviceSessionsTable.$inferSelect)[])
-          .find((row) => row.id === positiveId(sessionId[1]))
+        ? await readPartitionedRowById<typeof serviceSessionsTable.$inferSelect>("service_sessions", positiveId(sessionId[1]))
         : (await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, positiveId(sessionId[1]))).limit(1))[0];
       if (!old || !(old.memberId === null && req.method === "DELETE" ? p.allEmployees : canEditEmployee(p, old.memberId ?? 0))
         || (old.cardId !== null && !(p.viewCards && p.editCards))) return false;
@@ -221,8 +225,7 @@ export async function managerRequestAllowed(req: Request, p: FacilityPermissions
     if (!["POST", "PATCH", "DELETE"].includes(req.method) || !p.editEmployees) return false;
     if (attendanceId) {
       const old = isPartitionedStorageEnabled()
-        ? (await readPartitionedTable("attendance") as unknown as (typeof attendanceTable.$inferSelect)[])
-          .find((row) => row.id === positiveId(attendanceId[1]))
+        ? await readPartitionedRowById<typeof attendanceTable.$inferSelect>("attendance", positiveId(attendanceId[1]))
         : (await db.select().from(attendanceTable).where(eq(attendanceTable.id, positiveId(attendanceId[1]))).limit(1))[0];
       if (!old || !canEditEmployee(p, old.memberId ?? 0)) return false;
       if (req.method === "DELETE") return true;

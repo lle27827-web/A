@@ -19,12 +19,13 @@ import {
   isPartitionedStorageEnabled,
   membersTable,
   readPartitionedTable,
+  readPartitionedRowById,
   type AttendanceStatus,
 } from "@workspace/db";
 import { noPermissions } from "../lib/facility-permissions";
 import type { OwnerAuthStatus } from "../lib/owner-auth";
 import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "../lib/partitioned-mutations";
-import { MassageError } from "../lib/massage";
+import { escapeLikePattern, idempotentTransaction, MassageError } from "../lib/massage";
 
 const router: IRouter = Router();
 
@@ -73,7 +74,7 @@ router.get("/attendance", async (req, res): Promise<void> => {
   }
   const search = query.data.search?.trim();
   if (search) {
-    const pattern = `%${search}%`;
+    const pattern = `%${escapeLikePattern(search)}%`;
     filters.push(
       or(
         ilike(attendanceTable.employeeName, pattern),
@@ -188,8 +189,7 @@ router.post("/attendance", async (req, res): Promise<void> => {
     return;
   }
   const member = isPartitionedStorageEnabled()
-    ? (await readPartitionedTable("members") as unknown as (typeof membersTable.$inferSelect)[])
-      .find((item) => item.id === values.memberId && item.deletedAt === null)
+    ? await readPartitionedRowById<typeof membersTable.$inferSelect>("members", values.memberId)
     : (await db.select().from(membersTable)
       .where(and(eq(membersTable.id, values.memberId), isNull(membersTable.deletedAt))).limit(1))[0];
   if (!member) {
@@ -220,7 +220,13 @@ router.post("/attendance", async (req, res): Promise<void> => {
     res.status(201).json(CreateAttendanceResponse.parse(toAttendanceResponse(record)));
     return;
   }
-  const [record] = await db.insert(attendanceTable).values(values).returning();
+  const record = await idempotentTransaction(
+    operationIdFromRequest(req.get("Idempotency-Key"), "chấm công"),
+    "chấm công",
+    "attendance.create",
+    values,
+    async (tx) => (await tx.insert(attendanceTable).values(values).returning())[0],
+  );
   res.status(201).json(CreateAttendanceResponse.parse(toAttendanceResponse(record)));
 });
 
@@ -250,8 +256,7 @@ router.patch("/attendance/:id", async (req, res): Promise<void> => {
     update.memberId = memberId;
     if (memberId !== null) {
       const member = isPartitionedStorageEnabled()
-        ? (await readPartitionedTable("members") as unknown as (typeof membersTable.$inferSelect)[])
-          .find((item) => item.id === memberId && item.deletedAt === null)
+        ? await readPartitionedRowById<typeof membersTable.$inferSelect>("members", memberId)
         : (await db.select().from(membersTable)
           .where(and(eq(membersTable.id, memberId), isNull(membersTable.deletedAt))).limit(1))[0];
       if (!member) {
@@ -268,8 +273,7 @@ router.patch("/attendance/:id", async (req, res): Promise<void> => {
   if ("note" in parsed.data) update.note = parsed.data.note ?? null;
 
   if (isPartitionedStorageEnabled()) {
-    const rows = await readPartitionedTable("attendance") as unknown as (typeof attendanceTable.$inferSelect)[];
-    const old = rows.find((item) => item.id === params.data.id && item.workDate >= retentionCutoffDate());
+    const old = await readPartitionedRowById<typeof attendanceTable.$inferSelect>("attendance", params.data.id);
     if (!old) {
       res.status(404).json({ error: "Không tìm thấy bản ghi chấm công." });
       return;
@@ -289,14 +293,19 @@ router.patch("/attendance/:id", async (req, res): Promise<void> => {
     res.json(UpdateAttendanceResponse.parse(toAttendanceResponse(record)));
     return;
   }
-  const [record] = await db
-    .update(attendanceTable)
-    .set(update)
-    .where(and(eq(attendanceTable.id, params.data.id),
-      gte(attendanceTable.workDate, retentionCutoffDate()),
-      res.locals.facilityAuth?.permissions.allEmployees ? undefined
-        : inArray(attendanceTable.memberId, res.locals.facilityAuth?.permissions.employeeIds ?? [])))
-    .returning();
+  const record = await idempotentTransaction(
+    operationIdFromRequest(req.get("Idempotency-Key"), "sửa chấm công"),
+    "sửa chấm công",
+    "attendance.update",
+    { id: params.data.id, update },
+    async (tx) => (await tx.update(attendanceTable)
+      .set(update)
+      .where(and(eq(attendanceTable.id, params.data.id),
+        gte(attendanceTable.workDate, retentionCutoffDate()),
+        res.locals.facilityAuth?.permissions.allEmployees ? undefined
+          : inArray(attendanceTable.memberId, res.locals.facilityAuth?.permissions.employeeIds ?? [])))
+      .returning())[0],
+  );
 
   if (!record) {
     res.status(404).json({ error: "Không tìm thấy bản ghi chấm công." });
@@ -314,8 +323,7 @@ router.delete("/attendance/:id", async (req, res): Promise<void> => {
   }
 
   if (isPartitionedStorageEnabled()) {
-    const rows = await readPartitionedTable("attendance") as unknown as (typeof attendanceTable.$inferSelect)[];
-    const old = rows.find((item) => item.id === params.data.id);
+    const old = await readPartitionedRowById<typeof attendanceTable.$inferSelect>("attendance", params.data.id);
     if (!old || (!res.locals.facilityAuth?.permissions.allEmployees &&
         !res.locals.facilityAuth?.permissions.employeeIds.includes(old.memberId ?? 0))) {
       res.status(404).json({ error: "Không tìm thấy bản ghi chấm công." });
@@ -332,12 +340,17 @@ router.delete("/attendance/:id", async (req, res): Promise<void> => {
     res.sendStatus(204);
     return;
   }
-  const [record] = await db
-    .delete(attendanceTable)
-    .where(and(eq(attendanceTable.id, params.data.id),
-      res.locals.facilityAuth?.permissions.allEmployees ? undefined
-        : inArray(attendanceTable.memberId, res.locals.facilityAuth?.permissions.employeeIds ?? [])))
-    .returning({ id: attendanceTable.id });
+  const record = await idempotentTransaction(
+    operationIdFromRequest(req.get("Idempotency-Key"), "xóa chấm công"),
+    "xóa chấm công",
+    "attendance.delete",
+    { id: params.data.id },
+    async (tx) => (await tx.delete(attendanceTable)
+      .where(and(eq(attendanceTable.id, params.data.id),
+        res.locals.facilityAuth?.permissions.allEmployees ? undefined
+          : inArray(attendanceTable.memberId, res.locals.facilityAuth?.permissions.employeeIds ?? [])))
+      .returning({ id: attendanceTable.id }))[0],
+  );
 
   if (!record) {
     res.status(404).json({ error: "Không tìm thấy bản ghi chấm công." });

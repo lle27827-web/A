@@ -27,7 +27,7 @@ export function MemberTags({ member }: { member: MemberRecord }) {
 }
 
 export default function EmployeesPage() {
-  const { members, membersLoading, membersError, retryMembers, canViewEmployees, canEditEmployees: canEdit, canAddEmployees, canEditCards, query, notify, fail, historyMonth, period, withHistory } = useShell();
+  const { members, membersLoading, membersError, retryMembers, canViewEmployees, canEditEmployees: canEdit, canDeleteEmployees, canAddEmployees, canEditCards, query, notify, fail, historyMonth, period, withHistory } = useShell();
   const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
   const [dialogError, setDialogError] = useState('');
@@ -64,7 +64,7 @@ export default function EmployeesPage() {
   }
 
   function askDelete(m: MemberRecord) {
-    if (!canEdit) return;
+    if (!canDeleteEmployees) return;
     setConfirm({
       title: `Xóa nhân viên ${m.name}?`,
       body: <p>Không thể hoàn tác. Hồ sơ, lịch chấm công, các ca khách lẻ và doanh thu của chúng sẽ bị xóa. Lịch sử dùng thẻ của khách vẫn giữ tên kỹ thuật viên, dịch vụ, ngày, thời lượng và ghi chú; tiền công của các ca này bị xóa và số giờ đã dùng không được hoàn lại. Sổ cá nhân theo tài khoản riêng không bị ảnh hưởng.</p>,
@@ -108,7 +108,7 @@ export default function EmployeesPage() {
                     </span>
                     <ChevronRight size={18} />
                   </button>
-                  {canEdit && <button type="button" className="icon-btn danger" disabled={del.isPending} onClick={() => askDelete(m)} aria-label={`Xóa nhân viên ${m.name}`} data-testid={`button-delete-member-${m.id}`}><Trash2 size={15} /></button>}
+                  {canDeleteEmployees && <button type="button" className="icon-btn danger" disabled={del.isPending} onClick={() => askDelete(m)} aria-label={`Xóa nhân viên ${m.name}`} data-testid={`button-delete-member-${m.id}`}><Trash2 size={15} /></button>}
                 </li>
               );
             })}

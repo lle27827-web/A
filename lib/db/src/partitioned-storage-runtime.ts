@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import pg from "pg";
+import { withReentrantAdvisoryLock } from "./reentrant-advisory-lock";
 import {
   DATABASE_COMPUTE_LIMIT_SECONDS,
   DATABASE_STORAGE_LIMIT_BYTES,
@@ -309,18 +310,7 @@ export async function withPartitionWriteMutex<T>(
   }
   const client = await coordinator.pool.connect();
   try {
-    await client.query(
-      "SELECT pg_advisory_lock(hashtextextended($1, 0))",
-      [`so-cong:partition-write:${lockName}`],
-    );
-    try {
-      return await callback();
-    } finally {
-      await client.query(
-        "SELECT pg_advisory_unlock(hashtextextended($1, 0))",
-        [`so-cong:partition-write:${lockName}`],
-      );
-    }
+    return await withReentrantAdvisoryLock(client, lockName, callback);
   } finally {
     client.release();
   }
@@ -1162,12 +1152,46 @@ function normalizeEventPayload(value: unknown): unknown {
 
 export async function readPartitionedTable<T extends Record<string, unknown>>(
   tableName: string,
+  filter?: { ids?: number[]; email?: string; grantedBy?: string },
 ): Promise<T[]> {
   requireConfiguredNodes();
   const keyColumn = TABLE_KEY_COLUMN[tableName];
   if (!keyColumn || !BASE_TABLES.has(tableName)) {
     throw new PartitionStorageError("Unsupported partition table.", "partition_entity_invalid", 400);
   }
+  if (filter && tableName !== "manager_grants" && (filter.email !== undefined || filter.grantedBy !== undefined)) {
+    throw new PartitionStorageError("Email filters are supported only for manager grants.", "partition_entity_invalid", 400);
+  }
+  if (filter?.ids && !["members", "service_sessions", "attendance", "manager_grants"].includes(tableName)) {
+    throw new PartitionStorageError("ID filters are not supported for this table.", "partition_entity_invalid", 400);
+  }
+  const eventFilter = filter?.ids
+    ? "AND entity_key = ANY($2::text[])"
+    : filter?.email
+      ? `AND entity_key IN (SELECT entity_key FROM ${EVENT_TABLE}
+          WHERE committed = true AND entity_type = $1 AND payload->>'email' = $2)`
+      : filter?.grantedBy
+        ? `AND entity_key IN (SELECT entity_key FROM ${EVENT_TABLE}
+            WHERE committed = true AND entity_type = $1 AND payload->>'grantedBy' = $2)`
+        : "";
+  const eventParams: unknown[] = [tableName];
+  if (filter?.ids) eventParams.push(filter.ids.map((id) => partitionEntityKey(tableName, id)));
+  else if (filter?.email) eventParams.push(filter.email);
+  else if (filter?.grantedBy) eventParams.push(filter.grantedBy);
+  const baseQuery = filter?.ids
+    ? `SELECT * FROM public."${tableName}" WHERE "${keyColumn}" = ANY($1::integer[])`
+    : filter?.email
+      ? `SELECT * FROM public."${tableName}" WHERE email = $1`
+      : filter?.grantedBy
+        ? `SELECT * FROM public."${tableName}" WHERE granted_by = $1`
+        : `SELECT * FROM public."${tableName}"`;
+  const baseParams: (number[] | string)[] = filter?.ids
+    ? [filter.ids]
+    : filter?.email
+      ? [filter.email]
+      : filter?.grantedBy
+        ? [filter.grantedBy]
+        : [];
   const availableNodes: RuntimeNode[] = [];
   const mutationsById = new Map<string, PartitionMutation>();
   for (const node of nodes) {
@@ -1176,8 +1200,9 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
         `SELECT event_id, operation_id, revision::text, entity_type, entity_key, action, payload
          FROM ${EVENT_TABLE}
          WHERE committed = true AND entity_type = $1
+         ${eventFilter}
          ORDER BY revision ASC, event_id ASC`,
-        [tableName],
+        eventParams,
       );
       availableNodes.push(node);
       for (const row of result.rows) {
@@ -1215,7 +1240,7 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
   let baseReadSucceeded = false;
   for (const node of availableNodes) {
     try {
-      rows = await node.pool.query(`SELECT * FROM public."${tableName}"`);
+      rows = await node.pool.query(baseQuery, baseParams);
       baseReadSucceeded = true;
       break;
     } catch (error) {
@@ -1236,4 +1261,25 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
 
   const { applyPartitionMutations } = await import("./storage-partitioning");
   return [...applyPartitionMutations(baseRows, [...mutationsById.values()]).values()];
+}
+
+export async function readPartitionedRowById<T extends Record<string, unknown>>(
+  tableName: string,
+  id: number,
+): Promise<T | undefined> {
+  const rows = await readPartitionedTable<T>(tableName, { ids: [id] });
+  return rows[0];
+}
+
+export async function readPartitionedGrantByEmail<T extends Record<string, unknown>>(
+  email: string,
+): Promise<T | undefined> {
+  const rows = await readPartitionedTable<T>("manager_grants", { email });
+  return rows[0];
+}
+
+export async function readPartitionedGrantsByGrantor<T extends Record<string, unknown>>(
+  email: string,
+): Promise<T[]> {
+  return readPartitionedTable<T>("manager_grants", { grantedBy: email });
 }

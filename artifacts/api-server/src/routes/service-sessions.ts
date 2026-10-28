@@ -20,6 +20,7 @@ import { getFacilityRevenue } from "../lib/facility-revenue";
 import { listMembersForPeriod } from "../lib/employee-history";
 import { noPermissions } from "../lib/facility-permissions";
 import type { OwnerAuthStatus } from "../lib/owner-auth";
+import { operationIdFromRequest } from "../lib/partitioned-mutations";
 
 const router: IRouter = Router();
 const mutationScope = (auth: OwnerAuthStatus | undefined) => auth?.isOwner ? undefined : auth?.permissions ?? noPermissions();
@@ -122,7 +123,7 @@ router.post("/service-sessions", massageHandler(async (req, res) => {
     parseInput(CreateServiceSessionBody, req.body),
     undefined,
     mutationScope(res.locals.facilityAuth),
-    req.get("Idempotency-Key") ?? undefined,
+    operationIdFromRequest(req.get("Idempotency-Key"), "chấm công"),
   )));
 }));
 router.patch("/service-sessions/:id", massageHandler(async (req, res) => {
@@ -131,14 +132,14 @@ router.patch("/service-sessions/:id", massageHandler(async (req, res) => {
     parseInput(UpdateServiceSessionBody, req.body),
     id,
     mutationScope(res.locals.facilityAuth),
-    req.get("Idempotency-Key") ?? undefined,
+    operationIdFromRequest(req.get("Idempotency-Key"), "sửa ca"),
   )));
 }));
 router.delete("/service-sessions/:id", massageHandler(async (req, res) => {
   await deleteSession(
     parseInput(DeleteServiceSessionParams, req.params).id,
     mutationScope(res.locals.facilityAuth),
-    req.get("Idempotency-Key") ?? undefined,
+    operationIdFromRequest(req.get("Idempotency-Key"), "xóa ca"),
   );
   res.sendStatus(204);
 }));

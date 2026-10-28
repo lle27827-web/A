@@ -11,7 +11,7 @@ import {
   UpdateAppointmentResponse,
   type AppointmentInput,
 } from "@workspace/api-zod";
-import { MassageError } from "../lib/massage";
+import { idempotentTransaction, MassageError } from "../lib/massage";
 import { massageHandler, parseInput } from "./massage-errors";
 import { commitPartitionedMutations, operationIdFromRequest, upsertMutation, deleteMutation } from "../lib/partitioned-mutations";
 
@@ -74,7 +74,13 @@ router.post("/appointments", massageHandler(async (req, res) => {
     res.status(201).json(CreateAppointmentResponse.parse(output(row)));
     return;
   }
-  const [row] = await db.insert(appointmentsTable).values(input).returning();
+  const row = await idempotentTransaction(
+    operationIdFromRequest(req.get("Idempotency-Key"), "tạo lịch hẹn"),
+    "tạo lịch hẹn",
+    "appointment.create",
+    input,
+    async (tx) => (await tx.insert(appointmentsTable).values(input).returning())[0],
+  );
   res.status(201).json(CreateAppointmentResponse.parse(output(row)));
 }));
 
@@ -101,10 +107,16 @@ router.patch("/appointments/:id", massageHandler(async (req, res) => {
     res.json(UpdateAppointmentResponse.parse(output(row)));
     return;
   }
-  const [row] = await db.update(appointmentsTable)
-    .set({ ...input, updatedAt: new Date() })
-    .where(eq(appointmentsTable.id, id))
-    .returning();
+  const row = await idempotentTransaction(
+    operationIdFromRequest(req.get("Idempotency-Key"), "sửa lịch hẹn"),
+    "sửa lịch hẹn",
+    "appointment.update",
+    { id, input },
+    async (tx) => (await tx.update(appointmentsTable)
+      .set({ ...input, updatedAt: new Date() })
+      .where(eq(appointmentsTable.id, id))
+      .returning())[0],
+  );
   if (!row) throw new MassageError(404, "Không tìm thấy lịch hẹn.");
   res.json(UpdateAppointmentResponse.parse(output(row)));
 }));
@@ -125,9 +137,15 @@ router.delete("/appointments/:id", massageHandler(async (req, res) => {
     res.sendStatus(204);
     return;
   }
-  const [row] = await db.delete(appointmentsTable)
-    .where(eq(appointmentsTable.id, id))
-    .returning({ id: appointmentsTable.id });
+  const row = await idempotentTransaction(
+    operationIdFromRequest(req.get("Idempotency-Key"), "xóa lịch hẹn"),
+    "xóa lịch hẹn",
+    "appointment.delete",
+    { id },
+    async (tx) => (await tx.delete(appointmentsTable)
+      .where(eq(appointmentsTable.id, id))
+      .returning({ id: appointmentsTable.id }))[0],
+  );
   if (!row) throw new MassageError(404, "Không tìm thấy lịch hẹn.");
   res.sendStatus(204);
 }));

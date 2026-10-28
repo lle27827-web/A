@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, ne, sql } from "dr
 import {
   appendReservedPartitionOperation,
   appointmentsTable,
+  apiWriteOperationsTable,
   attendanceTable,
   cardTopUpsTable,
   cardUsageHistoryTable,
@@ -14,6 +15,7 @@ import {
   type MutationDraft,
   partitionEntityKey,
   readPartitionedTable,
+  readPartitionedRowById,
   reconcilePartitionOperation,
   reservePartitionOperation,
   serviceSessionsTable,
@@ -31,6 +33,38 @@ export class MassageError extends Error {
   constructor(public status: number, message: string, public details?: { mergeTargetId: number }) { super(message); }
 }
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export async function idempotentTransaction<T>(
+  operationId: string | undefined,
+  label: string,
+  action: string,
+  request: unknown,
+  callback: (tx: Tx) => Promise<T>,
+): Promise<T> {
+  if (!operationId) return db.transaction(callback);
+  const key = operationIdFromRequest(operationId, label);
+  const requestHash = hashPartitionRequest({ action, request });
+  return db.transaction(async (tx) => {
+    const [inserted] = await tx.insert(apiWriteOperationsTable).values({
+      operationId: key,
+      requestHash,
+      result: { value: null },
+    }).onConflictDoNothing().returning({ operationId: apiWriteOperationsTable.operationId });
+    const [record] = await tx.select().from(apiWriteOperationsTable)
+      .where(eq(apiWriteOperationsTable.operationId, key)).for("update");
+    if (!record) throw new MassageError(503, "Không lưu được trạng thái chống ghi trùng.");
+    if (record.requestHash !== requestHash) {
+      throw new MassageError(409, "Mã yêu cầu đã được dùng cho nội dung khác. Hãy tải lại và thử lại.");
+    }
+    if (!inserted) return record.result.value as T;
+
+    const result = await callback(tx);
+    await tx.update(apiWriteOperationsTable).set({
+      result: { value: result === undefined ? null : result },
+    }).where(eq(apiWriteOperationsTable.operationId, key));
+    return result;
+  });
+}
 
 export function validDate(value: string) {
   const d = new Date(`${value}T00:00:00Z`);
@@ -89,9 +123,27 @@ export function currentBusinessDate() {
 }
 const identityText = (value: string) => value.normalize("NFC").trim().replace(/\s+/g, " ").toLowerCase();
 const identityPhone = (value: string) => value.replace(/\D/g, "") || identityText(value);
-function sameAppointmentCustomer(appointment: typeof appointmentsTable.$inferSelect, card: typeof treatmentCardsTable.$inferSelect) {
-  return identityText(appointment.customerName) === identityText(card.customerName)
-    || identityPhone(appointment.phone) === identityPhone(card.phone);
+const validIdentityPhone = (value: string) => {
+  let digits = value.replace(/\D/g, "");
+  if (digits.startsWith("0084") && digits.length === 13) digits = `0${digits.slice(4)}`;
+  else if (digits.startsWith("84") && digits.length === 11) digits = `0${digits.slice(2)}`;
+  return digits.length >= 8 && digits.length <= 15 ? digits : null;
+};
+export function sameAppointmentCustomer(
+  appointment: Pick<typeof appointmentsTable.$inferSelect, "customerName" | "phone">,
+  card: Pick<typeof treatmentCardsTable.$inferSelect, "customerName" | "phone">,
+) {
+  const appointmentPhone = validIdentityPhone(appointment.phone);
+  const cardPhone = validIdentityPhone(card.phone);
+  if (appointmentPhone && cardPhone) return appointmentPhone === cardPhone;
+  if (!appointmentPhone && !cardPhone) {
+    return identityText(appointment.customerName) === identityText(card.customerName);
+  }
+  return false;
+}
+
+export function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, "\\$&");
 }
 
 async function creditCard(tx: Tx, card: typeof treatmentCardsTable.$inferSelect, minutes: number, amount: number,
@@ -132,7 +184,7 @@ export async function createCard(input: TreatmentCardInput, operationId?: string
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi bán thẻ.");
     return createPartitionedCard(input, values, operationId);
   }
-  return db.transaction(async (tx) => {
+  return idempotentTransaction(operationId, "bán thẻ", "card.create", input, async (tx) => {
     // Shared by creation and edits: changing identity cannot race a concurrent sale.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('so-cong:card-identities', 0))`);
     const identity = [identityText(values.customerName), identityPhone(values.phone), identityText(values.serviceType)];
@@ -419,7 +471,7 @@ export async function updateCard(id: number, input: TreatmentCardUpdate, operati
       }),
     );
   }
-  return db.transaction(async (tx) => {
+  return idempotentTransaction(operationId, "sửa thẻ", "card.update", { id, input }, async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('so-cong:card-identities', 0))`);
     const [old] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
     if (!old || old.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
@@ -488,7 +540,7 @@ export async function deleteCard(id: number, operationId?: string) {
       }),
     );
   }
-  await db.transaction(async (tx) => {
+  await idempotentTransaction(operationId, "xóa thẻ", "card.delete", { id }, async (tx) => {
     const [card] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
     if (!card || card.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
     // Keep the card, payments, and every employee visit as audit history.
@@ -536,7 +588,7 @@ export async function deleteMember(id: number, operationId?: string) {
     });
     return;
   }
-  await db.transaction(async (tx) => {
+  await idempotentTransaction(operationId, "xóa nhân viên", "member.delete", { id }, async (tx) => {
     // Follow saveSession's session-before-member lock order to avoid deadlocks
     // with an edit already holding a visit row.
     await tx.select({ id: serviceSessionsTable.id }).from(serviceSessionsTable)
@@ -671,7 +723,7 @@ export async function addCardHours(id: number, minutes: number, amount: number, 
       );
     });
   }
-  return db.transaction(async (tx) => {
+  return idempotentTransaction(operationId, "nạp thẻ", "card.topup", { id, minutes, amount }, async (tx) => {
     const [card] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
     if (!card || card.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
     return creditCard(tx, card, minutes, amount, currentBusinessDate(), "topup");
@@ -694,7 +746,9 @@ export async function saveSession(
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng cho ca chấm công.");
     return savePartitionedSession(input, id, permissions, operationId);
   }
-  return db.transaction(async (tx) => {
+  return idempotentTransaction(operationId, id === undefined ? "chấm công" : "sửa ca", "service-session.save", {
+    id: id ?? null, input,
+  }, async (tx) => {
     const [old] = id ? await tx.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, id)).for("update") : [];
     if (id && !old) throw new MassageError(404, "Không tìm thấy lượt phục vụ.");
     const cardId = input.cardId ?? null;
@@ -929,8 +983,7 @@ export async function deleteSession(
         const reconciled = await reconcilePartitionOperation(prior);
         if (reconciled.state === "committed") return;
       }
-      const sessions = await readPartitionedTable("service_sessions") as unknown as (typeof serviceSessionsTable.$inferSelect)[];
-      const old = sessions.find((row) => row.id === id);
+      const old = await readPartitionedRowById<typeof serviceSessionsTable.$inferSelect>("service_sessions", id);
       if (!old) throw new MassageError(404, "Không tìm thấy lượt phục vụ.");
       if (old && permissions && (!(old.memberId === null
         ? permissions.allEmployees && permissions.editEmployees
@@ -981,7 +1034,7 @@ export async function deleteSession(
       return;
     });
   }
-  await db.transaction(async (tx) => {
+  await idempotentTransaction(operationId, "xóa ca", "service-session.delete", { id }, async (tx) => {
     const [old] = await tx.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, id)).for("update");
     if (old && permissions && (!(old.memberId === null ? permissions.allEmployees && permissions.editEmployees : canEditEmployee(permissions, old.memberId))
       || (old.cardId !== null && !(permissions.viewCards && permissions.editCards)))) {
