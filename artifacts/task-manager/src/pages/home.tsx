@@ -7,7 +7,8 @@ import { ErrorBanner } from '@/components/modal';
 import { formatShortDate, statusCode } from '@/lib/attendance';
 import { formatMinutes, formatMonth, formatVnd } from '@/lib/massage';
 import { serviceDurationLabel, type ServiceDurationDetail } from '@/lib/service-duration-summary';
-import { resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
+import { resolveRevenuePeriod } from '@/lib/revenue-period';
+import { useVietnamToday } from '@/lib/use-vietnam-today';
 import './revenue-history.css';
 
 function ServiceBreakdownList({ items, label, testId }: {
@@ -26,7 +27,7 @@ function ServiceBreakdownList({ items, label, testId }: {
 
 export default function HomePage() {
   const { query, withHistory, permissions, canViewEmployees, canEditServices } = useShell();
-  const today = useMemo(() => vietnamToday(), []);
+  const today = useVietnamToday();
   const search = useSearch();
   const [, navigate] = useLocation();
   const { month, date, maxDate, currentMonth, isHistory } = resolveRevenuePeriod(search, today);

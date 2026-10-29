@@ -163,7 +163,11 @@ export default function CardDetailPage() {
           {card.topUps.map((payment) => (
             <li className="emp-row wrap" key={payment.id} data-testid={`row-card-topup-${payment.id}`}>
               <span className="grow">
-                <strong>{payment.source === 'merged_sale' ? 'Nạp từ thẻ mới trùng thông tin' : 'Nạp thẻ'}</strong>
+                <strong>
+                  {payment.source === 'merged_sale' || payment.source === 'merged_card'
+                    ? payment.minutes === 0 ? 'Cộng gộp từ thẻ khác' : 'Nạp từ thẻ khác'
+                    : 'Nạp thẻ'}
+                </strong>
                 <span className="muted">{formatShortDate(payment.paymentDate)} · {formatMinutes(payment.minutes)}</span>
                 <span className="muted">Ghi lúc {new Date(payment.createdAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</span>
               </span>

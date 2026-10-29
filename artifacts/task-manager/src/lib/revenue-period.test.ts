@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { monthLastDate, periodHref, previousRevenueMonth, resolveRevenuePeriod, vietnamToday } from './revenue-period';
+import { followBusinessDay, monthLastDate, periodHref, previousRevenueMonth, resolveRevenuePeriod, vietnamToday } from './revenue-period';
 
 test('Vietnam business dates and previous month handle midnight and year rollover', () => {
   assert.equal(vietnamToday(new Date('2026-12-31T18:00:00Z')), '2027-01-01');
@@ -45,4 +45,9 @@ test('legacy date-only employee links select historical data instead of today', 
   assert.equal(period.month, '2025-01');
   assert.equal(period.date, '2025-01-12');
   assert.equal(period.isHistory, true);
+});
+
+test('attendance follows the new business day only when the current day was selected', () => {
+  assert.equal(followBusinessDay('2026-10-28', '2026-10-28', '2026-10-29'), '2026-10-29');
+  assert.equal(followBusinessDay('2026-10-20', '2026-10-28', '2026-10-29'), '2026-10-20');
 });

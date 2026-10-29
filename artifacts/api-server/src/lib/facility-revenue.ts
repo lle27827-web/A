@@ -124,7 +124,7 @@ export function aggregatePartitionedFacilityRevenue(
       ? {
           serviceType: mostUsedCard[0],
           visits: mostUsedCard[1],
-          minutes: sum(monthCardUses.filter((row) => row.serviceType === mostUsedCard[0]), (row) => row.minutes),
+          minutes: sum(monthCardUses.filter((row) => row.serviceType.trim() === mostUsedCard[0]), (row) => row.minutes),
         }
       : null,
     mostUsedWalkInService: mostUsedWalkIn
@@ -134,7 +134,7 @@ export function aggregatePartitionedFacilityRevenue(
       ? {
           serviceType: mostUsedAll[0],
           visits: mostUsedAll[1],
-          minutes: sum(activeMonthSessions.filter((row) => row.serviceType === mostUsedAll[0]), (row) => row.minutes),
+          minutes: sum(activeMonthSessions.filter((row) => row.serviceType.trim() === mostUsedAll[0]), (row) => row.minutes),
         }
       : null,
     serviceBreakdown: serviceBreakdown(activeMonthSessions),

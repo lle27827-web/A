@@ -60,7 +60,9 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
   const rate = keepsSnapshot && session!.hourlyRate > 0
     ? session!.hourlyRate
     : selected?.hourlyRate ?? 0;
-  const customerRate = keepsSnapshot ? session!.customerHourlyRate : selected?.customerHourlyRate ?? 0;
+  const customerRate = keepsSnapshot && session!.customerHourlyRate > 0
+    ? session!.customerHourlyRate
+    : selected?.customerHourlyRate ?? 0;
   const orphanId = session && session.serviceTypeId !== null && !catalog.some((s) => s.id === session.serviceTypeId) ? session.serviceTypeId : null;
   const serviceChoices: ServiceChoice[] = [
     ...(session && session.serviceTypeId === null ? [{
@@ -82,7 +84,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
       return {
         id: String(service.id),
         name: same ? session!.serviceType : service.name,
-        customerRate: same ? session!.customerHourlyRate : service.customerHourlyRate,
+      customerRate: same && session!.customerHourlyRate > 0 ? session!.customerHourlyRate : service.customerHourlyRate,
        hourlyRate: same && session!.hourlyRate > 0 ? session!.hourlyRate : service.hourlyRate,
         saved: same,
       };

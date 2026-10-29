@@ -1,12 +1,14 @@
 import express, { type Express } from "express";
 import { clerkMiddleware } from "@clerk/express";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { apiAuthorizationGate } from "./lib/owner-auth";
 import { refreshDatabaseBackend } from "@workspace/db";
+import type { OwnerAuthStatus } from "./lib/owner-auth";
+import { writeRateLimitKey } from "./lib/write-rate-limit-key";
 
 const app: Express = express();
 app.set("trust proxy", 1);
@@ -21,9 +23,13 @@ const apiRateLimit = rateLimit({
 });
 const apiWriteRateLimit = rateLimit({
   windowMs: 5 * 60_000,
-  limit: 60,
+  limit: 300,
   standardHeaders: "draft-8",
   legacyHeaders: false,
+  keyGenerator: (req, res) => {
+    const auth = res.locals.facilityAuth as OwnerAuthStatus | undefined;
+    return writeRateLimitKey(auth?.authenticated ? auth.email : null, ipKeyGenerator(req.ip ?? ""));
+  },
   message: { message: "Bạn thao tác quá nhanh. Vui lòng thử lại sau." },
 });
 
@@ -61,14 +67,13 @@ if (clerkSecretKey && clerkPublishableKey) {
 }
 
 app.use("/api", apiRateLimit);
+app.use("/api", apiAuthorizationGate);
 app.use("/api", (req, res, next) => {
   if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
     return apiWriteRateLimit(req, res, next);
   }
   return next();
 });
-
-app.use("/api", apiAuthorizationGate);
 app.use("/api", async (req, res, next) => {
   if (req.path === "/healthz") return next();
   try {

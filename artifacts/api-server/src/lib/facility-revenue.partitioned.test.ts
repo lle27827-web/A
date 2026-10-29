@@ -69,3 +69,25 @@ test("partitioned revenue counts card funding and walk-ins, but not card redempt
   assert.equal(result.today.cardVisits, 1);
   assert.deepEqual(result.today.serviceBreakdown, [{ serviceType: "Massage", minutes: 60, visits: 2 }]);
 });
+
+test("partitioned duration summaries normalize service names before totaling", () => {
+  const result = aggregatePartitionedFacilityRevenue(
+    "2026-10",
+    "2026-10-21",
+    "2026-10-01",
+    "2026-11-01",
+    [{ id: 1, deletedAt: null, purchaseDate: "2026-10-01", purchaseAmount: 0, serviceType: " Massage " }] as never,
+    [] as never,
+    [
+      { workDate: "2026-10-21", cardId: null, serviceType: "Massage", customerCharge: 0, earnings: 0, minutes: 60 },
+      { workDate: "2026-10-21", cardId: 1, serviceType: " Massage ", customerCharge: 0, earnings: 0, minutes: 90 },
+    ] as never,
+  );
+
+  assert.deepEqual(result.mostUsedService, { serviceType: "Massage", visits: 2, minutes: 150 });
+  assert.deepEqual(result.mostUsedCardService, { serviceType: "Massage", visits: 1, minutes: 90 });
+  assert.deepEqual(result.serviceBreakdown, [
+    { serviceType: "Massage", minutes: 60, visits: 1 },
+    { serviceType: "Massage", minutes: 90, visits: 1 },
+  ]);
+});

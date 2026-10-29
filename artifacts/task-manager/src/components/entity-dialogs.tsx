@@ -6,6 +6,7 @@ import { Link } from 'wouter';
 import { Modal } from '@/components/modal';
 import { SESSION_FRESHNESS, formatMinutes, formatVnd, hoursValue, parseHoursToMinutes, parseMoney } from '@/lib/massage';
 import { phoneCallHref } from '@/lib/phone';
+import { treatmentCardLimitError } from '@/lib/treatment-card-limits';
 
 /** Server answers 409 { error, mergeTargetId } when the card duplicates an existing one. */
 export function mergeConflictTarget(e: unknown): number | null {
@@ -51,6 +52,8 @@ export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId
     if (!totalMinutes) return setError('Tổng số giờ phải lớn hơn 0.');
     if (card && totalMinutes < card.usedMinutes) return setError(`Tổng giờ không được nhỏ hơn số đã dùng (${formatMinutes(card.usedMinutes)}).`);
     if (money === null) return setError('Hãy nhập số tiền đã trả.');
+    const limitError = treatmentCardLimitError(totalMinutes, money);
+    if (limitError) return setError(limitError);
     if (!purchaseDate) return setError('Hãy chọn ngày mua.');
     setError('');
     const draft = { customerName: customerName.trim(), phone: phone.trim(), serviceType: serviceType.trim(), totalMinutes, purchaseAmount: money, purchaseDate, note };

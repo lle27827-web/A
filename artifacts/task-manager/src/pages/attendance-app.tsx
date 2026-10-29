@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetAttendanceSummaryQueryKey,
@@ -22,6 +22,8 @@ import { MemberHistory, MemberList } from '@/components/member-panel';
 import { ViewSettings, useViewPrefs, type ViewPrefs } from '@/components/view-settings';
 import { EmployeeView } from '@/components/employee-view';
 import { STATUS_OPTIONS, formatDate, formatShortDate, initial, localDate, messageFromError, normalize, recordMatches } from '@/lib/attendance';
+import { followBusinessDay } from '@/lib/revenue-period';
+import { useVietnamToday } from '@/lib/use-vietnam-today';
 
 function shiftDate(date: string, days: number) {
   const d = new Date(`${date}T00:00:00`);
@@ -31,8 +33,15 @@ function shiftDate(date: string, days: number) {
 
 export default function AttendanceApp() {
   const cache = useQueryClient();
+  const today = useVietnamToday();
   const [query, setQuery] = useState('');
   const [date, setDate] = useState(localDate());
+  const previousToday = useRef(today);
+  useEffect(() => {
+    const previous = previousToday.current;
+    previousToday.current = today;
+    setDate((selected) => followBusinessDay(selected, previous, today));
+  }, [today]);
   const [statusFilter, setStatusFilter] = useState<AttendanceStatus | ''>('');
   const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
   const [dialog, setDialog] = useState<{ record: AttendanceRecord | null; memberId?: number | null } | null>(null);

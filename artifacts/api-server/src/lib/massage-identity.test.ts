@@ -4,6 +4,7 @@ import {
   buildPartitionedSessionDeleteMutations,
   escapeLikePattern,
   identityPhone,
+  resolveSessionCustomerHourlyRate,
   resolveSessionHourlyRate,
   sameAppointmentCustomer,
   serviceTypeHasHistory,
@@ -39,6 +40,9 @@ test("editing a zero-rate card session uses the current service wage without cha
   assert.equal(resolveSessionHourlyRate(0, 85_000, true), 85_000);
   assert.equal(resolveSessionHourlyRate(75_000, 85_000, true), 75_000);
   assert.equal(resolveSessionHourlyRate(75_000, 85_000, false), 85_000);
+  assert.equal(resolveSessionCustomerHourlyRate(0, 120_000, true), 120_000);
+  assert.equal(resolveSessionCustomerHourlyRate(90_000, 120_000, true), 90_000);
+  assert.equal(resolveSessionCustomerHourlyRate(90_000, 120_000, false), 120_000);
 });
 
 test("service deletion history guard sees both live sessions and permanent card-use history", () => {

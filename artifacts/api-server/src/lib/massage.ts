@@ -146,6 +146,15 @@ export function resolveSessionHourlyRate(
   return currentServiceRate ?? 0;
 }
 
+export function resolveSessionCustomerHourlyRate(
+  oldRate: number | undefined,
+  currentServiceRate: number | undefined,
+  sameService: boolean,
+): number {
+  if (sameService && oldRate !== undefined && oldRate > 0) return oldRate;
+  return currentServiceRate ?? 0;
+}
+
 export function buildPartitionedSessionDeleteMutations(id: number): MutationDraft[] {
   return [deleteMutation("service_sessions", id)];
 }
@@ -239,16 +248,6 @@ export async function createCard(input: TreatmentCardInput, operationId?: string
 async function createPartitionedCard(input: TreatmentCardInput, values: Omit<TreatmentCardInput, "mergeTargetId">, operationId: string) {
   return withPartitionWriteMutex("card-identities", async () => {
     const requestHash = hashPartitionRequest({ action: "card.create", input });
-    const [cardRowsRaw, topUpRowsRaw, sessionRowsRaw, archivedRowsRaw] = await Promise.all([
-      readPartitionedTable("treatment_cards"),
-      readPartitionedTable("card_top_ups"),
-      readPartitionedTable("service_sessions"),
-      readPartitionedTable("card_usage_history"),
-    ]);
-    const cards = cardRowsRaw as unknown as (typeof treatmentCardsTable.$inferSelect)[];
-    const topUps = topUpRowsRaw as unknown as CardTopUpRow[];
-    const sessions = sessionRowsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[];
-    const archived = archivedRowsRaw as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
     const prior = await getReservedPartitionOperation(operationId, requestHash);
     if (prior) {
       const { operation: reconciled, rows: freshRows } = await reconcileAndReload(
@@ -283,6 +282,16 @@ async function createPartitionedCard(input: TreatmentCardInput, values: Omit<Tre
         };
       }
     }
+    const [cardRowsRaw, topUpRowsRaw, sessionRowsRaw, archivedRowsRaw] = await Promise.all([
+      readPartitionedTable("treatment_cards"),
+      readPartitionedTable("card_top_ups"),
+      readPartitionedTable("service_sessions"),
+      readPartitionedTable("card_usage_history"),
+    ]);
+    const cards = cardRowsRaw as unknown as (typeof treatmentCardsTable.$inferSelect)[];
+    const topUps = topUpRowsRaw as unknown as CardTopUpRow[];
+    const sessions = sessionRowsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[];
+    const archived = archivedRowsRaw as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
     if (!Number.isSafeInteger(values.totalMinutes) || values.totalMinutes < 1 || values.totalMinutes > 600000 ||
         !Number.isSafeInteger(values.purchaseAmount) || values.purchaseAmount < 0 || values.purchaseAmount > 1_000_000_000) {
       throw new MassageError(400, "Số giờ hoặc số tiền nạp không hợp lệ.");
@@ -716,16 +725,6 @@ export async function addCardHours(id: number, minutes: number, amount: number, 
     }
     return withPartitionWriteMutex("card-ledger", async () => {
       const requestHash = hashPartitionRequest({ action: "card.topup", id, minutes, amount });
-      const [cards, topUps, sessions, archived] = await Promise.all([
-        readPartitionedTable("treatment_cards"),
-        readPartitionedTable("card_top_ups"),
-        readPartitionedTable("service_sessions"),
-        readPartitionedTable("card_usage_history"),
-      ]);
-      const cardRows = cards as unknown as (typeof treatmentCardsTable.$inferSelect)[];
-      const topUpRows = topUps as unknown as CardTopUpRow[];
-      const sessionRows = sessions as unknown as (typeof serviceSessionsTable.$inferSelect)[];
-      const archivedRows = archived as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
       const prior = await getReservedPartitionOperation(operationId, requestHash);
       if (prior) {
         const { operation: reconciledPrior, rows: freshRows } = await reconcileAndReload(
@@ -756,6 +755,16 @@ export async function addCardHours(id: number, minutes: number, amount: number, 
           );
         }
       }
+      const [cards, topUps, sessions, archived] = await Promise.all([
+        readPartitionedTable("treatment_cards"),
+        readPartitionedTable("card_top_ups"),
+        readPartitionedTable("service_sessions"),
+        readPartitionedTable("card_usage_history"),
+      ]);
+      const cardRows = cards as unknown as (typeof treatmentCardsTable.$inferSelect)[];
+      const topUpRows = topUps as unknown as CardTopUpRow[];
+      const sessionRows = sessions as unknown as (typeof serviceSessionsTable.$inferSelect)[];
+      const archivedRows = archived as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
       const card = cardRows.find((row) => row.id === id && row.deletedAt === null);
       if (!card) throw new MassageError(404, "Không tìm thấy thẻ.");
       if (card.totalMinutes + minutes > 600000) {
@@ -867,7 +876,11 @@ export async function saveSession(
     if (!old && !service) throw new MassageError(400, "Hãy chọn loại hình dịch vụ để tính lương.");
     const sameService = old && old.serviceTypeId === serviceTypeId;
     const rate = resolveSessionHourlyRate(old?.hourlyRate, service?.hourlyRate, Boolean(sameService));
-    const customerRate = sameService ? old.customerHourlyRate : service?.customerHourlyRate;
+    const customerRate = resolveSessionCustomerHourlyRate(
+      old?.customerHourlyRate,
+      service?.customerHourlyRate,
+      Boolean(sameService),
+    );
     if (!rate || rate <= 0) throw new MassageError(400, "Hãy chọn dịch vụ có mức lương mỗi giờ hợp lệ.");
     if (cardId === null && (!customerRate || customerRate <= 0) && (!old || !sameService)) {
       throw new MassageError(400, "Hãy cài giá khách trả mỗi giờ cho dịch vụ trước khi ghi ca khách lẻ.");
@@ -917,21 +930,6 @@ async function savePartitionedSession(
 ) {
   return withPartitionWriteMutex("card-ledger", async () => {
     const requestHash = hashPartitionRequest({ action: "service-session.save", id: id ?? null, input });
-    const [sessionRowsRaw, cardRowsRaw, archivedRowsRaw, memberRowsRaw, serviceRowsRaw, appointmentRowsRaw] =
-      await Promise.all([
-        readPartitionedTable("service_sessions"),
-        readPartitionedTable("treatment_cards"),
-        readPartitionedTable("card_usage_history"),
-        readPartitionedTable("members"),
-        readPartitionedTable("service_types"),
-        readPartitionedTable("appointments"),
-      ]);
-    const sessionRows = sessionRowsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[];
-    const cardRows = cardRowsRaw as unknown as (typeof treatmentCardsTable.$inferSelect)[];
-    const archivedRows = archivedRowsRaw as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
-    const memberRows = memberRowsRaw as unknown as (typeof membersTable.$inferSelect)[];
-    const serviceRows = serviceRowsRaw as unknown as (typeof serviceTypesTable.$inferSelect)[];
-    const appointmentRows = appointmentRowsRaw as unknown as (typeof appointmentsTable.$inferSelect)[];
     const prior = await getReservedPartitionOperation(operationId, requestHash);
     if (prior) {
       const { operation: reconciled, rows: freshRows } = await reconcileAndReload(
@@ -948,6 +946,21 @@ async function savePartitionedSession(
         return sessionResponse(priorRow);
       }
     }
+    const [sessionRowsRaw, cardRowsRaw, archivedRowsRaw, memberRowsRaw, serviceRowsRaw, appointmentRowsRaw] =
+      await Promise.all([
+        readPartitionedTable("service_sessions"),
+        readPartitionedTable("treatment_cards"),
+        readPartitionedTable("card_usage_history"),
+        readPartitionedTable("members"),
+        readPartitionedTable("service_types"),
+        readPartitionedTable("appointments"),
+      ]);
+    const sessionRows = sessionRowsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[];
+    const cardRows = cardRowsRaw as unknown as (typeof treatmentCardsTable.$inferSelect)[];
+    const archivedRows = archivedRowsRaw as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
+    const memberRows = memberRowsRaw as unknown as (typeof membersTable.$inferSelect)[];
+    const serviceRows = serviceRowsRaw as unknown as (typeof serviceTypesTable.$inferSelect)[];
+    const appointmentRows = appointmentRowsRaw as unknown as (typeof appointmentsTable.$inferSelect)[];
 
     const old = id === undefined ? undefined : sessionRows.find((row) => row.id === id);
     if (id !== undefined && !old) throw new MassageError(404, "Không tìm thấy lượt phục vụ.");
@@ -972,7 +985,11 @@ async function savePartitionedSession(
     if (!old && !service) throw new MassageError(400, "Hãy chọn loại hình dịch vụ để tính lương.");
     const sameService = old?.serviceTypeId === serviceTypeId;
     const rate = resolveSessionHourlyRate(old?.hourlyRate, service?.hourlyRate, Boolean(sameService));
-    const customerRate = sameService ? old.customerHourlyRate : service?.customerHourlyRate;
+    const customerRate = resolveSessionCustomerHourlyRate(
+      old?.customerHourlyRate,
+      service?.customerHourlyRate,
+      Boolean(sameService),
+    );
     if (!rate || rate <= 0) throw new MassageError(400, "Hãy chọn dịch vụ có mức lương mỗi giờ hợp lệ.");
     if (cardId === null && (!customerRate || customerRate <= 0) && (!old || !sameService)) {
       throw new MassageError(400, "Hãy cài giá khách trả mỗi giờ cho dịch vụ trước khi ghi ca khách lẻ.");

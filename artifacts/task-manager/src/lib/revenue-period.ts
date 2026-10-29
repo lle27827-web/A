@@ -5,6 +5,10 @@ export function vietnamToday(now = new Date()): string {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+export function followBusinessDay(selectedDate: string, previousToday: string, nextToday: string): string {
+  return selectedDate === previousToday ? nextToday : selectedDate;
+}
+
 export function previousRevenueMonth(today = vietnamToday()): string {
   const [year, month] = today.split('-').map(Number);
   return `${month === 1 ? year - 1 : year}-${String(month === 1 ? 12 : month - 1).padStart(2, '0')}`;
