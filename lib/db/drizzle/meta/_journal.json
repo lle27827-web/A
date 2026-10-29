@@ -85,6 +85,13 @@
       "when": 1792300883147,
       "tag": "0011_card_usage_history",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793281059562,
+      "tag": "0012_api_write_operations",
+      "breakpoints": true
     }
   ]
 }

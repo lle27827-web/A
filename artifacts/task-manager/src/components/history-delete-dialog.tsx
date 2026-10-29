@@ -10,6 +10,25 @@ import { ErrorBanner, Modal, Skeleton } from '@/components/modal';
 import { errorText } from '@/lib/massage';
 
 const count = new Intl.NumberFormat('vi-VN');
+const deleteConfirmation = 'XÓA';
+
+function vietnamDate(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const value = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
+function oneYearBefore(date: string) {
+  const [year, month, day] = date.split('-').map(Number);
+  const previousYear = year - 1;
+  const lastDayOfMonth = new Date(Date.UTC(previousYear, month, 0)).getUTCDate();
+  return `${previousYear}-${String(month).padStart(2, '0')}-${String(Math.min(day, lastDayOfMonth)).padStart(2, '0')}`;
+}
 
 type DeleteResult = {
   fromDate: string;
@@ -24,6 +43,7 @@ export function HistoryDeleteDialog({ onClose }: { onClose: () => void }) {
   const removeRange = useDeleteRetentionDateRange();
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [confirmation, setConfirmation] = useState('');
   const [completed, setCompleted] = useState<DeleteResult | null>(null);
   const range = { fromDate, toDate };
   const validRange = Boolean(fromDate && toDate && fromDate <= toDate);
@@ -38,15 +58,22 @@ export function HistoryDeleteDialog({ onClose }: { onClose: () => void }) {
     previewCounts &&
     (previewCounts.attendanceCount > 0 || previewCounts.serviceSessionCount > 0),
   );
+  const today = vietnamDate();
+  const recentCutoff = oneYearBefore(today);
+  const affectsRecentHistory = Boolean(
+    validRange && fromDate <= today && toDate >= recentCutoff,
+  );
+  const confirmed = confirmation.trim() === deleteConfirmation;
   function updateDate(field: 'fromDate' | 'toDate', value: string) {
     if (field === 'fromDate') setFromDate(value);
     else setToDate(value);
+    setConfirmation('');
     setCompleted(null);
     removeRange.reset();
   }
 
   function deleteSelectedRange() {
-    if (!validRange || !hasRecords || removeRange.isPending) return;
+    if (!validRange || !hasRecords || !confirmed || removeRange.isPending) return;
     removeRange.mutate({ data: range }, {
       onSuccess: async (result) => {
         setCompleted(result);
@@ -62,7 +89,6 @@ export function HistoryDeleteDialog({ onClose }: { onClose: () => void }) {
                 '/api/member-payroll',
                 '/api/history-months',
                 '/api/retention/',
-                '/api/card-usage-history',
                 '/api/treatment-cards',
               ].some((prefix) => path.startsWith(prefix));
             },
@@ -131,6 +157,31 @@ export function HistoryDeleteDialog({ onClose }: { onClose: () => void }) {
               {count.format(previewCounts.attendanceCount)} dòng chấm công · {count.format(previewCounts.serviceSessionCount)} ca dịch vụ · {count.format(previewCounts.cardUseCount)} lượt dùng thẻ sẽ được giữ trong nhật ký.
             </div>
           )}
+          {hasRecords && (
+            <>
+              <div
+                className={affectsRecentHistory ? 'form-error' : 'banner soft'}
+                role={affectsRecentHistory ? 'alert' : 'note'}
+                data-testid="warning-delete-history-impact"
+              >
+                <strong>{affectsRecentHistory ? 'Cảnh báo: khoảng chọn có dữ liệu trong 12 tháng gần đây.' : 'Ảnh hưởng khi xóa'}</strong>
+                <div>Chấm công, ca dịch vụ, doanh thu và tiền công của khoảng này sẽ bị xóa khỏi lịch sử cơ sở.</div>
+                <div>Nhật ký dùng thẻ được lưu vĩnh viễn; số giờ không hoàn lại. Nhật ký đã lưu không thể sửa, xóa hoặc hoàn tiền.</div>
+              </div>
+              <label className="field" htmlFor="delete-history-confirmation">
+                Nhập <strong>{deleteConfirmation}</strong> để xóa {fromDate} đến {toDate}
+                <input
+                  id="delete-history-confirmation"
+                  type="text"
+                  autoComplete="off"
+                  value={confirmation}
+                  disabled={removeRange.isPending}
+                  onChange={(event) => setConfirmation(event.target.value)}
+                  data-testid="input-delete-history-confirmation"
+                />
+              </label>
+            </>
+          )}
           {validRange && previewCounts && !hasRecords && (
             <div className="empty small" role="status">Không có lịch sử cơ sở trong khoảng ngày này.</div>
           )}
@@ -159,7 +210,7 @@ export function HistoryDeleteDialog({ onClose }: { onClose: () => void }) {
               type="button"
               className="btn danger"
               onClick={deleteSelectedRange}
-              disabled={!validRange || !hasRecords || preview.isLoading || preview.isError || removeRange.isPending}
+              disabled={!validRange || !hasRecords || !confirmed || preview.isLoading || preview.isError || removeRange.isPending}
               data-testid="button-confirm-delete-history"
             >
               {removeRange.isPending ? <LoaderCircle className="spin" size={14} /> : <Trash2 size={14} aria-hidden="true" />}

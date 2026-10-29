@@ -54,6 +54,11 @@ shared advisory lock. Invalid hashes, missing journal entries or reordered
 timestamps stop the command. Append-only future migrations do not require
 expanding the historical baseline reference list.
 
+`0012_api_write_operations` is an idempotent additive migration for the
+request-idempotency table and manager-grant ownership column. Vercel compatibility
+scripts also apply this schema to existing stores without writing migration
+baseline history. The migration catalog includes the new application table.
+
 The reference SQL used by baseline/audit is pinned in
 `scripts/baseline-reviewed.json` to the reviewed initial/pricing/top-up/employee
 history/used-card migrations. It is built in a unique shadow schema inside a
@@ -72,12 +77,17 @@ advance on rolled-back inserts; gaps in IDs are normal, not lost records.
 
 ## Vercel and Replit
 
-The Vercel build keeps its existing additive update commands. They now share
-the general migration lock but **do not invent journal history**. Do not replace
-that compatibility path with general `migrate` until the **Vercel target** has
-been audited and its baseline explicitly authorized and recorded. A brand-new
-Vercel database must first be initialized with `migrate` using its confirmed
-`DATABASE_URL`; the top-up-only update cannot initialize the base tables.
+The Vercel API build runs `migrate:all-vercel-stores` and then the read-only
+`migrate:verify-stores`. It applies the existing idempotent compatibility
+updates sequentially to each unique configured database, preferring configured
+direct URLs. A completely empty database is initialized with the reviewed
+append-only migration sequence. A partially populated schema is not baselined or
+reset; verification fails the build if required tables/columns are absent. These
+commands do not migrate the failover control table, whose migration remains
+explicit and must be run before deploying code that requires its recovery fields.
+Do not replace the Vercel compatibility path with general `migrate` on a
+populated database until that Vercel target has been audited and its baseline
+explicitly authorized and recorded.
 
 The facility-wide appointments table and its status field are additive updates.
 The Vercel API build runs `migrate:appointments` using the configured
@@ -95,8 +105,11 @@ an external production target.
 The `migrate:database-failover-state` command runs only when invoked explicitly.
 For the four-node failover chain, run it with `DATABASE_URL` set to the Vercel
 control database (the existing second node) **using its direct endpoint**, not
-the Replit database. It updates the state table's allowed backend values; the
-runtime refuses promotion to a new node until this constraint accepts that node.
+the Replit database. It updates the state table's allowed backend values and
+adds idempotent interrupted-switch recovery fields; the runtime refuses
+promotion to a new node until the schema accepts that node. Existing stale
+`switching` rows without source/target metadata are marked for manual review and
+remain write-locked.
 Do not add the migration to a Vercel build hook.
 
 ### DB4 as the failover coordinator
