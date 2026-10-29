@@ -27,6 +27,7 @@ import type { OwnerAuthStatus } from "../lib/owner-auth";
 import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "../lib/partitioned-mutations";
 import { escapeLikePattern, idempotentTransaction, MassageError } from "../lib/massage";
 import { massageHandler } from "./massage-errors";
+import { isActiveAttendanceMember, isEditableAttendanceDate } from "../lib/attendance-policy";
 
 const router: IRouter = Router();
 
@@ -171,7 +172,7 @@ router.post("/attendance", massageHandler(async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  if (!isWithinRetention(parsed.data.workDate)) {
+  if (!isEditableAttendanceDate(parsed.data.workDate)) {
     res.status(400).json({ error: "Chỉ ghi chấm công trong 5 năm gần nhất." });
     return;
   }
@@ -194,7 +195,7 @@ router.post("/attendance", massageHandler(async (req, res): Promise<void> => {
     ? await readPartitionedRowById<typeof membersTable.$inferSelect>("members", values.memberId)
     : (await db.select().from(membersTable)
       .where(and(eq(membersTable.id, values.memberId), isNull(membersTable.deletedAt))).limit(1))[0];
-  if (!member || member.deletedAt !== null) {
+  if (!isActiveAttendanceMember(member)) {
     res.status(400).json({ error: "Không tìm thấy nhân viên đang hoạt động được chọn." });
     return;
   }
@@ -246,7 +247,7 @@ router.patch("/attendance/:id", massageHandler(async (req, res): Promise<void> =
     });
     return;
   }
-  if (parsed.data.workDate !== undefined && !isWithinRetention(parsed.data.workDate)) {
+  if (parsed.data.workDate !== undefined && !isEditableAttendanceDate(parsed.data.workDate)) {
     res.status(400).json({ error: "Chỉ ghi chấm công trong 5 năm gần nhất." });
     return;
   }
@@ -262,7 +263,7 @@ router.patch("/attendance/:id", massageHandler(async (req, res): Promise<void> =
         ? await readPartitionedRowById<typeof membersTable.$inferSelect>("members", memberId)
         : (await db.select().from(membersTable)
           .where(and(eq(membersTable.id, memberId), isNull(membersTable.deletedAt))).limit(1))[0];
-      if (!member || member.deletedAt !== null) {
+      if (!isActiveAttendanceMember(member)) {
         res.status(400).json({ error: "Không tìm thấy nhân viên đang hoạt động được chọn." });
         return;
       }
@@ -281,7 +282,7 @@ router.patch("/attendance/:id", massageHandler(async (req, res): Promise<void> =
       res.status(404).json({ error: "Không tìm thấy bản ghi chấm công." });
       return;
     }
-    if (!isWithinRetention(old.workDate)) {
+    if (!isEditableAttendanceDate(old.workDate)) {
       res.status(400).json({ error: "Chỉ sửa chấm công trong 5 năm gần nhất." });
       return;
     }

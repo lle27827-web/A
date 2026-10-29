@@ -1,11 +1,19 @@
 import { Router, type IRouter } from "express";
 import { asc, eq } from "drizzle-orm";
-import { db, serviceTypesTable, isPartitionedStorageEnabled, readPartitionedTable } from "@workspace/db";
+import {
+  cardUsageHistoryTable,
+  db,
+  isPartitionedStorageEnabled,
+  readPartitionedTable,
+  serviceSessionsTable,
+  serviceTypesTable,
+  withPartitionWriteMutex,
+} from "@workspace/db";
 import {
   CreateServiceTypeBody, CreateServiceTypeResponse, ListServiceTypesResponse,
   UpdateServiceTypeBody, UpdateServiceTypeParams, UpdateServiceTypeResponse, DeleteServiceTypeParams,
 } from "@workspace/api-zod";
-import { idempotentTransaction, MassageError } from "../lib/massage";
+import { idempotentTransaction, MassageError, serviceTypeHasHistory } from "../lib/massage";
 import { massageHandler, parseInput } from "./massage-errors";
 import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "../lib/partitioned-mutations";
 
@@ -89,17 +97,28 @@ router.patch("/service-types/:id", massageHandler(async (req, res) => {
 router.delete("/service-types/:id", massageHandler(async (req, res) => {
   const { id } = parseInput(DeleteServiceTypeParams, req.params);
   if (isPartitionedStorageEnabled()) {
-    const services = await readPartitionedTable("service_types");
-    if (!(services as unknown as (typeof serviceTypesTable.$inferSelect)[]).some((item) => item.id === id)) {
-      throw new MassageError(404, "Không tìm thấy dịch vụ.");
-    }
-    await commitPartitionedMutations({
-      operationId: operationIdFromRequest(req.get("Idempotency-Key"), "dịch vụ"),
-      lockName: `service-type:${id}`,
-      action: "service-type.delete",
-      request: { id },
-      expectedEventCount: 1,
-      build: () => [deleteMutation("service_types", id)],
+    await withPartitionWriteMutex("card-ledger", async () => {
+      const [servicesRaw, sessionsRaw, historyRaw] = await Promise.all([
+        readPartitionedTable("service_types"),
+        readPartitionedTable("service_sessions"),
+        readPartitionedTable("card_usage_history"),
+      ]);
+      const services = servicesRaw as unknown as (typeof serviceTypesTable.$inferSelect)[];
+      const sessions = sessionsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[];
+      const history = historyRaw as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
+      if (!services.some((item) => item.id === id)) throw new MassageError(404, "Không tìm thấy dịch vụ.");
+      if (serviceTypeHasHistory(id, sessions, history)) {
+        throw new MassageError(409, "Dịch vụ đã có ca ghi nhận, không thể xóa.");
+      }
+      await commitPartitionedMutations({
+        operationId: operationIdFromRequest(req.get("Idempotency-Key"), "xóa dịch vụ"),
+        lockName: `service-type:${id}`,
+        action: "service-type.delete",
+        request: { id },
+        expectedEventCount: 1,
+        alreadyLocked: true,
+        build: () => [deleteMutation("service_types", id)],
+      });
     });
     res.sendStatus(204);
     return;
@@ -110,9 +129,16 @@ router.delete("/service-types/:id", massageHandler(async (req, res) => {
     "service-type.delete",
     { id },
     async (tx) => {
-    const [row] = await tx.select().from(serviceTypesTable).where(eq(serviceTypesTable.id, id)).for("update");
-    if (!row) throw new MassageError(404, "Không tìm thấy dịch vụ.");
-    await tx.delete(serviceTypesTable).where(eq(serviceTypesTable.id, id));
+      const [row] = await tx.select().from(serviceTypesTable).where(eq(serviceTypesTable.id, id)).for("update");
+      if (!row) throw new MassageError(404, "Không tìm thấy dịch vụ.");
+      const [sessionUse] = await tx.select({ id: serviceSessionsTable.id }).from(serviceSessionsTable)
+        .where(eq(serviceSessionsTable.serviceTypeId, id)).limit(1);
+      const [archivedUse] = await tx.select({ id: cardUsageHistoryTable.sourceSessionId }).from(cardUsageHistoryTable)
+        .where(eq(cardUsageHistoryTable.serviceTypeId, id)).limit(1);
+      if (sessionUse || archivedUse) {
+        throw new MassageError(409, "Dịch vụ đã có ca ghi nhận, không thể xóa.");
+      }
+      await tx.delete(serviceTypesTable).where(eq(serviceTypesTable.id, id));
     },
   );
   res.sendStatus(204);

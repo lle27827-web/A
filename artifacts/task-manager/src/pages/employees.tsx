@@ -49,7 +49,7 @@ export default function EmployeesPage() {
   const monthLabel = historyMonth ? formatMonth(period.month) : 'Tháng này';
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const createSession = useCreateServiceSession();
-  const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), enabled: canEdit && canEditCards && quick !== null } });
+  const cardsQuery = useListTreatmentCards(undefined, { query: { queryKey: getListTreatmentCardsQueryKey(), enabled: canEdit && canEditCards && quick !== null } });
   const refresh = useRefreshMassage();
   const list = useMemo(() => members.filter((m) => normalize(m.name).includes(normalize(query))), [members, query]);
 

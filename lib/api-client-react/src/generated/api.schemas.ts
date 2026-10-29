@@ -864,6 +864,13 @@ export type GetAttendanceSummaryParams = {
 date: string;
 };
 
+export type ListTreatmentCardsParams = {
+/**
+ * @maxLength 160
+ */
+search?: string;
+};
+
 export type ListServiceSessionsParams = {
 /**
  * @minimum 1

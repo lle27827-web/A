@@ -7,7 +7,7 @@ import { eq, inArray } from "drizzle-orm";
 import { db, pool, isPartitionedStorageEnabled, serviceSessionsTable, serviceTypesTable } from "@workspace/db";
 import serviceTypesRouter from "./service-types";
 
-test("deleting a used service keeps historical snapshots and allows a new independent service with the same name", {
+test("deleting a used service is rejected and leaves its service and session snapshot intact", {
   skip: isPartitionedStorageEnabled() ? "Run the regular-database integration test with partitioning disabled." : false,
 }, async () => {
   const name = `Delete-and-recreate-${randomUUID()}`;
@@ -47,22 +47,34 @@ test("deleting a used service keeps historical snapshots and allows a new indepe
       method: "DELETE",
       headers: { "Idempotency-Key": randomUUID() },
     });
-    assert.equal(response.status, 204);
+    const responseBody = await response.json() as { error?: string; message?: string };
+    assert.equal(response.status, 409, JSON.stringify(responseBody));
+    assert.equal(responseBody.error, "Dịch vụ đã có ca ghi nhận, không thể xóa.");
 
     const [keptSession] = await db.select().from(serviceSessionsTable)
       .where(eq(serviceSessionsTable.id, session.id));
-    assert.equal(keptSession.serviceTypeId, null, "the removed catalog row is no longer linked to the old session");
+    assert.equal(keptSession.serviceTypeId, oldService.id);
     assert.equal(keptSession.serviceType, name, "the historical service name remains");
     assert.equal(keptSession.customerHourlyRate, 220000);
     assert.equal(keptSession.hourlyRate, 110000);
     assert.equal(keptSession.earnings, 110000);
+
+    const [stillPresent] = await db.select().from(serviceTypesTable).where(eq(serviceTypesTable.id, oldService.id));
+    assert.ok(stillPresent, "the catalog row remains available while history references it");
+
+    await db.delete(serviceSessionsTable).where(eq(serviceSessionsTable.id, session.id));
+    sessionId = undefined;
+    const unusedDelete = await fetch(`http://127.0.0.1:${address.port}/service-types/${oldService.id}`, {
+      method: "DELETE",
+      headers: { "Idempotency-Key": randomUUID() },
+    });
+    assert.equal(unusedDelete.status, 204);
 
     const [newService] = await db.insert(serviceTypesTable).values({
       name, customerHourlyRate: 250000, hourlyRate: 140000,
     }).returning();
     serviceIds.push(newService.id);
     assert.notEqual(newService.id, oldService.id, "the reused name gets a new service identity");
-    assert.equal(keptSession.serviceTypeId, null, "the old session stays separate from the recreated service");
   } finally {
     if (server.listening) {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));

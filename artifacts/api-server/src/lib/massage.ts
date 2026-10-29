@@ -329,7 +329,8 @@ async function createPartitionedCard(input: TreatmentCardInput, values: Omit<Tre
     if (reconciled.state === "committed") {
       if (!freshRows) throw new MassageError(503, "Không tải lại được thẻ sau khi lưu.");
       const [freshCardRows, freshTopUpRows, freshSessionRows, freshArchivedRows] = freshRows;
-      const cardId = existing?.id ?? reconciled.allocatedIds.treatment_cards?.[0];
+      const merged = !reconciled.allocatedIds.treatment_cards?.length;
+      const cardId = merged ? input.mergeTargetId : reconciled.allocatedIds.treatment_cards?.[0];
       const savedCard = (freshCardRows as unknown as (typeof treatmentCardsTable.$inferSelect)[])
         .find((card) => card.id === cardId);
       if (!savedCard) throw new MassageError(503, "Không tải lại được thẻ sau khi lưu.");
@@ -343,88 +344,85 @@ async function createPartitionedCard(input: TreatmentCardInput, values: Omit<Tre
           used,
           (freshTopUpRows as unknown as CardTopUpRow[]).filter((row) => row.cardId === cardId),
         ),
-        mergedIntoExisting: Boolean(existing),
+        mergedIntoExisting: merged,
       };
     }
-    if (reconciled.state !== "committed") {
-      const mutations: MutationDraft[] = [];
-      let cardId: number;
-      if (existing) {
-        cardId = existing.id;
-        const topUpId = reconciled.allocatedIds.card_top_ups?.[0];
-        if (!topUpId) throw new MassageError(503, "Không cấp được mã giao dịch bán thẻ.");
-        mutations.push({
-          entityType: "treatment_cards",
-          entityKey: partitionEntityKey("treatment_cards", existing.id),
-          action: "upsert",
-          payload: { ...existing, totalMinutes: existing.totalMinutes + values.totalMinutes },
-        });
-        mutations.push({
-          entityType: "card_top_ups",
-          entityKey: partitionEntityKey("card_top_ups", topUpId),
-          action: "upsert",
-          payload: {
-            id: topUpId,
-            cardId: existing.id,
-            minutes: values.totalMinutes,
-            amount: values.purchaseAmount,
-            paymentDate: values.purchaseDate,
-            source: "merged_sale",
-            note: values.note,
-            createdAt: new Date(),
-          },
-        });
-      } else {
-        cardId = reconciled.allocatedIds.treatment_cards?.[0] ?? 0;
-        if (!cardId) throw new MassageError(503, "Không cấp được mã thẻ.");
-        mutations.push({
-          entityType: "treatment_cards",
-          entityKey: partitionEntityKey("treatment_cards", cardId),
-          action: "upsert",
-          payload: {
-            ...values,
-            id: cardId,
-            firstUsedAt: null,
-            deletedAt: null,
-            createdAt: new Date(),
-          },
-        });
-      }
-      await appendReservedPartitionOperation(reconciled, mutations);
-      const resultCard = existing
-        ? { ...existing, totalMinutes: existing.totalMinutes + values.totalMinutes }
-        : {
-            ...values,
-            id: cardId,
-            firstUsedAt: null,
-            deletedAt: null,
-            createdAt: new Date(),
-          } as typeof treatmentCardsTable.$inferSelect;
-      return {
-        ...cardResponse(
-          resultCard,
-          sessions.filter((session) => session.cardId === cardId).reduce((sum, row) => sum + row.minutes, 0)
-            + archived.filter((row) => row.cardId === cardId).reduce((sum, row) => sum + row.minutes, 0),
-          existing
-            ? [
-                ...topUps.filter((row) => row.cardId === cardId),
-                {
-                  id: reconciled.allocatedIds.card_top_ups?.[0] ?? 0,
-                  cardId,
-                  minutes: values.totalMinutes,
-                  amount: values.purchaseAmount,
-                  paymentDate: values.purchaseDate,
-                  source: "merged_sale",
-                  note: values.note,
-                  createdAt: new Date(),
-                } as CardTopUpRow,
-              ]
-            : [],
-        ),
-        mergedIntoExisting: isMerge,
-      };
+    const mutations: MutationDraft[] = [];
+    let cardId: number;
+    if (existing) {
+      cardId = existing.id;
+      const topUpId = reconciled.allocatedIds.card_top_ups?.[0];
+      if (!topUpId) throw new MassageError(503, "Không cấp được mã giao dịch bán thẻ.");
+      mutations.push({
+        entityType: "treatment_cards",
+        entityKey: partitionEntityKey("treatment_cards", existing.id),
+        action: "upsert",
+        payload: { ...existing, totalMinutes: existing.totalMinutes + values.totalMinutes },
+      });
+      mutations.push({
+        entityType: "card_top_ups",
+        entityKey: partitionEntityKey("card_top_ups", topUpId),
+        action: "upsert",
+        payload: {
+          id: topUpId,
+          cardId: existing.id,
+          minutes: values.totalMinutes,
+          amount: values.purchaseAmount,
+          paymentDate: values.purchaseDate,
+          source: "merged_sale",
+          note: values.note,
+          createdAt: new Date(),
+        },
+      });
+    } else {
+      cardId = reconciled.allocatedIds.treatment_cards?.[0] ?? 0;
+      if (!cardId) throw new MassageError(503, "Không cấp được mã thẻ.");
+      mutations.push({
+        entityType: "treatment_cards",
+        entityKey: partitionEntityKey("treatment_cards", cardId),
+        action: "upsert",
+        payload: {
+          ...values,
+          id: cardId,
+          firstUsedAt: null,
+          deletedAt: null,
+          createdAt: new Date(),
+        },
+      });
     }
-    throw new MassageError(503, "Không xác định được kết quả lưu thẻ.");
+    await appendReservedPartitionOperation(reconciled, mutations);
+    const resultCard = existing
+      ? { ...existing, totalMinutes: existing.totalMinutes + values.totalMinutes }
+      : {
+          ...values,
+          id: cardId,
+          firstUsedAt: null,
+          deletedAt: null,
+          createdAt: new Date(),
+        } as typeof treatmentCardsTable.$inferSelect;
+    return {
+      ...cardResponse(
+        resultCard,
+        sessions.filter((session) => session.cardId === cardId).reduce((sum, row) => sum + row.minutes, 0)
+          + archived.filter((row) => row.cardId === cardId).reduce((sum, row) => sum + row.minutes, 0),
+        existing
+          ? [
+              ...topUps.filter((row) => row.cardId === cardId),
+              {
+                id: reconciled.allocatedIds.card_top_ups?.[0] ?? 0,
+                cardId,
+                minutes: values.totalMinutes,
+                amount: values.purchaseAmount,
+                paymentDate: values.purchaseDate,
+                source: "merged_sale",
+                note: values.note,
+                createdAt: new Date(),
+              } as CardTopUpRow,
+            ]
+          : [],
+      ),
+      mergedIntoExisting: isMerge,
+    };
   });
 }
 export async function updateCard(id: number, input: TreatmentCardUpdate, operationId?: string) {

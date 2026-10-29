@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Response } from "express";
 import { desc, inArray, isNull, sql } from "drizzle-orm";
 import {
   cardTopUpsTable,
@@ -15,12 +15,28 @@ import {
   AddTreatmentCardHoursBody, AddTreatmentCardHoursParams, AddTreatmentCardHoursResponse,
 } from "@workspace/api-zod";
 import { addCardHours, cardResponse, createCard, deleteCard, updateCard } from "../lib/massage";
+import type { OwnerAuthStatus } from "../lib/owner-auth";
 import { operationIdFromRequest } from "../lib/partitioned-mutations";
 import { massageHandler, parseInput } from "./massage-errors";
+import { isMaskedCustomerPhone, maskCustomerPhone, matchesTreatmentCardSearch } from "../lib/customer-phone";
+import { MassageError } from "../lib/massage";
 
 const router: IRouter = Router();
-router.get("/treatment-cards", massageHandler(async (_req, res) => {
+function ownerView(res: Response): boolean {
+  return (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.isOwner === true;
+}
+function visibleCard<T extends { phone: string }>(card: T, isOwner: boolean): T {
+  return isOwner ? card : { ...card, phone: maskCustomerPhone(card.phone) };
+}
+
+router.get("/treatment-cards", massageHandler(async (req, res) => {
   res.set("Cache-Control", "private, no-store");
+  const rawSearch = req.query.search;
+  if (rawSearch !== undefined && (typeof rawSearch !== "string" || rawSearch.length > 160)) {
+    throw new MassageError(400, "Từ khóa tìm thẻ không hợp lệ.");
+  }
+  const search = typeof rawSearch === "string" ? rawSearch.trim() : "";
+  const isOwner = ownerView(res);
   if (isPartitionedStorageEnabled()) {
     const [cardRows, sessionRows, archivedRows, topUpRows] = await Promise.all([
       readPartitionedTable("treatment_cards"),
@@ -30,6 +46,7 @@ router.get("/treatment-cards", massageHandler(async (_req, res) => {
     ]);
     const cards = (cardRows as unknown as (typeof treatmentCardsTable.$inferSelect)[])
       .filter((card) => card.deletedAt === null)
+      .filter((card) => matchesTreatmentCardSearch(card, search))
       .sort((a, b) => b.purchaseDate.localeCompare(a.purchaseDate) || b.id - a.id);
     const sessions = sessionRows as unknown as (typeof serviceSessionsTable.$inferSelect)[];
     const archivedUses = archivedRows as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
@@ -44,7 +61,7 @@ router.get("/treatment-cards", massageHandler(async (_req, res) => {
       const payments = topUps
         .filter((topUp) => topUp.cardId === card.id)
         .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate) || b.id - a.id);
-      return cardResponse(card, usedMinutes, payments);
+      return visibleCard(cardResponse(card, usedMinutes, payments), isOwner);
     }));
     res.json(result);
     return;
@@ -52,7 +69,8 @@ router.get("/treatment-cards", massageHandler(async (_req, res) => {
   const result = await db.transaction(async (tx) => {
     const cards = await tx.select().from(treatmentCardsTable).where(isNull(treatmentCardsTable.deletedAt))
       .orderBy(desc(treatmentCardsTable.purchaseDate), desc(treatmentCardsTable.id));
-    const cardIds = cards.map((card) => card.id);
+    const matchingCards = cards.filter((card) => matchesTreatmentCardSearch(card, search));
+    const cardIds = matchingCards.map((card) => card.id);
     const liveUse = cardIds.length ? await tx.select({
       cardId: serviceSessionsTable.cardId,
       minutes: sql<number>`coalesce(sum(${serviceSessionsTable.minutes}), 0)`,
@@ -76,28 +94,30 @@ router.get("/treatment-cards", massageHandler(async (_req, res) => {
       items.push(payment);
       history.set(payment.cardId, items);
     }
-    return ListTreatmentCardsResponse.parse(cards.map((card) => cardResponse(card, usage.get(card.id) ?? 0, history.get(card.id))));
+    return ListTreatmentCardsResponse.parse(matchingCards.map((card) =>
+      visibleCard(cardResponse(card, usage.get(card.id) ?? 0, history.get(card.id)), isOwner),
+    ));
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
   res.json(result);
 }));
 router.post("/treatment-cards", massageHandler(async (req, res) => {
   const input = parseInput(CreateTreatmentCardBody, req.body);
-  res.status(201).json(CreateTreatmentCardResponse.parse(
-    await createCard(input, operationIdFromRequest(req.get("Idempotency-Key"), "bán thẻ")),
-  ));
+  const card = await createCard(input, operationIdFromRequest(req.get("Idempotency-Key"), "bán thẻ"));
+  res.status(201).json(CreateTreatmentCardResponse.parse(visibleCard(card, ownerView(res))));
 }));
 router.patch("/treatment-cards/:id", massageHandler(async (req, res) => {
   const { id } = parseInput(UpdateTreatmentCardParams, req.params);
   const input = parseInput(UpdateTreatmentCardBody, req.body);
+  if (!ownerView(res) && isMaskedCustomerPhone(input.phone)) delete input.phone;
   if (!Object.keys(input).length) { res.status(400).json({ error: "Chưa có thông tin cần cập nhật." }); return; }
-  res.json(UpdateTreatmentCardResponse.parse(await updateCard(id, input, operationIdFromRequest(req.get("Idempotency-Key"), "sửa thẻ"))));
+  const card = await updateCard(id, input, operationIdFromRequest(req.get("Idempotency-Key"), "sửa thẻ"));
+  res.json(UpdateTreatmentCardResponse.parse(visibleCard(card, ownerView(res))));
 }));
 router.post("/treatment-cards/:id/hours", massageHandler(async (req, res) => {
   const { id } = parseInput(AddTreatmentCardHoursParams, req.params);
   const { minutes, amount } = parseInput(AddTreatmentCardHoursBody, req.body);
-  res.json(AddTreatmentCardHoursResponse.parse(
-    await addCardHours(id, minutes, amount, operationIdFromRequest(req.get("Idempotency-Key"), "nạp thẻ")),
-  ));
+  const card = await addCardHours(id, minutes, amount, operationIdFromRequest(req.get("Idempotency-Key"), "nạp thẻ"));
+  res.json(AddTreatmentCardHoursResponse.parse(visibleCard(card, ownerView(res))));
 }));
 router.delete("/treatment-cards/:id", massageHandler(async (req, res) => {
   const { id } = parseInput(DeleteTreatmentCardParams, req.params);

@@ -1,9 +1,9 @@
 import { Router, type IRouter, type Response } from "express";
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { db, isPartitionedStorageEnabled, managerGrantsTable, membersTable, readPartitionedGrantByEmail, readPartitionedGrantsByGrantor, readPartitionedRowById, readPartitionedTable } from "@workspace/db";
 import { DeleteAccessGrantParams, ListAccessGrantsResponse, SaveAccessGrantBody, SaveAccessGrantResponse } from "@workspace/api-zod";
-import { MassageError } from "../lib/massage";
-import { canManageGrant, permissionsWithinDelegationScope, safePermissions } from "../lib/facility-permissions";
+import { idempotentTransaction, MassageError } from "../lib/massage";
+import { canManageGrant, hasOnlyActiveGrantEmployees, permissionsWithinDelegationScope, safePermissions } from "../lib/facility-permissions";
 import type { OwnerAuthStatus } from "../lib/owner-auth";
 import { massageHandler, parseInput } from "./massage-errors";
 import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "../lib/partitioned-mutations";
@@ -45,6 +45,7 @@ router.post("/access-grants", massageHandler(async (req, res) => {
   if (permissions.editAppointments && !permissions.viewAppointments) throw new MassageError(400, "Cần quyền xem lịch hẹn trước khi cho phép quản lý lịch hẹn.");
   if (permissions.editEmployees && !permissions.allEmployees && !permissions.employeeIds.length) throw new MassageError(400, "Hãy chọn nhân viên được xem và chỉnh sửa.");
   if (permissions.deleteEmployees && !permissions.allEmployees && !permissions.employeeIds.length) throw new MassageError(400, "Hãy chọn phạm vi nhân viên trước khi cấp quyền xóa.");
+  const operationId = operationIdFromRequest(req.get("Idempotency-Key"), "cấp quyền");
   if (!status.isOwner) {
     if (!permissionsWithinDelegationScope(status.permissions, permissions)) {
       throw new MassageError(403, "Chỉ được cấp quyền bằng hoặc thấp hơn phạm vi quyền của bạn.");
@@ -60,15 +61,17 @@ router.post("/access-grants", massageHandler(async (req, res) => {
   if (permissions.employeeIds.length) {
     const valid = isPartitionedStorageEnabled()
       ? (await readPartitionedTable("members") as unknown as (typeof membersTable.$inferSelect)[])
-        .filter((member) => permissions.employeeIds.includes(member.id))
-      : await db.select({ id: membersTable.id }).from(membersTable).where(inArray(membersTable.id, permissions.employeeIds));
-    if (valid.length !== permissions.employeeIds.length) throw new MassageError(400, "Danh sách nhân viên không hợp lệ. Hãy tải lại.");
+      : await db.select({ id: membersTable.id, deletedAt: membersTable.deletedAt }).from(membersTable)
+        .where(and(inArray(membersTable.id, permissions.employeeIds), isNull(membersTable.deletedAt)));
+    if (!hasOnlyActiveGrantEmployees(permissions.employeeIds, valid)) {
+      throw new MassageError(400, "Danh sách nhân viên không hợp lệ hoặc đã bị xóa. Hãy tải lại.");
+    }
   }
   let saved: typeof managerGrantsTable.$inferSelect | undefined;
   if (isPartitionedStorageEnabled()) {
     const existing = await readPartitionedGrantByEmail<typeof managerGrantsTable.$inferSelect>(input.email);
     const operation = await commitPartitionedMutations({
-      operationId: operationIdFromRequest(req.get("Idempotency-Key"), "cấp quyền"),
+      operationId,
       lockName: "access-grants",
       action: existing ? "access-grant.update" : "access-grant.create",
       request: { email: input.email, permissions },
@@ -88,8 +91,18 @@ router.post("/access-grants", massageHandler(async (req, res) => {
     saved = (await readPartitionedTable("manager_grants") as unknown as (typeof managerGrantsTable.$inferSelect)[])
       .find((row) => row.id === id);
   } else {
-    [saved] = await db.insert(managerGrantsTable).values({ email: input.email, permissions, grantedBy: status.email })
-      .onConflictDoUpdate({ target: managerGrantsTable.email, set: { permissions, grantedBy: status.email } }).returning();
+    saved = await idempotentTransaction(
+      operationId,
+      "cấp quyền",
+      "access-grant.save",
+      { email: input.email, permissions },
+      async (tx) => (await tx.insert(managerGrantsTable)
+        .values({ email: input.email, permissions, grantedBy: status.email })
+        .onConflictDoUpdate({
+          target: managerGrantsTable.email,
+          set: { permissions, grantedBy: status.email },
+        }).returning())[0],
+    );
   }
   if (!saved) throw new MassageError(503, "Không tải lại được quyền vừa lưu.");
   res.json(SaveAccessGrantResponse.parse(output(saved)));

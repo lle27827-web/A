@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Response } from "express";
 import { asc, eq } from "drizzle-orm";
 import { db, appointmentsTable, isPartitionedStorageEnabled, readPartitionedTable } from "@workspace/db";
 import {
@@ -14,18 +14,25 @@ import {
 import { idempotentTransaction, MassageError } from "../lib/massage";
 import { massageHandler, parseInput } from "./massage-errors";
 import { commitPartitionedMutations, operationIdFromRequest, upsertMutation, deleteMutation } from "../lib/partitioned-mutations";
+import type { OwnerAuthStatus } from "../lib/owner-auth";
+import { isMaskedCustomerPhone, maskCustomerPhone } from "../lib/customer-phone";
 
 const router: IRouter = Router();
 
-function output(row: typeof appointmentsTable.$inferSelect) {
+function output(row: typeof appointmentsTable.$inferSelect, isOwner: boolean) {
   return {
     ...row,
+    phone: isOwner ? row.phone : maskCustomerPhone(row.phone),
     scheduledAt: row.scheduledAt.toISOString(),
     request: row.request ?? "",
     note: row.note ?? "",
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+function isOwnerView(res: Response): boolean {
+  return (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.isOwner === true;
 }
 
 function normalizedInput(input: AppointmentInput) {
@@ -44,7 +51,7 @@ router.get("/appointments", massageHandler(async (_req, res) => {
     ? (await readPartitionedTable("appointments") as unknown as (typeof appointmentsTable.$inferSelect)[])
       .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime())
     : await db.select().from(appointmentsTable).orderBy(asc(appointmentsTable.scheduledAt));
-  res.json(ListAppointmentsResponse.parse(rows.map(output)));
+  res.json(ListAppointmentsResponse.parse(rows.map((row) => output(row, isOwnerView(res)))));
 }));
 
 router.post("/appointments", massageHandler(async (req, res) => {
@@ -71,7 +78,7 @@ router.post("/appointments", massageHandler(async (req, res) => {
     const row = (await readPartitionedTable("appointments") as unknown as (typeof appointmentsTable.$inferSelect)[])
       .find((item) => item.id === id);
     if (!row) throw new MassageError(503, "Không tải lại được lịch hẹn sau khi lưu.");
-    res.status(201).json(CreateAppointmentResponse.parse(output(row)));
+    res.status(201).json(CreateAppointmentResponse.parse(output(row, isOwnerView(res))));
     return;
   }
   const row = await idempotentTransaction(
@@ -81,12 +88,16 @@ router.post("/appointments", massageHandler(async (req, res) => {
     input,
     async (tx) => (await tx.insert(appointmentsTable).values(input).returning())[0],
   );
-  res.status(201).json(CreateAppointmentResponse.parse(output(row)));
+  res.status(201).json(CreateAppointmentResponse.parse(output(row, isOwnerView(res))));
 }));
 
 router.patch("/appointments/:id", massageHandler(async (req, res) => {
   const { id } = parseInput(UpdateAppointmentParams, req.params);
-  const input = normalizedInput(parseInput(UpdateAppointmentBody, req.body));
+  const normalized = normalizedInput(parseInput(UpdateAppointmentBody, req.body));
+  const input = !isOwnerView(res) && isMaskedCustomerPhone(normalized.phone)
+    ? (({ phone: _masked, ...fields }) => fields)(normalized)
+    : normalized;
+  if (!Object.keys(input).length) throw new MassageError(400, "Chưa có thông tin cần cập nhật.");
   if (isPartitionedStorageEnabled()) {
     const rows = await readPartitionedTable("appointments") as unknown as (typeof appointmentsTable.$inferSelect)[];
     const old = rows.find((item) => item.id === id);
@@ -104,7 +115,7 @@ router.patch("/appointments/:id", massageHandler(async (req, res) => {
     const row = (await readPartitionedTable("appointments") as unknown as (typeof appointmentsTable.$inferSelect)[])
       .find((item) => item.id === id);
     if (!row) throw new MassageError(503, "Không tải lại được lịch hẹn sau khi sửa.");
-    res.json(UpdateAppointmentResponse.parse(output(row)));
+    res.json(UpdateAppointmentResponse.parse(output(row, isOwnerView(res))));
     return;
   }
   const row = await idempotentTransaction(
@@ -118,7 +129,7 @@ router.patch("/appointments/:id", massageHandler(async (req, res) => {
       .returning())[0],
   );
   if (!row) throw new MassageError(404, "Không tìm thấy lịch hẹn.");
-  res.json(UpdateAppointmentResponse.parse(output(row)));
+  res.json(UpdateAppointmentResponse.parse(output(row, isOwnerView(res))));
 }));
 
 router.delete("/appointments/:id", massageHandler(async (req, res) => {

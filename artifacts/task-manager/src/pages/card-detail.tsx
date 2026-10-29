@@ -9,6 +9,7 @@ import type { MemberRecord, ServiceSession, ServiceSessionInput, TreatmentCard }
 import { ChevronDown, ChevronUp, CreditCard, Pencil, Phone, Plus, Trash2 } from 'lucide-react';
 import { Link, useLocation, useParams } from 'wouter';
 import { useShell } from '@/components/app-shell';
+import { phoneCallHref } from '@/lib/phone';
 import { CardDialog, mergeConflictTarget } from '@/components/entity-dialogs';
 import { CardHoursDialog } from '@/components/card-hours-dialog';
 import { ConfirmDialog, ErrorBanner, Skeleton, type ConfirmState } from '@/components/modal';
@@ -27,7 +28,7 @@ export default function CardDetailPage() {
   const activeMembersQuery = useListMembers(undefined, { query: { queryKey: getListMembersQueryKey(), enabled: canViewEmployees, ...SESSION_FRESHNESS } });
   const members = useMemo(() => activeMembersQuery.data ?? [], [activeMembersQuery.data]);
   const [, navigate] = useLocation();
-  const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), ...SESSION_FRESHNESS } });
+  const cardsQuery = useListTreatmentCards(undefined, { query: { queryKey: getListTreatmentCardsQueryKey(), ...SESSION_FRESHNESS } });
   const sessionParams = useMemo(() => ({ cardId: id }), [id]);
   const sessionsQuery = useListServiceSessions(sessionParams, { query: { queryKey: getListServiceSessionsQueryKey(sessionParams), enabled: id > 0, ...SESSION_FRESHNESS } });
   const updateCard = useUpdateTreatmentCard();
@@ -103,9 +104,11 @@ export default function CardDetailPage() {
           <span className="initials big"><CreditCard size={20} /></span>
           <div className="grow"><h1 id="card-title" className="page-title" data-testid="text-card-customer">{card.customerName}</h1>
             <p className="sub card-phone-details" data-testid="text-card-phone">
-              <a href={`tel:${card.phone}`} className="appointment-phone" aria-label={`Số điện thoại ${card.phone}`} data-testid="link-card-phone">
-                <Phone size={13} aria-hidden="true" />{card.phone}
-              </a>
+              {phoneCallHref(card.phone) ? (
+                <a href={phoneCallHref(card.phone)!} className="appointment-phone" aria-label={`Gọi số điện thoại ${card.phone}`} data-testid="link-card-phone">
+                  <Phone size={13} aria-hidden="true" />{card.phone}
+                </a>
+              ) : <span aria-label="Số điện thoại đã được che">{card.phone}</span>}
               <span>· Thẻ {card.serviceType}</span>
             </p></div>
           {canEdit && (

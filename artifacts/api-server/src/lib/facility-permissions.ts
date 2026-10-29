@@ -76,3 +76,11 @@ export async function permissionsForEmail(email: string): Promise<FacilityPermis
       .where(eq(managerGrantsTable.email, email)).limit(1))[0];
   return safePermissions(grant?.permissions);
 }
+
+export function hasOnlyActiveGrantEmployees(
+  requestedIds: readonly number[],
+  members: readonly { id: number; deletedAt: Date | null }[],
+): boolean {
+  const activeIds = new Set(members.filter((member) => member.deletedAt === null).map((member) => member.id));
+  return requestedIds.every((id) => activeIds.has(id));
+}

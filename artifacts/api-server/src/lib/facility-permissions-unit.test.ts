@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canDeleteEmployee, canManageGrant, noPermissions, ownerPermissions, safePermissions } from "./facility-permissions";
+import {
+  canDeleteEmployee,
+  canManageGrant,
+  hasOnlyActiveGrantEmployees,
+  noPermissions,
+  ownerPermissions,
+  safePermissions,
+} from "./facility-permissions";
 
 test("legacy grants cannot delete employees or be changed by managers", () => {
   const old = { allEmployees: true, employeeIds: [], viewCards: true, viewRevenue: true, editEmployees: true };
@@ -31,4 +38,10 @@ test("owner always retains authority over every grant and employee", () => {
   const owner = { email: "owner@example.com", isOwner: true, permissions: ownerPermissions() };
   assert.equal(canManageGrant(owner, { email: "legacy@example.com", grantedBy: null, permissions: {} }), true);
   assert.equal(canDeleteEmployee(ownerPermissions(), 4), true);
+});
+
+test("manager access grants cannot assign deleted employees", () => {
+  assert.equal(hasOnlyActiveGrantEmployees([4], [{ id: 4, deletedAt: null }]), true);
+  assert.equal(hasOnlyActiveGrantEmployees([4], [{ id: 4, deletedAt: new Date() }]), false);
+  assert.equal(hasOnlyActiveGrantEmployees([4], []), false);
 });

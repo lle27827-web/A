@@ -5,7 +5,7 @@ import { Link } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { ErrorBanner, Skeleton } from '@/components/modal';
 import { formatShortDate, initial, normalize } from '@/lib/attendance';
-import { SESSION_FRESHNESS, cardMatches, formatMinutes, formatMonth } from '@/lib/massage';
+import { SESSION_FRESHNESS, formatMinutes, formatMonth } from '@/lib/massage';
 
 /** Shared global search results, rendered first in AppShell main whenever the shared query is non-empty. */
 export function SearchResults() {
@@ -16,13 +16,16 @@ export function SearchResults() {
   const canSearchCards = permissions.viewCards && !historyMonth;
   const month = shell.period.month;
   const { withHistory } = shell;
-  const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), enabled: searching && canSearchCards, refetchOnWindowFocus: true } });
+  const cardSearch = useMemo(() => ({ search: raw }), [raw]);
+  const cardsQuery = useListTreatmentCards(cardSearch, {
+    query: { queryKey: getListTreatmentCardsQueryKey(cardSearch), enabled: searching && canSearchCards, refetchOnWindowFocus: true },
+  });
   const sessionParams = useMemo(() => ({ month }), [month]);
   const sessionsQuery = useListServiceSessions(sessionParams, { query: { queryKey: getListServiceSessionsQueryKey(sessionParams), enabled: searching && canViewEmployees, ...SESSION_FRESHNESS } });
 
   const q = normalize(raw);
   const memberHits = useMemo(() => (searching ? members.filter((m) => normalize(m.name).includes(q)) : []), [members, q, searching]);
-  const cardHits = useMemo(() => (searching && canSearchCards ? (cardsQuery.data ?? []).filter((c) => cardMatches(c, raw, normalize) || normalize(c.serviceType).includes(q)) : []), [cardsQuery.data, canSearchCards, raw, q, searching]);
+  const cardHits = useMemo(() => (searching && canSearchCards ? cardsQuery.data ?? [] : []), [cardsQuery.data, canSearchCards, searching]);
   const sessionHits = useMemo(() => (searching ? (sessionsQuery.data ?? []).filter((s) => normalize([s.employeeName, s.customerName, s.serviceType, formatShortDate(s.workDate)].join(' ')).includes(q)) : []), [sessionsQuery.data, q, searching]);
 
   if (!searching) return null;

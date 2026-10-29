@@ -42,6 +42,7 @@ export * from './healthStatus';
 export * from './listAttendanceParams';
 export * from './listMembersParams';
 export * from './listServiceSessionsParams';
+export * from './listTreatmentCardsParams';
 export * from './massageSummary';
 export * from './massageSummaryMostUsedCardService';
 export * from './massageSummaryMostUsedService';

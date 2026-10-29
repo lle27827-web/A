@@ -40,7 +40,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
   const payroll = useGetMemberPayroll(payrollParams, { query: { queryKey: getGetMemberPayrollQueryKey(payrollParams), enabled: id > 0, ...SESSION_FRESHNESS } });
   const sessionParams = useMemo(() => ({ memberId: id, month }), [id, month]);
   const sessionsQuery = useListServiceSessions(sessionParams, { query: { queryKey: getListServiceSessionsQueryKey(sessionParams), enabled: id > 0, ...SESSION_FRESHNESS } });
-  const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), enabled: canUseCards && sessionDialog !== null } });
+  const cardsQuery = useListTreatmentCards(undefined, { query: { queryKey: getListTreatmentCardsQueryKey(), enabled: canUseCards && sessionDialog !== null } });
 
   const createSession = useCreateServiceSession();
   const updateSession = useUpdateServiceSession();

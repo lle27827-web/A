@@ -8,6 +8,7 @@ import type { Appointment, AppointmentInput } from '@workspace/api-client-react'
 import { CalendarDays, LoaderCircle, Pencil, Phone, Plus, Trash2, UserRound } from 'lucide-react';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
 import { useShell } from '@/components/app-shell';
+import { phoneCallHref } from '@/lib/phone';
 import { errorText } from '@/lib/massage';
 
 type AppointmentDraft = { customerName: string; phone: string; scheduledAt: string; request: string; note: string };
@@ -184,9 +185,13 @@ export default function AppointmentsPage() {
                   </div>
                   <div className="appointment-customer">
                     <strong><UserRound size={15} aria-hidden="true" />{appointment.customerName}</strong>
-                    <a href={`tel:${appointment.phone}`} className="appointment-phone" data-testid={`link-appointment-phone-${appointment.id}`}>
-                      <Phone size={13} aria-hidden="true" />{appointment.phone}
-                    </a>
+                    {phoneCallHref(appointment.phone) ? (
+                      <a href={phoneCallHref(appointment.phone)!} className="appointment-phone" data-testid={`link-appointment-phone-${appointment.id}`}>
+                        <Phone size={13} aria-hidden="true" />{appointment.phone}
+                      </a>
+                    ) : (
+                      <span className="appointment-phone" aria-label="Số điện thoại đã được che">{appointment.phone}</span>
+                    )}
                   </div>
                   <div className="appointment-detail-lines">
                     <p className={`appointment-note${appointment.request ? '' : ' is-empty'}`}>

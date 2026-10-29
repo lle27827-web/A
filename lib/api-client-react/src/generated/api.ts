@@ -43,6 +43,7 @@ import type {
   ListAttendanceParams,
   ListMembersParams,
   ListServiceSessionsParams,
+  ListTreatmentCardsParams,
   MassageSummary,
   MemberInput,
   MemberPayroll,
@@ -1782,7 +1783,7 @@ export const deleteServiceType = async (id: number, options?: Parameters<typeof 
 
 export const getDeleteServiceTypeMutationKey = () => ['deleteServiceType'] as const;
 
-export const getDeleteServiceTypeMutationOptions = <TError = ErrorType<unknown>,
+export const getDeleteServiceTypeMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteServiceType>>, TError,DeleteServiceTypeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof deleteServiceType>>, TError,DeleteServiceTypeMutationVariables, TContext> => {
 
@@ -1811,10 +1812,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type DeleteServiceTypeMutationResult = NonNullable<Awaited<ReturnType<typeof deleteServiceType>>>
 
-    export type DeleteServiceTypeMutationError = ErrorType<unknown>
+    export type DeleteServiceTypeMutationError = ErrorType<void>
     export type DeleteServiceTypeMutationVariables = {id: number}
 
-    export const useDeleteServiceType = <TError = ErrorType<unknown>,
+    export const useDeleteServiceType = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteServiceType>>, TError,DeleteServiceTypeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteServiceType>>,
@@ -3295,17 +3296,24 @@ export const useDeleteAttendance = <TError = ErrorType<void>,
       return useMutation(getDeleteAttendanceMutationOptions(options));
     }
 
-export const getListTreatmentCardsUrl = () => {
+export const getListTreatmentCardsUrl = (params?: ListTreatmentCardsParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/treatment-cards`
+  return stringifiedParams.length > 0 ? `/api/treatment-cards?${stringifiedParams}` : `/api/treatment-cards`
 }
 
-export const listTreatmentCards = async ( options?: Parameters<typeof customFetch>[1]): Promise<TreatmentCard[]> => {
+export const listTreatmentCards = async (params?: ListTreatmentCardsParams, options?: Parameters<typeof customFetch>[1]): Promise<TreatmentCard[]> => {
 
-  return customFetch<TreatmentCard[]>(getListTreatmentCardsUrl(),
+  return customFetch<TreatmentCard[]>(getListTreatmentCardsUrl(params),
   {
     ...options,
     method: 'GET'
@@ -3318,23 +3326,23 @@ export const listTreatmentCards = async ( options?: Parameters<typeof customFetc
 
 
 
-export const getListTreatmentCardsQueryKey = () => {
+export const getListTreatmentCardsQueryKey = (params?: ListTreatmentCardsParams,) => {
     return [
-    `/api/treatment-cards`
+    `/api/treatment-cards`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListTreatmentCardsQueryOptions = <TData = Awaited<ReturnType<typeof listTreatmentCards>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTreatmentCards>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListTreatmentCardsQueryOptions = <TData = Awaited<ReturnType<typeof listTreatmentCards>>, TError = ErrorType<unknown>>(params?: ListTreatmentCardsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTreatmentCards>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListTreatmentCardsQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListTreatmentCardsQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTreatmentCards>>> = ({ signal }) => listTreatmentCards({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTreatmentCards>>> = ({ signal }) => listTreatmentCards(params, { signal, ...requestOptions });
 
 
 
@@ -3349,11 +3357,11 @@ export type ListTreatmentCardsQueryError = ErrorType<unknown>
 
 
 export function useListTreatmentCards<TData = Awaited<ReturnType<typeof listTreatmentCards>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTreatmentCards>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: ListTreatmentCardsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTreatmentCards>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListTreatmentCardsQueryOptions(options)
+  const queryOptions = getListTreatmentCardsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

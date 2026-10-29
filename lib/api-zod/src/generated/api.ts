@@ -1101,6 +1101,14 @@ export const DeleteAttendanceParams = zod.object({
 export const DeleteAttendanceResponse = zod.void()
 
 
+export const listTreatmentCardsQuerySearchMax = 160;
+
+
+
+export const ListTreatmentCardsQueryParams = zod.object({
+  "search": zod.coerce.string().max(listTreatmentCardsQuerySearchMax).optional()
+})
+
 export const ListTreatmentCardsResponseItem = zod.object({
   "id": zod.number().int(),
   "customerName": zod.string(),

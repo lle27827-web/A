@@ -96,8 +96,8 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
                 />
                 <span className="theme-swatch theme-swatch-default" aria-hidden="true" />
                 <span className="theme-option-copy">
-                  <strong>Giao diện hiện tại</strong>
-                  <span>Nền tối</span>
+                  <strong>Vàng ấm</strong>
+                  <span>Nền vàng, khung nội dung trắng</span>
                 </span>
               </label>
               <label className={`theme-option${theme === 'yellow' ? ' selected' : ''}`}>
@@ -111,8 +111,8 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
                 />
                 <span className="theme-swatch theme-swatch-yellow" aria-hidden="true" />
                 <span className="theme-option-copy">
-                  <strong>Vàng sa mạc</strong>
-                  <span>Nền cát ấm, chữ nâu</span>
+                  <strong>Vàng đậm</strong>
+                  <span>Nền vàng đậm, khung nội dung trắng</span>
                 </span>
               </label>
             </fieldset>

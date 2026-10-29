@@ -325,6 +325,7 @@ paths:
       tags: [massage]
       responses:
         "204": { description: Đã xóa dịch vụ và giữ nguyên các ca đã lưu }
+        "409": { description: "Dịch vụ đã có ca ghi nhận, không thể xóa." }
   /healthz:
     get:
       operationId: healthCheck
@@ -646,6 +647,12 @@ paths:
   /treatment-cards:
     get:
       operationId: listTreatmentCards
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+            maxLength: 160
       responses:
         "200":
           description: Thẻ và số giờ còn lại; điện thoại được che với người chỉ xem

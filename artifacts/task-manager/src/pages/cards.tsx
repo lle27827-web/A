@@ -7,13 +7,17 @@ import { Link, useLocation } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { CardDialog, mergeConflictTarget } from '@/components/entity-dialogs';
 import { ErrorBanner, Skeleton } from '@/components/modal';
-import { formatShortDate, localDate, normalize } from '@/lib/attendance';
-import { cardMatches, errorText, formatMinutes, formatVnd, useRefreshMassage } from '@/lib/massage';
+import { formatShortDate, localDate } from '@/lib/attendance';
+import { errorText, formatMinutes, formatVnd, useRefreshMassage } from '@/lib/massage';
+import { phoneCallHref } from '@/lib/phone';
 
 export default function CardsPage() {
   const { canEditCards: canEdit, query, setQuery, notify, fail } = useShell();
   const [, navigate] = useLocation();
-  const cardsQuery = useListTreatmentCards({ query: { queryKey: getListTreatmentCardsQueryKey(), refetchOnWindowFocus: true } });
+  const cardSearch = useMemo(() => query.trim() ? { search: query.trim() } : undefined, [query]);
+  const cardsQuery = useListTreatmentCards(cardSearch, {
+    query: { queryKey: getListTreatmentCardsQueryKey(cardSearch), refetchOnWindowFocus: true },
+  });
   const [open, setOpen] = useState(false);
   const [dialogError, setDialogError] = useState('');
   const [mergeTarget, setMergeTarget] = useState<number | null>(null);
@@ -21,9 +25,7 @@ export default function CardsPage() {
   const cache = useQueryClient();
   const refresh = useRefreshMassage();
   const cards = useMemo(() => cardsQuery.data ?? [], [cardsQuery.data]);
-  const list = useMemo(() => {
-    return cards.filter((c) => cardMatches(c, query, normalize));
-  }, [cards, query]);
+  const list = cards;
 
   return (
     <section className="panel page" aria-labelledby="cards-title">
@@ -40,12 +42,12 @@ export default function CardsPage() {
           {query && <button type="button" className="icon-btn" onClick={() => setQuery('')} aria-label="Xóa tìm kiếm thẻ" data-testid="button-clear-card-search"><X size={14} /></button>}
         </div>
         <span id="card-search-hint" className="hint" role="status" data-testid="text-card-count">
-          {query.trim() ? `${list.length} / ${cards.length} thẻ khớp` : `${cards.length} thẻ`}
+          {query.trim() ? `${list.length} thẻ khớp` : `${cards.length} thẻ`}
         </span>
       </form>
-      {query.trim() ? null : cardsQuery.isLoading ? <Skeleton rows={5} label="Đang tải thẻ" /> : cardsQuery.isError ? <ErrorBanner text={errorText(cardsQuery.error, 'Không tải được danh sách thẻ.')} onRetry={() => void cardsQuery.refetch()} /> : list.length === 0 ? (
-        <div className="empty"><CreditCard size={22} /><p>{cards.length ? 'Không có thẻ khớp tìm kiếm.' : 'Chưa có thẻ khách hàng nào.'}</p>
-          {canEdit && !cards.length && <button type="button" className="btn primary" onClick={() => setOpen(true)}><Plus size={15} />Bán thẻ đầu tiên</button>}</div>
+      {cardsQuery.isLoading ? <Skeleton rows={5} label="Đang tải thẻ" /> : cardsQuery.isError ? <ErrorBanner text={errorText(cardsQuery.error, 'Không tải được danh sách thẻ.')} onRetry={() => void cardsQuery.refetch()} /> : list.length === 0 ? (
+        <div className="empty"><CreditCard size={22} /><p>{query.trim() ? 'Không có thẻ khớp tìm kiếm.' : 'Chưa có thẻ khách hàng nào.'}</p>
+          {canEdit && !query.trim() && !cards.length && <button type="button" className="btn primary" onClick={() => setOpen(true)}><Plus size={15} />Bán thẻ đầu tiên</button>}</div>
       ) : (
         <ul className="card-list">
           {list.map((c) => {
@@ -69,9 +71,9 @@ export default function CardsPage() {
                     <span className="remain mono"><strong>{formatMinutes(c.remainingMinutes)}</strong><span className="muted">/ {formatMinutes(c.totalMinutes)}</span></span>
                     <ChevronRight size={18} aria-hidden="true" />
                   </Link>
-                  <a href={`tel:${c.phone}`} className="card-list-call" aria-label={`Gọi ${c.phone}`} data-testid={`link-card-phone-${c.id}`}>
+                  {phoneCallHref(c.phone) && <a href={phoneCallHref(c.phone)!} className="card-list-call" aria-label={`Gọi ${c.phone}`} data-testid={`link-card-phone-${c.id}`}>
                     <Phone size={16} aria-hidden="true" />
-                  </a>
+                  </a>}
                 </div>
               </li>
             );

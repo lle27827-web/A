@@ -62,8 +62,10 @@ test("appointments require explicit view/edit grants and support create, update,
     appointmentIds.push(created.id);
     assert.deepEqual(
       { customerName: created.customerName, phone: created.phone, request: created.request, note: created.note },
-      { customerName: "Khách thử", phone: "0900000000", request: "", note: "" },
+      { customerName: "Khách thử", phone: "•••••••000", request: "", note: "" },
     );
+    assert.equal((await db.select({ phone: appointmentsTable.phone }).from(appointmentsTable)
+      .where(eq(appointmentsTable.id, created.id)))[0].phone, "0900000000");
     assert.equal(created.status, "scheduled");
 
     const listed = await (await fetch(`${base}/appointments`)).json() as { id: number }[];
@@ -87,7 +89,7 @@ test("appointments require explicit view/edit grants and support create, update,
     };
     assert.equal(updated.id, created.id);
     assert.equal(updated.customerName, "Khách đã sửa");
-    assert.equal(updated.phone, "0911111111");
+    assert.equal(updated.phone, "•••••••111");
     assert.equal(updated.scheduledAt, "2026-11-02T10:30:00.000Z");
     assert.equal(updated.request, "15:30, muốn gặp Lan");
     assert.equal(updated.note, "Yêu cầu nhẹ nhàng");

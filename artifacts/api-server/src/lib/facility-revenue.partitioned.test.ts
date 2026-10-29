@@ -45,12 +45,20 @@ test("partitioned revenue counts card funding and walk-ins, but not card redempt
         earnings: 30_000,
         minutes: 60,
       },
+      {
+        workDate: "2026-10-21",
+        cardId: 2,
+        serviceType: "Massage",
+        customerCharge: 0,
+        earnings: 30_000,
+        minutes: 90,
+      },
     ] as never,
   );
 
   assert.equal(result.revenue, 350_000);
   assert.equal(result.netRevenue, 300_000);
-  assert.equal(result.payroll, 80_000);
+  assert.equal(result.payroll, 110_000, "payroll remains unchanged and includes the deleted-card service shift");
   assert.equal(result.cardRevenue, 150_000);
   assert.equal(result.cardsSold, 1);
   assert.equal(result.mostUsedService?.visits, 2);
