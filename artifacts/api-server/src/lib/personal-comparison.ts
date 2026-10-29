@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { and, asc, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { db, isPartitionedStorageEnabled, personalServicesTable as services, personalSessionsTable as sessions,
+  withPartitionWriteMutex,
   readPartitionedTable, serviceSessionsTable as visits, treatmentCardsTable as cards } from "@workspace/db";
 import type { PersonalComparisonVisit, PersonalDiscrepancy, PersonalSyncInput } from "@workspace/api-zod";
 import { listMembersForPeriod } from "./employee-history";
@@ -9,6 +10,8 @@ import { lockPersonal, personalSettings, refreshFacilityServices, type PersonalT
 import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "./partitioned-mutations";
 
 type Visit = PersonalComparisonVisit;
+const personalLock = (userId: string) =>
+  `personal:${createHash("sha256").update(userId).digest("hex").slice(0, 48)}`;
 const normalize = (s: string) => s.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
 const groupKey = (v: Visit) => JSON.stringify([v.workDate, normalize(v.serviceName)]);
 
@@ -78,6 +81,7 @@ export async function syncPersonalNotebook(userId: string, input: PersonalSyncIn
   if (!userId) throw new MassageError(401, "Vui lòng đăng nhập.");
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi đồng bộ sổ cá nhân.");
+    return withPartitionWriteMutex(personalLock(userId), async () => {
     const snapshot = await partitionedComparisonSnapshot(userId, input.memberId, input.month, input.date);
     const expectedRevision = input.scope === "day" ? snapshot.report.revisionDay : snapshot.report.revisionMonth;
     if (input.revision !== expectedRevision) {
@@ -90,7 +94,7 @@ export async function syncPersonalNotebook(userId: string, input: PersonalSyncIn
     const sourceRows = snapshot.reference.filter((row) =>
       input.scope === "day" ? row.workDate === input.date : row.workDate >= start && row.workDate < end,
     );
-    const { services: serviceRows, settings } = await personalPartitionedSnapshot();
+    const { services: serviceRows, settings } = await personalPartitionedSnapshot(userId);
     const useFacilityRates = settings.find((row) => row.userId === userId)?.useFacilityRates ?? false;
     const relevantServices = serviceRows.filter((row) => row.userId === userId);
     const newlyNeeded = new Map<string, { name: string; hourlyRate: number; facilityServiceId: number | null }>();
@@ -118,11 +122,12 @@ export async function syncPersonalNotebook(userId: string, input: PersonalSyncIn
     };
     await commitPartitionedMutations({
       operationId: operationIdValue,
-      lockName: `personal-sync:${createHash("sha256").update(userId).digest("hex").slice(0, 40)}`,
+      lockName: personalLock(userId),
       action: "personal-sync.replace",
       request: { userId, input },
       expectedEventCount,
       idAllocations: reserveCounts,
+      alreadyLocked: true,
       build: (operation) => {
         const mutations = oldRows.map((row) => deleteMutation("personal_sessions", row.id));
         const allocatedServices = operation.allocatedIds.personal_services ?? [];
@@ -156,6 +161,7 @@ export async function syncPersonalNotebook(userId: string, input: PersonalSyncIn
       },
     });
     return { removed: oldRows.length, imported: sourceRows.length };
+    });
   }
   return db.transaction(async (tx) => {
     await lockPersonal(tx, userId);
@@ -184,11 +190,11 @@ export async function syncPersonalNotebook(userId: string, input: PersonalSyncIn
   }, { isolationLevel: "repeatable read" });
 }
 
-async function personalPartitionedSnapshot() {
+async function personalPartitionedSnapshot(userId: string) {
   const [servicesRaw, sessionsRaw, settingsRaw] = await Promise.all([
-    readPartitionedTable("personal_services"),
-    readPartitionedTable("personal_sessions"),
-    readPartitionedTable("personal_settings"),
+    readPartitionedTable("personal_services", { userId }),
+    readPartitionedTable("personal_sessions", { userId }),
+    readPartitionedTable("personal_settings", { userId }),
   ]);
   return {
     services: servicesRaw as unknown as (typeof services.$inferSelect)[],
@@ -204,7 +210,7 @@ async function partitionedComparisonSnapshot(userId: string, memberId: number, m
   const [member] = await listMembersForPeriod(month, memberId);
   if (!member) throw new MassageError(404, "Không có nhân viên này trong tháng đã chọn.");
   const [personalSnapshot, visitsRaw, cardsRaw] = await Promise.all([
-    personalPartitionedSnapshot(),
+    personalPartitionedSnapshot(userId),
     readPartitionedTable("service_sessions"),
     readPartitionedTable("treatment_cards"),
   ]);

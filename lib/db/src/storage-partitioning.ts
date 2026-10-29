@@ -23,6 +23,48 @@ export type PartitionReplicaPair = {
   replica: DatabaseBackend;
 };
 
+export function buildPartitionEventInsertBatch(events: readonly PartitionMutation[]) {
+  return {
+    eventIds: events.map((event) => event.eventId),
+    operationIds: events.map((event) => event.operationId),
+    revisions: events.map((event) => event.revision),
+    entityTypes: events.map((event) => event.entityType),
+    entityKeys: events.map((event) => event.entityKey),
+    actions: events.map((event) => event.action),
+    payloads: events.map((event) => event.payload === null ? null : JSON.stringify(event.payload)),
+  };
+}
+
+export type PartitionComputeSnapshot = { seconds: number; checkedAt: number };
+
+export function resolvePartitionComputeState(input: {
+  now: number;
+  freshSeconds?: number;
+  cached?: PartitionComputeSnapshot;
+  requireCheck: boolean;
+  limitSeconds: number;
+  maxCacheAgeMs?: number;
+}): PartitionCapacityState {
+  if (input.freshSeconds !== undefined) {
+    return input.freshSeconds >= input.limitSeconds ? "unavailable" : "available";
+  }
+  const age = input.cached ? input.now - input.cached.checkedAt : Number.POSITIVE_INFINITY;
+  if (input.cached && age >= 0 && age <= (input.maxCacheAgeMs ?? 6 * 60 * 60_000)) {
+    return input.cached.seconds >= input.limitSeconds ? "unavailable" : "available";
+  }
+  return input.requireCheck ? "unknown" : "available";
+}
+
+export function shouldAdvancePartitionCursor(
+  failure: "full" | "unavailable",
+  current: DatabaseBackend,
+  next: DatabaseBackend,
+  orderedBackends: readonly DatabaseBackend[],
+): boolean {
+  return failure === "full" &&
+    orderedBackends.indexOf(next) > orderedBackends.indexOf(current);
+}
+
 export class PartitionRoutingError extends Error {
   constructor(
     message: string,
@@ -105,9 +147,9 @@ export function nextPartitionWriteBackend(
 
 /**
  * Pick the first verified writable shard at or after the persisted cursor.
- * Partition routing only moves forward: a full/unavailable shard is never
- * revisited, and unknown capacity blocks routing rather than risking a write
- * into an unverified store.
+ * Only a persistently full shard is skipped by the caller's stored cursor;
+ * unavailable shards are skipped for this operation, and unknown capacity
+ * blocks routing rather than risking an unverified write.
  */
 export function resolvePartitionWriteBackend(
   current: DatabaseBackend,
@@ -158,7 +200,14 @@ export function resolvePartitionWritePair(
 
   let primaryIndex = -1;
   for (let index = currentIndex; index < orderedBackends.length; index += 1) {
-    if (capacity.get(orderedBackends[index]!) === "available") {
+    const state = capacity.get(orderedBackends[index]!) ?? "unknown";
+    if (state === "unknown") {
+      throw new PartitionRoutingError(
+        `Capacity for ${orderedBackends[index]} could not be verified; writes are blocked.`,
+        "capacity_unknown",
+      );
+    }
+    if (state === "available") {
       primaryIndex = index;
       break;
     }
@@ -173,7 +222,14 @@ export function resolvePartitionWritePair(
   for (let offset = 1; offset < orderedBackends.length; offset += 1) {
     const replicaIndex = (primaryIndex + offset) % orderedBackends.length;
     const replica = orderedBackends[replicaIndex]!;
-    if (replica !== orderedBackends[primaryIndex] && capacity.get(replica) === "available") {
+    const state = capacity.get(replica) ?? "unknown";
+    if (state === "unknown") {
+      throw new PartitionRoutingError(
+        `Capacity for ${replica} could not be verified; writes are blocked.`,
+        "capacity_unknown",
+      );
+    }
+    if (replica !== orderedBackends[primaryIndex] && state === "available") {
       return {
         primary: orderedBackends[primaryIndex]!,
         replica,

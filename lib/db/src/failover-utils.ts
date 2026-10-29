@@ -85,11 +85,14 @@ export function isSameDatabaseFailureDomain(
   }
 }
 
-export function parseDatabaseCapacityLimit(value: string | undefined): bigint | null {
+export function parseDatabaseCapacityLimit(
+  value: string | undefined,
+  settingName = "DATABASE_URL_1_MAX_BYTES",
+): bigint | null {
   if (value === undefined || value.trim() === "") return null;
   const normalized = value.trim();
   if (!/^[1-9]\d*$/.test(normalized)) {
-    throw new Error("DATABASE_URL_1_MAX_BYTES must be a positive integer.");
+    throw new Error(`${settingName} must be a positive integer.`);
   }
   return BigInt(normalized);
 }

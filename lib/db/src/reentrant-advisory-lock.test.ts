@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { withReentrantAdvisoryLock } from "./reentrant-advisory-lock";
+import { AdvisoryLockReleaseError, withReentrantAdvisoryLock } from "./reentrant-advisory-lock";
 
 function mockClient() {
   const held = new Set<string>();
@@ -10,6 +10,12 @@ function mockClient() {
     trace,
     async query(_query: string, values?: unknown[]) {
       const key = String(values?.[0]);
+      if (_query.includes("pg_try_advisory_lock")) {
+        if (held.has(key)) return { rows: [{ locked: false }] };
+        held.add(key);
+        trace.push(`lock:${key}`);
+        return { rows: [{ locked: true }] };
+      }
       if (_query.includes("pg_advisory_lock")) {
         assert.equal(held.has(key), false);
         held.add(key);
@@ -59,4 +65,33 @@ test("reentrant acquisition of the same lock does not acquire a second session l
     withReentrantAdvisoryLock(client, "card-ledger", async () => "done"),
   );
   assert.deepEqual(client.trace.map((entry) => entry.split(":")[0]), ["lock", "unlock"]);
+});
+
+test("a lock timeout fails instead of waiting indefinitely", async () => {
+  const client = {
+    async query() {
+      return { rows: [{ locked: false }] };
+    },
+  };
+  await assert.rejects(
+    withReentrantAdvisoryLock(client, "busy-lock", async () => "unreachable", 10),
+    /Timed out waiting for partition advisory lock/,
+  );
+});
+
+test("unlock failure preserves the operation error for the caller", async () => {
+  const original = new Error("write failed");
+  const client = {
+    async query(query: string) {
+      if (query.includes("pg_try_advisory_lock")) return { rows: [{ locked: true }] };
+      throw new Error("unlock failed");
+    },
+  };
+
+  await assert.rejects(
+    withReentrantAdvisoryLock(client, "unlock-fails", async () => {
+      throw original;
+    }),
+    (error: unknown) => error instanceof AdvisoryLockReleaseError && error.operationError === original,
+  );
 });

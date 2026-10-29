@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
 import pg from "pg";
-import { withReentrantAdvisoryLock } from "./reentrant-advisory-lock";
+import { AdvisoryLockReleaseError, withReentrantAdvisoryLock } from "./reentrant-advisory-lock";
+import { createAsyncMutex } from "./async-mutex";
+import { normalizePartitionDatabaseRow, personalTableReadPredicates } from "./partitioned-row";
+import { PartitionReadCache } from "./partition-read-cache";
 import {
   DATABASE_COMPUTE_LIMIT_SECONDS,
   DATABASE_STORAGE_LIMIT_BYTES,
-  hasReachedComputeTimeLimit,
   hasReachedDatabaseCapacity,
   isDatabaseAvailabilityError,
   isDatabaseCapacityError,
@@ -13,7 +15,11 @@ import {
 } from "./failover-utils";
 import {
   resolvePartitionWritePair,
+  buildPartitionEventInsertBatch,
+  resolvePartitionComputeState,
+  shouldAdvancePartitionCursor,
   type PartitionCapacityState,
+  type PartitionComputeSnapshot,
   type PartitionMutation,
 } from "./storage-partitioning";
 import {
@@ -84,9 +90,14 @@ const TABLE_KEY_COLUMN: Record<string, string> = {
   manager_grants: "id",
   personal_services: "id",
   personal_sessions: "id",
-  personal_settings: "user_id",
+  personal_settings: "userId",
   appointments: "id",
   tasks: "id",
+};
+const TABLE_DB_KEY_COLUMN: Record<string, string> = {
+  ...TABLE_KEY_COLUMN,
+  card_usage_history: "source_session_id",
+  personal_settings: "user_id",
 };
 const EVENT_TABLE = "public.storage_partition_events";
 const STATE_TABLE = "public.storage_partition_state";
@@ -94,6 +105,15 @@ const OPERATIONS_TABLE = "public.storage_partition_operations";
 const ID_SEQUENCES_TABLE = "public.storage_partition_id_sequences";
 const neonApiKey = process.env.NEON_API_KEY?.trim();
 const isPartitionedMode = process.env.DATABASE_STORAGE_MODE === "partitioned";
+const PARTITION_DEFAULT_STORAGE_LIMIT_BYTES = 460_000_000n;
+const CAPACITY_CHECK_TIMEOUT_MS = 15_000;
+const COMPUTE_CACHE_MAX_AGE_MS = 6 * 60 * 60_000;
+const CAPACITY_ENV_NAMES: Record<DatabaseBackend, string> = {
+  database_url_1: "DATABASE_URL_1_MAX_BYTES",
+  database_url: "DATABASE_URL_MAX_BYTES",
+  database_url_3: "DATABASE_URL_3_MAX_BYTES",
+  database_url_4: "DATABASE_URL_4_MAX_BYTES",
+};
 
 const configuredNodes = resolveDatabaseNodes(process.env);
 const nodes: RuntimeNode[] = configuredNodes.map((node) => ({
@@ -105,12 +125,28 @@ const nodes: RuntimeNode[] = configuredNodes.map((node) => ({
     connectionTimeoutMillis: 10_000,
     idleTimeoutMillis: 10_000,
   }),
-  maxBytes: parseDatabaseCapacityLimit(node.maxBytes) ?? DATABASE_STORAGE_LIMIT_BYTES,
+  maxBytes: parseDatabaseCapacityLimit(node.maxBytes, CAPACITY_ENV_NAMES[node.backend])
+    ?? PARTITION_DEFAULT_STORAGE_LIMIT_BYTES,
 }));
+if (isPartitionedMode) {
+  for (const node of nodes) {
+    if (!process.env[CAPACITY_ENV_NAMES[node.backend]]?.trim()) {
+      console.warn(JSON.stringify({
+        event: "partition_storage_limit_defaulted",
+        backend: node.backend,
+        setting: CAPACITY_ENV_NAMES[node.backend],
+        limitBytes: PARTITION_DEFAULT_STORAGE_LIMIT_BYTES.toString(),
+      }));
+    }
+  }
+}
 const nodesByBackend = new Map(nodes.map((node) => [node.backend, node]));
 
 let capacityCache = new Map<DatabaseBackend, { expiresAt: number; state: PartitionCapacityState }>();
+const computeUsageCache = new Map<DatabaseBackend, PartitionComputeSnapshot>();
+const partitionReadCache = new PartitionReadCache(3_000);
 let coordinatorSchemaReadyUntil = 0;
+const withLocalPartitionWriteMutex = createAsyncMutex();
 
 export class PartitionStorageError extends Error {
   constructor(
@@ -257,7 +293,9 @@ export async function getPartitionedStorageStatus(): Promise<PartitionedStorageS
     eventSchemasReady,
     readsRequireDb1: false,
     readsRequireAllStores: false,
-    storageLimitBytes: DATABASE_STORAGE_LIMIT_BYTES.toString(),
+    storageLimitBytes: nodes.length
+      ? nodes.reduce((limit, node) => node.maxBytes < limit ? node.maxBytes : limit, nodes[0]!.maxBytes).toString()
+      : PARTITION_DEFAULT_STORAGE_LIMIT_BYTES.toString(),
     computeLimitHours: DATABASE_COMPUTE_LIMIT_SECONDS / 3600,
     stores,
     blockers,
@@ -308,12 +346,21 @@ export async function withPartitionWriteMutex<T>(
       "partition_not_configured",
     );
   }
-  const client = await coordinator.pool.connect();
-  try {
-    return await withReentrantAdvisoryLock(client, lockName, callback);
-  } finally {
-    client.release();
-  }
+  return withLocalPartitionWriteMutex(async () => {
+    const client = await coordinator.pool.connect();
+    let discardClient = false;
+    try {
+      return await withReentrantAdvisoryLock(client, lockName, callback);
+    } catch (error) {
+      if (error instanceof AdvisoryLockReleaseError) {
+        discardClient = true;
+        throw error.operationError ?? error;
+      }
+      throw error;
+    } finally {
+      client.release(discardClient ? true : undefined);
+    }
+  });
 }
 
 function requireConfiguredNodes(): RuntimeNode[] {
@@ -427,16 +474,69 @@ async function checkCapacity(node: RuntimeNode): Promise<PartitionCapacityState>
     if (hasReachedDatabaseCapacity(usedBytes, node.maxBytes)) {
       state = "full";
     } else {
-      const usedComputeSeconds = await readComputeTime(node);
-      state = hasReachedComputeTimeLimit(usedComputeSeconds, DATABASE_COMPUTE_LIMIT_SECONDS)
-        ? "full"
-        : "available";
+      let freshSeconds: number | undefined;
+      try {
+        freshSeconds = await readComputeTime(node);
+        computeUsageCache.set(node.backend, { seconds: freshSeconds, checkedAt: Date.now() });
+      } catch (error) {
+        const cachedUsage = computeUsageCache.get(node.backend);
+        if (!cachedUsage) {
+          console.warn(JSON.stringify({
+            event: "partition_compute_usage_unavailable",
+            backend: node.backend,
+            strict: process.env.PARTITION_REQUIRE_CU_CHECK === "1",
+            message: error instanceof Error ? error.message : "Unknown usage API failure",
+          }));
+        } else {
+          console.warn(JSON.stringify({
+            event: "partition_compute_usage_stale",
+            backend: node.backend,
+            ageMs: Date.now() - cachedUsage.checkedAt,
+          }));
+        }
+      }
+      state = resolvePartitionComputeState({
+        now: Date.now(),
+        freshSeconds,
+        cached: computeUsageCache.get(node.backend),
+        requireCheck: process.env.PARTITION_REQUIRE_CU_CHECK === "1",
+        limitSeconds: DATABASE_COMPUTE_LIMIT_SECONDS,
+        maxCacheAgeMs: COMPUTE_CACHE_MAX_AGE_MS,
+      });
     }
   } catch (error) {
     state = isDatabaseAvailabilityError(error) ? "unavailable" : "unknown";
   }
   capacityCache.set(node.backend, { expiresAt: Date.now() + 30_000, state });
   return state;
+}
+
+async function checkAllCapacities(): Promise<Map<DatabaseBackend, PartitionCapacityState>> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      Promise.all(nodes.map(async (node) => {
+        let state = await checkCapacity(node);
+        if (state === "available") {
+          try {
+            await verifyEventSchema(node);
+          } catch {
+            state = "unavailable";
+          }
+        }
+        return [node.backend, state] as const;
+      }))
+        .then((entries) => new Map(entries)),
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(
+          () => reject(new PartitionStorageError("Capacity checks timed out; database writes are paused.", "partition_operation_incomplete")),
+          CAPACITY_CHECK_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
 }
 
 function parseReservedOperation(row: Record<string, unknown>): ReservedOperation {
@@ -493,18 +593,7 @@ export async function reservePartitionOperation(input: {
 
   const coordinator = nodesByBackend.get("database_url_4")!;
 
-  const capacity = new Map<DatabaseBackend, PartitionCapacityState>();
-  for (const node of nodes) {
-    let state = await checkCapacity(node);
-    if (state === "available") {
-      try {
-        await verifyEventSchema(node);
-      } catch {
-        state = "unavailable";
-      }
-    }
-    capacity.set(node.backend, state);
-  }
+  const capacity = await checkAllCapacities();
 
   const client = await coordinator.pool.connect();
   try {
@@ -698,6 +787,7 @@ export async function reconcilePartitionOperation(
        WHERE operation_id = $1 AND request_hash = $2`,
       [operation.operationId, operation.requestHash],
     );
+    partitionReadCache.clear();
     return { ...operation, state: "committed" };
   } finally {
     client.release();
@@ -732,23 +822,27 @@ async function writePendingEventsToNode(
       );
     }
     if (existing.rows.length === 0) {
-      for (const event of events) {
-        await client.query(
-          `INSERT INTO ${EVENT_TABLE}
-           (event_id, operation_id, revision, source_backend, entity_type, entity_key, action, payload, committed)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, false)`,
-          [
-            event.eventId,
-            event.operationId,
-            event.revision,
-            operation.targetBackend,
-            event.entityType,
-            event.entityKey,
-            event.action,
-            event.payload === null ? null : JSON.stringify(event.payload),
-          ],
-        );
-      }
+      const batch = buildPartitionEventInsertBatch(events);
+      await client.query(
+        `INSERT INTO ${EVENT_TABLE}
+         (event_id, operation_id, revision, source_backend, entity_type, entity_key, action, payload, committed)
+         SELECT rows.event_id, rows.operation_id, rows.revision, $4,
+           rows.entity_type, rows.entity_key, rows.action, rows.payload, false
+         FROM unnest(
+           $1::uuid[], $2::uuid[], $3::bigint[], $5::text[], $6::text[],
+           $7::text[], $8::jsonb[]
+         ) AS rows(event_id, operation_id, revision, entity_type, entity_key, action, payload)`,
+        [
+          batch.eventIds,
+          batch.operationIds,
+          batch.revisions,
+          operation.targetBackend,
+          batch.entityTypes,
+          batch.entityKeys,
+          batch.actions,
+          batch.payloads,
+        ],
+      );
     }
     await client.query("COMMIT");
   } catch (error) {
@@ -801,6 +895,7 @@ export async function appendReservedPartitionOperation(
       if (committed.rowCount !== 1) {
         throw new Error("DB4 operation journal did not confirm the commit.");
       }
+      partitionReadCache.invalidate(mutations.map((mutation) => mutation.entityType));
     } catch {
       throw new PartitionStorageError(
         "The database write may be committed, but DB4 could not confirm it. Retry with the same operation ID.",
@@ -813,18 +908,8 @@ export async function appendReservedPartitionOperation(
     failedState: "full" | "unavailable",
     errorCode: string,
   ): Promise<ReservedOperation> => {
-    const capacity = new Map<DatabaseBackend, PartitionCapacityState>();
-    for (const node of nodes) {
-      let state = await checkCapacity(node);
-      if (state === "available") {
-        try {
-          await verifyEventSchema(node);
-        } catch {
-          state = "unavailable";
-        }
-      }
-      capacity.set(node.backend, state);
-    }
+    capacityCache.delete(failedBackend);
+    const capacity = await checkAllCapacities();
     capacity.set(failedBackend, failedState);
     let nextPair: ReturnType<typeof resolvePartitionWritePair>;
     try {
@@ -878,7 +963,7 @@ export async function appendReservedPartitionOperation(
         `SELECT write_backend FROM ${STATE_TABLE} WHERE id = 1 FOR UPDATE`,
       );
       const cursor = stateResult.rows[0]?.write_backend as DatabaseBackend | undefined;
-      if (cursor && BACKEND_ORDER.indexOf(nextPair.primary) > BACKEND_ORDER.indexOf(cursor)) {
+      if (cursor && shouldAdvancePartitionCursor(failedState, cursor, nextPair.primary, BACKEND_ORDER)) {
         await client.query(
           `UPDATE ${STATE_TABLE} SET write_backend = $1, updated_at = now() WHERE id = 1`,
           [nextPair.primary],
@@ -1152,7 +1237,7 @@ function normalizeEventPayload(value: unknown): unknown {
 
 export async function readPartitionedTable<T extends Record<string, unknown>>(
   tableName: string,
-  filter?: { ids?: number[]; email?: string; grantedBy?: string },
+  filter?: { ids?: number[]; email?: string; grantedBy?: string; userId?: string },
 ): Promise<T[]> {
   requireConfiguredNodes();
   const keyColumn = TABLE_KEY_COLUMN[tableName];
@@ -1162,9 +1247,16 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
   if (filter && tableName !== "manager_grants" && (filter.email !== undefined || filter.grantedBy !== undefined)) {
     throw new PartitionStorageError("Email filters are supported only for manager grants.", "partition_entity_invalid", 400);
   }
-  if (filter?.ids && !["members", "service_sessions", "attendance", "manager_grants"].includes(tableName)) {
+  if (filter?.userId !== undefined &&
+      !["personal_services", "personal_sessions", "personal_settings"].includes(tableName)) {
+    throw new PartitionStorageError("User filters are supported only for personal notebook tables.", "partition_entity_invalid", 400);
+  }
+  if (filter?.ids && !["members", "service_sessions", "attendance", "manager_grants", "card_usage_history"].includes(tableName)) {
     throw new PartitionStorageError("ID filters are not supported for this table.", "partition_entity_invalid", 400);
   }
+  const filterKey = stableJson(filter ?? {});
+  const cachedRows = partitionReadCache.get<T>(tableName, filterKey);
+  if (cachedRows) return cachedRows;
   const eventFilter = filter?.ids
     ? "AND entity_key = ANY($2::text[])"
     : filter?.email
@@ -1173,39 +1265,56 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
       : filter?.grantedBy
         ? `AND entity_key IN (SELECT entity_key FROM ${EVENT_TABLE}
             WHERE committed = true AND entity_type = $1 AND payload->>'grantedBy' = $2)`
+        : filter?.userId !== undefined
+          ? personalTableReadPredicates(tableName).eventSql
         : "";
   const eventParams: unknown[] = [tableName];
   if (filter?.ids) eventParams.push(filter.ids.map((id) => partitionEntityKey(tableName, id)));
   else if (filter?.email) eventParams.push(filter.email);
   else if (filter?.grantedBy) eventParams.push(filter.grantedBy);
+  else if (filter?.userId) eventParams.push(filter.userId);
+  const dbKeyColumn = TABLE_DB_KEY_COLUMN[tableName]!;
   const baseQuery = filter?.ids
-    ? `SELECT * FROM public."${tableName}" WHERE "${keyColumn}" = ANY($1::integer[])`
+    ? `SELECT * FROM public."${tableName}" WHERE "${dbKeyColumn}" = ANY($1::integer[])`
     : filter?.email
       ? `SELECT * FROM public."${tableName}" WHERE email = $1`
       : filter?.grantedBy
         ? `SELECT * FROM public."${tableName}" WHERE granted_by = $1`
-        : `SELECT * FROM public."${tableName}"`;
+        : filter?.userId !== undefined
+          ? `SELECT * FROM public."${tableName}" ${personalTableReadPredicates(tableName).baseSql}`
+    : `SELECT * FROM public."${tableName}"`;
   const baseParams: (number[] | string)[] = filter?.ids
     ? [filter.ids]
     : filter?.email
       ? [filter.email]
       : filter?.grantedBy
         ? [filter.grantedBy]
+        : filter?.userId !== undefined
+          ? [filter.userId]
         : [];
   const availableNodes: RuntimeNode[] = [];
   const mutationsById = new Map<string, PartitionMutation>();
-  for (const node of nodes) {
+  const eventReads = await Promise.all(nodes.map(async (node) => {
     try {
-      const result = await node.pool.query(
-        `SELECT event_id, operation_id, revision::text, entity_type, entity_key, action, payload
-         FROM ${EVENT_TABLE}
-         WHERE committed = true AND entity_type = $1
-         ${eventFilter}
-         ORDER BY revision ASC, event_id ASC`,
-        eventParams,
-      );
-      availableNodes.push(node);
-      for (const row of result.rows) {
+      return {
+        node,
+        result: await node.pool.query(
+          `SELECT event_id, operation_id, revision::text, entity_type, entity_key, action, payload
+           FROM ${EVENT_TABLE}
+           WHERE committed = true AND entity_type = $1
+           ${eventFilter}
+           ORDER BY revision ASC, event_id ASC`,
+          eventParams,
+        ),
+      };
+    } catch {
+      return null;
+    }
+  }));
+  for (const read of eventReads) {
+    if (!read) continue;
+    availableNodes.push(read.node);
+    for (const row of read.result.rows) {
         const mutation: PartitionMutation = {
           eventId: String(row.event_id),
           operationId: String(row.operation_id),
@@ -1223,10 +1332,6 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
           );
         }
         mutationsById.set(mutation.eventId, mutation);
-      }
-    } catch (error) {
-      if (error instanceof PartitionStorageError) throw error;
-      // An unavailable or not-yet-migrated store is treated as one failed replica.
     }
   }
   if (availableNodes.length < 3) {
@@ -1236,31 +1341,31 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
     );
   }
 
-  let rows: pg.QueryResult | undefined;
-  let baseReadSucceeded = false;
-  for (const node of availableNodes) {
+  const baseReads = await Promise.all(availableNodes.map(async (node) => {
     try {
-      rows = await node.pool.query(baseQuery, baseParams);
-      baseReadSucceeded = true;
-      break;
-    } catch (error) {
-      void error;
+      return await node.pool.query(baseQuery, baseParams);
+    } catch {
+      return null;
     }
-  }
-  if (!baseReadSucceeded) {
+  }));
+  const rows = baseReads.find((result): result is pg.QueryResult => result !== null);
+  if (!rows) {
     throw new PartitionStorageError(
       "No healthy store can provide the canonical base data.",
       "partition_operation_incomplete",
     );
   }
   const baseRows = new Map<string, T>();
-  for (const row of rows!.rows as T[]) {
+  for (const rawRow of rows.rows as Record<string, unknown>[]) {
+    const row = normalizePartitionDatabaseRow(rawRow) as T;
     const key = partitionEntityKey(tableName, row[keyColumn] as string | number);
     baseRows.set(key, row);
   }
 
   const { applyPartitionMutations } = await import("./storage-partitioning");
-  return [...applyPartitionMutations(baseRows, [...mutationsById.values()]).values()];
+  const result = [...applyPartitionMutations(baseRows, [...mutationsById.values()]).values()];
+  partitionReadCache.set(tableName, filterKey, result);
+  return result;
 }
 
 export async function readPartitionedRowById<T extends Record<string, unknown>>(

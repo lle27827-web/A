@@ -2,12 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   applyPartitionMutations,
+  buildPartitionEventInsertBatch,
   comparePartitionRevisions,
   hashPartitionRequest,
   makePartitionEntityKey,
   nextPartitionWriteBackend,
   resolvePartitionWritePair,
   resolvePartitionWriteBackend,
+  shouldAdvancePartitionCursor,
+  normalizePartitionDatabaseRow,
+  personalTableReadPredicates,
+  resolvePartitionComputeState,
   PartitionRoutingError,
   type PartitionCapacityState,
   type PartitionMutation,
@@ -27,12 +32,61 @@ test("partition keys keep equal local IDs distinct across stores", () => {
   assert.throws(() => makePartitionEntityKey("database_url_1", " 27 "));
 });
 
+test("raw base rows map PostgreSQL snake_case columns to application fields", () => {
+  const createdAt = new Date("2026-10-29T06:30:00.000Z");
+  assert.deepEqual(normalizePartitionDatabaseRow({
+    source_session_id: 21,
+    work_date: "2026-10-29",
+    created_at: createdAt,
+  }), {
+    sourceSessionId: 21,
+    workDate: "2026-10-29",
+    createdAt,
+  });
+});
+
+test("personal notebook partition filters restrict both event and base data by user", () => {
+  const predicates = personalTableReadPredicates("personal_sessions");
+  assert.match(predicates.baseSql, /user_id = \$1/);
+  assert.match(predicates.eventSql, /payload->>'userId' = \$2/);
+  assert.throws(() => personalTableReadPredicates("members"));
+});
+
 test("partition request hashes are stable across object key order", () => {
   assert.equal(
     hashPartitionRequest({ member: { name: "A", rate: 12 }, action: "update" }),
     hashPartitionRequest({ action: "update", member: { rate: 12, name: "A" } }),
   );
   assert.notEqual(hashPartitionRequest({ amount: 100 }), hashPartitionRequest({ amount: 101 }));
+});
+
+test("partition event batch maps each mutation into aligned PostgreSQL arrays", () => {
+  const batch = buildPartitionEventInsertBatch([
+    {
+      eventId: "00000000-0000-5000-8000-000000000001",
+      operationId: "00000000-0000-5000-8000-000000000002",
+      revision: "10",
+      entityType: "attendance",
+      entityKey: "attendance:1",
+      action: "delete",
+      payload: null,
+    },
+    {
+      eventId: "00000000-0000-5000-8000-000000000003",
+      operationId: "00000000-0000-5000-8000-000000000002",
+      revision: "10",
+      entityType: "members",
+      entityKey: "members:2",
+      action: "upsert",
+      payload: { id: 2, name: "An" },
+    },
+  ]);
+  assert.deepEqual(batch.eventIds, [
+    "00000000-0000-5000-8000-000000000001",
+    "00000000-0000-5000-8000-000000000003",
+  ]);
+  assert.deepEqual(batch.payloads, [null, JSON.stringify({ id: 2, name: "An" })]);
+  for (const values of Object.values(batch)) assert.equal(values.length, 2);
 });
 
 test("write routing advances only to the next configured store", () => {
@@ -117,6 +171,30 @@ test("two-copy routing moves forward when full and can wrap only for the replica
   });
 });
 
+test("the persisted cursor advances only for a genuinely full store", () => {
+  const order = fourShards.map(({ backend }) => backend);
+  assert.equal(shouldAdvancePartitionCursor("full", "database_url_1", "database_url", order), true);
+  assert.equal(shouldAdvancePartitionCursor("unavailable", "database_url_1", "database_url", order), false);
+  assert.equal(shouldAdvancePartitionCursor("full", "database_url_1", "database_url_1", order), false);
+});
+
+test("partition CU checks reuse a recent value and fail open only when configured", () => {
+  const cached = { seconds: 1_000, checkedAt: 10_000 };
+  assert.equal(resolvePartitionComputeState({
+    now: 11_000, cached, requireCheck: true, limitSeconds: 3_600,
+  }), "available");
+  assert.equal(resolvePartitionComputeState({
+    now: 11_000, cached: { seconds: 4_000, checkedAt: 10_000 },
+    requireCheck: false, limitSeconds: 3_600,
+  }), "unavailable");
+  assert.equal(resolvePartitionComputeState({
+    now: 30_000_000, cached, requireCheck: true, limitSeconds: 3_600,
+  }), "unknown");
+  assert.equal(resolvePartitionComputeState({
+    now: 30_000_000, requireCheck: false, limitSeconds: 3_600,
+  }), "available");
+});
+
 test("two-copy routing blocks when fewer than two stores are verified writable", () => {
   const capacity = new Map([
     ["database_url_1", "available"],
@@ -130,7 +208,20 @@ test("two-copy routing blocks when fewer than two stores are verified writable",
       fourShards.map(({ backend }) => backend),
       capacity,
     ),
-    (error) => error instanceof PartitionRoutingError && error.code === "no_writable_store",
+    (error) => error instanceof PartitionRoutingError && error.code === "capacity_unknown",
+  );
+});
+
+test("two-copy routing does not advance past an unknown store", () => {
+  const capacity = new Map([
+    ["database_url_1", "available"],
+    ["database_url", "unknown"],
+    ["database_url_3", "available"],
+    ["database_url_4", "available"],
+  ]) as Map<"database_url_1" | "database_url" | "database_url_3" | "database_url_4", PartitionCapacityState>;
+  assert.throws(
+    () => resolvePartitionWritePair("database_url_1", fourShards.map(({ backend }) => backend), capacity),
+    (error) => error instanceof PartitionRoutingError && error.code === "capacity_unknown",
   );
 });
 

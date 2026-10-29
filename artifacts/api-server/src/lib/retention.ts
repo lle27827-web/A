@@ -1,5 +1,4 @@
 import { sql } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
 import {
   attendanceTable,
   cardUsageHistoryTable,
@@ -10,7 +9,8 @@ import {
   personalSessionsTable,
 } from "@workspace/db";
 import { retentionCutoffDate } from "./retention-window";
-import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "./partitioned-mutations";
+import { deleteMutation, upsertMutation } from "./partitioned-mutations";
+import { commitRetentionMutationBatches } from "./retention-batches";
 import { MassageError } from "./massage";
 
 export type RetentionYearSummary = {
@@ -81,7 +81,7 @@ export async function listFacilityHistoryYears(): Promise<RetentionYearSummary[]
   });
 }
 
-export async function deleteFacilityHistoryYear(year: number, _operationId?: string) {
+export async function deleteFacilityHistoryYear(year: number, operationId?: string) {
   const startDate = `${year}-01-01`;
   const endDate = `${year + 1}-01-01`;
 
@@ -89,7 +89,7 @@ export async function deleteFacilityHistoryYear(year: number, _operationId?: str
     const result = await deleteFacilityHistoryDateRange({
       fromDate: startDate,
       toDate: `${year}-12-31`,
-    });
+    }, operationId);
     return { year, ...result };
   }
 
@@ -288,7 +288,7 @@ export async function previewFacilityHistoryDateRange(input: RetentionDateRange)
  * range. Card-use snapshots are inserted first in the same transaction, so
  * card balances never change and the permanent usage ledger remains intact.
  */
-export async function deleteFacilityHistoryDateRange(input: RetentionDateRange) {
+export async function deleteFacilityHistoryDateRange(input: RetentionDateRange, operationId?: string) {
   const { fromDate, toDate } = validateRetentionDateRange(input);
   if (isPartitionedStorageEnabled()) {
     const [attendanceRaw, sessionsRaw, historyRaw] = await Promise.all([
@@ -304,13 +304,10 @@ export async function deleteFacilityHistoryDateRange(input: RetentionDateRange) 
       { fromDate, toDate },
     );
     if (deletion.mutations.length > 0) {
-      await commitPartitionedMutations({
-        operationId: randomUUID(),
-        lockName: "retention",
+      await commitRetentionMutationBatches(deletion.mutations, {
+        requestId: operationId,
         action: "retention.manual-delete-range",
-        request: { fromDate, toDate },
-        expectedEventCount: deletion.mutations.length,
-        build: () => deletion.mutations,
+        rangeKey: `${fromDate}:${toDate}`,
       });
     }
     return {
@@ -424,13 +421,9 @@ export async function cleanupExpiredHistory() {
       ...personalSessions.map((row) => deleteMutation("personal_sessions", row.id)),
     ];
     if (mutations.length) {
-      await commitPartitionedMutations({
-        operationId: randomUUID(),
-        lockName: "retention",
+      await commitRetentionMutationBatches(mutations, {
         action: "retention.cleanup",
-        request: { cutoff },
-        expectedEventCount: mutations.length,
-        build: () => mutations,
+        rangeKey: `before:${cutoff}`,
       });
     }
     return {

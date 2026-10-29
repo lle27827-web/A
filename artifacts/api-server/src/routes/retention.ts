@@ -74,7 +74,7 @@ router.delete("/retention/range", requireOwner, async (req, res, next): Promise<
 
   try {
     res.set("Cache-Control", "no-store");
-    const result = await deleteFacilityHistoryDateRange(input.data);
+    const result = await deleteFacilityHistoryDateRange(input.data, req.get("Idempotency-Key"));
     res.json(DeleteRetentionDateRangeResponse.parse(result));
   } catch (error) {
     next(error);

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { and, asc, desc, eq, gte, isNull, isNotNull, lt, sql } from "drizzle-orm";
 import { db, isPartitionedStorageEnabled, personalServicesTable as services, personalSessionsTable as sessions,
   personalSettingsTable, readPartitionedTable } from "@workspace/db";
+import { withPartitionWriteMutex } from "@workspace/db";
 import type { PersonalServiceInput, PersonalSessionInput } from "@workspace/api-zod";
 import { MassageError, retainedDate, retainedMonthBounds } from "./massage";
 import { lockPersonal, personalSettings, refreshFacilityServices } from "./personal-data";
@@ -19,11 +20,13 @@ const missing = () => new MassageError(404, "Không tìm thấy dữ liệu tron
 const personalLock = (userId: string) =>
   `personal:${createHash("sha256").update(userId).digest("hex").slice(0, 48)}`;
 const operation = (id?: string, label?: string) => operationIdFromRequest(id, label ?? "sổ cá nhân");
-async function partitionedPersonalSnapshot() {
+const withPersonalPartitionWrite = <T>(userId: string, callback: () => Promise<T>) =>
+  withPartitionWriteMutex(personalLock(userId), callback);
+async function partitionedPersonalSnapshot(userId: string) {
   const [servicesRaw, sessionsRaw, settingsRaw] = await Promise.all([
-    readPartitionedTable("personal_services"),
-    readPartitionedTable("personal_sessions"),
-    readPartitionedTable("personal_settings"),
+    readPartitionedTable("personal_services", { userId }),
+    readPartitionedTable("personal_sessions", { userId }),
+    readPartitionedTable("personal_settings", { userId }),
   ]);
   return {
     services: servicesRaw as unknown as (typeof services.$inferSelect)[],
@@ -49,7 +52,8 @@ export async function savePersonalService(userId: string, input: PersonalService
   owned(userId);
   const values = rateValues(input);
   if (isPartitionedStorageEnabled()) {
-    const { services: serviceRows, settings } = await partitionedPersonalSnapshot();
+    return withPersonalPartitionWrite(userId, async () => {
+    const { services: serviceRows, settings } = await partitionedPersonalSnapshot(userId);
     if (settings.find((row) => row.userId === userId)?.useFacilityRates) {
       throw new MassageError(409, "Tắt dùng đơn giá cơ sở trước khi sửa dịch vụ riêng.");
     }
@@ -65,6 +69,7 @@ export async function savePersonalService(userId: string, input: PersonalService
       request: { userId, id: id ?? null, values },
       expectedEventCount: 1,
       idAllocations: id ? {} : { personal_services: 1 },
+      alreadyLocked: true,
       build: (op) => {
         const serviceId = id ?? op.allocatedIds.personal_services?.[0];
         if (!serviceId) throw new MassageError(503, "Không cấp được mã dịch vụ cá nhân.");
@@ -75,10 +80,11 @@ export async function savePersonalService(userId: string, input: PersonalService
       },
     });
     const serviceId = id ?? reserved.allocatedIds.personal_services?.[0];
-    const row = (await readPartitionedTable("personal_services") as unknown as (typeof services.$inferSelect)[])
+    const row = (await readPartitionedTable("personal_services", { userId }) as unknown as (typeof services.$inferSelect)[])
       .find((item) => item.id === serviceId && item.userId === userId);
     if (!row) throw new MassageError(503, "Không tải lại được dịch vụ cá nhân.");
     return serviceResult(row);
+    });
   }
   return db.transaction(async (tx) => {
     await lockPersonal(tx, userId);
@@ -93,7 +99,8 @@ export async function savePersonalService(userId: string, input: PersonalService
 export async function deletePersonalService(userId: string, id: number, operationId?: string) {
   owned(userId);
   if (isPartitionedStorageEnabled()) {
-    const { services: serviceRows } = await partitionedPersonalSnapshot();
+    return withPersonalPartitionWrite(userId, async () => {
+    const { services: serviceRows } = await partitionedPersonalSnapshot(userId);
     const row = serviceRows.find((item) => item.id === id && item.userId === userId &&
       item.deletedAt === null && item.facilityServiceId === null);
     if (!row) throw missing();
@@ -103,9 +110,11 @@ export async function deletePersonalService(userId: string, id: number, operatio
       action: "personal-service.delete",
       request: { userId, id },
       expectedEventCount: 1,
+      alreadyLocked: true,
       build: () => [upsertMutation("personal_services", id, { ...row, deletedAt: new Date() })],
     });
     return;
+    });
   }
   await db.transaction(async (tx) => {
     await lockPersonal(tx, userId);
@@ -121,8 +130,9 @@ export async function savePersonalSession(userId: string, input: PersonalSession
     throw new MassageError(400, "Số phút hoặc ghi chú không hợp lệ.");
   }
   if (isPartitionedStorageEnabled()) {
+    return withPersonalPartitionWrite(userId, async () => {
     if ((input.customerName?.trim().length ?? 0) > 160) throw new MassageError(400, "Tên khách quá dài.");
-    const { services: serviceRows, sessions: sessionRows, settings } = await partitionedPersonalSnapshot();
+    const { services: serviceRows, sessions: sessionRows, settings } = await partitionedPersonalSnapshot(userId);
     const previous = id ? sessionRows.find((row) => row.id === id && row.userId === userId) : undefined;
     if (id && !previous) throw missing();
     if (!id && input.requestId) {
@@ -159,6 +169,7 @@ export async function savePersonalSession(userId: string, input: PersonalSession
       request: { userId, id: id ?? null, input },
       expectedEventCount: 1,
       idAllocations: id ? {} : { personal_sessions: 1 },
+      alreadyLocked: true,
       build: (op) => {
         const sessionId = id ?? op.allocatedIds.personal_sessions?.[0];
         if (!sessionId) throw new MassageError(503, "Không cấp được mã ca cá nhân.");
@@ -166,10 +177,11 @@ export async function savePersonalSession(userId: string, input: PersonalSession
       },
     });
     const sessionId = id ?? reserved.allocatedIds.personal_sessions?.[0];
-    const row = (await readPartitionedTable("personal_sessions") as unknown as (typeof sessions.$inferSelect)[])
+    const row = (await readPartitionedTable("personal_sessions", { userId }) as unknown as (typeof sessions.$inferSelect)[])
       .find((item) => item.id === sessionId && item.userId === userId);
     if (!row) throw new MassageError(503, "Không tải lại được ca cá nhân.");
     return sessionResult(row);
+    });
   }
   return db.transaction(async (tx) => {
     await lockPersonal(tx, userId);
@@ -205,7 +217,8 @@ export async function savePersonalSession(userId: string, input: PersonalSession
 export async function deletePersonalSession(userId: string, id: number, operationId?: string) {
   owned(userId);
   if (isPartitionedStorageEnabled()) {
-    const { sessions: sessionRows } = await partitionedPersonalSnapshot();
+    return withPersonalPartitionWrite(userId, async () => {
+    const { sessions: sessionRows } = await partitionedPersonalSnapshot(userId);
     const row = sessionRows.find((item) => item.id === id && item.userId === userId);
     if (!row) throw missing();
     await commitPartitionedMutations({
@@ -214,9 +227,11 @@ export async function deletePersonalSession(userId: string, id: number, operatio
       action: "personal-session.delete",
       request: { userId, id },
       expectedEventCount: 1,
+      alreadyLocked: true,
       build: () => [deleteMutation("personal_sessions", id)],
     });
     return;
+    });
   }
   await db.transaction(async (tx) => {
     await lockPersonal(tx, userId);
@@ -228,7 +243,7 @@ export async function getPersonalNotebook(userId: string, month: string, date: s
   owned(userId);
   const { start, end } = period(month, date);
   if (isPartitionedStorageEnabled()) {
-    const { services: serviceRows, sessions: sessionRows, settings } = await partitionedPersonalSnapshot();
+  const { services: serviceRows, sessions: sessionRows, settings } = await partitionedPersonalSnapshot(userId);
     const useFacilityRates = settings.find((row) => row.userId === userId)?.useFacilityRates ?? false;
     const visibleServices = serviceRows.filter((row) => row.userId === userId && row.deletedAt === null &&
       (useFacilityRates ? row.facilityServiceId !== null : row.facilityServiceId === null))
@@ -267,8 +282,9 @@ export async function getPersonalNotebook(userId: string, month: string, date: s
 export async function updatePersonalSettings(userId: string, useFacilityRates: boolean, operationId?: string) {
   owned(userId);
   if (isPartitionedStorageEnabled()) {
+    return withPersonalPartitionWrite(userId, async () => {
     const [snapshot, facilityRaw] = await Promise.all([
-      partitionedPersonalSnapshot(),
+      partitionedPersonalSnapshot(userId),
       readPartitionedTable("service_types"),
     ]);
     const catalog = (facilityRaw as unknown as (typeof import("@workspace/db").serviceTypesTable.$inferSelect)[])
@@ -293,6 +309,7 @@ export async function updatePersonalSettings(userId: string, useFacilityRates: b
       request: { userId, useFacilityRates, catalog },
       expectedEventCount: mutationsCount,
       idAllocations: { personal_services: missingCatalog.length },
+      alreadyLocked: true,
       build: (op) => {
         const result = [upsertMutation("personal_settings", userId, { userId, useFacilityRates })];
         const allocated = op.allocatedIds.personal_services ?? [];
@@ -326,6 +343,7 @@ export async function updatePersonalSettings(userId: string, useFacilityRates: b
       },
     });
     return { useFacilityRates };
+    });
   }
   return db.transaction(async (tx) => {
     await lockPersonal(tx, userId);

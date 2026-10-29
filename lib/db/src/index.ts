@@ -16,17 +16,23 @@ export {
 } from "./failover-utils";
 export {
   applyPartitionMutations,
+  buildPartitionEventInsertBatch,
   comparePartitionRevisions,
   makePartitionEntityKey,
   nextPartitionWriteBackend,
   resolvePartitionWritePair,
   resolvePartitionWriteBackend,
+  resolvePartitionComputeState,
+  type PartitionComputeSnapshot,
+  shouldAdvancePartitionCursor,
   PartitionRoutingError,
   type PartitionMutation,
   type PartitionMutationAction,
   type PartitionCapacityState,
   type PartitionReplicaPair,
 } from "./storage-partitioning";
+export { normalizePartitionDatabaseRow, personalTableReadPredicates } from "./partitioned-row";
+export { PartitionReadCache } from "./partition-read-cache";
 export {
   appendReservedPartitionOperation,
   getReservedPartitionOperation,

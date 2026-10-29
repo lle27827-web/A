@@ -20,7 +20,7 @@
     "test:attendance-policy": "esbuild src/lib/attendance-policy.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-attendance-policy-tests.cjs && node --test /tmp/so-cong-attendance-policy-tests.cjs",
     "test:attendance": "esbuild src/routes/attendance.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-attendance-tests.cjs && node --test /tmp/so-cong-attendance-tests.cjs",
     "test:access-grants": "esbuild src/routes/access-grants.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-access-grants-tests.cjs && node --test /tmp/so-cong-access-grants-tests.cjs",
-    "test:reentrant-locks": "esbuild ../../lib/db/src/reentrant-advisory-lock.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-reentrant-lock-tests.cjs && node --test /tmp/so-cong-reentrant-lock-tests.cjs",
+    "test:reentrant-locks": "esbuild ../../lib/db/src/reentrant-advisory-lock.test.ts ../../lib/db/src/async-mutex.test.ts --bundle --platform=node --format=cjs --outdir=/tmp/so-cong-reentrant-lock-tests && node --test /tmp/so-cong-reentrant-lock-tests/*.js",
     "test:service-types": "esbuild src/routes/service-types.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-service-type-tests.cjs && node --test /tmp/so-cong-service-type-tests.cjs",
     "test:revenue": "esbuild src/lib/facility-revenue.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-revenue-tests.cjs && node --test /tmp/so-cong-revenue-tests.cjs",
     "test:card-topups": "esbuild src/lib/card-topups.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-card-topup-tests.cjs && node --test /tmp/so-cong-card-topup-tests.cjs",
@@ -31,6 +31,7 @@
     "test:appointments": "esbuild src/routes/appointments.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-appointments-tests.cjs && node --test /tmp/so-cong-appointments-tests.cjs",
     "test:database-failover": "esbuild src/lib/database-failover.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-database-failover-tests.cjs && node --test /tmp/so-cong-database-failover-tests.cjs",
     "test:storage-partitioning": "esbuild src/lib/storage-partitioning.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-storage-partitioning-tests.cjs && node --test /tmp/so-cong-storage-partitioning-tests.cjs",
+    "test:partition-read-cache": "esbuild ../../lib/db/src/partition-read-cache.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-partition-read-cache-tests.cjs && node --test /tmp/so-cong-partition-read-cache-tests.cjs",
     "test:partitioned-revenue": "esbuild src/lib/facility-revenue.partitioned.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-partitioned-revenue-tests.cjs && node --test /tmp/so-cong-partitioned-revenue-tests.cjs",
     "test:write-rate-limit": "esbuild src/lib/write-rate-limit-key.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-write-rate-limit-tests.cjs && node --test /tmp/so-cong-write-rate-limit-tests.cjs"
   },

@@ -108,7 +108,7 @@ test("independent coordinator URLs cannot share a database failure domain", () =
 test("capacity limit is optional and must be a positive integer", () => {
   assert.equal(parseDatabaseCapacityLimit(undefined), null);
   assert.equal(parseDatabaseCapacityLimit("1048576"), 1_048_576n);
-  assert.throws(() => parseDatabaseCapacityLimit("0"));
+  assert.throws(() => parseDatabaseCapacityLimit("0", "DATABASE_URL_3_MAX_BYTES"), /DATABASE_URL_3_MAX_BYTES/);
   assert.throws(() => parseDatabaseCapacityLimit("1GB"));
 });
 
