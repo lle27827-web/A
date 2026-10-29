@@ -150,6 +150,26 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/DatabaseFailoverResult" }
         "503": { description: Failover chưa được bật hoặc trạng thái đang chuyển }
+  /database/failover/recover:
+    post:
+      operationId: recoverDatabaseFailover
+      tags: [database]
+      summary: Chủ sở hữu xác nhận khôi phục kho nguồn sau lần chuyển bị gián đoạn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DatabaseFailoverInput" }
+      responses:
+        "200":
+          description: Đã khôi phục kho nguồn sau khi kiểm tra replication
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DatabaseFailoverResult" }
+        "400": { description: Xác nhận không hợp lệ }
+        "401": { description: Cần đăng nhập }
+        "403": { description: Chỉ chủ sở hữu được khôi phục }
+        "409": { description: Không thể xác nhận khôi phục an toàn }
   /personal/settings:
     put:
       operationId: updatePersonalSettings
@@ -1184,6 +1204,9 @@ components:
         fromBackend: { $ref: "#/components/schemas/DatabaseFailoverTarget" }
         targetBackend: { $ref: "#/components/schemas/DatabaseFailoverTarget" }
         confirmation: { type: string, maxLength: 80 }
+        force:
+          type: boolean
+          description: Chuyển cưỡng bức chỉ dùng khi ALLOW_FORCE_FAILOVER=1 và xác nhận có thể mất dữ liệu chưa đồng bộ.
     DatabaseFailoverResult:
       type: object
       required: [switched, activeBackend, message]

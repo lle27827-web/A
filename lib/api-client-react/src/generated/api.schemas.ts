@@ -462,6 +462,8 @@ export interface DatabaseFailoverInput {
   targetBackend: DatabaseFailoverTarget;
   /** @maxLength 80 */
   confirmation: string;
+  /** Chuyển cưỡng bức chỉ dùng khi ALLOW_FORCE_FAILOVER=1 và xác nhận có thể mất dữ liệu chưa đồng bộ. */
+  force?: boolean;
 }
 
 export interface DatabaseFailoverResult {

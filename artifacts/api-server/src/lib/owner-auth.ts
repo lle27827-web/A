@@ -1,7 +1,7 @@
 import { createClerkClient } from "@clerk/backend";
 import { getAuth } from "@clerk/express";
 import type { NextFunction, Request, Response } from "express";
-import { db, attendanceTable, isPartitionedStorageEnabled, readPartitionedRowById, readPartitionedTable, serviceSessionsTable } from "@workspace/db";
+import { DatabaseFailoverInProgressError, db, attendanceTable, isPartitionedStorageEnabled, readPartitionedRowById, readPartitionedTable, serviceSessionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { FacilityPermissions } from "@workspace/api-zod";
 import { canDeleteEmployee, canEditEmployee, canViewEmployee, noPermissions, ownerPermissions, permissionsForEmail } from "./facility-permissions";
@@ -172,6 +172,10 @@ export async function apiAuthorizationGate(
     if (await managerRequestAllowed(req, status.permissions)) { next(); return; }
     res.status(403).json({ error: "Tài khoản chưa được cấp quyền thực hiện thao tác này." });
   } catch (error) {
+    if (error instanceof DatabaseFailoverInProgressError) {
+      res.status(503).json({ error: "Đang chuyển database, vui lòng thử lại." });
+      return;
+    }
     req.log?.error({ err: error }, "Unable to verify facility permissions");
     res.status(503).json({ error: "Không thể xác minh quyền truy cập. Hãy thử lại." });
   }

@@ -8,6 +8,8 @@ import {
   isDatabaseAvailabilityError,
   isDatabaseCapacityError,
   isDatabaseFailoverTriggerError,
+  isDatabasePoolExhaustionError,
+  hasAvailabilityFailureThreshold,
   isSameDatabaseFailureDomain,
   parseNeonComputeTimeSeconds,
   parseDatabaseCapacityLimit,
@@ -23,6 +25,7 @@ import {
 } from "../../../../lib/db/src/failover-topology";
 import {
   planSequenceSync,
+  planSequenceRepairToRows,
   type SequenceSnapshot,
 } from "../../../../lib/db/src/failover-sequences";
 import { describeReplicationBlocker } from "../../../../lib/db/src/failover-replication-readiness";
@@ -62,7 +65,7 @@ test("disk-full messages are recognized without exposing details", () => {
 });
 
 test("database connectivity failures are recognized as failover triggers", () => {
-  for (const code of ["08006", "25006", "57P01", "57P03", "53300", "58030", "ECONNRESET", "ETIMEDOUT"]) {
+  for (const code of ["08006", "25006", "57P01", "57P03", "58030", "ECONNRESET", "ETIMEDOUT"]) {
     assert.equal(isDatabaseAvailabilityError({ code }), true, code);
     assert.equal(isDatabaseFailoverTriggerError({ code }), true, code);
   }
@@ -74,6 +77,22 @@ test("database connectivity failures are recognized as failover triggers", () =>
     isDatabaseAvailabilityError(new Error("server closed the connection unexpectedly")),
     true,
   );
+});
+
+test("pool exhaustion never triggers failover and availability needs three recent failures", () => {
+  for (const error of [
+    { code: "53300" },
+    new Error("connection acquisition timed out"),
+    new Error("timeout expired"),
+    new Error("too many clients already"),
+  ]) {
+    assert.equal(isDatabasePoolExhaustionError(error), true);
+    assert.equal(isDatabaseAvailabilityError(error), false);
+    assert.equal(isDatabaseFailoverTriggerError(error), false);
+  }
+  assert.equal(hasAvailabilityFailureThreshold([10_000, 20_000], 20_000), false);
+  assert.equal(hasAvailabilityFailureThreshold([10_000, 15_000, 20_000], 20_000), true);
+  assert.equal(hasAvailabilityFailureThreshold([1_000, 20_000, 20_001], 50_000), false);
 });
 
 test("ordinary SQL and validation errors never trigger automatic failover", () => {
@@ -354,6 +373,29 @@ test("unused sequences keep their first value and missing sequences block promot
     ],
   );
   assert.equal(planSequenceSync([sequenceSnapshot()], []), null);
+});
+
+test("forced-promotion sequence repair advances only to the surviving rows", () => {
+  assert.deepEqual(
+    planSequenceRepairToRows([
+      sequenceSnapshot({ tableMaxValue: "8", lastValue: "5", isCalled: true }),
+      sequenceSnapshot({
+        sequenceName: "already_ahead_seq",
+        tableName: "other",
+        columnName: "id",
+        tableMaxValue: "5",
+        lastValue: "9",
+        isCalled: true,
+      }),
+    ]),
+    [{ sequenceSchema: "public", sequenceName: "members_id_seq", value: "8", isCalled: true }],
+  );
+  assert.equal(
+    planSequenceRepairToRows([
+      sequenceSnapshot({ cycle: true, tableMaxValue: "8" }),
+    ]),
+    null,
+  );
 });
 
 test("sequence configurations that cannot be safely synchronized block promotion", () => {

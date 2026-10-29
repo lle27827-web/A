@@ -8,6 +8,8 @@ import {
   getDatabaseFailoverStatus,
   getPartitionedStorageStatus,
   requestOwnerDatabaseFailover,
+  requestOwnerDatabaseFailoverRecovery,
+  requestOwnerForcedDatabaseFailover,
 } from "@workspace/db";
 import { GetDatabaseStorageStatusResponse } from "@workspace/api-zod";
 import { requireOwner } from "../lib/owner-auth";
@@ -43,8 +45,9 @@ router.post("/database/failover", requireOwner, async (req, res, next): Promise<
   const input = RequestDatabaseFailoverBody.safeParse(req.body);
   if (
     !input.success ||
-    input.data.confirmation !==
-      `${input.data.fromBackend}_TO_${input.data.targetBackend}`
+    input.data.confirmation !== (input.data.force
+      ? `FORCE_${input.data.fromBackend}_TO_${input.data.targetBackend}`
+      : `${input.data.fromBackend}_TO_${input.data.targetBackend}`)
   ) {
     res.status(400).json({ error: "Thông tin xác nhận chuyển database không hợp lệ." });
     return;
@@ -52,6 +55,22 @@ router.post("/database/failover", requireOwner, async (req, res, next): Promise<
 
   try {
     res.set("Cache-Control", "no-store");
+    if (input.data.force) {
+      const forced = await requestOwnerForcedDatabaseFailover(
+        input.data.fromBackend,
+        input.data.targetBackend,
+      );
+      res
+        .status(forced.switched ? 200 : 409)
+        .json(
+          RequestDatabaseFailoverResponse.parse({
+            switched: forced.switched,
+            activeBackend: forced.activeBackend,
+            message: forced.message,
+          }),
+        );
+      return;
+    }
     const result = await requestOwnerDatabaseFailover(
       input.data.fromBackend,
       input.data.targetBackend,
@@ -68,6 +87,43 @@ router.post("/database/failover", requireOwner, async (req, res, next): Promise<
       message,
     });
     res.status(result.switched ? 200 : result.activeBackend === "switching" ? 503 : 409).json(response);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/database/failover/recover", requireOwner, async (req, res, next): Promise<void> => {
+  const input = RequestDatabaseFailoverBody.safeParse(req.body);
+  if (
+    !input.success ||
+    input.data.force ||
+    input.data.confirmation !==
+      `${input.data.fromBackend}_TO_${input.data.targetBackend}`
+  ) {
+    res.status(400).json({ error: "Thông tin xác nhận khôi phục database không hợp lệ." });
+    return;
+  }
+
+  try {
+    res.set("Cache-Control", "no-store");
+    const result = await requestOwnerDatabaseFailoverRecovery(
+      input.data.fromBackend,
+      input.data.targetBackend,
+    );
+    const message = result.recovered
+      ? `Đã khôi phục kho nguồn ${backendNames[result.activeBackend]}.`
+      : result.activeBackend === "switching"
+        ? "Chưa thể khôi phục an toàn. Hệ thống vẫn khóa ghi để tránh lệch dữ liệu."
+        : "Không có lần chuyển đang chờ khôi phục.";
+    res
+      .status(result.recovered ? 200 : 409)
+      .json(
+        RequestDatabaseFailoverResponse.parse({
+          switched: result.recovered,
+          activeBackend: result.activeBackend,
+          message,
+        }),
+      );
   } catch (error) {
     next(error);
   }

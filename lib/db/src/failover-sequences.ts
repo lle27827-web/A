@@ -109,3 +109,43 @@ export function planSequenceSync(
 
   return updates;
 }
+
+/**
+ * When a publisher is unreachable, sequence state cannot be read from it.
+ * Force promotion may still be safe if the surviving replica advances every
+ * sequence to at least the highest row value it currently contains.
+ */
+export function planSequenceRepairToRows(
+  sequences: readonly SequenceSnapshot[],
+): SequenceSyncUpdate[] | null {
+  const updates: SequenceSyncUpdate[] = [];
+  for (const sequence of sequences) {
+    if (sequence.cycle || BigInt(sequence.incrementBy) <= 0n) return null;
+    if (sequence.tableMaxValue === null) continue;
+
+    const tableMax = BigInt(sequence.tableMaxValue);
+    if (
+      tableMax < BigInt(sequence.minValue) ||
+      tableMax > BigInt(sequence.maxValue)
+    ) {
+      return null;
+    }
+
+    const lastValue = sequence.lastValue === null
+      ? null
+      : BigInt(sequence.lastValue);
+    if (
+      lastValue === null ||
+      lastValue < tableMax ||
+      (!sequence.isCalled && lastValue === tableMax)
+    ) {
+      updates.push({
+        sequenceSchema: sequence.sequenceSchema,
+        sequenceName: sequence.sequenceName,
+        value: tableMax.toString(),
+        isCalled: true,
+      });
+    }
+  }
+  return updates;
+}

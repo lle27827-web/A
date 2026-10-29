@@ -15,7 +15,6 @@ const CONNECTION_ERROR_CODES = new Set([
 
 const DATABASE_UNAVAILABLE_SQLSTATES = new Set([
   "25006", // read_only_sql_transaction
-  "53300", // too_many_connections
   "53400", // configuration_limit_exceeded
   "58030", // io_error
   "57P01", // admin_shutdown
@@ -41,6 +40,7 @@ export function isDatabaseAvailabilityError(error: unknown): boolean {
   const inspect = (candidate: unknown, depth: number): boolean => {
     if (!candidate || typeof candidate !== "object" || depth > 4) return false;
     const value = candidate as { code?: unknown; message?: unknown; cause?: unknown };
+    if (isDatabasePoolExhaustionError(value)) return false;
     if (typeof value.code === "string") {
       if (
         value.code.startsWith("08") ||
@@ -51,7 +51,7 @@ export function isDatabaseAvailabilityError(error: unknown): boolean {
     }
     if (
       typeof value.message === "string" &&
-      /could not connect to server|connection (?:terminated|closed|reset|refused|timed out)|server closed the connection unexpectedly|socket hang up|network is unreachable|no route to host|temporary failure in name resolution|too many clients already|the database system is (?:shutting down|in recovery)|connection acquisition timed out|timeout expired/i.test(
+      /could not connect to server|connection (?:terminated|closed|reset|refused|timed out)|server closed the connection unexpectedly|socket hang up|network is unreachable|no route to host|temporary failure in name resolution|the database system is (?:shutting down|in recovery)/i.test(
         value.message,
       )
     ) {
@@ -61,6 +61,26 @@ export function isDatabaseAvailabilityError(error: unknown): boolean {
   };
 
   return inspect(error, 0);
+}
+
+export function isDatabasePoolExhaustionError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const value = error as { code?: unknown; message?: unknown; cause?: unknown };
+  if (value.code === "53300") return true;
+  if (
+    typeof value.message === "string" &&
+    /connection acquisition timed out|timeout expired|too many clients already/i.test(value.message)
+  ) return true;
+  return value.cause ? isDatabasePoolExhaustionError(value.cause) : false;
+}
+
+export function hasAvailabilityFailureThreshold(
+  timestamps: readonly number[],
+  now: number,
+  limit = 3,
+  windowMs = 30_000,
+): boolean {
+  return timestamps.filter((timestamp) => timestamp >= now - windowMs && timestamp <= now).length >= limit;
 }
 
 export function isDatabaseFailoverTriggerError(error: unknown): boolean {

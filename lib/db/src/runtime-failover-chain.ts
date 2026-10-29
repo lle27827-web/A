@@ -9,10 +9,13 @@ import {
   isDatabaseAvailabilityError,
   isDatabaseCapacityError,
   isDatabaseFailoverTriggerError,
+  isDatabasePoolExhaustionError,
+  hasAvailabilityFailureThreshold,
   isSameDatabaseFailureDomain,
   parseDatabaseCapacityLimit,
   parseNeonComputeTimeSeconds,
 } from "./failover-utils";
+import { FailoverCapacityCache } from "./failover-capacity-cache";
 import {
   areAdjacentBackends,
   failoverStateConstraintSupports,
@@ -30,9 +33,15 @@ import {
 } from "./failover-topology";
 import {
   planSequenceSync,
+  planSequenceRepairToRows,
   type SequenceSnapshot,
 } from "./failover-sequences";
 import { describeReplicationBlocker } from "./failover-replication-readiness";
+import {
+  evaluateStaleFailoverRecovery,
+  FAILOVER_SWITCH_STALE_AFTER_MS,
+  getForcedFailoverBlocker,
+} from "./failover-recovery";
 
 type Queryable = { query: (...args: any[]) => any };
 type RuntimeNode = Omit<DatabaseNodeConfig, "maxBytes"> & {
@@ -77,6 +86,12 @@ function usesNeonPooler(connectionString: string): boolean {
 if (!databaseUrl) {
   throw new Error(
     "DATABASE_URL must be set. Did you forget to provision a database?",
+  );
+}
+
+if (!isVercel && process.env.DATABASE_URL_1?.trim()) {
+  console.warn(
+    "[db-failover] DATABASE_URL_1 is configured, but automatic failover is disabled because VERCEL is not set to '1'.",
   );
 }
 
@@ -162,7 +177,7 @@ if (failoverEnabled) {
   }
   if (!neonApiKey) {
     console.warn(
-      "[db-failover] Neon CU-hour monitoring is unavailable until NEON_API_KEY and every configured project ID are set; API requests will fail closed.",
+      "[db-failover] Neon CU-hour monitoring is unavailable until NEON_API_KEY and every configured project ID are set; CU-based switching is skipped unless FAILOVER_REQUIRE_CU_CHECK=1.",
     );
   }
 }
@@ -171,12 +186,17 @@ let activeBackend: PersistedDatabaseBackend = failoverEnabled
   ? (nodes[0]?.backend ?? "database_url")
   : "database_url";
 let activeDatabase: RuntimeNode["database"] | undefined =
-  nodeForBackend("database_url")?.database ?? nodes[0]?.database;
+  (failoverEnabled
+    ? nodeForBackend(activeBackend as DatabaseBackend)?.database
+    : nodeForBackend("database_url")?.database) ?? nodes[0]?.database;
 let lastCapacityCheckAt = 0;
 let lastCapacityCheckBackend: DatabaseBackend | null = null;
 let capacityCheckPromise: Promise<void> | null = null;
 let failoverPromise: Promise<boolean> | null = null;
 let lastAvailabilityFailoverAttemptAt = 0;
+const failoverCapacityCache = new FailoverCapacityCache();
+const availabilityFailureTimes = new Map<DatabaseBackend, number[]>();
+const availabilityProbePromises = new Map<DatabaseBackend, Promise<boolean>>();
 
 const lsnPollIntervalMs = 250;
 const lsnPollAttempts = 40;
@@ -250,6 +270,147 @@ async function readBackendState(): Promise<PersistedDatabaseBackend> {
     );
   }
   return backend;
+}
+
+type FailoverRecoveryRow = {
+  active_backend: string;
+  updated_at: Date | string;
+  switch_started_at: Date | string | null;
+  switch_source_backend: string | null;
+  switch_target_backend: string | null;
+  manual_recovery_required: boolean;
+  reason: string | null;
+};
+
+async function readFailoverRecoveryRow(): Promise<FailoverRecoveryRow | null> {
+  const statePool = failoverStatePool();
+  if (!statePool) return null;
+  const result = await statePool.query(
+    `SELECT active_backend, updated_at, switch_started_at,
+            switch_source_backend, switch_target_backend,
+            manual_recovery_required, reason
+     FROM public.db_failover_state
+     WHERE id = 1`,
+  );
+  return (result.rows[0] as FailoverRecoveryRow | undefined) ?? null;
+}
+
+async function markSwitchRecoveryManual(message: string): Promise<void> {
+  const statePool = failoverStatePool();
+  if (!statePool) return;
+  await statePool.query(
+    `UPDATE public.db_failover_state
+     SET manual_recovery_required = true,
+         reason = $1
+     WHERE id = 1 AND active_backend = 'switching'`,
+    [message],
+  );
+}
+
+async function recoverStaleFailoverSwitch(
+  manualConfirmation?: { sourceBackend: DatabaseBackend; targetBackend: DatabaseBackend },
+): Promise<PersistedDatabaseBackend> {
+  const statePool = failoverStatePool();
+  if (!statePool) return "switching";
+  let row: FailoverRecoveryRow | null;
+  try {
+    row = await readFailoverRecoveryRow();
+  } catch (error) {
+    console.error(
+      "[db-failover] Recovery metadata is unavailable; writes remain paused until the failover-state migration is applied.",
+    );
+    return "switching";
+  }
+  if (!row || row.active_backend !== "switching") {
+    return row && isPersistedDatabaseBackend(row.active_backend)
+      ? row.active_backend
+      : "switching";
+  }
+
+  const startedAtRaw = row.switch_started_at ?? row.updated_at;
+  const startedAt = new Date(startedAtRaw).getTime();
+  const sourceBackend =
+    isPersistedDatabaseBackend(row.switch_source_backend) &&
+    row.switch_source_backend !== "switching"
+      ? row.switch_source_backend
+      : null;
+  const targetBackend =
+    isPersistedDatabaseBackend(row.switch_target_backend) &&
+    row.switch_target_backend !== "switching"
+      ? row.switch_target_backend
+      : null;
+  const ageMs = Number.isFinite(startedAt)
+    ? Date.now() - startedAt
+    : Number.POSITIVE_INFINITY;
+
+  if (ageMs < FAILOVER_SWITCH_STALE_AFTER_MS) return "switching";
+  if (
+    manualConfirmation &&
+    (manualConfirmation.sourceBackend !== sourceBackend ||
+      manualConfirmation.targetBackend !== targetBackend)
+  ) {
+    return "switching";
+  }
+
+  let sourceReachable = false;
+  let forwardSubscriptionEnabled: boolean | null = null;
+  let reverseSubscriptionEnabled: boolean | null = null;
+  if (sourceBackend && targetBackend) {
+    const sourceNode = nodeForBackend(sourceBackend);
+    const targetNode = nodeForBackend(targetBackend);
+    const forwardEdge = getReplicationEdge(sourceBackend, targetBackend);
+    const reverseEdge = getReplicationEdge(targetBackend, sourceBackend);
+    if (sourceNode && targetNode && forwardEdge && reverseEdge) {
+      sourceReachable = await probeNodeWithFreshConnection(sourceNode);
+      [forwardSubscriptionEnabled, reverseSubscriptionEnabled] =
+        await Promise.all([
+          readSubscriptionEnabled(targetNode, forwardEdge.subscriptionName),
+          readSubscriptionEnabled(sourceNode, reverseEdge.subscriptionName),
+        ]);
+    }
+  }
+
+  const decision = evaluateStaleFailoverRecovery({
+    now: Date.now(),
+    startedAt: Number.isFinite(startedAt) ? startedAt : null,
+    sourceBackend,
+    targetBackend,
+    manualRecoveryRequired: row.manual_recovery_required,
+    manualConfirmation: Boolean(manualConfirmation),
+    sourceReachable,
+    forwardSubscriptionEnabled,
+    reverseSubscriptionEnabled,
+    configuredBackends: nodes.map((node) => ({ backend: node.backend })),
+  });
+
+  if (decision.action === "wait") return "switching";
+  if (decision.action === "manual") {
+    await markSwitchRecoveryManual(decision.message).catch(() => undefined);
+    console.error(`[db-failover] ${decision.message}`);
+    return "switching";
+  }
+
+  const restored = await statePool.query(
+    `UPDATE public.db_failover_state
+     SET active_backend = $1,
+         reason = $2,
+         updated_at = now(),
+         switch_started_at = NULL,
+         switch_source_backend = NULL,
+         switch_target_backend = NULL,
+         manual_recovery_required = false
+     WHERE id = 1
+       AND active_backend = 'switching'
+       AND switch_source_backend = $3
+       AND switch_target_backend = $4
+     RETURNING id`,
+    [decision.sourceBackend, decision.message, decision.sourceBackend, targetBackend],
+  );
+  if (restored.rowCount !== 1) {
+    return readBackendState().catch(() => "switching" as const);
+  }
+  console.warn(`[db-failover] ${decision.message}`);
+  return decision.sourceBackend;
 }
 
 async function stateConstraintAllows(
@@ -801,20 +962,31 @@ async function waitForTransactionsToDrain(node: RuntimeNode): Promise<boolean> {
 }
 
 async function readComputeUsageSeconds(node: RuntimeNode): Promise<number> {
-  if (!neonApiKey || !node.projectId) {
-    throw new Error(`Neon project ID is missing for ${node.backend}.`);
+  const retryAfterMs = failoverCapacityCache.retryAfterMs(node.backend);
+  if (retryAfterMs > 0) {
+    throw new Error(`Neon usage API is in backoff for ${node.backend}.`);
   }
-  const response = await fetch(
-    `https://console.neon.tech/api/v2/projects/${encodeURIComponent(node.projectId)}`,
-    {
-      headers: { Authorization: `Bearer ${neonApiKey}` },
-      signal: AbortSignal.timeout(5_000),
-    },
-  );
-  if (!response.ok) {
-    throw new Error(`Neon usage API returned HTTP ${response.status}.`);
+  try {
+    if (!neonApiKey || !node.projectId) {
+      throw new Error(`Neon project ID is missing for ${node.backend}.`);
+    }
+    const response = await fetch(
+      `https://console.neon.tech/api/v2/projects/${encodeURIComponent(node.projectId)}`,
+      {
+        headers: { Authorization: `Bearer ${neonApiKey}` },
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(`Neon usage API returned HTTP ${response.status}.`);
+    }
+    const seconds = parseNeonComputeTimeSeconds(await response.json());
+    failoverCapacityCache.setComputeSeconds(node.backend, seconds);
+    return seconds;
+  } catch (error) {
+    failoverCapacityCache.recordApiFailure(node.backend);
+    throw error;
   }
-  return parseNeonComputeTimeSeconds(await response.json());
 }
 
 async function nodeHasCapacity(node: RuntimeNode): Promise<boolean> {
@@ -826,11 +998,69 @@ async function nodeHasCapacity(node: RuntimeNode): Promise<boolean> {
     if (!usedBytes || hasReachedDatabaseCapacity(usedBytes, node.maxBytes)) {
       return false;
     }
-    const usedComputeSeconds = await readComputeUsageSeconds(node);
+    let usedComputeSeconds: number;
+    try {
+      usedComputeSeconds = await readComputeUsageSeconds(node);
+    } catch {
+      const cached = failoverCapacityCache.getComputeSeconds(node.backend);
+      if (cached === undefined) return false;
+      usedComputeSeconds = cached;
+    }
     return !hasReachedComputeTimeLimit(usedComputeSeconds);
   } catch {
     return false;
   }
+}
+
+async function probeNodeWithFreshConnection(node: RuntimeNode): Promise<boolean> {
+  const client = new pg.Client({
+    connectionString: node.url,
+    connectionTimeoutMillis: 3_000,
+    statement_timeout: 3_000,
+  });
+  try {
+    await client.connect();
+    await client.query("SELECT 1");
+    return true;
+  } catch {
+    return false;
+  } finally {
+    await client.end().catch(() => undefined);
+  }
+}
+
+async function shouldFailoverAfterAvailabilityErrors(
+  node: RuntimeNode,
+  error: unknown,
+): Promise<boolean> {
+  if (!isDatabaseAvailabilityError(error) || isDatabasePoolExhaustionError(error)) {
+    return false;
+  }
+  const now = Date.now();
+  const recent = (availabilityFailureTimes.get(node.backend) ?? [])
+    .filter((timestamp) => timestamp >= now - 30_000);
+  recent.push(now);
+  availabilityFailureTimes.set(node.backend, recent);
+  if (!hasAvailabilityFailureThreshold(recent, now)) return false;
+
+  const activeProbe = availabilityProbePromises.get(node.backend);
+  if (activeProbe) return activeProbe;
+
+  const probe = probeNodeWithFreshConnection(node)
+    .then((healthy) => {
+      availabilityFailureTimes.delete(node.backend);
+      if (healthy) {
+        console.warn(
+          `[db-failover] ${node.backend} recovered its fresh-connection probe; no automatic switch was started.`,
+        );
+        return false;
+      }
+      return true;
+    })
+    .catch(() => false)
+    .finally(() => availabilityProbePromises.delete(node.backend));
+  availabilityProbePromises.set(node.backend, probe);
+  return probe;
 }
 
 let cascadingReplicationCheck: {
@@ -874,7 +1104,11 @@ async function restoreBackendAfterBlockedFailover(
     `UPDATE public.db_failover_state
      SET active_backend = $1,
          reason = $2,
-         updated_at = now()
+         updated_at = now(),
+         switch_started_at = NULL,
+         switch_source_backend = NULL,
+         switch_target_backend = NULL,
+         manual_recovery_required = false
      WHERE id = 1 AND active_backend = 'switching'`,
     [backend, reason],
   );
@@ -1071,10 +1305,14 @@ async function performFailover(
     `UPDATE public.db_failover_state
      SET active_backend = 'switching',
          reason = $1,
-         updated_at = now()
+         updated_at = now(),
+         switch_started_at = now(),
+         switch_source_backend = $2,
+         switch_target_backend = $3,
+         manual_recovery_required = false
      WHERE id = 1 AND active_backend = $2
      RETURNING id`,
-    [failoverReasonMessage(reason, current.backend), current.backend],
+    [failoverReasonMessage(reason, current.backend), current.backend, targetNode.backend],
   );
   if (claim.rowCount !== 1) {
     const latest = await readBackendState();
@@ -1129,7 +1367,11 @@ async function performFailover(
       `UPDATE public.db_failover_state
        SET active_backend = $1,
            reason = $2,
-           updated_at = now()
+           updated_at = now(),
+           switch_started_at = NULL,
+           switch_source_backend = NULL,
+           switch_target_backend = NULL,
+           manual_recovery_required = false
        WHERE id = 1 AND active_backend = 'switching'
        RETURNING id`,
       [target.backend, failoverReasonMessage(reason, current.backend)],
@@ -1201,7 +1443,7 @@ async function requestFailover(
   return failoverPromise;
 }
 
-const AVAILABILITY_FAILOVER_COOLDOWN_MS = 15_000;
+const AVAILABILITY_FAILOVER_COOLDOWN_MS = 60_000;
 
 async function requestAvailabilityFailover(): Promise<boolean> {
   if (failoverPromise) return failoverPromise;
@@ -1249,7 +1491,19 @@ async function checkCurrentCapacity(): Promise<void> {
         }
         return;
       }
+      if (isDatabasePoolExhaustionError(error)) {
+        console.warn(
+          `[db-failover] Capacity probe could not get a pooled connection for ${current.backend}; failover was not triggered.`,
+        );
+        return;
+      }
       if (!isDatabaseAvailabilityError(error)) throw error;
+      if (!(await shouldFailoverAfterAvailabilityErrors(current, error))) {
+        console.warn(
+          `[db-failover] Capacity probe failed temporarily for ${current.backend}; waiting for repeated errors and a failed fresh-connection probe.`,
+        );
+        return;
+      }
       const switched = await requestAvailabilityFailover();
       if (!switched) {
         throw new Error(
@@ -1274,19 +1528,27 @@ async function checkCurrentCapacity(): Promise<void> {
       return;
     }
 
-    if (!neonApiKey || !current.projectId) {
-      throw new Error(
-        `Neon CU-hour monitoring is not configured for ${current.backend}.`,
-      );
-    }
     let usedComputeSeconds: number;
     try {
       usedComputeSeconds = await readComputeUsageSeconds(current);
     } catch (error) {
-      console.warn(
-        `[db-failover] Neon CU usage could not be verified for ${current.backend}; API requests will fail closed.`,
-      );
-      throw error;
+      const cachedCompute = failoverCapacityCache.getComputeSeconds(current.backend);
+      if (cachedCompute !== undefined) {
+        usedComputeSeconds = cachedCompute;
+        console.warn(
+          `[db-failover] Using a recent cached Neon CU reading for ${current.backend}; the usage API is temporarily unavailable.`,
+        );
+      } else if (process.env.FAILOVER_REQUIRE_CU_CHECK === "1") {
+        console.warn(
+          `[db-failover] Neon CU usage could not be verified for ${current.backend}; strict checking is enabled.`,
+        );
+        throw error;
+      } else {
+        console.warn(
+          `[db-failover] Neon CU usage could not be verified for ${current.backend}; continuing without CU-based failover until the API recovers.`,
+        );
+        return;
+      }
     }
     if (
       !hasReachedComputeTimeLimit(
@@ -1320,7 +1582,11 @@ async function checkCurrentCapacity(): Promise<void> {
 
 export async function refreshDatabaseBackend(): Promise<PersistedDatabaseBackend> {
   if (!failoverEnabled) return "database_url";
-  const backend = await readBackendState();
+  const storedBackend = await readBackendState();
+  const backend =
+    storedBackend === "switching"
+      ? await recoverStaleFailoverSwitch()
+      : storedBackend;
   setActiveBackend(backend);
   if (backend === "switching") return backend;
   await checkCurrentCapacity();
@@ -1467,13 +1733,33 @@ export async function getDatabaseFailoverStatus(): Promise<{
   switchTargets: Awaited<ReturnType<typeof getSwitchTargetStatus>>[];
 }> {
   const activeBackend = await refreshDatabaseBackend();
+  let recoveryWarning: string | null = null;
+  if (activeBackend === "switching") {
+    try {
+      const state = await readFailoverRecoveryRow();
+      if (state?.manual_recovery_required) {
+        recoveryWarning =
+          state.reason ??
+          "Lần chuyển database đã quá hạn và cần chủ sở hữu xác nhận xử lý. Hệ thống đang tạm khóa ghi.";
+      } else {
+        recoveryWarning =
+          "Đang chuyển database. Nếu trạng thái kéo dài quá 3 phút, hệ thống sẽ tự kiểm tra khả năng khôi phục an toàn.";
+      }
+    } catch {
+      recoveryWarning =
+        "Bảng phục hồi failover chưa sẵn sàng. Hệ thống đang tạm khóa ghi để tránh lệch dữ liệu.";
+    }
+  }
   return {
     activeBackend,
     coordinatorBackend: failoverCoordinatorPool ? "independent" : stateBackend,
     switchTargets: await Promise.all(
-      allDatabaseBackends.map((backend) =>
-        getSwitchTargetStatus(activeBackend, backend),
-      ),
+      allDatabaseBackends.map(async (backend) => {
+        const status = await getSwitchTargetStatus(activeBackend, backend);
+        return recoveryWarning
+          ? { ...status, canSwitch: false, message: recoveryWarning }
+          : status;
+      }),
     ),
   };
 }
@@ -1506,6 +1792,212 @@ export async function requestOwnerDatabaseFailover(
   };
 }
 
+export async function requestOwnerDatabaseFailoverRecovery(
+  sourceBackend: DatabaseBackend,
+  targetBackend: DatabaseBackend,
+): Promise<{ recovered: boolean; activeBackend: PersistedDatabaseBackend }> {
+  if (!isVercel || process.env.VERCEL_ENV !== "production" || !failoverEnabled) {
+    return { recovered: false, activeBackend: await readBackendState() };
+  }
+  const currentBackend = await readBackendState();
+  if (
+    currentBackend !== "switching" ||
+    !areAdjacentBackends(sourceBackend, targetBackend, nodes)
+  ) {
+    return { recovered: false, activeBackend: currentBackend };
+  }
+  const activeBackend = await recoverStaleFailoverSwitch({
+    sourceBackend,
+    targetBackend,
+  });
+  setActiveBackend(activeBackend);
+  return {
+    recovered: activeBackend === sourceBackend,
+    activeBackend,
+  };
+}
+
+export async function requestOwnerForcedDatabaseFailover(
+  fromBackend: DatabaseBackend,
+  targetBackend: DatabaseBackend,
+): Promise<{
+  switched: boolean;
+  activeBackend: PersistedDatabaseBackend;
+  message: string;
+}> {
+  const blocked = (activeBackend: PersistedDatabaseBackend, message: string) => ({
+    switched: false,
+    activeBackend,
+    message,
+  });
+  if (
+    process.env.ALLOW_FORCE_FAILOVER !== "1" ||
+    !isVercel ||
+    process.env.VERCEL_ENV !== "production" ||
+    !failoverEnabled
+  ) {
+    return blocked(
+      "switching",
+      "Chuyển cưỡng bức chưa được bật trên môi trường production.",
+    );
+  }
+  if (!failoverCoordinatorPool && stateBackend === fromBackend) {
+    return blocked(
+      "switching",
+      "Không thể chuyển cưỡng bức khi kho nguồn đồng thời là bộ điều phối; cần một bộ điều phối còn hoạt động.",
+    );
+  }
+  const statePool = failoverStatePool();
+  if (!statePool) {
+    return blocked("switching", "Bộ điều phối failover chưa sẵn sàng.");
+  }
+  const currentBackend = await readBackendState();
+  if (
+    currentBackend !== fromBackend ||
+    !areAdjacentBackends(fromBackend, targetBackend, nodes)
+  ) {
+    return blocked(
+      currentBackend,
+      "Kho đang hoạt động đã thay đổi hoặc kho đích không liền kề.",
+    );
+  }
+  const source = nodeForBackend(fromBackend);
+  const target = nodeForBackend(targetBackend);
+  const edge = getReplicationEdge(fromBackend, targetBackend);
+  if (!source || !target || !edge) {
+    return blocked(currentBackend, "Không xác định được cặp kho replication liền kề.");
+  }
+  const [sourceReachable, targetReachable] = await Promise.all([
+    probeNodeWithFreshConnection(source),
+    probeNodeWithFreshConnection(target),
+  ]);
+  const targetHasCapacity =
+    targetReachable && (await nodeHasCapacity(target));
+  const blocker = getForcedFailoverBlocker({
+    enabled: process.env.ALLOW_FORCE_FAILOVER === "1",
+    production: isVercel && process.env.VERCEL_ENV === "production",
+    sourceBackend: fromBackend,
+    targetBackend,
+    configuredBackends: nodes.map((node) => ({ backend: node.backend })),
+    coordinatorAvailable: Boolean(statePool),
+    independentCoordinator: Boolean(failoverCoordinatorPool),
+    coordinatorBackend: stateBackend,
+    sourceReachable,
+    targetReachable,
+    targetHasCapacity,
+  });
+  if (blocker) return blocked(currentBackend, blocker);
+  if (!(await stateConstraintAllows(targetBackend))) {
+    return blocked(
+      currentBackend,
+      "Bảng trạng thái failover chưa cho phép kho đích.",
+    );
+  }
+  const subscriptionEnabled = await readSubscriptionEnabled(
+    target,
+    edge.subscriptionName,
+  );
+  if (subscriptionEnabled === null) {
+    return blocked(
+      currentBackend,
+      "Không thể kiểm tra subscription replication trên kho đích.",
+    );
+  }
+
+  const claim = await statePool.query(
+    `UPDATE public.db_failover_state
+     SET active_backend = 'switching',
+         reason = $1,
+         updated_at = now(),
+         switch_started_at = now(),
+         switch_source_backend = $2,
+         switch_target_backend = $3,
+         manual_recovery_required = false
+     WHERE id = 1 AND active_backend = $2
+     RETURNING id`,
+    [
+      `Forced failover requested by owner from ${fromBackend} to ${targetBackend}; unsynchronized data may be lost.`,
+      fromBackend,
+      targetBackend,
+    ],
+  );
+  if (claim.rowCount !== 1) {
+    return blocked(await readBackendState(), "Trạng thái kho đã đổi; hãy tải lại.");
+  }
+  setActiveBackend("switching");
+
+  try {
+    if (subscriptionEnabled) {
+      await target.subscriptionPool.query(
+        `ALTER SUBSCRIPTION ${quoteIdentifier(edge.subscriptionName)} DISABLE`,
+      );
+    }
+    const sequenceSnapshots = await readSequenceSnapshots(target);
+    const sequenceRepairs = planSequenceRepairToRows(sequenceSnapshots);
+    if (!sequenceRepairs) {
+      await markSwitchRecoveryManual(
+        "Không thể xác minh sequence trên kho đích sau chuyển cưỡng bức; cần chủ sở hữu xử lý.",
+      );
+      return blocked(
+        "switching",
+        "Không thể xác minh sequence trên kho đích; hệ thống vẫn khóa ghi.",
+      );
+    }
+    for (const update of sequenceRepairs) {
+      await target.pool.query(
+        "SELECT setval($1::regclass, $2::bigint, $3::boolean)",
+        [
+          qualifiedIdentifier(update.sequenceSchema, update.sequenceName),
+          update.value,
+          update.isCalled,
+        ],
+      );
+    }
+    const activation = await statePool.query(
+      `UPDATE public.db_failover_state
+       SET active_backend = $1,
+           reason = $2,
+           updated_at = now(),
+           switch_started_at = NULL,
+           switch_source_backend = NULL,
+           switch_target_backend = NULL,
+           manual_recovery_required = false
+       WHERE id = 1 AND active_backend = 'switching'
+       RETURNING id`,
+      [
+        targetBackend,
+        `Forced failover to ${targetBackend}. Unsynchronized data may be lost; replication needs owner review.`,
+      ],
+    );
+    if (activation.rowCount !== 1) {
+      await markSwitchRecoveryManual(
+        "Chuyển cưỡng bức chưa thể ghi trạng thái hoạt động cuối cùng; cần chủ sở hữu kiểm tra.",
+      );
+      return blocked(
+        "switching",
+        "Chưa thể ghi nhận kho đích; hệ thống vẫn khóa ghi.",
+      );
+    }
+    setActiveBackend(targetBackend);
+    console.error(
+      `[db-failover] Owner forced failover from ${fromBackend} to ${targetBackend}; unsynchronized data may be lost and replication requires review.`,
+    );
+    return {
+      switched: true,
+      activeBackend: targetBackend,
+      message: "Đã chuyển cưỡng bức. Dữ liệu chưa đồng bộ có thể bị mất; cần kiểm tra lại replication.",
+    };
+  } catch {
+    await markSwitchRecoveryManual(
+      "Chuyển cưỡng bức bị gián đoạn sau khi khóa ghi; cần chủ sở hữu kiểm tra trạng thái replication.",
+    ).catch(() => undefined);
+    return blocked(
+      "switching",
+      "Chuyển cưỡng bức chưa hoàn tất. Hệ thống đang khóa ghi để tránh lệch dữ liệu.",
+    );
+  }
+}
+
 export class DatabaseFailoverInProgressError extends Error {
   constructor() {
     super("Database failover is in progress.");
@@ -1531,7 +2023,9 @@ function installCapacityErrorHandling(node: RuntimeNode): void {
       if (isDatabaseCapacityError(error)) {
         await requestFailover("storage");
       } else {
-        await requestAvailabilityFailover();
+        if (await shouldFailoverAfterAvailabilityErrors(node, error)) {
+          await requestAvailabilityFailover();
+        }
       }
     } catch {
       // Keep the original connection error; later requests will re-check readiness.
@@ -1548,7 +2042,7 @@ function installCapacityErrorHandling(node: RuntimeNode): void {
       ) {
         if (isDatabaseCapacityError(error)) {
           await requestFailover("storage").catch(() => false);
-        } else {
+        } else if (await shouldFailoverAfterAvailabilityErrors(node, error)) {
           // Do not replay the failed query: a lost response can mean COMMIT succeeded.
           await requestAvailabilityFailover();
         }
@@ -1627,7 +2121,7 @@ function installClientHandler(client: pg.PoolClient, node: RuntimeNode): void {
           }
           if (isDatabaseCapacityError(error)) {
             await requestFailover("storage").catch(() => false);
-          } else {
+          } else if (await shouldFailoverAfterAvailabilityErrors(node, error)) {
             // Future requests may use the promoted node; this failed statement is never retried.
             await requestAvailabilityFailover();
           }
@@ -1641,14 +2135,29 @@ for (const node of nodes) {
   if (failoverEnabled) installCapacityErrorHandling(node);
 }
 
-const databaseUrlPool = nodeForBackend("database_url")?.pool ?? nodes[0]?.pool;
-if (!databaseUrlPool) {
+const defaultPool = nodeForBackend("database_url")?.pool ?? nodes[0]?.pool;
+if (!defaultPool) {
   throw new Error(
     "DATABASE_URL must be set. Did you forget to provision a database?",
   );
 }
 
-export const pool = databaseUrlPool;
+function currentPool(): pg.Pool {
+  if (activeBackend === "switching") throw new DatabaseFailoverInProgressError();
+  return activeNode()?.pool ?? defaultPool!;
+}
+
+export const pool = new Proxy(defaultPool, {
+  get(_target, property) {
+    const selected = currentPool();
+    const value = Reflect.get(selected, property, selected) as unknown;
+    return typeof value === "function" ? value.bind(selected) : value;
+  },
+  set(_target, property, value) {
+    const selected = currentPool();
+    return Reflect.set(selected, property, value, selected);
+  },
+}) as pg.Pool;
 export const db = new Proxy(nodes[0]?.database, {
   get(_target, property) {
     if (process.env.DATABASE_STORAGE_MODE === "partitioned") {

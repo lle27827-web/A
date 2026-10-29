@@ -6,7 +6,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { apiAuthorizationGate } from "./lib/owner-auth";
-import { refreshDatabaseBackend } from "@workspace/db";
+import { DatabaseFailoverInProgressError, refreshDatabaseBackend } from "@workspace/db";
 import type { OwnerAuthStatus } from "./lib/owner-auth";
 import { writeRateLimitKey } from "./lib/write-rate-limit-key";
 
@@ -67,13 +67,6 @@ if (clerkSecretKey && clerkPublishableKey) {
 }
 
 app.use("/api", apiRateLimit);
-app.use("/api", apiAuthorizationGate);
-app.use("/api", (req, res, next) => {
-  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
-    return apiWriteRateLimit(req, res, next);
-  }
-  return next();
-});
 app.use("/api", async (req, res, next) => {
   if (req.path === "/healthz") return next();
   try {
@@ -94,6 +87,13 @@ app.use("/api", async (req, res, next) => {
       message: "Chưa thể xác nhận database đang hoạt động, vui lòng thử lại.",
     });
   }
+});
+app.use("/api", apiAuthorizationGate);
+app.use("/api", (req, res, next) => {
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+    return apiWriteRateLimit(req, res, next);
+  }
+  return next();
 });
 
 app.use("/api", router);
