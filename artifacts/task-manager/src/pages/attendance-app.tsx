@@ -145,7 +145,7 @@ export default function AttendanceApp() {
   const dayRecords = dayQuery.data ?? [];
 
   return (
-    <div className="app">
+    <div className="app attendance-app">
       <header className="topbar">
         <div className="topbar-inner">
           <Link href="/" className="brand" data-testid="link-home"><span className="brand-mark"><CheckCheck size={16} strokeWidth={2.6} /></span><span>SỔ CÔNG</span></Link>
