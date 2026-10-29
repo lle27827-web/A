@@ -349,6 +349,43 @@ body { background: hsl(var(--background)); color: hsl(var(--foreground)); }
 .tile-kicker { font-size: 12px; color: hsl(var(--muted-foreground)); }
 .tile-go { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: hsl(var(--primary)); }
 .tile.alt { border-radius: 20px 20px 6px 20px; animation-delay: .06s; }
+.tile-employees, .tile-cards, .tile-appointments, .tile-services {
+  --tile-orange: 25 78% 38%;
+  border-color: hsl(25 62% 52%);
+  background: hsl(28 100% 97%);
+  color: hsl(25 58% 27%);
+}
+.tile-employees::after, .tile-cards::after, .tile-appointments::after, .tile-services::after {
+  border-color: hsl(25 82% 48% / .16);
+}
+.tile-employees > svg, .tile-cards > svg, .tile-appointments > svg, .tile-services > svg,
+.tile-employees .tile-go, .tile-cards .tile-go, .tile-appointments .tile-go, .tile-services .tile-go {
+  color: hsl(var(--tile-orange));
+}
+.tile-employees:hover, .tile-cards:hover, .tile-appointments:hover, .tile-services:hover {
+  border-color: hsl(25 82% 42%);
+}
+:root[data-color-theme="dark"] .tile-employees,
+:root[data-color-theme="dark"] .tile-cards,
+:root[data-color-theme="dark"] .tile-appointments,
+:root[data-color-theme="dark"] .tile-services {
+  --tile-orange: 25 86% 68%;
+  border-color: hsl(25 60% 45%);
+  background: hsl(25 34% 12%);
+  color: hsl(28 58% 80%);
+}
+:root[data-color-theme="dark"] .tile-employees::after,
+:root[data-color-theme="dark"] .tile-cards::after,
+:root[data-color-theme="dark"] .tile-appointments::after,
+:root[data-color-theme="dark"] .tile-services::after {
+  border-color: hsl(25 82% 60% / .17);
+}
+:root[data-color-theme="dark"] .tile-employees:hover,
+:root[data-color-theme="dark"] .tile-cards:hover,
+:root[data-color-theme="dark"] .tile-appointments:hover,
+:root[data-color-theme="dark"] .tile-services:hover {
+  border-color: hsl(25 78% 62%);
+}
 .revenue, .salary-hero { min-width: 0; padding: 22px; border-radius: 20px; border: 1px solid hsl(var(--primary) / .35); background: hsl(var(--card)); animation: rise .35s ease both; }
 .rev-label { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
 .rev-value { margin: 6px 0 4px; font-family: var(--app-font-display); font-size: clamp(34px, 8vw, 64px); font-weight: 800; letter-spacing: -.05em; line-height: 1; color: hsl(var(--foreground)); overflow-wrap: anywhere; }
