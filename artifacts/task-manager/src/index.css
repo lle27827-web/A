@@ -600,6 +600,10 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .rev-breakdown .rev-key { padding: 8px 0; border-top: 1px solid hsl(var(--border)); align-items: baseline; }
 .rev-breakdown .rev-key dt { color: hsl(var(--foreground)); font-size: 18px; font-weight: 800; }
 .rev-breakdown .rev-key dd, .rev-breakdown .rev-key dd strong { font-family: var(--app-font-display); font-size: clamp(23px, 4vw, 30px); font-weight: 800; color: hsl(var(--primary)); letter-spacing: -.03em; }
+.rev-breakdown .net-revenue-row.rev-key { flex-direction: column; align-items: flex-start; gap: 6px; }
+.rev-breakdown .net-revenue-row.rev-key dt { font-size: 36px; line-height: 1.15; }
+.rev-breakdown .net-revenue-row.rev-key dd,
+.rev-breakdown .net-revenue-row.rev-key dd strong { max-width: 100%; font-size: clamp(46px, 8vw, 60px); line-height: 1.05; overflow-wrap: anywhere; text-align: left; }
 .window-nav.bottom { margin: 18px 0 0; }
 .history-pick { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; margin-top: 12px; }
 .month-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 44dvh; overflow-y: auto; }
