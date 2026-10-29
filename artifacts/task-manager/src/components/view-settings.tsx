@@ -1,12 +1,13 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
-import { ArrowLeft, BookHeart, ChevronRight, History, Home, KeyRound, Settings, Trash2, X } from 'lucide-react';
+import { ArrowLeft, BookHeart, ChevronRight, History, Home, KeyRound, Palette, Settings, Trash2, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
 import { AccessGrantsDialog } from '@/components/access-grants';
 import { useColorTheme } from '@/components/color-theme-provider';
+import { ColorPaletteControls } from '@/components/color-palette-controls';
 
 export type ViewMode = 'owner' | 'employee';
 export type ViewPrefs = { mode: ViewMode; employeeId: number | null };
@@ -55,7 +56,12 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   const [, navigate] = useLocation();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [deleteHistoryOpen, setDeleteHistoryOpen] = useState(false);
-  const { theme, setTheme } = useColorTheme();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const { theme, setTheme, colors, setColor, resetColors } = useColorTheme();
+
+  useEffect(() => {
+    if (!open) setPaletteOpen(false);
+  }, [open]);
 
   function pickHistory(month: string, date: string) {
     setHistoryOpen(false);
@@ -72,11 +78,19 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
       </DialogPrimitive.Trigger>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="settings-overlay" />
-        <DialogPrimitive.Content className="settings-dialog" data-testid="dialog-view-settings">
+        <DialogPrimitive.Content className={`settings-dialog${paletteOpen ? ' palette-mode' : ''}`} data-testid={paletteOpen ? 'dialog-color-palette' : 'dialog-view-settings'}>
           <div className="dialog-head">
-            <DialogPrimitive.Title asChild><h2>Cài đặt</h2></DialogPrimitive.Title>
-            <DialogPrimitive.Close asChild><button type="button" className="icon-btn" aria-label="Đóng cài đặt"><X size={18} /></button></DialogPrimitive.Close>
+            {paletteOpen && <button type="button" className="icon-btn" onClick={() => setPaletteOpen(false)} aria-label="Trở về cài đặt" data-testid="button-back-from-color-palette"><ArrowLeft size={18} /></button>}
+            <DialogPrimitive.Title asChild><h2>{paletteOpen ? 'Bảng màu' : 'Cài đặt'}</h2></DialogPrimitive.Title>
+            <DialogPrimitive.Close asChild><button type="button" className="icon-btn" aria-label={paletteOpen ? 'Đóng bảng màu' : 'Đóng cài đặt'}><X size={18} /></button></DialogPrimitive.Close>
           </div>
+          {paletteOpen ? (
+            <>
+              <DialogPrimitive.Description className="sub">Chọn màu cho nền, chữ, khung, nút, ô nhập, trạng thái và các khu vực riêng.</DialogPrimitive.Description>
+              <ColorPaletteControls colors={colors} onChange={setColor} onReset={resetColors} />
+            </>
+          ) : (
+          <>
           <DialogPrimitive.Description className="sub">
             {isOwner ? 'Lịch sử, cấp quyền quản lý và sổ cá nhân.' : canManageGrants ? 'Lịch sử tháng, quyền quản lý trong phạm vi được cấp và sổ cá nhân.' : 'Lịch sử tháng và sổ cá nhân.'}
           </DialogPrimitive.Description>
@@ -118,6 +132,10 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
             </fieldset>
           </section>
 
+          <button type="button" className="settings-link" onClick={() => setPaletteOpen(true)} data-testid="button-open-color-palette">
+            <Palette size={16} aria-hidden="true" /><span className="grow"><strong>Chỉnh màu giao diện</strong><span className="muted">Tùy chỉnh màu nền, chữ, khung và trạng thái</span></span><ChevronRight size={16} aria-hidden="true" />
+          </button>
+
           <Link href="/personal" className="settings-link personal-entry" onClick={() => onOpenChange(false)} data-testid="link-personal-notebook">
             <BookHeart size={17} aria-hidden="true" /><span className="grow"><strong>Chấm công cá nhân</strong><span className="muted">Sổ riêng của tài khoản bạn</span></span><ChevronRight size={16} aria-hidden="true" />
           </Link>
@@ -144,6 +162,8 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
             <Link href="/" onClick={() => onOpenChange(false)} className="btn ghost" data-testid="link-settings-home"><Home size={14} aria-hidden="true" />Trang chính</Link>
             <button type="button" className="btn ghost" onClick={() => onOpenChange(false)} data-testid="button-settings-back"><ArrowLeft size={14} aria-hidden="true" />Trở về</button>
           </nav>
+          </>
+          )}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

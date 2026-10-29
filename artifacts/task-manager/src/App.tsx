@@ -225,23 +225,21 @@ function AuthenticatedApplication() {
 
 function ClerkApplication() {
   const [, setLocation] = useLocation();
-  const { theme } = useColorTheme();
-  const appearance = useMemo(() => theme === 'default'
-    ? {
-        ...clerkAppearance,
-        variables: {
-          ...clerkAppearance.variables,
-          colorPrimary: '#c77d13',
-          colorForeground: '#382810',
-          colorMutedForeground: '#6f5931',
-          colorDanger: '#a92318',
-          colorBackground: '#e9d29f',
-          colorInput: '#faf2df',
-          colorInputForeground: '#382810',
-          colorNeutral: '#9d7c40',
-        },
-      }
-    : clerkAppearance, [theme]);
+  const { colors } = useColorTheme();
+  const appearance = useMemo(() => ({
+    ...clerkAppearance,
+    variables: {
+      ...clerkAppearance.variables,
+      colorPrimary: colors.primary,
+      colorForeground: colors.foreground,
+      colorMutedForeground: colors['muted-foreground'],
+      colorDanger: colors.destructive,
+      colorBackground: colors.background,
+      colorInput: colors.card,
+      colorInputForeground: colors.foreground,
+      colorNeutral: colors.border,
+    },
+  }), [colors]);
 
   return (
     <ClerkProvider
