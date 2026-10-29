@@ -65,19 +65,19 @@
 :root[data-color-theme="dark"] {
   color-scheme: dark;
   --background: 0 0% 4%;
-  --foreground: 0 0% 95%;
+  --foreground: 30 32% 76%;
   --border: 0 0% 30%;
   --frame-border: 39 35% 46%;
   --input: 0 0% 34%;
   --card: 0 0% 9%;
-  --card-foreground: 0 0% 95%;
-  --primary: 43 82% 58%;
+  --card-foreground: 30 32% 76%;
+  --primary: 30 48% 62%;
   --primary-foreground: 0 0% 8%;
   --secondary: 0 0% 18%;
-  --secondary-foreground: 0 0% 93%;
+  --secondary-foreground: 30 32% 76%;
   --muted: 0 0% 15%;
-  --muted-foreground: 0 0% 72%;
-  --accent: 43 72% 53%;
+  --muted-foreground: 30 24% 66%;
+  --accent: 30 42% 54%;
   --accent-foreground: 0 0% 8%;
   --destructive: 4 72% 58%;
   --destructive-foreground: 0 0% 100%;
