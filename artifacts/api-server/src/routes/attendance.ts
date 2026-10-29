@@ -26,6 +26,7 @@ import { noPermissions } from "../lib/facility-permissions";
 import type { OwnerAuthStatus } from "../lib/owner-auth";
 import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "../lib/partitioned-mutations";
 import { escapeLikePattern, idempotentTransaction, MassageError } from "../lib/massage";
+import { massageHandler } from "./massage-errors";
 
 const router: IRouter = Router();
 
@@ -164,7 +165,7 @@ router.get("/attendance/summary", async (req, res): Promise<void> => {
   }));
 });
 
-router.post("/attendance", async (req, res): Promise<void> => {
+router.post("/attendance", massageHandler(async (req, res): Promise<void> => {
   const parsed = CreateAttendanceBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -174,6 +175,7 @@ router.post("/attendance", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Chỉ ghi chấm công trong 5 năm gần nhất." });
     return;
   }
+  const operationId = operationIdFromRequest(req.get("Idempotency-Key"), "chấm công");
 
   const values: AttendanceWrite = {
     memberId: parsed.data.memberId,
@@ -185,22 +187,22 @@ router.post("/attendance", async (req, res): Promise<void> => {
     note: parsed.data.note ?? null,
   };
   if (values.memberId === null) {
-    res.status(400).json({ error: "Cần chọn thành viên." });
+    res.status(400).json({ error: "Cần chọn nhân viên." });
     return;
   }
   const member = isPartitionedStorageEnabled()
     ? await readPartitionedRowById<typeof membersTable.$inferSelect>("members", values.memberId)
     : (await db.select().from(membersTable)
       .where(and(eq(membersTable.id, values.memberId), isNull(membersTable.deletedAt))).limit(1))[0];
-  if (!member) {
-    res.status(400).json({ error: "Không tìm thấy thành viên được chọn." });
+  if (!member || member.deletedAt !== null) {
+    res.status(400).json({ error: "Không tìm thấy nhân viên đang hoạt động được chọn." });
     return;
   }
   values.employeeName = member.name;
 
   if (isPartitionedStorageEnabled()) {
     const operation = await commitPartitionedMutations({
-      operationId: operationIdFromRequest(req.get("Idempotency-Key"), "chấm công"),
+      operationId,
       lockName: `attendance:${values.memberId}`,
       action: "attendance.create",
       request: values,
@@ -221,16 +223,16 @@ router.post("/attendance", async (req, res): Promise<void> => {
     return;
   }
   const record = await idempotentTransaction(
-    operationIdFromRequest(req.get("Idempotency-Key"), "chấm công"),
+    operationId,
     "chấm công",
     "attendance.create",
     values,
     async (tx) => (await tx.insert(attendanceTable).values(values).returning())[0],
   );
   res.status(201).json(CreateAttendanceResponse.parse(toAttendanceResponse(record)));
-});
+}));
 
-router.patch("/attendance/:id", async (req, res): Promise<void> => {
+router.patch("/attendance/:id", massageHandler(async (req, res): Promise<void> => {
   const params = UpdateAttendanceParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -248,6 +250,7 @@ router.patch("/attendance/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Chỉ ghi chấm công trong 5 năm gần nhất." });
     return;
   }
+  const operationId = operationIdFromRequest(req.get("Idempotency-Key"), "sửa chấm công");
 
   const update: Partial<AttendanceWrite> = {};
   if (parsed.data.employeeName !== undefined) update.employeeName = parsed.data.employeeName;
@@ -259,8 +262,8 @@ router.patch("/attendance/:id", async (req, res): Promise<void> => {
         ? await readPartitionedRowById<typeof membersTable.$inferSelect>("members", memberId)
         : (await db.select().from(membersTable)
           .where(and(eq(membersTable.id, memberId), isNull(membersTable.deletedAt))).limit(1))[0];
-      if (!member) {
-        res.status(400).json({ error: "Không tìm thấy thành viên được chọn." });
+      if (!member || member.deletedAt !== null) {
+        res.status(400).json({ error: "Không tìm thấy nhân viên đang hoạt động được chọn." });
         return;
       }
       update.employeeName = member.name;
@@ -278,9 +281,13 @@ router.patch("/attendance/:id", async (req, res): Promise<void> => {
       res.status(404).json({ error: "Không tìm thấy bản ghi chấm công." });
       return;
     }
+    if (!isWithinRetention(old.workDate)) {
+      res.status(400).json({ error: "Chỉ sửa chấm công trong 5 năm gần nhất." });
+      return;
+    }
     const next = { ...old, ...update, updatedAt: new Date() };
     await commitPartitionedMutations({
-      operationId: operationIdFromRequest(req.get("Idempotency-Key"), "sửa chấm công"),
+      operationId,
       lockName: `attendance:${old.memberId ?? old.id}`,
       action: "attendance.update",
       request: { id: params.data.id, update },
@@ -294,7 +301,7 @@ router.patch("/attendance/:id", async (req, res): Promise<void> => {
     return;
   }
   const record = await idempotentTransaction(
-    operationIdFromRequest(req.get("Idempotency-Key"), "sửa chấm công"),
+    operationId,
     "sửa chấm công",
     "attendance.update",
     { id: params.data.id, update },
@@ -313,14 +320,15 @@ router.patch("/attendance/:id", async (req, res): Promise<void> => {
   }
 
   res.json(UpdateAttendanceResponse.parse(toAttendanceResponse(record)));
-});
+}));
 
-router.delete("/attendance/:id", async (req, res): Promise<void> => {
+router.delete("/attendance/:id", massageHandler(async (req, res): Promise<void> => {
   const params = DeleteAttendanceParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
+  const operationId = operationIdFromRequest(req.get("Idempotency-Key"), "xóa chấm công");
 
   if (isPartitionedStorageEnabled()) {
     const old = await readPartitionedRowById<typeof attendanceTable.$inferSelect>("attendance", params.data.id);
@@ -330,7 +338,7 @@ router.delete("/attendance/:id", async (req, res): Promise<void> => {
       return;
     }
     await commitPartitionedMutations({
-      operationId: operationIdFromRequest(req.get("Idempotency-Key"), "xóa chấm công"),
+      operationId,
       lockName: `attendance:${old.memberId ?? old.id}`,
       action: "attendance.delete",
       request: { id: params.data.id },
@@ -341,7 +349,7 @@ router.delete("/attendance/:id", async (req, res): Promise<void> => {
     return;
   }
   const record = await idempotentTransaction(
-    operationIdFromRequest(req.get("Idempotency-Key"), "xóa chấm công"),
+    operationId,
     "xóa chấm công",
     "attendance.delete",
     { id: params.data.id },
@@ -358,6 +366,6 @@ router.delete("/attendance/:id", async (req, res): Promise<void> => {
   }
 
   res.sendStatus(204);
-});
+}));
 
 export default router;

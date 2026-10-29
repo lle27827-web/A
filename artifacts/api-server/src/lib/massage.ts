@@ -27,7 +27,13 @@ import {
 import type { FacilityPermissions, ServiceSessionInput, TreatmentCardInput, TreatmentCardUpdate } from "@workspace/api-zod";
 import { canEditEmployee } from "./facility-permissions";
 import { isWithinRetention, retentionCutoffDate } from "./retention-window";
-import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "./partitioned-mutations";
+import {
+  commitPartitionedMutations,
+  deleteMutation,
+  operationIdFromRequest,
+  reconcileAndReload,
+  upsertMutation,
+} from "./partitioned-mutations";
 
 export class MassageError extends Error {
   constructor(public status: number, message: string, public details?: { mergeTargetId: number }) { super(message); }
@@ -122,13 +128,36 @@ export function currentBusinessDate() {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 const identityText = (value: string) => value.normalize("NFC").trim().replace(/\s+/g, " ").toLowerCase();
-const identityPhone = (value: string) => value.replace(/\D/g, "") || identityText(value);
 const validIdentityPhone = (value: string) => {
   let digits = value.replace(/\D/g, "");
   if (digits.startsWith("0084") && digits.length === 13) digits = `0${digits.slice(4)}`;
   else if (digits.startsWith("84") && digits.length === 11) digits = `0${digits.slice(2)}`;
   return digits.length >= 8 && digits.length <= 15 ? digits : null;
 };
+export const identityPhone = (value: string) =>
+  validIdentityPhone(value) ?? (value.replace(/\D/g, "") || identityText(value));
+
+export function resolveSessionHourlyRate(
+  oldRate: number | undefined,
+  currentServiceRate: number | undefined,
+  sameService: boolean,
+): number {
+  if (sameService && oldRate !== undefined && oldRate > 0) return oldRate;
+  return currentServiceRate ?? 0;
+}
+
+export function buildPartitionedSessionDeleteMutations(id: number): MutationDraft[] {
+  return [deleteMutation("service_sessions", id)];
+}
+
+export function serviceTypeHasHistory(
+  serviceTypeId: number,
+  sessions: readonly { serviceTypeId: number | null }[],
+  archivedUses: readonly { serviceTypeId: number | null }[],
+): boolean {
+  return sessions.some((row) => row.serviceTypeId === serviceTypeId) ||
+    archivedUses.some((row) => row.serviceTypeId === serviceTypeId);
+}
 export function sameAppointmentCustomer(
   appointment: Pick<typeof appointmentsTable.$inferSelect, "customerName" | "phone">,
   card: Pick<typeof treatmentCardsTable.$inferSelect, "customerName" | "phone">,
@@ -222,15 +251,36 @@ async function createPartitionedCard(input: TreatmentCardInput, values: Omit<Tre
     const archived = archivedRowsRaw as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
     const prior = await getReservedPartitionOperation(operationId, requestHash);
     if (prior) {
-      const reconciled = await reconcilePartitionOperation(prior);
+      const { operation: reconciled, rows: freshRows } = await reconcileAndReload(
+        prior,
+        reconcilePartitionOperation,
+        () => Promise.all([
+          readPartitionedTable("treatment_cards"),
+          readPartitionedTable("card_top_ups"),
+          readPartitionedTable("service_sessions"),
+          readPartitionedTable("card_usage_history"),
+        ]),
+      );
       if (reconciled.state === "committed") {
+        if (!freshRows) throw new MassageError(503, "Không tải lại được thẻ sau khi lưu.");
+        const [freshCardRows, freshTopUpRows, freshSessionRows, freshArchivedRows] = freshRows;
         const merged = !reconciled.allocatedIds.treatment_cards?.length;
         const cardId = merged ? input.mergeTargetId : reconciled.allocatedIds.treatment_cards?.[0];
-        const savedCard = cards.find((card) => card.id === cardId);
+        const savedCard = (freshCardRows as unknown as (typeof treatmentCardsTable.$inferSelect)[])
+          .find((card) => card.id === cardId);
         if (!savedCard) throw new MassageError(503, "Không tải lại được thẻ sau khi lưu.");
-        const used = sessions.filter((session) => session.cardId === cardId).reduce((sum, row) => sum + row.minutes, 0)
-          + archived.filter((row) => row.cardId === cardId).reduce((sum, row) => sum + row.minutes, 0);
-        return { ...cardResponse(savedCard, used, topUps.filter((row) => row.cardId === cardId)), mergedIntoExisting: merged };
+        const used = (freshSessionRows as unknown as (typeof serviceSessionsTable.$inferSelect)[])
+          .filter((session) => session.cardId === cardId).reduce((sum, row) => sum + row.minutes, 0)
+          + (freshArchivedRows as unknown as (typeof cardUsageHistoryTable.$inferSelect)[])
+            .filter((row) => row.cardId === cardId).reduce((sum, row) => sum + row.minutes, 0);
+        return {
+          ...cardResponse(
+            savedCard,
+            used,
+            (freshTopUpRows as unknown as CardTopUpRow[]).filter((row) => row.cardId === cardId),
+          ),
+          mergedIntoExisting: merged,
+        };
       }
     }
     if (!Number.isSafeInteger(values.totalMinutes) || values.totalMinutes < 1 || values.totalMinutes > 600000 ||
@@ -266,7 +316,36 @@ async function createPartitionedCard(input: TreatmentCardInput, values: Omit<Tre
         ? { card_top_ups: 1 }
         : { treatment_cards: 1 },
     });
-    const reconciled = await reconcilePartitionOperation(operation);
+    const { operation: reconciled, rows: freshRows } = await reconcileAndReload(
+      operation,
+      reconcilePartitionOperation,
+      () => Promise.all([
+        readPartitionedTable("treatment_cards"),
+        readPartitionedTable("card_top_ups"),
+        readPartitionedTable("service_sessions"),
+        readPartitionedTable("card_usage_history"),
+      ]),
+    );
+    if (reconciled.state === "committed") {
+      if (!freshRows) throw new MassageError(503, "Không tải lại được thẻ sau khi lưu.");
+      const [freshCardRows, freshTopUpRows, freshSessionRows, freshArchivedRows] = freshRows;
+      const cardId = existing?.id ?? reconciled.allocatedIds.treatment_cards?.[0];
+      const savedCard = (freshCardRows as unknown as (typeof treatmentCardsTable.$inferSelect)[])
+        .find((card) => card.id === cardId);
+      if (!savedCard) throw new MassageError(503, "Không tải lại được thẻ sau khi lưu.");
+      const used = (freshSessionRows as unknown as (typeof serviceSessionsTable.$inferSelect)[])
+        .filter((session) => session.cardId === cardId).reduce((sum, row) => sum + row.minutes, 0)
+        + (freshArchivedRows as unknown as (typeof cardUsageHistoryTable.$inferSelect)[])
+          .filter((row) => row.cardId === cardId).reduce((sum, row) => sum + row.minutes, 0);
+      return {
+        ...cardResponse(
+          savedCard,
+          used,
+          (freshTopUpRows as unknown as CardTopUpRow[]).filter((row) => row.cardId === cardId),
+        ),
+        mergedIntoExisting: Boolean(existing),
+      };
+    }
     if (reconciled.state !== "committed") {
       const mutations: MutationDraft[] = [];
       let cardId: number;
@@ -651,16 +730,30 @@ export async function addCardHours(id: number, minutes: number, amount: number, 
       const archivedRows = archived as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
       const prior = await getReservedPartitionOperation(operationId, requestHash);
       if (prior) {
-        const reconciledPrior = await reconcilePartitionOperation(prior);
+        const { operation: reconciledPrior, rows: freshRows } = await reconcileAndReload(
+          prior,
+          reconcilePartitionOperation,
+          () => Promise.all([
+            readPartitionedTable("treatment_cards"),
+            readPartitionedTable("card_top_ups"),
+            readPartitionedTable("service_sessions"),
+            readPartitionedTable("card_usage_history"),
+          ]),
+        );
         if (reconciledPrior.state === "committed") {
-          const priorCard = cardRows.find((row) => row.id === id);
+          if (!freshRows) throw new MassageError(503, "Không tải lại được thẻ sau khi nạp.");
+          const [freshCardRows, freshTopUpRows, freshSessionRows, freshArchivedRows] = freshRows;
+          const priorCard = (freshCardRows as unknown as (typeof treatmentCardsTable.$inferSelect)[])
+            .find((row) => row.id === id);
           if (!priorCard) throw new MassageError(503, "Không tải lại được thẻ sau khi nạp.");
-          const priorUsed = sessionRows.filter((row) => row.cardId === id).reduce((sum, row) => sum + row.minutes, 0)
-            + archivedRows.filter((row) => row.cardId === id).reduce((sum, row) => sum + row.minutes, 0);
+          const priorUsed = (freshSessionRows as unknown as (typeof serviceSessionsTable.$inferSelect)[])
+            .filter((row) => row.cardId === id).reduce((sum, row) => sum + row.minutes, 0)
+            + (freshArchivedRows as unknown as (typeof cardUsageHistoryTable.$inferSelect)[])
+              .filter((row) => row.cardId === id).reduce((sum, row) => sum + row.minutes, 0);
           return cardResponse(
             priorCard,
             priorUsed,
-            topUpRows.filter((row) => row.cardId === id)
+            (freshTopUpRows as unknown as CardTopUpRow[]).filter((row) => row.cardId === id)
               .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate) || b.id - a.id),
           );
         }
@@ -775,7 +868,7 @@ export async function saveSession(
     if (serviceTypeId !== null && !service) throw new MassageError(404, "Loại hình dịch vụ đã bị xóa. Hãy chọn dịch vụ khác.");
     if (!old && !service) throw new MassageError(400, "Hãy chọn loại hình dịch vụ để tính lương.");
     const sameService = old && old.serviceTypeId === serviceTypeId;
-    const rate = sameService ? old.hourlyRate : service?.hourlyRate;
+    const rate = resolveSessionHourlyRate(old?.hourlyRate, service?.hourlyRate, Boolean(sameService));
     const customerRate = sameService ? old.customerHourlyRate : service?.customerHourlyRate;
     if (!rate || rate <= 0) throw new MassageError(400, "Hãy chọn dịch vụ có mức lương mỗi giờ hợp lệ.");
     if (cardId === null && (!customerRate || customerRate <= 0) && (!old || !sameService)) {
@@ -843,10 +936,16 @@ async function savePartitionedSession(
     const appointmentRows = appointmentRowsRaw as unknown as (typeof appointmentsTable.$inferSelect)[];
     const prior = await getReservedPartitionOperation(operationId, requestHash);
     if (prior) {
-      const reconciled = await reconcilePartitionOperation(prior);
+      const { operation: reconciled, rows: freshRows } = await reconcileAndReload(
+        prior,
+        reconcilePartitionOperation,
+        () => readPartitionedTable("service_sessions"),
+      );
       if (reconciled.state === "committed") {
+        if (!freshRows) throw new MassageError(503, "Không tải lại được ca sau khi lưu.");
         const priorId = id ?? reconciled.allocatedIds.service_sessions?.[0];
-        const priorRow = sessionRows.find((row) => row.id === priorId);
+        const priorRow = (freshRows as unknown as (typeof serviceSessionsTable.$inferSelect)[])
+          .find((row) => row.id === priorId);
         if (!priorRow) throw new MassageError(503, "Không tải lại được ca sau khi lưu.");
         return sessionResponse(priorRow);
       }
@@ -874,7 +973,7 @@ async function savePartitionedSession(
     }
     if (!old && !service) throw new MassageError(400, "Hãy chọn loại hình dịch vụ để tính lương.");
     const sameService = old?.serviceTypeId === serviceTypeId;
-    const rate = sameService ? old.hourlyRate : service?.hourlyRate;
+    const rate = resolveSessionHourlyRate(old?.hourlyRate, service?.hourlyRate, Boolean(sameService));
     const customerRate = sameService ? old.customerHourlyRate : service?.customerHourlyRate;
     if (!rate || rate <= 0) throw new MassageError(400, "Hãy chọn dịch vụ có mức lương mỗi giờ hợp lệ.");
     if (cardId === null && (!customerRate || customerRate <= 0) && (!old || !sameService)) {
@@ -930,7 +1029,11 @@ async function savePartitionedSession(
       expectedEventCount: eventCount,
       idAllocations: id === undefined ? { service_sessions: 1 } : {},
     });
-    const reconciled = await reconcilePartitionOperation(operation);
+    const { operation: reconciled, rows: refreshedSessions } = await reconcileAndReload(
+      operation,
+      reconcilePartitionOperation,
+      () => readPartitionedTable("service_sessions"),
+    );
     if (reconciled.state !== "committed") {
       const sessionId = id ?? reconciled.allocatedIds.service_sessions?.[0];
       if (!sessionId) throw new MassageError(503, "Không cấp được mã ca chấm công.");
@@ -963,7 +1066,9 @@ async function savePartitionedSession(
       return sessionResponse(row);
     }
     const savedId = id ?? reconciled.allocatedIds.service_sessions?.[0];
-    const savedRow = sessionRows.find((row) => row.id === savedId);
+    if (!refreshedSessions) throw new MassageError(503, "Không tải lại được ca sau khi lưu.");
+    const savedRow = (refreshedSessions as unknown as (typeof serviceSessionsTable.$inferSelect)[])
+      .find((row) => row.id === savedId);
     if (!savedRow) throw new MassageError(503, "Không tải lại được ca sau khi lưu.");
     return sessionResponse(savedRow);
   });
@@ -994,43 +1099,12 @@ export async function deleteSession(
       const operation = await reservePartitionOperation({
         operationId,
         requestHash,
-        expectedEventCount: old.cardId === null ? 1 : 2,
+        expectedEventCount: 1,
         idAllocations: {},
       });
       const reconciled = await reconcilePartitionOperation(operation);
       if (reconciled.state === "committed") return;
-      const mutations: MutationDraft[] = [];
-      if (old.cardId !== null) {
-        mutations.push({
-          entityType: "card_usage_history",
-          entityKey: partitionEntityKey("card_usage_history", old.id),
-          action: "upsert",
-          payload: {
-            sourceSessionId: old.id,
-            cardId: old.cardId,
-            memberId: old.memberId,
-            employeeName: old.employeeName,
-            customerName: old.customerName,
-            serviceType: old.serviceType,
-            serviceTypeId: old.serviceTypeId,
-            workDate: old.workDate,
-            minutes: old.minutes,
-            customerHourlyRate: old.customerHourlyRate,
-            customerCharge: old.customerCharge,
-            hourlyRate: old.hourlyRate,
-            earnings: old.earnings,
-            note: old.note,
-            createdAt: old.createdAt,
-          },
-        });
-      }
-      mutations.push({
-        entityType: "service_sessions",
-        entityKey: partitionEntityKey("service_sessions", id),
-        action: "delete",
-        payload: null,
-      });
-      await appendReservedPartitionOperation(reconciled, mutations);
+      await appendReservedPartitionOperation(reconciled, buildPartitionedSessionDeleteMutations(id));
       return;
     });
   }

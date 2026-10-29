@@ -57,7 +57,9 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
   const ownCardMinutes = session && session.cardId !== null && String(session.cardId) === cardId ? session.minutes : 0;
   const selected = catalog.find((s) => String(s.id) === serviceId) ?? null;
   const keepsSnapshot = !!session && (serviceId === KEEP || (session.serviceTypeId !== null && String(session.serviceTypeId) === serviceId));
-  const rate = keepsSnapshot ? session!.hourlyRate : selected?.hourlyRate ?? 0;
+  const rate = keepsSnapshot && session!.hourlyRate > 0
+    ? session!.hourlyRate
+    : selected?.hourlyRate ?? 0;
   const customerRate = keepsSnapshot ? session!.customerHourlyRate : selected?.customerHourlyRate ?? 0;
   const orphanId = session && session.serviceTypeId !== null && !catalog.some((s) => s.id === session.serviceTypeId) ? session.serviceTypeId : null;
   const serviceChoices: ServiceChoice[] = [
@@ -81,7 +83,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
         id: String(service.id),
         name: same ? session!.serviceType : service.name,
         customerRate: same ? session!.customerHourlyRate : service.customerHourlyRate,
-        hourlyRate: same ? session!.hourlyRate : service.hourlyRate,
+       hourlyRate: same && session!.hourlyRate > 0 ? session!.hourlyRate : service.hourlyRate,
         saved: same,
       };
     }),
@@ -115,7 +117,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
   const shown = error || serverError;
   const quick = !!fixedMemberId && !session;
   const serviceSummary = (service: ServiceChoice) =>
-    `${service.customerRate > 0 ? `Tiền dịch vụ ${formatVnd(service.customerRate)}/giờ` : 'Chưa cài tiền dịch vụ'} · Tiền công ${formatVnd(service.hourlyRate)}/giờ${service.saved ? ' · đã lưu' : ''}`;
+    `${service.customerRate > 0 ? `Tiền dịch vụ ${formatVnd(service.customerRate)}/giờ` : 'Chưa cài tiền dịch vụ'} · ${service.hourlyRate > 0 ? `Tiền công ${formatVnd(service.hourlyRate)}/giờ` : 'Chưa cài tiền công'}${service.saved ? ' · đã lưu' : ''}`;
   return (
     <Modal title={session ? 'Sửa ca phục vụ' : quick ? `Chấm công${fixedMember ? ` · ${fixedMember.name}` : ''}` : 'Thêm ca phục vụ'}
       onClose={onClose} testId="dialog-session">
@@ -173,7 +175,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
           hourId="s-hours" minuteId="s-minutes" prefix="session"
           describedBy={minutes !== null ? 's-duration-hint' : undefined} />
         {minutes !== null && <span id="s-duration-hint" className="hint">
-          {formatMinutes(minutes)} · Tiền công {formatVnd(Math.round(minutes * rate / 60))}
+          {formatMinutes(minutes)}{rate > 0 ? ` · Tiền công ${formatVnd(Math.round(minutes * rate / 60))}` : ' · Chưa cài tiền công'}
           {!cardId && customerRate > 0 ? ` · Tiền dịch vụ ${formatVnd(Math.round(minutes * customerRate / 60))}` : ''}
         </span>}
         <div className="field session-date-control">

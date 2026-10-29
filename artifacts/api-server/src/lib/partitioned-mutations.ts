@@ -11,6 +11,18 @@ import {
 } from "@workspace/db";
 import { MassageError } from "./massage";
 
+export async function reconcileAndReload<T>(
+  operation: ReservedOperation,
+  reconcile: (operation: ReservedOperation) => Promise<ReservedOperation>,
+  reload: () => Promise<T>,
+): Promise<{ operation: ReservedOperation; rows: T | null }> {
+  const reconciled = await reconcile(operation);
+  return {
+    operation: reconciled,
+    rows: reconciled.state === "committed" ? await reload() : null,
+  };
+}
+
 export function operationIdFromRequest(value: unknown, label = "thao tác"): string {
   if (typeof value !== "string" ||
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {

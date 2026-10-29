@@ -134,7 +134,7 @@ export function aggregatePartitionedFacilityRevenue(
       ? {
           serviceType: mostUsedAll[0],
           visits: mostUsedAll[1],
-          minutes: sum(monthSessions.filter((row) => row.serviceType === mostUsedAll[0]), (row) => row.minutes),
+          minutes: sum(activeMonthSessions.filter((row) => row.serviceType === mostUsedAll[0]), (row) => row.minutes),
         }
       : null,
     serviceBreakdown: serviceBreakdown(activeMonthSessions),
