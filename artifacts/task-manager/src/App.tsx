@@ -226,7 +226,7 @@ function AuthenticatedApplication() {
 function ClerkApplication() {
   const [, setLocation] = useLocation();
   const { theme } = useColorTheme();
-  const appearance = useMemo(() => theme === 'yellow'
+  const appearance = useMemo(() => theme === 'default'
     ? {
         ...clerkAppearance,
         variables: {

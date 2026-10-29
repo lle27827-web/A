@@ -1,6 +1,6 @@
 import { createContext, useContext, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 
-export type AppColorTheme = 'default' | 'yellow';
+export type AppColorTheme = 'default' | 'dark';
 
 type ColorThemeContextValue = {
   theme: AppColorTheme;
@@ -12,7 +12,7 @@ const ColorThemeContext = createContext<ColorThemeContextValue | null>(null);
 
 function readStoredTheme(): AppColorTheme {
   try {
-    return window.localStorage.getItem(STORAGE_KEY) === 'yellow' ? 'yellow' : 'default';
+    return window.localStorage.getItem(STORAGE_KEY) === 'dark' ? 'dark' : 'default';
   } catch {
     return 'default';
   }

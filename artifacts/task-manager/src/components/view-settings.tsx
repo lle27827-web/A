@@ -96,23 +96,23 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
                 />
                 <span className="theme-swatch theme-swatch-default" aria-hidden="true" />
                 <span className="theme-option-copy">
-                  <strong>Vàng ấm</strong>
+                  <strong>Vàng sa mạc</strong>
                   <span>Nền vàng, khung nội dung trắng</span>
                 </span>
               </label>
-              <label className={`theme-option${theme === 'yellow' ? ' selected' : ''}`}>
+              <label className={`theme-option${theme === 'dark' ? ' selected' : ''}`}>
                 <input
                   type="radio"
                   name="app-color-theme"
-                  value="yellow"
-                  checked={theme === 'yellow'}
-                  onChange={() => setTheme('yellow')}
-                  data-testid="radio-theme-yellow"
+                  value="dark"
+                  checked={theme === 'dark'}
+                  onChange={() => setTheme('dark')}
+                  data-testid="radio-theme-dark"
                 />
-                <span className="theme-swatch theme-swatch-yellow" aria-hidden="true" />
+                <span className="theme-swatch theme-swatch-dark" aria-hidden="true" />
                 <span className="theme-option-copy">
-                  <strong>Vàng đậm</strong>
-                  <span>Nền vàng đậm, khung nội dung trắng</span>
+                  <strong>Tối</strong>
+                  <span>Nền đen, khung nội dung tối</span>
                 </span>
               </label>
             </fieldset>
