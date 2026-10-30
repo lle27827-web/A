@@ -4,13 +4,14 @@ import { Modal } from '@/components/modal';
 import { formatShortDate, localDate } from '@/lib/attendance';
 import { daysInMonth, formatMonth, weekday } from '@/lib/massage';
 
-export function DatePickerDialog({ value, title = 'Chọn ngày', immediate = false, maxDate, onClose, onSelect }: {
+export function DatePickerDialog({ value, title = 'Chọn ngày', immediate = false, maxDate, onClose, onSelect, dialogClassName }: {
   value: string;
   immediate?: boolean;
   maxDate?: string;
   title?: string;
   onClose: () => void;
   onSelect: (date: string) => void;
+  dialogClassName?: string;
 }) {
   const today = localDate();
   const [month, setMonth] = useState(value.slice(0, 7));
@@ -27,7 +28,7 @@ export function DatePickerDialog({ value, title = 'Chọn ngày', immediate = fa
   }
 
   return (
-    <Modal title={title} onClose={onClose} testId="dialog-date-picker">
+    <Modal title={title} onClose={onClose} testId="dialog-date-picker" className={dialogClassName}>
       <div className="date-picker-controls">
         <label className="field" htmlFor="date-picker-month">Tháng
           <input id="date-picker-month" type="month" value={month} max={maxDate?.slice(0, 7)} onChange={(e) => changeMonth(e.target.value)} data-testid="input-date-picker-month" />

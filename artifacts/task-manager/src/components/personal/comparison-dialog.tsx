@@ -98,7 +98,7 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
   }
 
   return (
-    <Modal title="Đối chiếu tiền công" onClose={onClose} testId="dialog-comparison">
+    <Modal title="Đối chiếu tiền công" onClose={onClose} testId="dialog-comparison" className="personal-surface-dialog">
       {memberId === null ? (
         members.isLoading ? <Skeleton rows={5} label="Đang tải danh sách nhân viên" />
           : members.isError ? <ErrorBanner text="Không tải được danh sách nhân viên cơ sở." onRetry={() => void members.refetch()} />

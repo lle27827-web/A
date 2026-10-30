@@ -24,7 +24,7 @@ export function PersonalServiceDialog({ service, busy, serverError, onClose, onS
     onSubmit({ name: n, hourlyRate: r });
   }
   return (
-    <Modal title={service ? 'Sửa dịch vụ của tôi' : 'Thêm dịch vụ của tôi'} onClose={onClose} testId="dialog-personal-service">
+    <Modal title={service ? 'Sửa dịch vụ của tôi' : 'Thêm dịch vụ của tôi'} onClose={onClose} testId="dialog-personal-service" className="personal-surface-dialog">
       <form className="form-grid" onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <label className="field">Tên dịch vụ
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoFocus placeholder="VD: Massage body đá nóng" data-testid="input-personal-service-name" />
@@ -79,7 +79,7 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
     onSubmit({ serviceId: chosen.id, workDate: date, minutes: total, note, customerName: customerName.trim(), ...(requestId ? { requestId } : {}) });
   }
   return (
-    <Modal title={session ? 'Sửa ca của tôi' : 'Ghi ca của tôi'} onClose={onClose} testId="dialog-personal-shift">
+    <Modal title={session ? 'Sửa ca của tôi' : 'Ghi ca của tôi'} onClose={onClose} testId="dialog-personal-shift" className="personal-surface-dialog">
       <form className="form-grid" onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <label className="field">Dịch vụ
           <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} data-testid="select-personal-service">
@@ -109,7 +109,7 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
           <button type="submit" className="btn primary" disabled={busy} aria-busy={busy} data-testid="button-save-personal-shift">{busy && <LoaderCircle size={14} className="spin" />}Lưu ca</button>
         </div>
       </form>
-      {datePickerOpen && <DatePickerDialog value={date} title="Chọn ngày chấm công" immediate maxDate={maxDate} onClose={() => setDatePickerOpen(false)}
+      {datePickerOpen && <DatePickerDialog value={date} title="Chọn ngày chấm công" immediate maxDate={maxDate} dialogClassName="personal-surface-dialog" onClose={() => setDatePickerOpen(false)}
         onSelect={(next) => { setDate(next); setError(''); setDatePickerOpen(false); }} />}
     </Modal>
   );

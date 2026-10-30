@@ -126,12 +126,14 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
     title: `Xóa dịch vụ ${s.name}?`,
     body: <p>Dịch vụ sẽ được lưu trữ và không còn hiện khi ghi ca mới. Các ca cũ vẫn giữ tên và giá đã ghi.</p>,
     confirmLabel: 'Xóa dịch vụ',
+    dialogClassName: 'personal-surface-dialog',
     onConfirm: () => deleteService.mutate({ id: s.id }, { onSuccess: () => done('Đã xóa dịch vụ. Ca cũ vẫn được giữ.'), onError: failedConfirm }),
   });
   const askDeleteShift = (s: PersonalSession) => setConfirm({
     title: 'Xóa ca này?',
     body: <p>Xóa ca {s.serviceName} {formatMinutes(s.minutes)} ngày {formatShortDate(s.workDate)} ({formatVnd(s.earnings)}). Không thể hoàn tác.</p>,
     confirmLabel: 'Xóa ca',
+    dialogClassName: 'personal-surface-dialog',
     onConfirm: () => deleteShift.mutate({ id: s.id }, { onSuccess: () => done('Đã xóa ca.'), onError: failedConfirm }),
   });
 

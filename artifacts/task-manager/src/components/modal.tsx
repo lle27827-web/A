@@ -3,7 +3,7 @@ import * as D from '@radix-ui/react-dialog';
 import { AlertTriangle, ArrowLeft, Home, LoaderCircle, X } from 'lucide-react';
 import { Link } from 'wouter';
 
-export function Modal({ title, description, onClose, children, testId }: { title: string; description?: string; onClose: () => void; children: ReactNode; testId?: string }) {
+export function Modal({ title, description, onClose, children, testId, className }: { title: string; description?: string; onClose: () => void; children: ReactNode; testId?: string; className?: string }) {
   const opener = useRef<HTMLElement | null>(null);
   useLayoutEffect(() => {
     opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -12,7 +12,7 @@ export function Modal({ title, description, onClose, children, testId }: { title
     <D.Root open onOpenChange={(o) => { if (!o) onClose(); }}>
       <D.Portal>
         <D.Overlay className="settings-overlay" />
-        <D.Content className="settings-dialog" aria-describedby={undefined} data-testid={testId} onCloseAutoFocus={(event) => {
+        <D.Content className={`settings-dialog${className ? ` ${className}` : ''}`} aria-describedby={undefined} data-testid={testId} onCloseAutoFocus={(event) => {
           event.preventDefault();
           requestAnimationFrame(() => {
             const target = opener.current?.isConnected ? opener.current : document.getElementById('main');
@@ -35,11 +35,11 @@ export function Modal({ title, description, onClose, children, testId }: { title
   );
 }
 
-export type ConfirmState = { title: string; body: ReactNode; confirmLabel: string; onConfirm: () => void };
+export type ConfirmState = { title: string; body: ReactNode; confirmLabel: string; onConfirm: () => void; dialogClassName?: string };
 
 export function ConfirmDialog({ state, busy, onClose }: { state: ConfirmState; busy: boolean; onClose: () => void }) {
   return (
-    <Modal title={state.title} onClose={onClose} testId="dialog-confirm">
+    <Modal title={state.title} onClose={onClose} testId="dialog-confirm" className={state.dialogClassName}>
       <div className="confirm-body"><AlertTriangle size={18} aria-hidden="true" /><div>{state.body}</div></div>
       <div className="dialog-actions" style={{ marginTop: 18 }}>
         <button type="button" className="btn ghost" onClick={onClose} data-testid="button-confirm-cancel">Hủy</button>
