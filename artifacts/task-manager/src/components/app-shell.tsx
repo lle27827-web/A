@@ -231,7 +231,7 @@ export function AppShell({
           {(showResults || (location !== '/' && location !== '/attendance')) && (
             <nav className="screen-nav" aria-label="Điều hướng trang">
               <Link href={withHistory('/')} onClick={() => setQuery('')} className="btn ghost" data-testid="link-return-home">
-                <Home size={15} aria-hidden="true" />Trở về trang chính
+                <Home size={15} aria-hidden="true" />Trang chính
               </Link>
               <button type="button" className="btn ghost" onClick={goBack} data-testid="button-return-previous">
                 <ArrowLeft size={15} aria-hidden="true" />Trở về

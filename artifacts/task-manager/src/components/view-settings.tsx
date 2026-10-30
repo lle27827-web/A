@@ -6,7 +6,7 @@ import { Link, useLocation } from 'wouter';
 import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
 import { AccessGrantsDialog } from '@/components/access-grants';
-import { useColorTheme } from '@/components/color-theme-provider';
+import { useColorTheme, type AppColorTheme } from '@/components/color-theme-provider';
 import { ColorPaletteControls } from '@/components/color-palette-controls';
 
 export type ViewMode = 'owner' | 'employee';
@@ -58,6 +58,11 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   const [deleteHistoryOpen, setDeleteHistoryOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const { theme, setTheme, colors, setColor, resetColors } = useColorTheme();
+  const editThemeColors = (nextTheme: AppColorTheme) => {
+    setTheme(nextTheme);
+    setPaletteOpen(true);
+  };
+  const themeName = theme === 'default' ? 'Vàng sa mạc' : theme === 'dark' ? 'Tối nâu' : 'Tùy chỉnh';
 
   useEffect(() => {
     if (!open) setPaletteOpen(false);
@@ -81,12 +86,12 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
         <DialogPrimitive.Content className={`settings-dialog${paletteOpen ? ' palette-mode' : ''}`} data-testid={paletteOpen ? 'dialog-color-palette' : 'dialog-view-settings'}>
           <div className="dialog-head">
             {paletteOpen && <button type="button" className="icon-btn" onClick={() => setPaletteOpen(false)} aria-label="Trở về cài đặt" data-testid="button-back-from-color-palette"><ArrowLeft size={18} /></button>}
-            <DialogPrimitive.Title asChild><h2>{paletteOpen ? 'Bảng màu' : 'Cài đặt'}</h2></DialogPrimitive.Title>
+            <DialogPrimitive.Title asChild><h2>{paletteOpen ? `Bảng màu · ${themeName}` : 'Cài đặt'}</h2></DialogPrimitive.Title>
             <DialogPrimitive.Close asChild><button type="button" className="icon-btn" aria-label={paletteOpen ? 'Đóng bảng màu' : 'Đóng cài đặt'}><X size={18} /></button></DialogPrimitive.Close>
           </div>
           {paletteOpen ? (
             <>
-              <DialogPrimitive.Description className="sub">Chọn màu cho nền, chữ, khung, nút, ô nhập, trạng thái và các khu vực riêng.</DialogPrimitive.Description>
+              <DialogPrimitive.Description className="sub">Chỉ chỉnh giao diện đang chọn; hai giao diện còn lại không bị thay đổi.</DialogPrimitive.Description>
               <ColorPaletteControls colors={colors} onChange={setColor} onReset={resetColors} />
             </>
           ) : (
@@ -99,40 +104,49 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
             <h3 id="theme-settings-title">Giao diện</h3>
             <fieldset className="theme-options">
               <legend>Chọn màu nền</legend>
-              <label className={`theme-option${theme === 'default' ? ' selected' : ''}`}>
-                <input
-                  type="radio"
-                  name="app-color-theme"
-                  value="default"
-                  checked={theme === 'default'}
-                  onChange={() => setTheme('default')}
-                  data-testid="radio-theme-default"
-                />
-                <span className="theme-swatch theme-swatch-default" aria-hidden="true" />
-                <span className="theme-option-copy">
-                  <strong>Vàng sa mạc</strong>
-                  <span>Nền vàng, khung nội dung trắng</span>
-                </span>
-              </label>
-              <label className={`theme-option${theme === 'dark' ? ' selected' : ''}`}>
-                <input
-                  type="radio"
-                  name="app-color-theme"
-                  value="dark"
-                  checked={theme === 'dark'}
-                  onChange={() => setTheme('dark')}
-                  data-testid="radio-theme-dark"
-                />
-                <span className="theme-swatch theme-swatch-dark" aria-hidden="true" />
-                <span className="theme-option-copy">
-                  <strong>Tối</strong>
-                  <span>Nền đen, khung nội dung tối</span>
-                </span>
-              </label>
+              <div className="theme-option-row">
+                <label className={`theme-option${theme === 'default' ? ' selected' : ''}`}>
+                  <input type="radio" name="app-color-theme" value="default" checked={theme === 'default'}
+                    onChange={() => setTheme('default')} data-testid="radio-theme-default" />
+                  <span className="theme-swatch theme-swatch-default" aria-hidden="true" />
+                  <span className="theme-option-copy">
+                    <strong>Vàng sa mạc</strong>
+                    <span>Nền vàng, khung nội dung trắng</span>
+                  </span>
+                </label>
+                <button type="button" className="theme-edit-button" onClick={() => editThemeColors('default')}
+                  aria-label="Sửa màu giao diện Vàng sa mạc" data-testid="button-edit-theme-default">Sửa màu</button>
+              </div>
+              <div className="theme-option-row">
+                <label className={`theme-option${theme === 'dark' ? ' selected' : ''}`}>
+                  <input type="radio" name="app-color-theme" value="dark" checked={theme === 'dark'}
+                    onChange={() => setTheme('dark')} data-testid="radio-theme-dark" />
+                  <span className="theme-swatch theme-swatch-dark" aria-hidden="true" />
+                  <span className="theme-option-copy">
+                    <strong>Tối nâu</strong>
+                    <span>Nền và khung tông nâu đậm</span>
+                  </span>
+                </label>
+                <button type="button" className="theme-edit-button" onClick={() => editThemeColors('dark')}
+                  aria-label="Sửa màu giao diện tối nâu" data-testid="button-edit-theme-dark">Sửa màu</button>
+              </div>
+              <div className="theme-option-row">
+                <label className={`theme-option${theme === 'custom' ? ' selected' : ''}`}>
+                  <input type="radio" name="app-color-theme" value="custom" checked={theme === 'custom'}
+                    onChange={() => setTheme('custom')} data-testid="radio-theme-custom" />
+                  <span className="theme-swatch theme-swatch-custom" aria-hidden="true" />
+                  <span className="theme-option-copy">
+                    <strong>Tùy chỉnh</strong>
+                    <span>Giao diện riêng, không đổi hai giao diện mặc định</span>
+                  </span>
+                </label>
+                <button type="button" className="theme-edit-button" onClick={() => editThemeColors('custom')}
+                  aria-label="Sửa màu giao diện tùy chỉnh" data-testid="button-edit-theme-custom">Sửa màu</button>
+              </div>
             </fieldset>
           </section>
 
-          <button type="button" className="settings-link" onClick={() => setPaletteOpen(true)} data-testid="button-open-color-palette">
+          <button type="button" className="settings-link" onClick={() => editThemeColors('custom')} data-testid="button-open-color-palette">
             <Palette size={16} aria-hidden="true" /><span className="grow"><strong>Chỉnh màu giao diện</strong><span className="muted">Tùy chỉnh màu nền, chữ, khung và trạng thái</span></span><ChevronRight size={16} aria-hidden="true" />
           </button>
 

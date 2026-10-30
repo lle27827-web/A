@@ -192,7 +192,7 @@ export function ColorPaletteControls({ colors, onChange, onReset }: ColorPalette
           onClick={onReset}
           data-testid="button-reset-color-palette"
         >
-          Trở về màu giao diện hiện tại
+          Khôi phục màu mặc định của giao diện này
         </button>
       </header>
 

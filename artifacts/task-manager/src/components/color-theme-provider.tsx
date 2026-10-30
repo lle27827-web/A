@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import { PALETTE_TOKENS, type PaletteColors, type PaletteToken } from '@/components/color-palette-controls';
 
-export type AppColorTheme = 'default' | 'dark';
+export type AppColorTheme = 'default' | 'dark' | 'custom';
 
 type ColorThemeContextValue = {
   theme: AppColorTheme;
@@ -12,13 +12,13 @@ type ColorThemeContextValue = {
 };
 
 const STORAGE_KEY = 'cung-lam:color-theme';
-const PALETTE_STORAGE_KEY = 'cung-lam:color-palettes-v1';
+const PALETTE_STORAGE_KEY = 'cung-lam:color-palettes-v2';
+const LEGACY_PALETTE_STORAGE_KEY = 'cung-lam:color-palettes-v1';
 const ColorThemeContext = createContext<ColorThemeContextValue | null>(null);
 
 type StoredPalettes = Partial<Record<AppColorTheme, Partial<PaletteColors>>>;
 
-const BASE_PALETTES: Record<AppColorTheme, Record<PaletteToken, string>> = {
-  default: {
+const DEFAULT_PALETTE: Record<PaletteToken, string> = {
     background: '44 78% 63%',
     foreground: '30 42% 14%',
     card: '0 0% 100%',
@@ -61,25 +61,26 @@ const BASE_PALETTES: Record<AppColorTheme, Record<PaletteToken, string>> = {
     'auth-button-hover': '210 17% 98%',
     'revenue-background': '27 42% 29%',
     'revenue-foreground': '35 65% 93%',
-  },
-  dark: {
-    background: '0 0% 4%',
-    foreground: '30 32% 76%',
-    card: '0 0% 9%',
-    'card-foreground': '30 32% 76%',
-    border: '0 0% 30%',
+};
+
+const DARK_PALETTE: Record<PaletteToken, string> = {
+    background: '27 28% 12%',
+    foreground: '35 45% 88%',
+    card: '27 24% 18%',
+    'card-foreground': '35 45% 88%',
+    border: '27 26% 34%',
     'frame-border': '39 35% 46%',
-    primary: '30 48% 62%',
-    'primary-foreground': '0 0% 8%',
-    secondary: '0 0% 18%',
-    'secondary-foreground': '30 32% 76%',
-    muted: '0 0% 15%',
-    'muted-foreground': '30 24% 66%',
-    accent: '30 42% 54%',
-    'accent-foreground': '0 0% 8%',
+    primary: '30 52% 62%',
+    'primary-foreground': '27 50% 12%',
+    secondary: '27 25% 25%',
+    'secondary-foreground': '35 45% 88%',
+    muted: '27 23% 22%',
+    'muted-foreground': '35 25% 70%',
+    accent: '28 45% 48%',
+    'accent-foreground': '35 65% 94%',
     destructive: '4 72% 58%',
     'destructive-foreground': '0 0% 100%',
-    input: '0 0% 34%',
+    input: '27 26% 36%',
     ring: '43 80% 62%',
     ok: '150 58% 48%',
     warn: '30 86% 56%',
@@ -92,7 +93,7 @@ const BASE_PALETTES: Record<AppColorTheme, Record<PaletteToken, string>> = {
     'detail-foreground': '35 65% 93%',
     'detail-muted': '35 38% 80%',
     'detail-border': '29 30% 49%',
-    'personal-accent': '162 50% 58%',
+    'personal-accent': '29 45% 58%',
     'search-background': '25 56% 16%',
     'search-foreground': '40 80% 90%',
     'search-border': '28 50% 38%',
@@ -105,20 +106,47 @@ const BASE_PALETTES: Record<AppColorTheme, Record<PaletteToken, string>> = {
     'auth-button-hover': '210 17% 98%',
     'revenue-background': '27 45% 22%',
     'revenue-foreground': '36 80% 92%',
-  },
+};
+
+const BASE_PALETTES: Record<AppColorTheme, Record<PaletteToken, string>> = {
+  default: DEFAULT_PALETTE,
+  dark: DARK_PALETTE,
+  custom: { ...DEFAULT_PALETTE },
 };
 
 function isHexColor(value: unknown): value is string {
   return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
 }
 
+function isDarkHex(hex: string): boolean {
+  const channels = [1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16) / 255);
+  const [red, green, blue] = channels.map((channel) => (
+    channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+  ));
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue < 0.28;
+}
+
 function readStoredPalettes(): StoredPalettes {
   try {
-    const raw: unknown = JSON.parse(window.localStorage.getItem(PALETTE_STORAGE_KEY) ?? 'null');
+    const currentRaw = window.localStorage.getItem(PALETTE_STORAGE_KEY);
+    const raw: unknown = JSON.parse(currentRaw ?? window.localStorage.getItem(LEGACY_PALETTE_STORAGE_KEY) ?? 'null');
     if (!raw || typeof raw !== 'object') return {};
     const stored = raw as Record<string, unknown>;
     const result: StoredPalettes = {};
-    for (const theme of ['default', 'dark'] as const) {
+    if (currentRaw === null) {
+      const legacyTheme = window.localStorage.getItem(STORAGE_KEY) === 'dark' ? 'dark' : 'default';
+      const candidate = stored[legacyTheme];
+      if (!candidate || typeof candidate !== 'object') return {};
+      const overrides = candidate as Record<string, unknown>;
+      const hasLegacyColors = PALETTE_TOKENS.some((token) => isHexColor(overrides[token]));
+      if (!hasLegacyColors) return {};
+      result.custom = Object.fromEntries(PALETTE_TOKENS.map((token) => [
+        token,
+        isHexColor(overrides[token]) ? overrides[token].toUpperCase() : hslToHex(BASE_PALETTES[legacyTheme][token]),
+      ])) as PaletteColors;
+      return result;
+    }
+    for (const theme of ['default', 'dark', 'custom'] as const) {
       const candidate = stored[theme];
       if (!candidate || typeof candidate !== 'object') continue;
       const valid: Partial<PaletteColors> = {};
@@ -171,19 +199,37 @@ function hexToHsl(hex: string): string {
 
 function readStoredTheme(): AppColorTheme {
   try {
-    return window.localStorage.getItem(STORAGE_KEY) === 'dark' ? 'dark' : 'default';
+    const savedTheme = window.localStorage.getItem(STORAGE_KEY);
+    if (savedTheme === 'custom') return 'custom';
+    const legacyPalettes = window.localStorage.getItem(PALETTE_STORAGE_KEY) === null
+      ? JSON.parse(window.localStorage.getItem(LEGACY_PALETTE_STORAGE_KEY) ?? 'null') as Record<string, unknown> | null
+      : null;
+    const previousTheme = savedTheme === 'dark' ? 'dark' : 'default';
+    const previousColors = legacyPalettes?.[previousTheme];
+    if (previousColors && typeof previousColors === 'object'
+      && PALETTE_TOKENS.some((token) => isHexColor((previousColors as Record<string, unknown>)[token]))) {
+      return 'custom';
+    }
+    return previousTheme;
   } catch {
     return 'default';
   }
 }
 
 export function ColorThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<AppColorTheme>(readStoredTheme);
+  const [theme, setThemeState] = useState<AppColorTheme>(readStoredTheme);
   const [palettes, setPalettes] = useState<StoredPalettes>(readStoredPalettes);
 
   const colors = useMemo(() => Object.fromEntries(
     PALETTE_TOKENS.map((token) => [token, palettes[theme]?.[token] ?? hslToHex(BASE_PALETTES[theme][token])]),
   ) as PaletteColors, [palettes, theme]);
+
+  const setTheme = useCallback((nextTheme: AppColorTheme) => {
+    if (nextTheme === 'custom') {
+      setPalettes((current) => current.custom ? current : { ...current, custom: { ...colors } });
+    }
+    setThemeState(nextTheme);
+  }, [colors]);
 
   const setColor = useCallback((token: PaletteToken, hex: string) => {
     if (!isHexColor(hex)) return;
@@ -203,6 +249,9 @@ export function ColorThemeProvider({ children }: { children: ReactNode }) {
 
   useLayoutEffect(() => {
     document.documentElement.dataset.colorTheme = theme;
+    const darkScheme = theme === 'dark' || (theme === 'custom' && isDarkHex(colors.background));
+    document.documentElement.dataset.colorScheme = darkScheme ? 'dark' : 'light';
+    document.documentElement.style.setProperty('--brand-red', darkScheme ? '0 78% 68%' : '0 72% 34%');
     const overrides = palettes[theme] ?? {};
     for (const token of PALETTE_TOKENS) {
       const value = overrides[token];
@@ -212,12 +261,13 @@ export function ColorThemeProvider({ children }: { children: ReactNode }) {
     try {
       window.localStorage.setItem(STORAGE_KEY, theme);
       window.localStorage.setItem(PALETTE_STORAGE_KEY, JSON.stringify(palettes));
+      window.localStorage.removeItem(LEGACY_PALETTE_STORAGE_KEY);
     } catch {
       // Keep the selected theme for this session when browser storage is unavailable.
     }
-  }, [theme, palettes]);
+  }, [theme, palettes, colors]);
 
-  const value = useMemo(() => ({ theme, setTheme, colors, setColor, resetColors }), [theme, colors, setColor, resetColors]);
+  const value = useMemo(() => ({ theme, setTheme, colors, setColor, resetColors }), [theme, setTheme, colors, setColor, resetColors]);
   return <ColorThemeContext.Provider value={value}>{children}</ColorThemeContext.Provider>;
 }
 

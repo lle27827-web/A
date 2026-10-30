@@ -128,6 +128,7 @@ export const clerkAppearance = {
 };
 
 export const WELCOME_TITLE = "Chào mừng bạn đến với Sổ Công";
+const WELCOME_BRAND = "Sổ Công";
 
 function WelcomeHeading({ level = 1, headingId = "welcome-title", headingRef }: {
   level?: 1 | 2;
@@ -138,7 +139,9 @@ function WelcomeHeading({ level = 1, headingId = "welcome-title", headingRef }: 
   return (
     <div className="welcome">
       <span className="brand-mark"><Hand size={22} strokeWidth={2.4} aria-hidden="true" /></span>
-      <Heading id={headingId} ref={headingRef} tabIndex={headingRef ? -1 : undefined} data-testid="text-welcome-title">{WELCOME_TITLE}</Heading>
+      <Heading id={headingId} ref={headingRef} tabIndex={headingRef ? -1 : undefined} data-testid="text-welcome-title">
+        Chào mừng bạn đến với <span className="welcome-brand">{WELCOME_BRAND}</span>
+      </Heading>
       <p id="welcome-instructions" data-testid="text-welcome-subtitle">Hãy đăng nhập để sử dụng dịch vụ</p>
     </div>
   );
