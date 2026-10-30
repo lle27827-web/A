@@ -79,6 +79,8 @@
   --auth-button-foreground: 210 7% 24%;
   --auth-button-border: 220 13% 87%;
   --auth-button-hover: 210 17% 98%;
+  --revenue-background: 27 42% 29%;
+  --revenue-foreground: 35 65% 93%;
 }
 
 :root[data-color-theme="dark"] {
@@ -124,6 +126,8 @@
   --auth-button-foreground: 210 7% 24%;
   --auth-button-border: 220 13% 87%;
   --auth-button-hover: 210 17% 98%;
+  --revenue-background: 27 45% 22%;
+  --revenue-foreground: 36 80% 92%;
 }
 
 
