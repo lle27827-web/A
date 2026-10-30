@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetPersonalComparisonQueryKey, getGetPersonalNotebookQueryKey,
@@ -7,19 +7,25 @@ import {
 } from '@workspace/api-client-react';
 import type { PersonalService, PersonalSession } from '@workspace/api-client-react';
 import { summarizeServiceDurations, serviceDurationLabel } from '@/lib/service-duration-summary';
-import { AlertCircle, ArrowLeft, BookHeart, CalendarDays, Check, ChevronLeft, ChevronRight, History, Home, LogIn, Plus, Scale, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, BookHeart, CalendarDays, Check, ChevronLeft, ChevronRight, Home, LogIn, Plus, Scale, X } from 'lucide-react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { ConfirmDialog, ErrorBanner, Skeleton, type ConfirmState } from '@/components/modal';
 import { DatePickerDialog } from '@/components/date-picker-dialog';
-import { HistoryMonthsDialog, defaultDateFor } from '@/components/history-months-dialog';
+import { defaultDateFor } from '@/components/history-months-dialog';
 import { ComparisonDialog } from '@/components/personal/comparison-dialog';
 import { PersonalServiceDialog, PersonalShiftDialog } from '@/components/personal/personal-dialogs';
 import { ServiceList, ShiftList } from '@/components/personal/personal-lists';
-import { formatDate, formatShortDate } from '@/lib/attendance';
+import { formatShortDate } from '@/lib/attendance';
 import { errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth } from '@/lib/massage';
 import { resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
 
-function PersonalFrame({ children, onSignOut }: { children: ReactNode; onSignOut?: () => void }) {
+function PersonalFrame({ children, onSignOut, onTouchStart, onTouchEnd, onTouchCancel }: {
+  children: ReactNode;
+  onSignOut?: () => void;
+  onTouchStart?: (event: ReactTouchEvent<HTMLElement>) => void;
+  onTouchEnd?: (event: ReactTouchEvent<HTMLElement>) => void;
+  onTouchCancel?: () => void;
+}) {
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       const main = document.getElementById('main');
@@ -39,7 +45,7 @@ function PersonalFrame({ children, onSignOut }: { children: ReactNode; onSignOut
           {onSignOut && <button type="button" className="link-soft as-button p-logout" onClick={onSignOut} data-testid="button-personal-sign-out">Đăng xuất</button>}
         </div>
       </header>
-      <main className="p-main" id="main" tabIndex={-1}>
+      <main className="p-main" id="main" tabIndex={-1} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} onTouchCancel={onTouchCancel}>
         {children}
         <nav className="screen-nav" aria-label="Điều hướng trang">
           <Link href="/" className="btn ghost" data-testid="link-personal-home"><Home size={15} aria-hidden="true" />Về sổ cơ sở</Link>
@@ -65,7 +71,13 @@ export function PersonalSignInRequired({ authConfigured }: { authConfigured: boo
   );
 }
 
-type Dlg = { kind: 'service'; item: PersonalService | null } | { kind: 'shift'; item: PersonalSession | null } | { kind: 'compare' } | { kind: 'history' } | { kind: 'date' };
+type Dlg = { kind: 'service'; item: PersonalService | null } | { kind: 'shift'; item: PersonalSession | null } | { kind: 'compare' } | { kind: 'date' };
+
+function shiftDay(date: string, delta: number) {
+  const [year, month, day] = date.split('-').map(Number);
+  const next = new Date(Date.UTC(year, month - 1, day + delta));
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
+}
 
 export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) {
   const [, navigate] = useLocation();
@@ -90,6 +102,7 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
   const updateSettings = useUpdatePersonalSettings();
   const [mode, setMode] = useState<'day' | 'month'>('day');
   const [settingError, setSettingError] = useState('');
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
 
   function refresh() {
     void cache.invalidateQueries({ queryKey: getGetPersonalNotebookQueryKey() });
@@ -102,6 +115,29 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
   function goPeriod(m: string, d?: string) {
     const next = m > currentMonth ? currentMonth : m;
     navigate(`/personal?month=${next}&date=${d && monthOf(d) === next ? d : defaultDateFor(next, today)}`);
+  }
+  function startDaySwipe(event: ReactTouchEvent<HTMLElement>) {
+    const target = event.target;
+    if (!(target instanceof Element) || target.closest('button, a, input, select, textarea, [role="dialog"], .settings-overlay, [contenteditable="true"]') || event.touches.length !== 1) {
+      swipeStart.current = null;
+      return;
+    }
+    const touch = event.touches[0];
+    swipeStart.current = { x: touch.clientX, y: touch.clientY };
+  }
+  function finishDaySwipe(event: ReactTouchEvent<HTMLElement>) {
+    const start = swipeStart.current;
+    swipeStart.current = null;
+    if (!start || event.changedTouches.length !== 1) return;
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < 55 || Math.abs(deltaX) < Math.abs(deltaY) * 1.25) return;
+    const nextDate = shiftDay(date, deltaX > 0 ? -1 : 1);
+    if (nextDate <= today) {
+      setMode('day');
+      goPeriod(monthOf(nextDate), nextDate);
+    }
   }
   function open(next: Dlg) { setDialogError(''); setDlg(next); }
 
@@ -138,11 +174,14 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
   });
 
   return (
-    <PersonalFrame onSignOut={onSignOut}>
+    <PersonalFrame onSignOut={onSignOut} onTouchStart={startDaySwipe} onTouchEnd={finishDaySwipe} onTouchCancel={() => { swipeStart.current = null; }}>
       <section className="p-hero" aria-labelledby="p-title" data-testid="section-personal-hero">
         <div className="month-nav">
           <button type="button" className="icon-btn" onClick={() => goPeriod(shiftMonth(month, -1))} aria-label="Tháng trước" data-testid="button-personal-prev-month"><ChevronLeft size={16} /></button>
-          <h1 id="p-title" className="rev-label">Thu nhập của tôi · {formatMonth(month)}</h1>
+          <div className="personal-period">
+            <h1 id="p-title">{formatShortDate(date)}</h1>
+            <span>{formatMonth(month)}</span>
+          </div>
           <button type="button" className="icon-btn" disabled={month >= currentMonth} onClick={() => goPeriod(shiftMonth(month, 1))} aria-label="Tháng sau" data-testid="button-personal-next-month"><ChevronRight size={16} /></button>
         </div>
         {nb.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải sổ" /> : !data ? (
@@ -164,7 +203,6 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
         <div className="p-actions">
           <button type="button" className="btn primary" disabled={!data || !services.length} onClick={() => open({ kind: 'shift', item: null })} data-testid="button-add-personal-shift"><Plus size={15} />Ghi ca</button>
           <button type="button" className="btn" onClick={() => open({ kind: 'date' })} data-testid="button-personal-date"><CalendarDays size={14} />{formatShortDate(date)}</button>
-          <button type="button" className="btn" onClick={() => open({ kind: 'history' })} data-testid="button-personal-history"><History size={14} />Lịch sử tháng</button>
           <button type="button" className="btn" onClick={() => open({ kind: 'compare' })} data-testid="button-personal-compare"><Scale size={14} />Đối chiếu</button>
         </div>
         {!nb.isLoading && !nb.isError && !services.length && <p className="hint" data-testid="text-personal-no-services">Thêm ít nhất một dịch vụ để bắt đầu ghi ca.</p>}
@@ -178,7 +216,7 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
         : (
           <div className="p-grid">
             <section className="p-card" aria-label="Ca của tôi" data-testid="section-personal-shifts">
-              <h2 className="day-title"><CalendarDays size={16} aria-hidden="true" />{mode === 'day' ? formatDate(date) : `Tất cả ca ${formatMonth(month).toLowerCase()}`}</h2>
+              <h2 className="day-title"><CalendarDays size={16} aria-hidden="true" />{mode === 'day' ? 'Ca trong ngày' : `Tất cả ca ${formatMonth(month).toLowerCase()}`}</h2>
               <div className="seg" role="tablist" aria-label="Chế độ xem ca">
                 <button type="button" role="tab" aria-selected={mode === 'day'} className={mode === 'day' ? 'active' : ''} onClick={() => setMode('day')} data-testid="tab-personal-day">Ngày · {daySessions.length}</button>
                 <button type="button" role="tab" aria-selected={mode === 'month'} className={mode === 'month' ? 'active' : ''} onClick={() => setMode('month')} data-testid="tab-personal-month">Tháng · {sessions.length}</button>
@@ -204,8 +242,6 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
           ? updateShift.mutate({ id: dlg.item.id, data: input }, { onSuccess: (saved) => { done('Đã cập nhật ca.'); goSaved(saved.workDate); }, onError: failed })
           : createShift.mutate({ data: input }, { onSuccess: (saved) => { done('Đã ghi ca.'); goSaved(saved.workDate); }, onError: failed }); }} />}
       {dlg?.kind === 'compare' && <ComparisonDialog month={month} date={date} onClose={() => setDlg(null)} onUpdated={refresh} />}
-      {dlg?.kind === 'history' && <HistoryMonthsDialog title="Lịch sử sổ của tôi" months={data?.months ?? []} onClose={() => setDlg(null)}
-        onPick={(m, d) => { setDlg(null); goPeriod(m, d); }} />}
       {dlg?.kind === 'date' && <DatePickerDialog value={date} title="Chọn ngày" immediate onClose={() => setDlg(null)} onSelect={(d) => { setDlg(null); goPeriod(monthOf(d), d); }} />}
       {confirm && <ConfirmDialog state={confirm} busy={deleteService.isPending || deleteShift.isPending} onClose={() => setConfirm(null)} />}
     </PersonalFrame>

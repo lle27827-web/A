@@ -460,6 +460,9 @@ a.hit:hover, .emp-row:hover, .card-row:hover { border-color: hsl(var(--primary) 
 .facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0; }
 .facts dt { font-size: 11px; color: hsl(var(--muted-foreground)); }
 .facts dd { margin: 2px 0 0; font-weight: 800; font-size: 15px; }
+.personal-period { flex: 1; min-width: 0; display: grid; justify-items: center; gap: 2px; text-align: center; }
+.personal-period h1 { margin: 0; font-size: clamp(15px, 4vw, 19px); font-weight: 800; line-height: 1.2; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.personal-period span { font-size: 12px; font-weight: 700; }
 
 .dc-wd { font-size: 11px; font-weight: 700; }
 .dc-num { font-family: var(--app-font-display); font-size: 24px; font-weight: 800; letter-spacing: -.04em; line-height: 1.1; }
@@ -799,7 +802,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .p-mark { background: hsl(var(--jade)); border-radius: 9px 9px 3px 9px; }
 .p-pill { padding: 4px 10px; border-radius: 99px; border: 1px solid hsl(var(--jade) / .5); color: hsl(var(--jade)); font-size: 12px; font-weight: 700; }
 .p-logout { margin-left: auto; }
-.p-main { width: min(1080px, 100% - 32px); margin: 0 auto; padding: 22px 0 36px; display: grid; gap: 16px; flex: 1; align-content: start; }
+.p-main { width: min(1080px, 100% - 32px); margin: 0 auto; padding: 22px 0 36px; display: grid; gap: 16px; flex: 1; align-content: start; touch-action: pan-y; }
 .p-hero { padding: 22px; border-radius: 22px 22px 22px 6px; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--card-foreground)); animation: rise .3s ease both; }
 .p-totals { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; margin: 10px 0 16px; }
 .p-totals > div { min-width: 0; }
@@ -1182,6 +1185,73 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .personal .p-card .btn.danger-text,
 .dialog.personal-surface-dialog .btn.danger-text {
   color: hsl(0 66% 38%);
+}
+
+/* Keep functional controls white across the home screen, navigation, settings, and personal view. */
+.btn,
+.btn.primary,
+.btn.danger,
+.btn.ghost,
+.icon-btn,
+.gear-btn,
+.theme-edit-button,
+.seg button,
+.settings-link,
+.screen-nav [data-testid="button-return-previous"],
+.personal .p-hero button,
+.personal .p-card button,
+.personal-surface-dialog button,
+.personal .p-hero .btn,
+.personal .p-card .btn,
+.personal-surface-dialog .btn,
+.personal .p-hero .btn:not(.primary),
+.personal .p-card .btn:not(.primary) {
+  border-color: hsl(27 25% 62%);
+  color: hsl(27 42% 21%);
+  background: hsl(0 0% 100%);
+}
+.btn:hover:not(:disabled),
+.btn.primary:hover:not(:disabled),
+.btn.ghost:hover:not(:disabled),
+.icon-btn:hover:not(:disabled),
+.gear-btn:hover,
+.theme-edit-button:hover,
+.seg button:hover:not(:disabled),
+.settings-link:hover,
+.screen-nav [data-testid="button-return-previous"]:hover,
+.personal .p-hero button:hover:not(:disabled),
+.personal .p-card button:hover:not(:disabled),
+.personal-surface-dialog button:hover:not(:disabled),
+.personal .p-hero .btn:hover:not(:disabled),
+.personal .p-card .btn:hover:not(:disabled),
+.personal-surface-dialog .btn:hover:not(:disabled),
+.personal .p-hero .btn:not(.primary):hover:not(:disabled),
+.personal .p-card .btn:not(.primary):hover:not(:disabled) {
+  border-color: hsl(27 32% 50%);
+  color: hsl(27 48% 17%);
+  background: hsl(40 48% 96%);
+}
+.btn.danger,
+.icon-btn.danger,
+.danger-text,
+.personal .p-hero .btn.danger-text,
+.personal .p-card .btn.danger-text,
+.personal-surface-dialog .btn.danger-text {
+  border-color: hsl(0 55% 62%);
+  color: hsl(0 66% 38%);
+}
+.btn.danger:hover:not(:disabled),
+.icon-btn.danger:hover:not(:disabled),
+.danger-text:hover:not(:disabled) {
+  border-color: hsl(0 55% 55%);
+  color: hsl(0 70% 32%);
+  background: hsl(0 0% 97%);
+}
+.seg button.active {
+  border-color: hsl(27 35% 40%);
+  color: hsl(27 42% 21%);
+  background: hsl(0 0% 100%);
+  box-shadow: inset 0 -3px hsl(27 42% 30%);
 }
 .dialog.personal-surface-dialog .form-error {
   color: hsl(var(--destructive));
