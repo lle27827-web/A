@@ -41,6 +41,8 @@ export const PALETTE_TOKENS = [
   'auth-button-foreground',
   'auth-button-border',
   'auth-button-hover',
+  'revenue-background',
+  'revenue-foreground',
 ] as const;
 
 export type PaletteToken = typeof PALETTE_TOKENS[number];
@@ -107,6 +109,14 @@ const groups: { title: string; description: string; tokens: { token: PaletteToke
       { token: 'tile-foreground', label: 'Chữ trên thẻ điều hướng' },
       { token: 'tile-border', label: 'Viền thẻ điều hướng' },
       { token: 'tile-accent', label: 'Biểu tượng/điểm nhấn thẻ' },
+    ],
+  },
+  {
+    title: 'Thống kê doanh thu cơ sở',
+    description: 'Phần nền cam từ tổng doanh thu cơ sở trở xuống; có thể chỉnh riêng nền và chữ.',
+    tokens: [
+      { token: 'revenue-background', label: 'Nền thống kê doanh thu' },
+      { token: 'revenue-foreground', label: 'Chữ trong thống kê doanh thu' },
     ],
   },
   {

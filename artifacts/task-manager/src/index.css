@@ -677,6 +677,33 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .revenue .rev-breakdown .net-revenue-row.rev-key dd,
 .revenue .rev-breakdown .net-revenue-row.rev-key dd strong { min-width: 0; max-width: 100%; font-size: 16px; line-height: 1.4; overflow-wrap: anywhere; }
 .revenue .rev-breakdown .net-revenue-row.rev-key dd { flex: 1 1 0; text-align: right; }
+.revenue-summary {
+  min-width: 0;
+  margin-top: 10px;
+  padding: 12px 14px 14px;
+  border: 1px solid hsl(var(--revenue-foreground) / .3);
+  border-radius: 14px;
+  background: hsl(var(--revenue-background));
+  color: hsl(var(--revenue-foreground));
+}
+.revenue-summary .rev-label-key {
+  color: hsl(var(--revenue-foreground));
+}
+.revenue-summary .rev-value,
+.revenue-summary .rev-breakdown dt,
+.revenue-summary .rev-breakdown dd,
+.revenue-summary .rev-breakdown dd strong,
+.revenue-summary .service-duration-list {
+  color: hsl(var(--revenue-foreground));
+}
+.revenue-summary .rev-breakdown .rev-key dd,
+.revenue-summary .rev-breakdown .rev-key dd strong {
+  color: hsl(var(--revenue-foreground));
+}
+.revenue-summary .net-revenue-row {
+  border-color: hsl(var(--revenue-foreground) / .3);
+  background: transparent;
+}
 .window-nav.bottom { margin: 18px 0 0; }
 .history-pick { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; margin-top: 12px; }
 .month-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 44dvh; overflow-y: auto; }

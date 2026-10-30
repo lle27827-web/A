@@ -79,6 +79,7 @@ export default function HomePage() {
             <Link href="/" className="btn ghost" data-testid="link-current-revenue">Về tháng hiện tại</Link>
           </div>
         )}
+        <div className="revenue-summary" data-testid="revenue-summary">
         <h1 id="rev-title" className="rev-label rev-label-key">Tổng doanh thu cơ sở · {formatMonth(month)}</h1>
         {summary.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải doanh thu" /> : summary.isError
           ? statusCode(summary.error) === 401 || statusCode(summary.error) === 403
@@ -141,6 +142,7 @@ export default function HomePage() {
             </dl>
           </>
         )}
+        </div>
       </section>}
     </div>
   );
