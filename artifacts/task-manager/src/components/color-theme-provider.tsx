@@ -59,8 +59,8 @@ const BASE_PALETTES: Record<AppColorTheme, Record<PaletteToken, string>> = {
     'auth-button-foreground': '210 7% 24%',
     'auth-button-border': '220 13% 87%',
     'auth-button-hover': '210 17% 98%',
-    'revenue-background': '28 92% 65%',
-    'revenue-foreground': '30 55% 14%',
+    'revenue-background': '27 42% 29%',
+    'revenue-foreground': '35 65% 93%',
   },
   dark: {
     background: '0 0% 4%',
@@ -103,7 +103,7 @@ const BASE_PALETTES: Record<AppColorTheme, Record<PaletteToken, string>> = {
     'auth-button-foreground': '210 7% 24%',
     'auth-button-border': '220 13% 87%',
     'auth-button-hover': '210 17% 98%',
-    'revenue-background': '24 70% 31%',
+    'revenue-background': '27 45% 22%',
     'revenue-foreground': '36 80% 92%',
   },
 };
