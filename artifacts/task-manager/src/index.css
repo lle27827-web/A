@@ -535,6 +535,42 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .emp-row.wrap { flex-wrap: wrap; }
 @media (max-width: 420px) { .settings-dialog { padding: 16px; } }
 
+/* Keep global search results within narrow phone screens, including long names and service labels. */
+.search-results {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+.search-results .panel-head > div,
+.search-results .hit-list,
+.search-results .hit-list > li {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+.search-results .panel-head h2 { min-width: 0; overflow-wrap: anywhere; }
+.search-results .hit {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+.search-results .hit > .grow {
+  flex: 1 1 120px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.search-results .hit > .mono {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
 /* ---- SỔ CÔNG: reports and card history ---- */
 .reports { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .rev-breakdown { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; margin: 12px 0 0; }
@@ -1012,3 +1048,44 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   border-width: 2px;
   border-color: hsl(var(--frame-border) / .82);
 }
+
+/* Use the same high-contrast red surface for action buttons in facility and personal attendance. */
+.btn,
+.btn.primary,
+.btn.danger,
+.btn.ghost,
+.icon-btn,
+.gear-btn,
+.theme-edit-button,
+.seg button,
+.screen-nav [data-testid="button-return-previous"],
+.personal .p-hero .btn:not(.primary),
+.personal .p-card .btn:not(.primary) {
+  border-color: hsl(0 72% 37%);
+  color: hsl(0 0% 100%);
+  background: hsl(0 72% 42%);
+}
+.btn:hover:not(:disabled),
+.btn.primary:hover:not(:disabled),
+.btn.danger:hover:not(:disabled),
+.btn.ghost:hover:not(:disabled),
+.icon-btn:hover:not(:disabled),
+.gear-btn:hover,
+.theme-edit-button:hover,
+.seg button:hover:not(:disabled),
+.screen-nav [data-testid="button-return-previous"]:hover,
+.personal .p-hero .btn:not(.primary):hover:not(:disabled),
+.personal .p-card .btn:not(.primary):hover:not(:disabled) {
+  border-color: hsl(0 75% 31%);
+  color: hsl(0 0% 100%);
+  background: hsl(0 75% 31%);
+}
+.seg button.active {
+  border-color: hsl(0 75% 31%);
+  color: hsl(0 0% 100%);
+  background: hsl(0 75% 31%);
+}
+.personal .p-hero .btn.danger-text,
+.personal .p-card .btn.danger-text { color: hsl(0 0% 100%); }
+.auth-google-button { background: hsl(var(--auth-button-background)); color: hsl(var(--auth-button-foreground)); border-color: hsl(var(--auth-button-border)); }
+.auth-google-button:hover:not(:disabled) { background: hsl(var(--auth-button-hover)); }
