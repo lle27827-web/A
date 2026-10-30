@@ -303,6 +303,7 @@ input, select, textarea { box-sizing: border-box; min-width: 0; max-width: 100%;
 @media (max-width: 640px) {
   .topbar-inner { flex-wrap: wrap; gap: 8px 12px; padding: 8px 0; }
   .search { order: 3; flex-basis: 100%; max-width: none; }
+  .search input { font-size: 16px; }
   .panel { padding: 12px; }
   .panel-head.wrap > * { width: 100%; }
   .head-actions .btn.primary { flex: 1; }
@@ -1089,3 +1090,46 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .personal .p-card .btn.danger-text { color: hsl(0 0% 100%); }
 .auth-google-button { background: hsl(var(--auth-button-background)); color: hsl(var(--auth-button-foreground)); border-color: hsl(var(--auth-button-border)); }
 .auth-google-button:hover:not(:disabled) { background: hsl(var(--auth-button-hover)); }
+
+/* Personal attendance uses a warm milk-white surface for its controls, distinct from facility controls. */
+.personal button,
+.personal button[class],
+.personal a.btn,
+.personal .p-hero .btn:not(.primary),
+.personal .p-card .btn:not(.primary),
+.personal-surface-dialog button,
+.personal-surface-dialog button[class],
+.personal-surface-dialog a.btn {
+  border-color: hsl(31 30% 68%);
+  color: hsl(27 42% 21%);
+  background: hsl(40 48% 94%);
+}
+.personal button:hover:not(:disabled),
+.personal button[class]:hover:not(:disabled),
+.personal a.btn:hover:not(:disabled),
+.personal .p-hero .btn:not(.primary):hover:not(:disabled),
+.personal .p-card .btn:not(.primary):hover:not(:disabled),
+.personal-surface-dialog button:hover:not(:disabled),
+.personal-surface-dialog button[class]:hover:not(:disabled),
+.personal-surface-dialog a.btn:hover:not(:disabled) {
+  border-color: hsl(31 32% 58%);
+  color: hsl(27 48% 17%);
+  background: hsl(39 54% 88%);
+}
+.personal .p-hero .btn.primary,
+.personal .p-card .btn.primary,
+.personal-surface-dialog .btn.primary,
+.personal-surface-dialog .btn.danger {
+  border-color: hsl(31 30% 68%);
+  color: hsl(27 42% 21%);
+  background: hsl(40 48% 94%);
+}
+.personal .p-hero .btn.danger-text,
+.personal .p-card .btn.danger-text,
+.personal-surface-dialog .btn.danger-text {
+  color: hsl(0 66% 38%);
+}
+.personal .seg button.active,
+.personal-surface-dialog .seg button.active {
+  box-shadow: inset 0 -3px hsl(27 42% 30%);
+}
