@@ -1133,3 +1133,57 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .personal-surface-dialog .seg button.active {
   box-shadow: inset 0 -3px hsl(27 42% 30%);
 }
+
+/* Emphasize personal attendance content in white while preserving the existing control-label colors. */
+.personal .p-hero,
+.personal .p-card,
+.personal .p-welcome,
+.dialog.personal-surface-dialog {
+  color: hsl(0 0% 100%);
+}
+.personal .p-hero :is(h1, h2, h3, p, span, strong, small, label, li, dt, dd, time, .rev-label, .p-mid, .muted, .p-pill, .group-title, span.p-date, .p-earn, .service-duration-list),
+.personal .p-card :is(h1, h2, h3, p, span, strong, small, label, li, dt, dd, time, .rev-label, .p-mid, .muted, .p-pill, .group-title, span.p-date, .p-earn, .service-duration-list),
+.personal .p-welcome :is(h1, h2, h3, p, span, strong, small, label, li, dt, dd, time, .muted),
+.dialog.personal-surface-dialog :is(h1, h2, h3, p, span, strong, small, label, li, dt, dd, time, .rev-label, .muted, .group-title, .hint) {
+  color: hsl(0 0% 100%);
+  font-weight: 700;
+}
+.personal .p-hero :is(h1, h2, h3, strong, .p-big, .p-mid),
+.personal .p-card :is(h1, h2, h3, strong, .p-big, .p-mid, .p-earn),
+.personal .p-welcome :is(h1, h2, h3, strong),
+.dialog.personal-surface-dialog :is(h1, h2, h3, strong) {
+  font-weight: 800;
+}
+.dialog.personal-surface-dialog :is(input:not([type="checkbox"]), select, textarea) {
+  color: hsl(0 0% 100%);
+  font-weight: 700;
+}
+.personal .p-hero button,
+.personal .p-hero a.btn,
+.personal .p-card button,
+.personal .p-card a.btn,
+.dialog.personal-surface-dialog button,
+.dialog.personal-surface-dialog a.btn {
+  color: hsl(27 42% 21%);
+}
+.personal .p-hero button *,
+.personal .p-hero button[class] *,
+.personal .p-hero a.btn *,
+.personal .p-card button *,
+.personal .p-card button[class] *,
+.personal .p-card a.btn *,
+.dialog.personal-surface-dialog button *,
+.dialog.personal-surface-dialog button[class] *,
+.dialog.personal-surface-dialog a.btn * {
+  color: hsl(27 42% 21%);
+  font-weight: inherit;
+}
+.personal .p-hero .btn.danger-text,
+.personal .p-card .btn.danger-text,
+.dialog.personal-surface-dialog .btn.danger-text {
+  color: hsl(0 66% 38%);
+}
+.dialog.personal-surface-dialog .form-error {
+  color: hsl(var(--destructive));
+  font-weight: 700;
+}
