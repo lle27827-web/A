@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
-import { ArrowLeft, BookHeart, ChevronRight, History, Home, KeyRound, Palette, Settings, Trash2, X } from 'lucide-react';
+import { ArrowLeft, BookHeart, ChevronRight, History, Home, KeyRound, Menu, Palette, Trash2, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
@@ -79,7 +79,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
     <>
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Trigger asChild>
-        <button type="button" className="gear-btn" aria-label="Cài đặt" data-testid="button-view-settings"><Settings size={18} /></button>
+        <button type="button" className="gear-btn" aria-label="Cài đặt" data-testid="button-view-settings"><Menu size={20} strokeWidth={2.5} aria-hidden="true" /></button>
       </DialogPrimitive.Trigger>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="settings-overlay" />
