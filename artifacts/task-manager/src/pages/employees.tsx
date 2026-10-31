@@ -118,11 +118,11 @@ export default function EmployeesPage() {
       {choice && (
         <Modal title={choice.name} onClose={() => setChoice(null)} testId="dialog-employee-choice">
           <div className="choice-list">
-            <button type="button" className="choice-row" disabled={!canEdit} aria-describedby={canEdit ? undefined : 'choice-lock'}
+            <button type="button" className="choice-row employee-choice-row" disabled={!canEdit} aria-describedby={canEdit ? undefined : 'choice-lock'}
               onClick={() => { if (!canEdit) return; setDialogError(''); setQuickDate(localDate()); setQuick(choice); setChoice(null); }} data-testid="button-choice-attendance">
               <ClipboardCheck size={18} /><span className="grow"><strong>Chấm công</strong><span className="muted">Hôm nay</span></span><ChevronRight size={16} />
             </button>
-            <button type="button" className="choice-row" onClick={() => { const id = choice.id; setChoice(null); navigate(withHistory(`/employees/${id}`)); }} data-testid="button-choice-detail">
+            <button type="button" className="choice-row employee-choice-row" onClick={() => { const id = choice.id; setChoice(null); navigate(withHistory(`/employees/${id}`)); }} data-testid="button-choice-detail">
               <Eye size={18} /><span className="grow"><strong>Xem chi tiết</strong><span className="muted">Lương, lịch sử ca</span></span><ChevronRight size={16} />
             </button>
           </div>
