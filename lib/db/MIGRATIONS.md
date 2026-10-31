@@ -85,6 +85,10 @@ append-only migration sequence. A partially populated schema is not baselined or
 reset; verification fails the build if required tables/columns are absent. These
 commands do not migrate the failover control table, whose migration remains
 explicit and must be run before deploying code that requires its recovery fields.
+Before changing schemas, the migration command requires four distinct resolved
+stores. The retention-index step then uses the single `DATABASE_URL` target
+supplied by each loop iteration; it must not re-resolve all store variables
+inside the per-store migration.
 Do not replace the Vercel compatibility path with general `migrate` on a
 populated database until that Vercel target has been audited and its baseline
 explicitly authorized and recorded.
