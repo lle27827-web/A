@@ -1269,3 +1269,73 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   color: hsl(var(--destructive));
   font-weight: 700;
 }
+
+/* Dark-green home shortcuts and return navigation. */
+.home .tile-employees,
+.home .tile-cards,
+.home .tile-appointments,
+.home .tile-services,
+.screen-nav .btn {
+  border-color: hsl(145 48% 20%);
+  color: hsl(0 0% 100%);
+  background: hsl(145 48% 25%);
+}
+.home .tile-employees > svg,
+.home .tile-cards > svg,
+.home .tile-appointments > svg,
+.home .tile-services > svg,
+.home .tile-employees .tile-go,
+.home .tile-cards .tile-go,
+.home .tile-appointments .tile-go,
+.home .tile-services .tile-go,
+.screen-nav .btn {
+  color: hsl(0 0% 100%);
+}
+.home .tile-employees:hover,
+.home .tile-cards:hover,
+.home .tile-appointments:hover,
+.home .tile-services:hover,
+.screen-nav .btn:hover:not(:disabled) {
+  border-color: hsl(145 50% 16%);
+  color: hsl(0 0% 100%);
+  background: hsl(145 50% 19%);
+}
+
+/* Brown list surfaces for employee names and customer card names. */
+.emp-list .emp-row,
+.card-list-item {
+  border-color: hsl(29 32% 48%);
+  color: hsl(40 70% 96%);
+  background: hsl(27 42% 29%);
+}
+.emp-list .emp-row:hover,
+.card-list-item:hover {
+  border-color: hsl(35 42% 62%);
+  color: hsl(40 70% 96%);
+  background: hsl(27 42% 24%);
+}
+.emp-list .emp-row .muted,
+.emp-list .emp-row .employee-summary,
+.card-list-item .card-list-phone,
+.card-list-item .card-list-meta,
+.card-list-item .remain .muted {
+  color: hsl(35 38% 84%);
+}
+.card-list-item .card-list-open,
+.card-list-item .card-list-open:hover {
+  color: hsl(40 70% 96%);
+}
+.card-list-item .meter {
+  background: hsl(28 27% 42%);
+}
+.card-list-item .meter > span {
+  background: hsl(40 60% 82%);
+}
+.card-list-item .card-list-call {
+  border-color: hsl(35 30% 72%);
+  color: hsl(27 42% 21%);
+  background: hsl(40 48% 94%);
+}
+.card-list-item .card-list-call:hover {
+  background: hsl(39 54% 88%);
+}
