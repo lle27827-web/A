@@ -1471,3 +1471,80 @@ option {
 .service-picker-trigger > svg {
   color: hsl(40 70% 96%);
 }
+
+/* Final palette: white home shortcuts, brown global search, green return controls. */
+.home .tile-employees,
+.home .tile-cards,
+.home .tile-appointments,
+.home .tile-services,
+.home .tile-employees:hover,
+.home .tile-cards:hover,
+.home .tile-appointments:hover,
+.home .tile-services:hover {
+  border-color: hsl(27 25% 62%);
+  color: hsl(27 42% 21%);
+  background: hsl(0 0% 100%);
+}
+.home .tile-employees > svg,
+.home .tile-cards > svg,
+.home .tile-appointments > svg,
+.home .tile-services > svg,
+.home .tile-employees .tile-go,
+.home .tile-cards .tile-go,
+.home .tile-appointments .tile-go,
+.home .tile-services .tile-go {
+  color: hsl(27 42% 21%);
+}
+.search {
+  border-color: hsl(27 42% 20%);
+  color: hsl(40 85% 94%);
+  background: hsl(var(--search-background));
+}
+.search > svg {
+  color: hsl(40 85% 94%);
+}
+.search input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]) {
+  border-color: transparent;
+  color: hsl(40 85% 94%);
+  background-color: transparent;
+}
+.search input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"])::placeholder {
+  color: hsl(40 85% 94% / .78);
+}
+.search .icon-btn,
+.search .icon-btn:hover:not(:disabled) {
+  border: 0;
+  color: hsl(40 85% 94%);
+  background: transparent;
+}
+.search .icon-btn:hover:not(:disabled) {
+  background: hsl(0 0% 100% / .12);
+}
+
+/* Keep every visible label and value bold throughout the application. */
+body,
+body * {
+  font-weight: 700 !important;
+}
+body input::placeholder,
+body textarea::placeholder {
+  font-weight: 700 !important;
+}
+
+/* Add-employee and add-card actions use the shared dark-brown treatment. */
+.btn.employee-add-button,
+.btn.employee-add-submit,
+.btn.card-add-button,
+.btn.card-add-submit {
+  border-color: hsl(27 42% 20%);
+  color: hsl(40 70% 96%);
+  background: hsl(27 42% 29%);
+}
+.btn.employee-add-button:hover:not(:disabled),
+.btn.employee-add-submit:hover:not(:disabled),
+.btn.card-add-button:hover:not(:disabled),
+.btn.card-add-submit:hover:not(:disabled) {
+  border-color: hsl(27 42% 16%);
+  color: hsl(40 70% 96%);
+  background: hsl(27 42% 23%);
+}

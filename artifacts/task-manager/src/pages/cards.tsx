@@ -31,7 +31,7 @@ export default function CardsPage() {
     <section className="panel page" aria-labelledby="cards-title">
       <div className="panel-head wrap">
         <div><h1 id="cards-title" className="page-title">Quản lý thẻ</h1><p className="sub">Thẻ liệu trình của khách · trừ theo giờ phục vụ</p></div>
-        {canEdit ? <button type="button" className="btn primary" onClick={() => { setDialogError(''); setOpen(true); }} data-testid="button-add-card"><Plus size={15} />Bán thẻ mới</button>
+        {canEdit ? <button type="button" className="btn primary card-add-button" onClick={() => { setDialogError(''); setOpen(true); }} data-testid="button-add-card"><Plus size={15} />Bán thẻ mới</button>
           : <span className="view-only"><LockKeyhole size={13} />Chỉ xem</span>}
       </div>
       <form role="search" className="card-search" onSubmit={(e) => e.preventDefault()}>
@@ -47,7 +47,7 @@ export default function CardsPage() {
       </form>
       {cardsQuery.isLoading ? <Skeleton rows={5} label="Đang tải thẻ" /> : cardsQuery.isError ? <ErrorBanner text={errorText(cardsQuery.error, 'Không tải được danh sách thẻ.')} onRetry={() => void cardsQuery.refetch()} /> : list.length === 0 ? (
         <div className="empty"><CreditCard size={22} /><p>{query.trim() ? 'Không có thẻ khớp tìm kiếm.' : 'Chưa có thẻ khách hàng nào.'}</p>
-          {canEdit && !query.trim() && !cards.length && <button type="button" className="btn primary" onClick={() => setOpen(true)}><Plus size={15} />Bán thẻ đầu tiên</button>}</div>
+          {canEdit && !query.trim() && !cards.length && <button type="button" className="btn primary card-add-button" onClick={() => setOpen(true)}><Plus size={15} />Bán thẻ đầu tiên</button>}</div>
       ) : (
         <ul className="card-list">
           {list.map((c) => {

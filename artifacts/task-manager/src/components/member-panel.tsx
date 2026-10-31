@@ -25,14 +25,14 @@ export function MemberList({ members, selectedId, canEdit, loading, error, busy,
     <section className="panel members" aria-labelledby="members-title" data-testid="section-members">
       <div className="panel-head">
         <h2 id="members-title">Nhân viên <span className="count" data-testid="text-member-count">{loading ? '…' : members.length}</span></h2>
-        {canEdit && <button type="button" className="btn small" onClick={() => setAdding((v) => !v)} aria-expanded={adding} data-testid="button-add-member"><Plus size={14} />Thêm</button>}
+        {canEdit && <button type="button" className="btn small employee-add-button" onClick={() => setAdding((v) => !v)} aria-expanded={adding} data-testid="button-add-member"><Plus size={14} />Thêm</button>}
       </div>
       {adding && canEdit && (
         <Form {...form}>
           <form className="member-form" onSubmit={form.handleSubmit((values) => onCreate({ name: values.name.trim() }, () => { form.reset({ name: '' }); setAdding(false); }))}>
             <label className="sr-only" htmlFor="member-name">Tên Nhân viên</label>
             <input id="member-name" autoFocus maxLength={120} placeholder="Tên Nhân viên" {...form.register('name', { validate: (v) => v.trim().length > 0 || 'Hãy nhập tên Nhân viên.' })} data-testid="input-member-name" />
-            <button type="submit" className="btn primary small" disabled={busy} data-testid="button-save-member">{busy ? <LoaderCircle className="spin" size={14} /> : 'Lưu'}</button>
+            <button type="submit" className="btn primary small employee-add-submit" disabled={busy} data-testid="button-save-member">{busy ? <LoaderCircle className="spin" size={14} /> : 'Lưu'}</button>
             <button type="button" className="icon-btn" onClick={() => setAdding(false)} aria-label="Hủy thêm Nhân viên"><X size={15} /></button>
             {form.formState.errors.name && <p className="form-error" role="alert">{form.formState.errors.name.message}</p>}
           </form>

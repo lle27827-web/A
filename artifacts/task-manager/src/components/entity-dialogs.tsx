@@ -128,7 +128,7 @@ export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId
         {shown && <p className="form-error" role="alert"><AlertCircle size={13} /> {shown}</p>}
         <div className="dialog-actions">
           <button type="button" className="btn ghost" onClick={onClose}>Hủy</button>
-          <button type="submit" className="btn primary" disabled={busy || pending} data-testid="button-save-card">{busy && <LoaderCircle size={14} className="spin" />}Lưu thẻ</button>
+          <button type="submit" className={`btn primary${card ? '' : ' card-add-submit'}`} disabled={busy || pending} data-testid="button-save-card">{busy && <LoaderCircle size={14} className="spin" />}Lưu thẻ</button>
         </div>
       </form>
     </Modal>
@@ -155,7 +155,7 @@ export function MemberDialog({ member, busy, serverError, onClose, onSubmit }: {
         {shown && <p className="form-error" role="alert"><AlertCircle size={13} /> {shown}</p>}
         <div className="dialog-actions">
           <button type="button" className="btn ghost" onClick={onClose}>Hủy</button>
-          <button type="submit" className="btn primary" disabled={busy} data-testid="button-save-member">{busy && <LoaderCircle size={14} className="spin" />}Lưu</button>
+          <button type="submit" className={`btn primary${member ? '' : ' employee-add-submit'}`} disabled={busy} data-testid="button-save-member">{busy && <LoaderCircle size={14} className="spin" />}Lưu</button>
         </div>
       </form>
     </Modal>
