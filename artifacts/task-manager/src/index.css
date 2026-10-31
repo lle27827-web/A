@@ -1345,3 +1345,30 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   color: hsl(27 42% 21%);
   background: hsl(0 0% 100%);
 }
+/* Keep the four home management shortcuts white; return navigation stays green. */
+.home .tile-employees,
+.home .tile-cards,
+.home .tile-appointments,
+.home .tile-services {
+  border-color: hsl(27 25% 62%);
+  color: hsl(27 42% 21%);
+  background: hsl(0 0% 100%);
+}
+.home .tile-employees > svg,
+.home .tile-cards > svg,
+.home .tile-appointments > svg,
+.home .tile-services > svg,
+.home .tile-employees .tile-go,
+.home .tile-cards .tile-go,
+.home .tile-appointments .tile-go,
+.home .tile-services .tile-go {
+  color: hsl(27 42% 21%);
+}
+.home .tile-employees:hover,
+.home .tile-cards:hover,
+.home .tile-appointments:hover,
+.home .tile-services:hover {
+  border-color: hsl(27 32% 50%);
+  color: hsl(27 42% 21%);
+  background: hsl(40 48% 96%);
+}
