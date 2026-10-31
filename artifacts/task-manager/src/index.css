@@ -1339,3 +1339,9 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .card-list-item .card-list-call:hover {
   background: hsl(39 54% 88%);
 }
+.employee-add-button,
+.employee-add-button:hover:not(:disabled) {
+  border-color: hsl(27 25% 62%);
+  color: hsl(27 42% 21%);
+  background: hsl(0 0% 100%);
+}
