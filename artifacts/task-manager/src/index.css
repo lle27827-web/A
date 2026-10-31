@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap');
 @layer theme, base, clerk, components, utilities;
 @import 'tailwindcss';
 @import '@clerk/themes/shadcn.css';
@@ -54,9 +54,9 @@
   --destructive-foreground: 0 0% 100%;
   --ring: 39 80% 32%;
   --radius: 0.8rem;
-  --app-font-sans: 'DM Sans', sans-serif;
+  --app-font-sans: 'Be Vietnam Pro', sans-serif;
   --app-font-display: 'Manrope', sans-serif;
-  --app-font-mono: 'DM Sans', sans-serif;
+  --app-font-mono: 'Be Vietnam Pro', sans-serif;
   --ok: 150 58% 30%;
   --warn: 30 86% 35%;
   --info: 199 70% 32%;
@@ -135,7 +135,7 @@
 
 @layer base {
   * { @apply border-border; }
-  body { @apply font-sans antialiased bg-background text-foreground; margin: 0; min-width: 320px; min-height: 100dvh; font-weight: 500; }
+  body { @apply font-sans antialiased bg-background text-foreground; margin: 0; min-width: 320px; min-height: 100dvh; font-weight: 600; line-height: 1.45; }
   button, input, textarea, select { box-sizing: border-box; min-width: 0; max-width: 100%; font: inherit; }
   button { cursor: pointer; }
   button:disabled { cursor: not-allowed; opacity: .55; }
@@ -1521,14 +1521,24 @@ option {
   background: hsl(0 0% 100% / .12);
 }
 
-/* Keep every visible label and value bold throughout the application. */
+/* Use a clear bold hierarchy instead of forcing every item to the same weight. */
 body,
 body * {
-  font-weight: 700 !important;
+  font-weight: 600 !important;
 }
 body input::placeholder,
 body textarea::placeholder {
+  font-weight: 600 !important;
+  opacity: .82;
+}
+body :is(button, input, textarea, select, label, .field, .btn, .link-strong) {
   font-weight: 700 !important;
+}
+body :is(h1, h2, h3, h4, h5, h6, strong, b, dt, dd, th, .brand, .page-title, .employee-hero h1, .rev-value, .stat dd, .tile strong, .p-big, .p-mid, .dc-num, .salary-value, .day-salary-value, .rev-key) {
+  font-weight: 800 !important;
+}
+body :is(h1, h2, h3, .page-title, .rev-value, .p-big, .p-mid, .dc-num) {
+  letter-spacing: -.025em;
 }
 
 /* Add-employee and add-card actions use the shared dark-brown treatment. */
