@@ -1548,3 +1548,92 @@ body textarea::placeholder {
   color: hsl(40 70% 96%);
   background: hsl(27 42% 23%);
 }
+
+/* Personal attendance stays yellow in both themes, with white form fields. */
+.personal {
+  color: hsl(27 42% 18%);
+  background: hsl(44 78% 63%);
+}
+:root[data-color-theme="dark"] .personal {
+  color: hsl(27 42% 18%);
+  background: hsl(44 78% 63%);
+}
+.personal .p-top,
+:root[data-color-theme="dark"] .personal .p-top {
+  border-bottom-color: hsl(27 25% 55%);
+  background: hsl(44 78% 63% / .96);
+}
+.personal .p-top a:not(.brand),
+:root[data-color-theme="dark"] .personal .p-top a:not(.brand) {
+  color: hsl(27 42% 18%);
+}
+.personal input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+.personal textarea,
+.personal select:not(.service-select),
+.personal-surface-dialog input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+.personal-surface-dialog textarea,
+.personal-surface-dialog select:not(.service-select) {
+  border-color: hsl(27 25% 62%);
+  color: hsl(27 42% 18%);
+  background-color: hsl(0 0% 100%);
+  color-scheme: light;
+}
+.personal input::placeholder,
+.personal textarea::placeholder,
+.personal-surface-dialog input::placeholder,
+.personal-surface-dialog textarea::placeholder {
+  color: hsl(27 18% 42%);
+  opacity: 1;
+}
+
+/* Settings gear stays yellow; selectable settings rows use brown surfaces. */
+.gear-btn,
+.gear-btn:hover {
+  border-color: hsl(27 42% 20%);
+  color: hsl(27 42% 18%);
+  background: hsl(44 78% 63%);
+}
+.gear-btn:hover {
+  border-color: hsl(27 42% 29%);
+}
+.settings-dialog .settings-link,
+.settings-dialog .settings-link:hover,
+.settings-dialog .theme-option,
+.settings-dialog .theme-option.selected,
+.settings-dialog .mode-option {
+  border-color: hsl(27 42% 20%);
+  color: hsl(40 70% 96%);
+  background: hsl(27 42% 29%);
+}
+.settings-dialog .settings-link:hover,
+.settings-dialog .theme-option:hover,
+.settings-dialog .mode-option:hover {
+  border-color: hsl(35 42% 62%);
+  background: hsl(27 42% 23%);
+}
+.settings-dialog .theme-option.selected,
+.settings-dialog .mode-option:has(input:checked) {
+  border-color: hsl(44 78% 63%);
+  background: hsl(27 42% 23%);
+}
+.settings-dialog .theme-option-copy > span,
+.settings-dialog .mode-option span,
+.settings-dialog .settings-link .muted {
+  color: hsl(35 38% 84%);
+}
+.settings-dialog .settings-link > svg,
+.settings-dialog .settings-link .grow > strong,
+.settings-dialog .theme-option-copy strong,
+.settings-dialog .mode-option strong {
+  color: hsl(40 70% 96%);
+}
+.settings-dialog .theme-edit-button,
+.settings-dialog .theme-edit-button:hover {
+  border-color: hsl(27 42% 20%);
+  color: hsl(40 70% 96%);
+  background: hsl(27 42% 29%);
+}
+.settings-dialog .theme-edit-button:hover {
+  border-color: hsl(35 42% 62%);
+  background: hsl(27 42% 23%);
+}
