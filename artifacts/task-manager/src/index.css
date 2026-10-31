@@ -1586,15 +1586,16 @@ body textarea::placeholder {
   opacity: 1;
 }
 
-/* Settings gear stays yellow; selectable settings rows use brown surfaces. */
+/* Settings gear uses brown with a light icon for contrast. */
 .gear-btn,
 .gear-btn:hover {
   border-color: hsl(27 42% 20%);
-  color: hsl(27 42% 18%);
-  background: hsl(44 78% 63%);
+  color: hsl(40 70% 96%);
+  background: hsl(27 42% 29%);
 }
 .gear-btn:hover {
-  border-color: hsl(27 42% 29%);
+  border-color: hsl(35 42% 62%);
+  background: hsl(27 42% 23%);
 }
 .settings-dialog .settings-link,
 .settings-dialog .settings-link:hover,
@@ -1636,4 +1637,20 @@ body textarea::placeholder {
 .settings-dialog .theme-edit-button:hover {
   border-color: hsl(35 42% 62%);
   background: hsl(27 42% 23%);
+}
+
+/* Sign-out actions use a warm off-white surface in every interface. */
+button[data-testid="button-sign-out"],
+button[data-testid="button-personal-sign-out"],
+button.btn[data-testid="button-no-access-sign-out"] {
+  border: 1px solid hsl(35 30% 72%);
+  color: hsl(27 42% 21%);
+  background: hsl(40 48% 94%);
+}
+button[data-testid="button-sign-out"]:hover:not(:disabled),
+button[data-testid="button-personal-sign-out"]:hover:not(:disabled),
+button.btn[data-testid="button-no-access-sign-out"]:hover:not(:disabled) {
+  border-color: hsl(27 32% 50%);
+  color: hsl(27 42% 21%);
+  background: hsl(39 54% 88%);
 }
