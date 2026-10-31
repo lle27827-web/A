@@ -82,7 +82,7 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
     <Modal title={session ? 'Sửa ca của tôi' : 'Ghi ca của tôi'} onClose={onClose} testId="dialog-personal-shift" className="personal-surface-dialog">
       <form className="form-grid" onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <label className="field">Dịch vụ
-          <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} data-testid="select-personal-service">
+          <select className="service-select" value={serviceId} onChange={(e) => setServiceId(e.target.value)} data-testid="select-personal-service">
             {options.map((o) => <option key={o.id} value={o.id}>{o.name}{archived && o.id === archived.id ? ' (đã lưu trữ)' : ''} · {formatVnd(o.hourlyRate)}/giờ</option>)}
           </select>
         </label>

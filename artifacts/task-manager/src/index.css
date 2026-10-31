@@ -1372,3 +1372,102 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   color: hsl(27 42% 21%);
   background: hsl(40 48% 96%);
 }
+
+/* Keep home shortcuts and all return controls dark green in every theme/view. */
+.home .tile-employees,
+.home .tile-cards,
+.home .tile-appointments,
+.home .tile-services,
+.screen-nav .btn,
+.window-nav .btn,
+.back {
+  border: 1px solid hsl(145 48% 20%);
+  color: hsl(0 0% 100%);
+  background: hsl(145 48% 25%);
+}
+.home .tile-employees > svg,
+.home .tile-cards > svg,
+.home .tile-appointments > svg,
+.home .tile-services > svg,
+.home .tile-employees .tile-go,
+.home .tile-cards .tile-go,
+.home .tile-appointments .tile-go,
+.home .tile-services .tile-go,
+.screen-nav .btn *,
+.window-nav .btn *,
+.back * {
+  color: hsl(0 0% 100%);
+}
+.home .tile-employees:hover,
+.home .tile-cards:hover,
+.home .tile-appointments:hover,
+.home .tile-services:hover,
+.screen-nav .btn:hover:not(:disabled),
+.window-nav .btn:hover:not(:disabled),
+.back:hover:not(:disabled) {
+  border-color: hsl(145 50% 16%);
+  color: hsl(0 0% 100%);
+  background: hsl(145 50% 19%);
+}
+.back {
+  width: fit-content;
+  padding: 7px 11px;
+  border-radius: 8px;
+  text-decoration: none;
+}
+
+/* White text-entry fields remain readable in both built-in themes. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+select,
+textarea {
+  border-color: hsl(27 25% 62%);
+  color: hsl(27 42% 18%);
+  background-color: hsl(0 0% 100%);
+  color-scheme: light;
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"])::placeholder,
+textarea::placeholder {
+  color: hsl(27 18% 42%);
+  opacity: 1;
+}
+option {
+  color: hsl(27 42% 18%);
+  background: hsl(0 0% 100%);
+}
+.search,
+.inline-search,
+.card-search-box {
+  border-color: hsl(27 25% 62%);
+  color: hsl(27 42% 18%);
+  background: hsl(0 0% 100%);
+}
+.search input::placeholder,
+.inline-search input::placeholder,
+.card-search-box input::placeholder {
+  color: hsl(27 18% 42%);
+}
+
+/* Service selection controls and their selected rows are brown in every view. */
+.service-choice-row,
+.service-choice-row[aria-pressed="true"],
+.service-picker-trigger,
+.service-select,
+.service-select option {
+  border-color: hsl(27 42% 20%);
+  color: hsl(40 70% 96%);
+  background: hsl(27 42% 29%);
+}
+.service-choice-row .muted,
+.service-picker-trigger .muted {
+  color: hsl(35 38% 84%);
+}
+.service-choice-row:hover:not(:disabled),
+.service-picker-trigger:hover:not(:disabled) {
+  border-color: hsl(35 42% 62%);
+  color: hsl(40 70% 96%);
+  background: hsl(27 42% 23%);
+}
+.service-choice-row > svg,
+.service-picker-trigger > svg {
+  color: hsl(40 70% 96%);
+}
