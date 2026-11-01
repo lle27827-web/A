@@ -8,6 +8,7 @@ import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
 import { AccessGrantsDialog } from '@/components/access-grants';
 import { useColorTheme, type AppColorTheme } from '@/components/color-theme-provider';
 import { ColorPaletteControls } from '@/components/color-palette-controls';
+import { PrintPreview } from '@/components/print-preview';
 import {
   DEFAULT_PRINT_PREFERENCES,
   PRINT_PAPER_OPTIONS,
@@ -186,6 +187,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
                   placeholder="Nhập số điện thoại cơ sở"
                   data-testid="input-print-facility-phone" />
               </label>
+              <PrintPreview paperSize={printPrefs.paperSize} facilityPhone={printPrefs.facilityPhone} />
             </section>
           )}
 

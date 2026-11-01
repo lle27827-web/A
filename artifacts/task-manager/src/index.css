@@ -437,11 +437,14 @@ a.hit:hover, .emp-row:hover, .card-row:hover { border-color: hsl(var(--primary) 
 .card-list-customer { min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
 .card-list-phone { grid-column: 1 / -1; min-width: 0; color: hsl(var(--muted-foreground)); font-size: 13px; overflow-wrap: anywhere; }
 .card-list-meta { grid-column: 1 / -1; display: grid; gap: 3px; min-width: 0; color: hsl(var(--muted-foreground)); font-size: 12px; overflow-wrap: anywhere; }
+.card-list-actions { display: flex; align-items: center; gap: 6px; }
 .card-list-call { display: grid; place-items: center; width: 36px; height: 36px; color: hsl(var(--primary)); border: 1px solid hsl(var(--border)); border-radius: 10px; }
 .card-list-call:hover { background: hsl(var(--primary) / .08); }
+.card-list-print { padding: 0; cursor: pointer; }
 @media (max-width: 640px) {
   .card-list-item { gap: 6px; padding: 9px; }
   .card-list-open { gap: 4px 7px; }
+  .card-list-actions { gap: 4px; }
   .card-list-call { width: 32px; height: 32px; }
 }
 .card-phone-details { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { TreatmentCard } from '@workspace/api-client-react';
 import { getListTreatmentCardsQueryKey, useCreateTreatmentCard, useListTreatmentCards } from '@workspace/api-client-react';
-import { ChevronRight, CreditCard, LockKeyhole, Phone, Plus, Search, X } from 'lucide-react';
+import { ChevronRight, CreditCard, LockKeyhole, Phone, Plus, Printer, Search, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { CardDialog, mergeConflictTarget } from '@/components/entity-dialogs';
@@ -10,9 +10,10 @@ import { ErrorBanner, Skeleton } from '@/components/modal';
 import { formatShortDate, localDate } from '@/lib/attendance';
 import { errorText, formatMinutes, formatVnd, useRefreshMassage } from '@/lib/massage';
 import { phoneCallHref } from '@/lib/phone';
+import { printTreatmentCard, reservePrintWindow } from '@/lib/printing';
 
 export default function CardsPage() {
-  const { canEditCards: canEdit, query, setQuery, notify, fail } = useShell();
+  const { canEditCards: canEdit, query, setQuery, notify, fail, printPreferences } = useShell();
   const [, navigate] = useLocation();
   const cardSearch = useMemo(() => query.trim() ? { search: query.trim() } : undefined, [query]);
   const cardsQuery = useListTreatmentCards(cardSearch, {
@@ -71,9 +72,24 @@ export default function CardsPage() {
                     <span className="remain mono"><strong>{formatMinutes(c.remainingMinutes)}</strong><span className="muted">/ {formatMinutes(c.totalMinutes)}</span></span>
                     <ChevronRight size={18} aria-hidden="true" />
                   </Link>
-                  {phoneCallHref(c.phone) && <a href={phoneCallHref(c.phone)!} className="card-list-call" aria-label={`Gọi ${c.phone}`} data-testid={`link-card-phone-${c.id}`}>
-                    <Phone size={16} aria-hidden="true" />
-                  </a>}
+                  <div className="card-list-actions">
+                    {phoneCallHref(c.phone) && <a href={phoneCallHref(c.phone)!} className="card-list-call" aria-label={`Gọi ${c.phone}`} data-testid={`link-card-phone-${c.id}`}>
+                      <Phone size={16} aria-hidden="true" />
+                    </a>}
+                    <button type="button" className="card-list-call card-list-print"
+                      onClick={() => {
+                        const printWindow = reservePrintWindow();
+                        if (!printWindow) {
+                          notify('Trình duyệt chặn cửa sổ in; hãy cho phép cửa sổ bật lên rồi thử lại.');
+                          return;
+                        }
+                        if (!printTreatmentCard(printWindow, c, printPreferences)) notify('Không mở được phiếu in thẻ.');
+                      }}
+                      aria-label={`In thẻ của ${c.customerName}, dịch vụ ${c.serviceType}`}
+                      data-testid={`button-print-card-${c.id}`}>
+                      <Printer size={16} aria-hidden="true" />
+                    </button>
+                  </div>
                 </div>
               </li>
             );

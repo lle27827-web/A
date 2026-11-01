@@ -17,6 +17,6 @@
 - [Personal synchronization](personal-synchronization.md) — importing replaces only the confirmed day/month; optional facility rates use employee pay and preserve historical wages.
 - [Concise accessibility](concise-accessibility.md) — short titles and discrepancy summaries; keep controls, financial data, errors and destructive warnings accessible.
 - [GitHub push verification](github-push-verification.md) — a local main commit is not deployed until push authentication succeeds; verify the remote before claiming Vercel changed.
-- [Touch save/back gestures](screen-reader-gestures.md) — keep only continuous save/back gestures; accessibility reading stays with VoiceOver/TalkBack.
+- [Touch save/back gestures](screen-reader-gestures.md) — allow 2-second holds to save active attendance forms; retain continuous save/back gestures and native screen readers.
 - [Service catalog deletion](service-catalog-deletion.md) — removing a service from choices must preserve recorded history; a same-name recreation is a new identity.
 - [Theme profiles](theme-profiles.md) — keep yellow and dark-brown presets independent; all-color customization belongs to a separate profile.

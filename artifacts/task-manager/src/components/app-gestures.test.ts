@@ -2,8 +2,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  attachAppTouchGestures,
   appTouchGestureForPath,
   isSafeAppSaveLabel,
+  isSafeLongPressSaveTarget,
   previousAppLocation,
 } from './app-gestures.ts';
 
@@ -44,6 +46,81 @@ test('save only targets normal form actions, not destructive or financial contro
   }
   for (const label of ['Xóa lịch sử', 'Nạp thẻ', 'Xác nhận', 'Chuyển database']) {
     assert.equal(isSafeAppSaveLabel(label), false, label);
+  }
+});
+
+test('two-second hold may submit only a visible attendance form action', () => {
+  assert.equal(isSafeLongPressSaveTarget('attendance', 'Lưu ca'), true);
+  assert.equal(isSafeLongPressSaveTarget('attendance', 'Ghi nhận ca'), true);
+  assert.equal(isSafeLongPressSaveTarget('card-topup', 'Nạp thẻ'), false);
+  assert.equal(isSafeLongPressSaveTarget('history', 'Xóa lịch sử'), false);
+  assert.equal(isSafeLongPressSaveTarget('attendance', 'Xác nhận'), false);
+  assert.equal(isSafeLongPressSaveTarget(null, 'Lưu ca'), false);
+});
+
+test('a stationary two-second hold starts even over an input field', () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const originalElement = Object.getOwnPropertyDescriptor(globalThis, 'Element');
+  const listeners = new Map<string, (event: Event) => void>();
+  let scheduledDelay = 0;
+  let timerCallback: (() => void) | null = null;
+  let saved = 0;
+
+  class FakeInput {
+    closest() { return this; }
+  }
+
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      setTimeout: (callback: () => void, delay: number) => {
+        scheduledDelay = delay;
+        timerCallback = callback;
+        return 1;
+      },
+      clearTimeout: () => {},
+    },
+  });
+  Object.defineProperty(globalThis, 'Element', { configurable: true, value: FakeInput });
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      addEventListener: (type: string, listener: EventListenerOrEventListenerObject) => {
+        listeners.set(type, typeof listener === 'function'
+          ? listener as (event: Event) => void
+          : (event) => listener.handleEvent(event));
+      },
+      removeEventListener: () => {},
+    },
+  });
+
+  try {
+    const detach = attachAppTouchGestures({
+      onGesture: () => assert.fail('Holding still should not be interpreted as a swipe.'),
+      onLongPressSave: () => { saved += 1; return true; },
+    });
+    const touchStart = listeners.get('touchstart');
+    assert.ok(touchStart);
+    touchStart({
+      target: new FakeInput(),
+      touches: {
+        length: 1,
+        item: () => ({ identifier: 1, clientX: 120, clientY: 180 }),
+      },
+    } as unknown as Event);
+    assert.equal(scheduledDelay, 2_000);
+    assert.ok(timerCallback);
+    timerCallback();
+    assert.equal(saved, 1);
+    detach();
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else Reflect.deleteProperty(globalThis, 'window');
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+    else Reflect.deleteProperty(globalThis, 'document');
+    if (originalElement) Object.defineProperty(globalThis, 'Element', originalElement);
+    else Reflect.deleteProperty(globalThis, 'Element');
   }
 });
 

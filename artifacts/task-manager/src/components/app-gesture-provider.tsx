@@ -4,6 +4,7 @@ import { AppGestureContext } from '@/components/app-gesture-context';
 import {
   attachAppTouchGestures,
   isSafeAppSaveLabel,
+  isSafeLongPressSaveTarget,
   previousAppLocation,
   type AppTouchGesture,
 } from '@/components/app-gestures';
@@ -43,6 +44,34 @@ function safeSaveTarget(): { form: HTMLFormElement; button: HTMLButtonElement } 
     if (button) return { form, button };
   }
   return null;
+}
+
+function attendanceSaveTarget(): { form: HTMLFormElement; button: HTMLButtonElement } | null {
+  const dialogs = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]'))
+    .filter(isVisible);
+  const activeDialog = dialogs.at(-1);
+  if (!activeDialog) return null;
+
+  const forms = Array.from(activeDialog.querySelectorAll<HTMLFormElement>(
+    'form[data-app-gesture-save="attendance"]',
+  )).filter(isVisible);
+  for (const form of forms) {
+    const button = Array.from(form.querySelectorAll<HTMLButtonElement>('button[type="submit"]'))
+      .find((candidate) => {
+        if (candidate.disabled || !isVisible(candidate)) return false;
+        const label = candidate.innerText || candidate.getAttribute('aria-label') || '';
+        return isSafeLongPressSaveTarget(form.dataset.appGestureSave ?? null, label);
+      });
+    if (button) return { form, button };
+  }
+  return null;
+}
+
+function performLongPressSave(): boolean {
+  const target = attendanceSaveTarget();
+  if (!target) return false;
+  target.form.requestSubmit(target.button);
+  return true;
 }
 
 function performBack(
@@ -108,6 +137,7 @@ export function AppGestureProvider({ children, userId }: {
     if (!enabled) return;
     return attachAppTouchGestures({
       onGesture: (gesture) => performGesture(gesture, routeHistory, currentLocation, navigate),
+      onLongPressSave: performLongPressSave,
     });
   }, [enabled, currentLocation, navigate]);
 

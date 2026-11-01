@@ -98,10 +98,20 @@ export function treatmentCardPrintRows(card: TreatmentCard, facilityPhone: strin
     { label: 'Khách hàng', value: card.customerName },
     { label: 'Số điện thoại', value: card.phone },
     { label: 'Thẻ liệu trình', value: card.serviceType },
-    { label: 'Thời lượng mua', value: formatPrintMinutes(card.totalMinutes) },
+    { label: 'Tổng giờ mua/nạp', value: formatPrintMinutes(card.totalMinutes) },
     { label: 'Thời lượng còn lại', value: formatPrintMinutes(Math.max(0, card.remainingMinutes)) },
     { label: 'Ngày mua', value: displayDate(card.purchaseDate) },
-    ...(facilityPhone.trim() ? [{ label: 'Điện thoại cơ sở', value: facilityPhone.trim() }] : []),
+    { label: 'Điện thoại cơ sở', value: facilityPhone.trim() || '____________________' },
+  ];
+}
+
+export function hourChecklistLabels(totalMinutes: number): string[] {
+  const minutes = Number.isFinite(totalMinutes) ? Math.max(0, Math.floor(totalMinutes)) : 0;
+  const fullHours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return [
+    ...Array.from({ length: fullHours }, (_, index) => `${index + 1} giờ`),
+    ...(remainder > 0 ? [`${remainder} phút`] : []),
   ];
 }
 
@@ -115,11 +125,65 @@ export function serviceSessionPrintRows(session: ServiceSession): PrintRow[] {
   ];
 }
 
-export function buildPrintDocumentHtml(title: string, rows: PrintRow[], paperSize: PrintPaperSize): string {
+export function printPreviewRows(type: 'card' | 'session', facilityPhone: string): PrintRow[] {
+  if (type === 'card') {
+    const sampleCard: TreatmentCard = {
+      id: 0,
+      customerName: 'Khách mẫu',
+      phone: '0900 000 000',
+      serviceType: 'Massage thư giãn',
+      totalMinutes: 300,
+      usedMinutes: 60,
+      remainingMinutes: 240,
+      purchaseAmount: 0,
+      totalPaidAmount: 0,
+      topUps: [],
+      purchaseDate: '2026-11-02',
+      note: '',
+      createdAt: '2026-11-02T00:00:00.000Z',
+    };
+    return treatmentCardPrintRows(sampleCard, facilityPhone);
+  }
+
+  const sampleSession: ServiceSession = {
+    id: 0,
+    cardId: null,
+    memberId: 0,
+    employeeName: 'Nhân viên mẫu',
+    serviceTypeId: 0,
+    customerName: 'Khách mẫu',
+    serviceType: 'Trị liệu',
+    workDate: '2026-11-02',
+    minutes: 90,
+    customerHourlyRate: 0,
+    customerCharge: 0,
+    hourlyRate: 0,
+    earnings: 0,
+    note: '',
+    createdAt: '2026-11-02T00:00:00.000Z',
+    archived: false,
+  };
+  return serviceSessionPrintRows(sampleSession);
+}
+
+export function buildPrintDocumentHtml(
+  title: string,
+  rows: PrintRow[],
+  paperSize: PrintPaperSize,
+  checklistLabels: readonly string[] = [],
+): string {
   const layout = PAGE_LAYOUT[paperSize];
   const renderedRows = rows.map(({ label, value }) =>
     `<div class="row"><span class="label">${escapePrintText(label)}</span><strong>${escapePrintText(value)}</strong></div>`,
   ).join('');
+  const renderedChecklist = checklistLabels.length
+    ? `<section class="checklist" aria-label="Đánh dấu số giờ đã sử dụng">
+        <h2 class="checklist-title">Đánh dấu giờ đã sử dụng</h2>
+        <div class="checklist-grid">${checklistLabels.map((label) =>
+          `<div class="checklist-cell"><span class="check-square"></span><span>${escapePrintText(label)}</span></div>`,
+        ).join('')}</div>
+      </section>`
+    : '';
   const safeTitle = escapePrintText(title);
   return `<!doctype html>
 <html lang="vi">
@@ -138,6 +202,14 @@ export function buildPrintDocumentHtml(title: string, rows: PrintRow[], paperSiz
     .row { display: grid; gap: 1mm; padding: 2.5mm 0; border-bottom: 1px solid #e5ded2; overflow-wrap: anywhere; }
     .label { color: #675b4b; font-size: .82em; }
     .row strong { font-size: 1em; }
+    .checklist { margin-top: 4mm; border-top: 1px dashed #79552a; padding-top: 3mm; }
+    .checklist-title { margin: 0 0 2mm; font-size: .9em; }
+    .checklist-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.5mm; }
+    .checklist-cell { display: flex; align-items: center; gap: 1mm; min-width: 0; min-height: 7mm; break-inside: avoid; font-size: .76em; }
+    .check-square { display: inline-block; flex: 0 0 4mm; width: 4mm; height: 4mm; border: .35mm solid #21190f; }
+    .paper-thermal-58 .checklist-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .paper-a5 .checklist-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .paper-a4 .checklist-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
     .footer { margin-top: 5mm; text-align: center; color: #675b4b; font-size: .8em; }
     .print-actions { margin-top: 6mm; text-align: center; }
     .print-actions button { padding: 2mm 5mm; font: inherit; }
@@ -145,9 +217,10 @@ export function buildPrintDocumentHtml(title: string, rows: PrintRow[], paperSiz
   </style>
 </head>
 <body>
-  <main class="ticket">
+  <main class="ticket paper-${paperSize}">
     <header><p class="brand">SỔ CÔNG</p><h1>${safeTitle}</h1></header>
     ${renderedRows}
+    ${renderedChecklist}
     <p class="footer">Cảm ơn quý khách</p>
     <div class="print-actions"><button type="button" onclick="window.print()">In phiếu</button></div>
   </main>
@@ -174,11 +247,12 @@ export function printRowsInWindow(
   title: string,
   rows: PrintRow[],
   paperSize: PrintPaperSize,
+  checklistLabels: readonly string[] = [],
 ): boolean {
   if (!printWindow || printWindow.closed) return false;
   try {
     printWindow.document.open();
-    printWindow.document.write(buildPrintDocumentHtml(title, rows, paperSize));
+    printWindow.document.write(buildPrintDocumentHtml(title, rows, paperSize, checklistLabels));
     printWindow.document.close();
     printWindow.addEventListener('afterprint', () => {
       if (!printWindow.closed) printWindow.close();
@@ -202,6 +276,7 @@ export function printTreatmentCard(printWindow: Window | null, card: TreatmentCa
     'Thẻ liệu trình khách hàng',
     treatmentCardPrintRows(card, preferences.facilityPhone),
     preferences.paperSize,
+    hourChecklistLabels(card.totalMinutes),
   );
 }
 

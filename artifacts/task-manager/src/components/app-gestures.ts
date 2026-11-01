@@ -7,10 +7,14 @@ const POINT_SAMPLE_PX = 7;
 const MAX_PATH_POINTS = 220;
 const CLICK_SUPPRESSION_MS = 500;
 const LONG_PRESS_SAVE_MS = 2_000;
-const LONG_PRESS_MOVE_CANCEL_PX = 12;
+const LONG_PRESS_MOVE_CANCEL_PX = 24;
 
 export function isSafeAppSaveLabel(label: string): boolean {
   return /^(lưu|ghi nhận|tạo|cập nhật|hoàn tất)(?:\b|\s)/u.test(label.trim().toLocaleLowerCase('vi-VN'));
+}
+
+export function isSafeLongPressSaveTarget(scope: string | null, label: string): boolean {
+  return scope === 'attendance' && isSafeAppSaveLabel(label);
 }
 
 function appBackFallback(location: string): string | null {
@@ -102,12 +106,14 @@ type TrackedTouch = {
   points: AppTouchPoint[];
   longPressTimer: number | null;
   longPressTriggered: boolean;
+  swipeAllowed: boolean;
 };
 
 type SuppressedClick = AppTouchPoint & { expiresAt: number };
 
 export function attachAppTouchGestures(options: {
   onGesture: (gesture: AppTouchGesture) => void;
+  onLongPressSave?: () => boolean;
 }): () => void {
   let trackedTouch: TrackedTouch | null = null;
   let suppressedClick: SuppressedClick | null = null;
@@ -136,36 +142,30 @@ export function attachAppTouchGestures(options: {
       return;
     }
     const target = event.target;
-    if (target instanceof Element && target.closest(
-      'input, textarea, select, [contenteditable="true"], [data-app-gesture-ignore]',
-    )) {
-      clearLongPressTimer(trackedTouch);
-      trackedTouch = null;
-      return;
-    }
-
     const touch = event.touches.item(0);
     if (!touch) return;
     const origin = { x: touch.clientX, y: touch.clientY };
-    const longPressAllowed = !(target instanceof Element && target.closest(
-      'button, a, [role="button"], [role="link"]',
-    ));
     trackedTouch = {
       identifier: touch.identifier,
       origin,
       points: [origin],
       longPressTimer: null,
       longPressTriggered: false,
+      swipeAllowed: !(target instanceof Element && target.closest(
+        'input, textarea, select, [contenteditable="true"], [data-app-gesture-ignore]',
+      )),
     };
-    if (longPressAllowed) {
-      const tracked = trackedTouch;
-      tracked.longPressTimer = window.setTimeout(() => {
-        if (trackedTouch !== tracked) return;
-        tracked.longPressTriggered = true;
-        tracked.longPressTimer = null;
+    const tracked = trackedTouch;
+    tracked.longPressTimer = window.setTimeout(() => {
+      if (trackedTouch !== tracked) return;
+      tracked.longPressTimer = null;
+      if (options.onLongPressSave) {
+        tracked.longPressTriggered = options.onLongPressSave();
+      } else {
         options.onGesture('save');
-      }, LONG_PRESS_SAVE_MS);
-    }
+        tracked.longPressTriggered = true;
+      }
+    }, LONG_PRESS_SAVE_MS);
   }
 
   function onTouchMove(event: TouchEvent) {
@@ -202,6 +202,8 @@ export function attachAppTouchGestures(options: {
       return;
     }
 
+    if (!current.swipeAllowed) return;
+
     const lastPoint = current.points[current.points.length - 1];
     if (Math.hypot(finalPoint.x - lastPoint.x, finalPoint.y - lastPoint.y) > 1) {
       current.points.push(finalPoint);
@@ -223,7 +225,7 @@ export function attachAppTouchGestures(options: {
   }
 
   function onContextMenu(event: Event) {
-    if (trackedTouch?.longPressTimer !== null && trackedTouch?.longPressTimer !== undefined) {
+    if (trackedTouch?.longPressTriggered || (trackedTouch?.longPressTimer !== null && trackedTouch?.longPressTimer !== undefined)) {
       event.preventDefault();
     }
   }
