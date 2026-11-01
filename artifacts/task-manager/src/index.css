@@ -5,6 +5,13 @@
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
 
+html.app-long-press-save-pending,
+html.app-long-press-save-pending * {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

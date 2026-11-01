@@ -137,6 +137,7 @@ export function AppGestureProvider({ children, userId }: {
     if (!enabled) return;
     return attachAppTouchGestures({
       onGesture: (gesture) => performGesture(gesture, routeHistory, currentLocation, navigate),
+      canLongPressSave: () => attendanceSaveTarget() !== null,
       onLongPressSave: performLongPressSave,
     });
   }, [enabled, currentLocation, navigate]);

@@ -66,6 +66,8 @@ test('a stationary two-second hold starts even over an input field', () => {
   let scheduledDelay = 0;
   let timerCallback: (() => void) | null = null;
   let saved = 0;
+  let clearedSelections = 0;
+  const classes = new Set<string>();
 
   class FakeInput {
     closest() { return this; }
@@ -80,6 +82,7 @@ test('a stationary two-second hold starts even over an input field', () => {
         return 1;
       },
       clearTimeout: () => {},
+      getSelection: () => ({ removeAllRanges: () => { clearedSelections += 1; } }),
     },
   });
   Object.defineProperty(globalThis, 'Element', { configurable: true, value: FakeInput });
@@ -92,12 +95,20 @@ test('a stationary two-second hold starts even over an input field', () => {
           : (event) => listener.handleEvent(event));
       },
       removeEventListener: () => {},
+      documentElement: {
+        classList: {
+          add: (name: string) => classes.add(name),
+          remove: (name: string) => classes.delete(name),
+          contains: (name: string) => classes.has(name),
+        },
+      },
     },
   });
 
   try {
     const detach = attachAppTouchGestures({
       onGesture: () => assert.fail('Holding still should not be interpreted as a swipe.'),
+      canLongPressSave: () => true,
       onLongPressSave: () => { saved += 1; return true; },
     });
     const touchStart = listeners.get('touchstart');
@@ -113,6 +124,17 @@ test('a stationary two-second hold starts even over an input field', () => {
     assert.ok(timerCallback);
     timerCallback();
     assert.equal(saved, 1);
+    assert.equal(classes.has('app-long-press-save-pending'), true);
+    assert.equal(clearedSelections, 1);
+    let selectionPrevented = false;
+    listeners.get('selectstart')?.({ preventDefault: () => { selectionPrevented = true; } } as unknown as Event);
+    assert.equal(selectionPrevented, true);
+    listeners.get('touchend')?.({
+      changedTouches: [{ identifier: 1, clientX: 120, clientY: 180 }],
+      cancelable: true,
+      preventDefault: () => {},
+    } as unknown as Event);
+    assert.equal(classes.has('app-long-press-save-pending'), false);
     detach();
   } finally {
     if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);

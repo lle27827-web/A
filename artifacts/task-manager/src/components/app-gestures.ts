@@ -7,7 +7,9 @@ const POINT_SAMPLE_PX = 7;
 const MAX_PATH_POINTS = 220;
 const CLICK_SUPPRESSION_MS = 500;
 const LONG_PRESS_SAVE_MS = 2_000;
+const LONG_PRESS_SELECTION_SUPPRESS_MS = 350;
 const LONG_PRESS_MOVE_CANCEL_PX = 24;
+const LONG_PRESS_SELECTION_CLASS = 'app-long-press-save-pending';
 
 export function isSafeAppSaveLabel(label: string): boolean {
   return /^(lưu|ghi nhận|tạo|cập nhật|hoàn tất)(?:\b|\s)/u.test(label.trim().toLocaleLowerCase('vi-VN'));
@@ -105,6 +107,7 @@ type TrackedTouch = {
   origin: AppTouchPoint;
   points: AppTouchPoint[];
   longPressTimer: number | null;
+  selectionSuppressTimer: number | null;
   longPressTriggered: boolean;
   swipeAllowed: boolean;
 };
@@ -113,6 +116,7 @@ type SuppressedClick = AppTouchPoint & { expiresAt: number };
 
 export function attachAppTouchGestures(options: {
   onGesture: (gesture: AppTouchGesture) => void;
+  canLongPressSave?: () => boolean;
   onLongPressSave?: () => boolean;
 }): () => void {
   let trackedTouch: TrackedTouch | null = null;
@@ -124,6 +128,15 @@ export function attachAppTouchGestures(options: {
       window.clearTimeout(touch.longPressTimer);
       touch.longPressTimer = null;
     }
+    if (touch?.selectionSuppressTimer !== null && touch?.selectionSuppressTimer !== undefined) {
+      window.clearTimeout(touch.selectionSuppressTimer);
+      touch.selectionSuppressTimer = null;
+    }
+    document.documentElement.classList.remove(LONG_PRESS_SELECTION_CLASS);
+  }
+
+  function clearNativeSelection() {
+    window.getSelection?.()?.removeAllRanges();
   }
 
   function suppressClickAt(point: AppTouchPoint) {
@@ -144,21 +157,31 @@ export function attachAppTouchGestures(options: {
     const target = event.target;
     const touch = event.touches.item(0);
     if (!touch) return;
+    const canLongPressSave = options.canLongPressSave?.() ?? true;
     const origin = { x: touch.clientX, y: touch.clientY };
     trackedTouch = {
       identifier: touch.identifier,
       origin,
       points: [origin],
       longPressTimer: null,
+      selectionSuppressTimer: null,
       longPressTriggered: false,
       swipeAllowed: !(target instanceof Element && target.closest(
         'input, textarea, select, [contenteditable="true"], [data-app-gesture-ignore]',
       )),
     };
     const tracked = trackedTouch;
+    if (!canLongPressSave) return;
+    tracked.selectionSuppressTimer = window.setTimeout(() => {
+      if (trackedTouch !== tracked || tracked.longPressTimer === null) return;
+      tracked.selectionSuppressTimer = null;
+      document.documentElement.classList.add(LONG_PRESS_SELECTION_CLASS);
+    }, LONG_PRESS_SELECTION_SUPPRESS_MS);
     tracked.longPressTimer = window.setTimeout(() => {
       if (trackedTouch !== tracked) return;
       tracked.longPressTimer = null;
+      document.documentElement.classList.add(LONG_PRESS_SELECTION_CLASS);
+      clearNativeSelection();
       if (options.onLongPressSave) {
         tracked.longPressTriggered = options.onLongPressSave();
       } else {
@@ -198,6 +221,7 @@ export function attachAppTouchGestures(options: {
     const finalPoint = { x: ended.clientX, y: ended.clientY };
     if (current.longPressTriggered) {
       if (event.cancelable) event.preventDefault();
+      clearNativeSelection();
       suppressClickAt(finalPoint);
       return;
     }
@@ -230,6 +254,12 @@ export function attachAppTouchGestures(options: {
     }
   }
 
+  function onSelectStart(event: Event) {
+    if (document.documentElement.classList.contains(LONG_PRESS_SELECTION_CLASS)) {
+      event.preventDefault();
+    }
+  }
+
   function onClick(event: MouseEvent) {
     if (!suppressedClick || event.detail === 0) return;
     if (Date.now() > suppressedClick.expiresAt) {
@@ -253,6 +283,7 @@ export function attachAppTouchGestures(options: {
   document.addEventListener('touchcancel', onTouchCancel, { capture: true, passive: true });
   document.addEventListener('click', onClick, true);
   document.addEventListener('contextmenu', onContextMenu, true);
+  document.addEventListener('selectstart', onSelectStart, true);
 
   return () => {
     clearLongPressTimer(trackedTouch);
@@ -265,5 +296,6 @@ export function attachAppTouchGestures(options: {
     document.removeEventListener('touchcancel', onTouchCancel, true);
     document.removeEventListener('click', onClick, true);
     document.removeEventListener('contextmenu', onContextMenu, true);
+    document.removeEventListener('selectstart', onSelectStart, true);
   };
 }

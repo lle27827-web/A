@@ -1,4 +1,4 @@
-import type { ServiceSession, TreatmentCard } from '@workspace/api-client-react';
+import type { CardTopUp, ServiceSession, TreatmentCard } from '@workspace/api-client-react';
 
 export type PrintPaperSize = 'thermal-58' | 'thermal-80' | 'a6' | 'a5' | 'a4';
 export type PrintPreferences = {
@@ -7,6 +7,7 @@ export type PrintPreferences = {
   facilityPhone: string;
 };
 export type PrintRow = { label: string; value: string };
+export const CARD_CHECKBOX_COUNT = 10;
 
 export const DEFAULT_PRINT_PREFERENCES: PrintPreferences = {
   autoPrintServiceSessions: false,
@@ -93,35 +94,41 @@ function displayDate(date: string): string {
     }).format(parsed);
 }
 
-export function treatmentCardPrintRows(card: TreatmentCard, facilityPhone: string): PrintRow[] {
+function cardTransactionRows(
+  card: TreatmentCard,
+  minutes: number,
+  date: string,
+  durationLabel: string,
+  dateLabel: string,
+): PrintRow[] {
   return [
-    { label: 'Khách hàng', value: card.customerName },
+    { label: 'Tên khách hàng', value: card.customerName },
     { label: 'Số điện thoại', value: card.phone },
-    { label: 'Thẻ liệu trình', value: card.serviceType },
-    { label: 'Tổng giờ mua/nạp', value: formatPrintMinutes(card.totalMinutes) },
-    { label: 'Thời lượng còn lại', value: formatPrintMinutes(Math.max(0, card.remainingMinutes)) },
-    { label: 'Ngày mua', value: displayDate(card.purchaseDate) },
-    { label: 'Điện thoại cơ sở', value: facilityPhone.trim() || '____________________' },
+    { label: 'Tên dịch vụ', value: card.serviceType },
+    { label: durationLabel, value: formatPrintMinutes(minutes) },
+    { label: dateLabel, value: displayDate(date) },
   ];
 }
 
-export function hourChecklistLabels(totalMinutes: number): string[] {
-  const minutes = Number.isFinite(totalMinutes) ? Math.max(0, Math.floor(totalMinutes)) : 0;
-  const fullHours = Math.floor(minutes / 60);
-  const remainder = minutes % 60;
-  return [
-    ...Array.from({ length: fullHours }, (_, index) => `${index + 1} giờ`),
-    ...(remainder > 0 ? [`${remainder} phút`] : []),
-  ];
+export function cardPurchaseMinutes(card: TreatmentCard): number {
+  const toppedUp = card.topUps.reduce((total, payment) => total + Math.max(0, payment.minutes), 0);
+  return Math.max(0, card.totalMinutes - toppedUp);
+}
+
+export function treatmentCardPrintRows(card: TreatmentCard): PrintRow[] {
+  return cardTransactionRows(card, cardPurchaseMinutes(card), card.purchaseDate, 'Số giờ mua', 'Ngày bán thẻ');
+}
+
+export function cardTopUpPrintRows(card: TreatmentCard, payment: CardTopUp): PrintRow[] {
+  return cardTransactionRows(card, payment.minutes, payment.paymentDate, 'Số giờ nạp', 'Ngày nạp');
 }
 
 export function serviceSessionPrintRows(session: ServiceSession): PrintRow[] {
   return [
-    { label: 'Nhân viên', value: session.employeeName },
-    { label: 'Khách hàng', value: session.customerName || 'Khách lẻ' },
-    { label: 'Loại dịch vụ', value: session.serviceType },
-    { label: 'Thời lượng làm', value: formatPrintMinutes(session.minutes) },
-    { label: 'Ngày làm', value: displayDate(session.workDate) },
+    { label: 'Tên nhân viên', value: session.employeeName },
+    { label: 'Tên loại hình dịch vụ', value: session.serviceType },
+    { label: 'Số giờ', value: formatPrintMinutes(session.minutes) },
+    { label: 'Ngày chấm công', value: displayDate(session.workDate) },
   ];
 }
 
@@ -142,7 +149,7 @@ export function printPreviewRows(type: 'card' | 'session', facilityPhone: string
       note: '',
       createdAt: '2026-11-02T00:00:00.000Z',
     };
-    return treatmentCardPrintRows(sampleCard, facilityPhone);
+    return treatmentCardPrintRows(sampleCard);
   }
 
   const sampleSession: ServiceSession = {
@@ -170,20 +177,26 @@ export function buildPrintDocumentHtml(
   title: string,
   rows: PrintRow[],
   paperSize: PrintPaperSize,
-  checklistLabels: readonly string[] = [],
+  options: { checkboxCount?: number; facilityPhone?: string; cardFooter?: boolean; footerText?: string } = {},
 ): string {
   const layout = PAGE_LAYOUT[paperSize];
   const renderedRows = rows.map(({ label, value }) =>
     `<div class="row"><span class="label">${escapePrintText(label)}</span><strong>${escapePrintText(value)}</strong></div>`,
   ).join('');
-  const renderedChecklist = checklistLabels.length
+  const checkboxCount = options.checkboxCount === CARD_CHECKBOX_COUNT ? CARD_CHECKBOX_COUNT : 0;
+  const renderedChecklist = checkboxCount
     ? `<section class="checklist" aria-label="Đánh dấu số giờ đã sử dụng">
-        <h2 class="checklist-title">Đánh dấu giờ đã sử dụng</h2>
-        <div class="checklist-grid">${checklistLabels.map((label) =>
-          `<div class="checklist-cell"><span class="check-square"></span><span>${escapePrintText(label)}</span></div>`,
+        <div class="checklist-grid">${Array.from({ length: checkboxCount }, () =>
+          '<span class="check-square" aria-hidden="true"></span>',
         ).join('')}</div>
       </section>`
     : '';
+  const renderedCardFooter = options.cardFooter
+    ? `<p class="facility-phone">Số điện thoại cơ sở: ${escapePrintText(options.facilityPhone?.trim() || '________________')}</p>
+       <p class="footer">${escapePrintText(options.footerText || 'Cảm ơn quý khách đã sử dụng dịch vụ')}</p>`
+    : options.footerText?.trim()
+      ? `<p class="footer">${escapePrintText(options.footerText.trim())}</p>`
+      : '';
   const safeTitle = escapePrintText(title);
   return `<!doctype html>
 <html lang="vi">
@@ -203,13 +216,13 @@ export function buildPrintDocumentHtml(
     .label { color: #675b4b; font-size: .82em; }
     .row strong { font-size: 1em; }
     .checklist { margin-top: 4mm; border-top: 1px dashed #79552a; padding-top: 3mm; }
-    .checklist-title { margin: 0 0 2mm; font-size: .9em; }
-    .checklist-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.5mm; }
-    .checklist-cell { display: flex; align-items: center; gap: 1mm; min-width: 0; min-height: 7mm; break-inside: avoid; font-size: .76em; }
-    .check-square { display: inline-block; flex: 0 0 4mm; width: 4mm; height: 4mm; border: .35mm solid #21190f; }
+    .checklist { margin-top: 4mm; padding-top: 3mm; }
+    .checklist-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2mm; }
+    .check-square { display: block; width: 7mm; height: 7mm; border: .35mm solid #21190f; break-inside: avoid; }
     .paper-thermal-58 .checklist-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .paper-a5 .checklist-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-    .paper-a4 .checklist-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+    .paper-a5 .checklist-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .paper-a4 .checklist-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .facility-phone { margin: 4mm 0 0; color: #675b4b; text-align: center; font-size: .72em; overflow-wrap: anywhere; }
     .footer { margin-top: 5mm; text-align: center; color: #675b4b; font-size: .8em; }
     .print-actions { margin-top: 6mm; text-align: center; }
     .print-actions button { padding: 2mm 5mm; font: inherit; }
@@ -221,7 +234,7 @@ export function buildPrintDocumentHtml(
     <header><p class="brand">SỔ CÔNG</p><h1>${safeTitle}</h1></header>
     ${renderedRows}
     ${renderedChecklist}
-    <p class="footer">Cảm ơn quý khách</p>
+    ${renderedCardFooter}
     <div class="print-actions"><button type="button" onclick="window.print()">In phiếu</button></div>
   </main>
 </body>
@@ -247,12 +260,12 @@ export function printRowsInWindow(
   title: string,
   rows: PrintRow[],
   paperSize: PrintPaperSize,
-  checklistLabels: readonly string[] = [],
+  options: { checkboxCount?: number; facilityPhone?: string; cardFooter?: boolean; footerText?: string } = {},
 ): boolean {
   if (!printWindow || printWindow.closed) return false;
   try {
     printWindow.document.open();
-    printWindow.document.write(buildPrintDocumentHtml(title, rows, paperSize, checklistLabels));
+    printWindow.document.write(buildPrintDocumentHtml(title, rows, paperSize, options));
     printWindow.document.close();
     printWindow.addEventListener('afterprint', () => {
       if (!printWindow.closed) printWindow.close();
@@ -273,10 +286,25 @@ export function printRowsInWindow(
 export function printTreatmentCard(printWindow: Window | null, card: TreatmentCard, preferences: PrintPreferences): boolean {
   return printRowsInWindow(
     printWindow,
-    'Thẻ liệu trình khách hàng',
-    treatmentCardPrintRows(card, preferences.facilityPhone),
+    'Thẻ khách hàng',
+    treatmentCardPrintRows(card),
     preferences.paperSize,
-    hourChecklistLabels(card.totalMinutes),
+    { checkboxCount: CARD_CHECKBOX_COUNT, facilityPhone: preferences.facilityPhone, cardFooter: true },
+  );
+}
+
+export function printCardTopUp(
+  printWindow: Window | null,
+  card: TreatmentCard,
+  payment: CardTopUp,
+  preferences: PrintPreferences,
+): boolean {
+  return printRowsInWindow(
+    printWindow,
+    'Thẻ khách hàng',
+    cardTopUpPrintRows(card, payment),
+    preferences.paperSize,
+    { checkboxCount: CARD_CHECKBOX_COUNT, facilityPhone: preferences.facilityPhone, cardFooter: true },
   );
 }
 
@@ -286,5 +314,6 @@ export function printServiceSession(printWindow: Window | null, session: Service
     'Phiếu chấm công nhân viên',
     serviceSessionPrintRows(session),
     preferences.paperSize,
+    {},
   );
 }
