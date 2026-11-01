@@ -6,6 +6,8 @@ const DIRECTION_DOMINANCE = 1.2;
 const POINT_SAMPLE_PX = 7;
 const MAX_PATH_POINTS = 220;
 const CLICK_SUPPRESSION_MS = 500;
+const LONG_PRESS_SAVE_MS = 2_000;
+const LONG_PRESS_MOVE_CANCEL_PX = 12;
 
 export function isSafeAppSaveLabel(label: string): boolean {
   return /^(lưu|ghi nhận|tạo|cập nhật|hoàn tất)(?:\b|\s)/u.test(label.trim().toLocaleLowerCase('vi-VN'));
@@ -96,7 +98,10 @@ export function appTouchGestureForPath(points: readonly AppTouchPoint[]): AppTou
 
 type TrackedTouch = {
   identifier: number;
+  origin: AppTouchPoint;
   points: AppTouchPoint[];
+  longPressTimer: number | null;
+  longPressTriggered: boolean;
 };
 
 type SuppressedClick = AppTouchPoint & { expiresAt: number };
@@ -108,8 +113,25 @@ export function attachAppTouchGestures(options: {
   let suppressedClick: SuppressedClick | null = null;
   let clearSuppressedClickTimer: number | null = null;
 
+  function clearLongPressTimer(touch: TrackedTouch | null) {
+    if (touch?.longPressTimer !== null && touch?.longPressTimer !== undefined) {
+      window.clearTimeout(touch.longPressTimer);
+      touch.longPressTimer = null;
+    }
+  }
+
+  function suppressClickAt(point: AppTouchPoint) {
+    suppressedClick = { ...point, expiresAt: Date.now() + CLICK_SUPPRESSION_MS };
+    if (clearSuppressedClickTimer !== null) window.clearTimeout(clearSuppressedClickTimer);
+    clearSuppressedClickTimer = window.setTimeout(() => {
+      suppressedClick = null;
+      clearSuppressedClickTimer = null;
+    }, CLICK_SUPPRESSION_MS);
+  }
+
   function onTouchStart(event: TouchEvent) {
     if (event.touches.length !== 1) {
+      clearLongPressTimer(trackedTouch);
       trackedTouch = null;
       return;
     }
@@ -117,25 +139,46 @@ export function attachAppTouchGestures(options: {
     if (target instanceof Element && target.closest(
       'input, textarea, select, [contenteditable="true"], [data-app-gesture-ignore]',
     )) {
+      clearLongPressTimer(trackedTouch);
       trackedTouch = null;
       return;
     }
 
     const touch = event.touches.item(0);
     if (!touch) return;
+    const origin = { x: touch.clientX, y: touch.clientY };
+    const longPressAllowed = !(target instanceof Element && target.closest(
+      'button, a, [role="button"], [role="link"]',
+    ));
     trackedTouch = {
       identifier: touch.identifier,
-      points: [{ x: touch.clientX, y: touch.clientY }],
+      origin,
+      points: [origin],
+      longPressTimer: null,
+      longPressTriggered: false,
     };
+    if (longPressAllowed) {
+      const tracked = trackedTouch;
+      tracked.longPressTimer = window.setTimeout(() => {
+        if (trackedTouch !== tracked) return;
+        tracked.longPressTriggered = true;
+        tracked.longPressTimer = null;
+        options.onGesture('save');
+      }, LONG_PRESS_SAVE_MS);
+    }
   }
 
   function onTouchMove(event: TouchEvent) {
     const touch = event.touches.length === 1 ? event.touches.item(0) : null;
     if (!touch || !trackedTouch || touch.identifier !== trackedTouch.identifier) {
+      clearLongPressTimer(trackedTouch);
       trackedTouch = null;
       return;
     }
     const point = { x: touch.clientX, y: touch.clientY };
+    if (Math.hypot(point.x - trackedTouch.origin.x, point.y - trackedTouch.origin.y) > LONG_PRESS_MOVE_CANCEL_PX) {
+      clearLongPressTimer(trackedTouch);
+    }
     const previous = trackedTouch.points[trackedTouch.points.length - 1];
     if (Math.hypot(point.x - previous.x, point.y - previous.y) >= POINT_SAMPLE_PX) {
       if (trackedTouch.points.length < MAX_PATH_POINTS) trackedTouch.points.push(point);
@@ -150,8 +193,15 @@ export function attachAppTouchGestures(options: {
       .find((touch) => touch.identifier === current.identifier);
     if (!ended) return;
     trackedTouch = null;
+    clearLongPressTimer(current);
 
     const finalPoint = { x: ended.clientX, y: ended.clientY };
+    if (current.longPressTriggered) {
+      if (event.cancelable) event.preventDefault();
+      suppressClickAt(finalPoint);
+      return;
+    }
+
     const lastPoint = current.points[current.points.length - 1];
     if (Math.hypot(finalPoint.x - lastPoint.x, finalPoint.y - lastPoint.y) > 1) {
       current.points.push(finalPoint);
@@ -160,12 +210,7 @@ export function attachAppTouchGestures(options: {
     if (!gesture) return;
 
     if (event.cancelable) event.preventDefault();
-    suppressedClick = { ...finalPoint, expiresAt: Date.now() + CLICK_SUPPRESSION_MS };
-    if (clearSuppressedClickTimer !== null) window.clearTimeout(clearSuppressedClickTimer);
-    clearSuppressedClickTimer = window.setTimeout(() => {
-      suppressedClick = null;
-      clearSuppressedClickTimer = null;
-    }, CLICK_SUPPRESSION_MS);
+    suppressClickAt(finalPoint);
 
     // Let the browser finish the touch's click sequence before a back action
     // clicks a dialog close control or a save action submits its form.
@@ -173,7 +218,14 @@ export function attachAppTouchGestures(options: {
   }
 
   function onTouchCancel() {
+    clearLongPressTimer(trackedTouch);
     trackedTouch = null;
+  }
+
+  function onContextMenu(event: Event) {
+    if (trackedTouch?.longPressTimer !== null && trackedTouch?.longPressTimer !== undefined) {
+      event.preventDefault();
+    }
   }
 
   function onClick(event: MouseEvent) {
@@ -198,8 +250,10 @@ export function attachAppTouchGestures(options: {
   document.addEventListener('touchend', onTouchEnd, { capture: true, passive: false });
   document.addEventListener('touchcancel', onTouchCancel, { capture: true, passive: true });
   document.addEventListener('click', onClick, true);
+  document.addEventListener('contextmenu', onContextMenu, true);
 
   return () => {
+    clearLongPressTimer(trackedTouch);
     trackedTouch = null;
     suppressedClick = null;
     if (clearSuppressedClickTimer !== null) window.clearTimeout(clearSuppressedClickTimer);
@@ -208,5 +262,6 @@ export function attachAppTouchGestures(options: {
     document.removeEventListener('touchend', onTouchEnd, true);
     document.removeEventListener('touchcancel', onTouchCancel, true);
     document.removeEventListener('click', onClick, true);
+    document.removeEventListener('contextmenu', onContextMenu, true);
   };
 }
