@@ -41,6 +41,9 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
   const [syncError, setSyncError] = useState('');
   const [notice, setNotice] = useState('');
   const syncing = useRef(false);
+  const [focusTarget, setFocusTarget] = useState<'roster' | 'comparison' | null>('roster');
+  const firstMemberRef = useRef<HTMLButtonElement>(null);
+  const comparisonHeadingRef = useRef<HTMLHeadingElement>(null);
   const dayTab = useRef<HTMLButtonElement>(null);
   const monthTab = useRef<HTMLButtonElement>(null);
   // Match the facility's main roster: current active employees today, historical
@@ -52,8 +55,20 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
   useEffect(() => {
     if (members.isSuccess && memberId !== null && !selectedMember) {
       setMemberId(null); setConfirming(false);
+      setFocusTarget('roster');
     }
   }, [members.isSuccess, memberId, selectedMember]);
+  useEffect(() => {
+    if (focusTarget === 'roster' && memberId === null && members.isSuccess && roster.length > 0) {
+      firstMemberRef.current?.focus();
+      firstMemberRef.current?.scrollIntoView({ block: 'nearest' });
+      setFocusTarget(null);
+    } else if (focusTarget === 'comparison' && selectedMember) {
+      comparisonHeadingRef.current?.focus();
+      comparisonHeadingRef.current?.scrollIntoView({ block: 'nearest' });
+      setFocusTarget(null);
+    }
+  }, [focusTarget, memberId, members.isSuccess, roster.length, selectedMember]);
   const params = useMemo(() => ({ memberId: memberId ?? 0, month, date }), [memberId, month, date]);
   const cmp = useGetPersonalComparison(params, { query: {
     queryKey: getGetPersonalComparisonQueryKey(params),
@@ -74,7 +89,13 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
   const serviceDifferences = compareServiceHours(personal, reference);
   const result = comparisonResult(personal.length, reference.length, serviceDifferences.length);
   const rangeLabel = scope === 'day' ? `ngày ${formatShortDate(date)}` : formatMonth(month).toLowerCase();
-  function pick(id: number | null) { setMemberId(id); setConfirming(false); setSyncError(''); setNotice(''); }
+  function pick(id: number | null) {
+    setMemberId(id);
+    setFocusTarget(id === null ? 'roster' : 'comparison');
+    setConfirming(false);
+    setSyncError('');
+    setNotice('');
+  }
   function handleScopeTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
     event.preventDefault();
@@ -114,9 +135,9 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
           : members.isError ? <ErrorBanner text="Không tải được danh sách nhân viên cơ sở." onRetry={() => void members.refetch()} />
           : roster.length === 0 ? <div className="empty small" data-testid="status-compare-empty"><Users size={18} /><p>Không có nhân viên được phép đối chiếu.</p></div>
           : (
-            <ul className="month-list" data-testid="list-compare-members">
-              {roster.map((m) => (
-                <li key={m.id}><button type="button" className="choice-row" onClick={() => pick(m.id)} data-testid={`button-compare-member-${m.id}`}>
+            <ul className="month-list" aria-label="Nhân viên để đối chiếu" data-testid="list-compare-members">
+              {roster.map((m, index) => (
+                <li key={m.id}><button ref={index === 0 ? firstMemberRef : undefined} type="button" className="choice-row" onClick={() => pick(m.id)} data-testid={`button-compare-member-${m.id}`}>
                   <span className="initials" aria-hidden="true">{m.name.slice(0, 1).toUpperCase()}</span><strong className="grow">{m.label}</strong><Scale size={15} aria-hidden="true" />
                 </button></li>
               ))}
@@ -124,7 +145,7 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
           )
       ) : (
         <div className="compare">
-          <h3 data-testid="text-comparison-source">Cơ sở · {selectedMember?.label} · {rangeLabel}</h3>
+          <h3 ref={comparisonHeadingRef} tabIndex={-1} data-testid="text-comparison-source">Cơ sở · {selectedMember?.label} · {rangeLabel}</h3>
           <button type="button" className="back as-button" disabled={sync.isPending} onClick={() => pick(null)} data-testid="button-compare-change"><ArrowLeft size={14} />Chọn nhân viên khác</button>
           <div className="seg" role="tablist" aria-label="Phạm vi đối chiếu">
             <button ref={dayTab} id="tab-cmp-day" type="button" role="tab" aria-controls="tabpanel-cmp-day" aria-selected={scope === 'day'} tabIndex={scope === 'day' ? 0 : -1} className={scope === 'day' ? 'active' : ''} disabled={sync.isPending} onKeyDown={handleScopeTabKeyDown} onClick={() => { setScope('day'); setConfirming(false); }} data-testid="tab-cmp-day">Đối chiếu ngày</button>
