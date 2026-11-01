@@ -92,6 +92,7 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
   const [dialogError, setDialogError] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [pendingHistorySpeech, setPendingHistorySpeech] = useState<PersonalSession | null>(null);
 
   const createService = useCreatePersonalService();
   const updateService = useUpdatePersonalService();
@@ -144,6 +145,62 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
   const data = nb.data;
   const sessions = useMemo(() => [...(data?.sessions ?? [])].sort((a, b) => b.workDate.localeCompare(a.workDate) || b.id - a.id), [data?.sessions]);
   const daySessions = sessions.filter((s) => s.workDate === date);
+  useEffect(() => {
+    if (!pendingHistorySpeech) return;
+    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
+      setPendingHistorySpeech(null);
+      return;
+    }
+
+    let announced = false;
+    const rowSelector = `[data-testid="row-personal-shift-${pendingHistorySpeech.id}"]`;
+    const expectedText = [
+      formatShortDate(pendingHistorySpeech.workDate),
+      pendingHistorySpeech.serviceName,
+      formatMinutes(pendingHistorySpeech.minutes),
+      formatVnd(pendingHistorySpeech.earnings),
+    ];
+    const speakHistoryRow = () => {
+      if (announced) return;
+      const row = document.querySelector<HTMLElement>(rowSelector);
+      if (!row) return;
+
+      const historyText = Array.from(row.children)
+        .filter((element) => element.matches('.p-date, .grow, .p-earn'))
+        .map((element) => (element as HTMLElement).innerText || element.textContent || '')
+        .join(' ')
+        .replace(/\s+/gu, ' ')
+        .trim();
+      if (!historyText || !expectedText.every((part) => historyText.includes(part))) return;
+
+      announced = true;
+      observer.disconnect();
+      window.clearTimeout(timeout);
+      try {
+        const utterance = new SpeechSynthesisUtterance(historyText);
+        utterance.lang = 'vi-VN';
+        window.speechSynthesis.resume();
+        window.speechSynthesis.speak(utterance);
+      } catch {
+        // Speech is an optional enhancement; the visible success message remains available.
+      }
+      setPendingHistorySpeech(null);
+    };
+
+    const observer = new MutationObserver(speakHistoryRow);
+    observer.observe(document.body, { childList: true, characterData: true, subtree: true });
+    const timeout = window.setTimeout(() => {
+      observer.disconnect();
+      setPendingHistorySpeech(null);
+    }, 8000);
+    speakHistoryRow();
+
+    return () => {
+      announced = true;
+      observer.disconnect();
+      window.clearTimeout(timeout);
+    };
+  }, [pendingHistorySpeech]);
   const monthServiceDetails = useMemo(() => summarizeServiceDurations(sessions.map((s) => ({ serviceType: s.serviceName, minutes: s.minutes }))), [sessions]);
   const dayServiceDetails = useMemo(() => summarizeServiceDurations(daySessions.map((s) => ({ serviceType: s.serviceName, minutes: s.minutes }))), [daySessions]);
   const monthMinutes = sessions.reduce((a, s) => a + s.minutes, 0);
@@ -239,8 +296,8 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
           : createService.mutate({ data: input }, { onSuccess: () => done('Đã thêm dịch vụ.'), onError: failed })} />}
       {dlg?.kind === 'shift' && <PersonalShiftDialog session={dlg.item} services={services} defaultDate={date} maxDate={today} busy={createShift.isPending || updateShift.isPending} serverError={dialogError} onClose={() => setDlg(null)}
         onSubmit={(input) => { setDialogError(''); return dlg.item
-          ? updateShift.mutate({ id: dlg.item.id, data: input }, { onSuccess: (saved) => { done('Đã cập nhật ca.'); goSaved(saved.workDate); }, onError: failed })
-          : createShift.mutate({ data: input }, { onSuccess: (saved) => { done('Đã ghi ca.'); goSaved(saved.workDate); }, onError: failed }); }} />}
+          ? updateShift.mutate({ id: dlg.item.id, data: input }, { onSuccess: (saved) => { setPendingHistorySpeech(saved); done('Đã cập nhật ca.'); goSaved(saved.workDate); }, onError: failed })
+          : createShift.mutate({ data: input }, { onSuccess: (saved) => { setPendingHistorySpeech(saved); done('Đã ghi ca.'); goSaved(saved.workDate); }, onError: failed }); }} />}
       {dlg?.kind === 'compare' && <ComparisonDialog month={month} date={date} onClose={() => setDlg(null)} onUpdated={refresh} />}
       {dlg?.kind === 'date' && <DatePickerDialog value={date} title="Chọn ngày" immediate onClose={() => setDlg(null)} onSelect={(d) => { setDlg(null); goPeriod(monthOf(d), d); }} />}
       {confirm && <ConfirmDialog state={confirm} busy={deleteService.isPending || deleteShift.isPending} onClose={() => setConfirm(null)} />}
