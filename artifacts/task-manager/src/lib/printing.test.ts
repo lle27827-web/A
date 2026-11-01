@@ -1,0 +1,71 @@
+/// <reference types="node" />
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import type { ServiceSession, TreatmentCard } from '@workspace/api-client-react';
+import {
+  buildPrintDocumentHtml,
+  serviceSessionPrintRows,
+  treatmentCardPrintRows,
+} from './printing.ts';
+
+const card: TreatmentCard = {
+  id: 1,
+  customerName: 'Lan <script>alert(1)</script>',
+  phone: '0900 123 456',
+  serviceType: 'Massage',
+  totalMinutes: 600,
+  usedMinutes: 90,
+  remainingMinutes: 510,
+  purchaseAmount: 500_000,
+  totalPaidAmount: 500_000,
+  topUps: [],
+  purchaseDate: '2026-10-31',
+  note: '',
+  createdAt: '2026-10-31T12:00:00.000Z',
+};
+
+const session: ServiceSession = {
+  id: 7,
+  cardId: null,
+  memberId: 2,
+  employeeName: 'Mai',
+  serviceTypeId: 1,
+  customerName: 'An',
+  serviceType: 'Trị liệu',
+  workDate: '2026-11-01',
+  minutes: 90,
+  customerHourlyRate: 0,
+  customerCharge: 0,
+  hourlyRate: 0,
+  earnings: 0,
+  note: '',
+  createdAt: '2026-11-01T12:00:00.000Z',
+  archived: false,
+};
+
+test('card print includes the customer contact, treatment card and configured facility phone', () => {
+  const rows = treatmentCardPrintRows(card, '028 1234 5678');
+  assert.deepEqual(rows.slice(0, 3), [
+    { label: 'Khách hàng', value: card.customerName },
+    { label: 'Số điện thoại', value: card.phone },
+    { label: 'Thẻ liệu trình', value: card.serviceType },
+  ]);
+  assert.equal(rows.at(-1)?.value, '028 1234 5678');
+});
+
+test('session print includes employee, customer, service, duration and work date', () => {
+  assert.deepEqual(serviceSessionPrintRows(session).map((row) => row.label), [
+    'Nhân viên',
+    'Khách hàng',
+    'Loại dịch vụ',
+    'Thời lượng làm',
+    'Ngày làm',
+  ]);
+});
+
+test('print document escapes customer text and applies the selected paper size', () => {
+  const html = buildPrintDocumentHtml('Thẻ khách', treatmentCardPrintRows(card, ''), 'a5');
+  assert.match(html, /size: A5 portrait/u);
+  assert.match(html, /Lan &lt;script&gt;alert\(1\)&lt;\/script&gt;/u);
+  assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/u);
+});

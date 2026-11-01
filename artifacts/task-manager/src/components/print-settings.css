@@ -1,0 +1,54 @@
+.print-settings {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px;
+  border: 2px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--card));
+}
+
+.print-settings h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.print-setting-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 9px;
+  background: hsl(var(--background));
+  cursor: pointer;
+}
+
+.print-setting-switch input {
+  flex: 0 0 auto;
+  width: 19px;
+  height: 19px;
+  margin: 0;
+  accent-color: hsl(var(--primary));
+}
+
+.print-setting-switch span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.print-setting-switch strong {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.print-setting-switch small {
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+}

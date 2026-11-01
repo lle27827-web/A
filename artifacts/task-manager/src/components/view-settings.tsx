@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
-import { ArrowLeft, BookHeart, ChevronRight, History, Home, KeyRound, Menu, Palette, Trash2, X } from 'lucide-react';
+import { ArrowLeft, BookHeart, ChevronRight, History, Home, KeyRound, Menu, Palette, Printer, Trash2, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
 import { AccessGrantsDialog } from '@/components/access-grants';
 import { useColorTheme, type AppColorTheme } from '@/components/color-theme-provider';
 import { ColorPaletteControls } from '@/components/color-palette-controls';
+import {
+  DEFAULT_PRINT_PREFERENCES,
+  PRINT_PAPER_OPTIONS,
+  type PrintPreferences,
+} from '@/lib/printing';
+import './print-settings.css';
 
 export type ViewMode = 'owner' | 'employee';
 export type ViewPrefs = { mode: ViewMode; employeeId: number | null };
@@ -40,7 +46,7 @@ export function useViewPrefs() {
   return [prefs, update] as const;
 }
 
-export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOwner, permissions, canManageGrants }: {
+export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOwner, permissions, canManageGrants, printPreferences, onPrintPreferencesChange }: {
   prefs: ViewPrefs;
   members: MemberRecord[];
   open: boolean;
@@ -49,6 +55,8 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   isOwner: boolean;
   permissions: FacilityPermissions;
   canManageGrants: boolean;
+  printPreferences?: PrintPreferences;
+  onPrintPreferencesChange?: (next: PrintPreferences) => void;
 }) {
   const canViewEmployees = permissions.allEmployees || permissions.employeeIds.length > 0;
   const canHistory = canViewEmployees || permissions.viewRevenue;
@@ -58,6 +66,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   const [deleteHistoryOpen, setDeleteHistoryOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const { theme, setTheme, colors, setColor, resetColors } = useColorTheme();
+  const printPrefs = printPreferences ?? DEFAULT_PRINT_PREFERENCES;
   const editThemeColors = (nextTheme: AppColorTheme) => {
     setTheme(nextTheme);
     setPaletteOpen(true);
@@ -149,6 +158,36 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
           <button type="button" className="settings-link" onClick={() => editThemeColors('custom')} data-testid="button-open-color-palette">
             <Palette size={16} aria-hidden="true" /><span className="grow"><strong>Chỉnh màu giao diện</strong><span className="muted">Tùy chỉnh màu nền, chữ, khung và trạng thái</span></span><ChevronRight size={16} aria-hidden="true" />
           </button>
+
+          {onPrintPreferencesChange && (
+            <section className="print-settings" aria-labelledby="print-settings-title">
+              <h3 id="print-settings-title"><Printer size={16} aria-hidden="true" />In phiếu và thẻ</h3>
+              <label className="print-setting-switch">
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={printPrefs.autoPrintServiceSessions}
+                  onChange={(event) => onPrintPreferencesChange({ ...printPrefs, autoPrintServiceSessions: event.target.checked })}
+                  data-testid="switch-auto-print-sessions"
+                />
+                <span><strong>Tự in phiếu khi chấm công</strong><small>Sau khi lưu ca mới thành công</small></span>
+              </label>
+              <label className="field" htmlFor="print-paper-size">Khổ giấy
+                <select id="print-paper-size" value={printPrefs.paperSize}
+                  onChange={(event) => onPrintPreferencesChange({ ...printPrefs, paperSize: event.target.value as PrintPreferences['paperSize'] })}
+                  data-testid="select-print-paper-size">
+                  {PRINT_PAPER_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+              <label className="field" htmlFor="print-facility-phone">Số điện thoại cơ sở trên thẻ
+                <input id="print-facility-phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={40}
+                  value={printPrefs.facilityPhone}
+                  onChange={(event) => onPrintPreferencesChange({ ...printPrefs, facilityPhone: event.target.value })}
+                  placeholder="Nhập số điện thoại cơ sở"
+                  data-testid="input-print-facility-phone" />
+              </label>
+            </section>
+          )}
 
           <Link href="/personal" className="settings-link personal-entry" onClick={() => onOpenChange(false)} data-testid="link-personal-notebook">
             <BookHeart size={17} aria-hidden="true" /><span className="grow"><strong>Chấm công cá nhân</strong><span className="muted">Sổ riêng của tài khoản bạn</span></span><ChevronRight size={16} aria-hidden="true" />

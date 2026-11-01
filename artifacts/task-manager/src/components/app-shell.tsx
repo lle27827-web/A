@@ -7,6 +7,12 @@ import { SearchResults } from '@/components/search-results';
 import { ViewSettings, useViewPrefs, type ViewPrefs } from '@/components/view-settings';
 import { errorText, formatMonth, SESSION_FRESHNESS } from '@/lib/massage';
 import { periodHref, resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
+import {
+  DEFAULT_PRINT_PREFERENCES,
+  readPrintPreferences,
+  writePrintPreferences,
+  type PrintPreferences,
+} from '@/lib/printing';
 import { primeSaveChime } from '@/lib/save-chime';
 
 export const NO_PERMISSIONS: FacilityPermissions = {
@@ -55,6 +61,8 @@ type ShellCtx = {
   clearMessages: () => void;
   openSettings: () => void;
   setView: (next: ViewPrefs) => void;
+  printPreferences: PrintPreferences;
+  updatePrintPreferences: (next: PrintPreferences) => void;
 };
 
 const Ctx = createContext<ShellCtx | null>(null);
@@ -69,6 +77,7 @@ export function AppShell({
   employeeView,
   isOwner,
   permissions,
+  userId,
   authStatusMessage,
   onSignOut,
 }: {
@@ -76,12 +85,16 @@ export function AppShell({
   employeeView: ReactNode;
   isOwner: boolean;
   permissions: FacilityPermissions;
+  userId?: string | null;
   authStatusMessage?: string;
   onSignOut?: () => void;
 }) {
   const [location, navigate] = useLocation();
   const [prefs, setPrefs] = useViewPrefs();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [printPreferences, setPrintPreferences] = useState<PrintPreferences>(() =>
+    readPrintPreferences(userId),
+  );
   const search = useSearch();
   const today = useMemo(() => vietnamToday(), []);
   const resolved = resolveRevenuePeriod(search, today);
@@ -144,6 +157,10 @@ export function AppShell({
     setQuery('');
     setPrefs(next);
   }
+  function updatePrintPreferences(next: PrintPreferences) {
+    setPrintPreferences(next);
+    writePrintPreferences(userId, next);
+  }
 
   const ctx: ShellCtx = {
     canEdit: canViewEmployees && permissions.editEmployees && !historyMonth,
@@ -172,6 +189,8 @@ export function AppShell({
     clearMessages: () => { setError(''); setNotice(''); },
     openSettings: () => setSettingsOpen(true),
     setView: applyView,
+    printPreferences,
+    updatePrintPreferences,
   };
 
   return (
@@ -200,7 +219,9 @@ export function AppShell({
               <ViewSettings prefs={prefs} members={members}
                 open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView}
                 isOwner={isOwner} permissions={permissions}
-                canManageGrants={isOwner || hasFacilityAccess(permissions)} />
+                canManageGrants={isOwner || hasFacilityAccess(permissions)}
+                printPreferences={printPreferences}
+                onPrintPreferencesChange={updatePrintPreferences} />
             </div>
           </div>
         </header>

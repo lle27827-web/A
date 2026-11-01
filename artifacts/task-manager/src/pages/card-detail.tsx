@@ -6,7 +6,7 @@ import {
   useUpdateServiceSession, useUpdateTreatmentCard, useAddTreatmentCardHours,
 } from '@workspace/api-client-react';
 import type { MemberRecord, ServiceSession, ServiceSessionInput, TreatmentCard } from '@workspace/api-client-react';
-import { ChevronDown, ChevronUp, CreditCard, Pencil, Phone, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, CreditCard, Pencil, Phone, Plus, Printer, Trash2 } from 'lucide-react';
 import { Link, useLocation, useParams } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { phoneCallHref } from '@/lib/phone';
@@ -17,12 +17,13 @@ import { SessionDialog } from '@/components/session-dialog';
 import { SessionTable } from '@/components/session-table';
 import { formatShortDate, localDate } from '@/lib/attendance';
 import { SESSION_FRESHNESS, errorText, formatMinutes, formatVnd, useRefreshMassage } from '@/lib/massage';
+import { printServiceSession, printTreatmentCard, reservePrintWindow } from '@/lib/printing';
 
 export default function CardDetailPage() {
   const params = useParams<{ id: string }>();
   const n = Number(params.id);
   const id = Number.isInteger(n) && n > 0 ? n : 0;
-  const { canEditCards: canEdit, canEditEmployees, permissions, canViewEmployees, notify, fail } = useShell();
+  const { canEditCards: canEdit, canEditEmployees, permissions, canViewEmployees, notify, fail, printPreferences } = useShell();
   const canUse = canEdit && canEditEmployees;
   // Card data is always current; session member options come from the CURRENT roster, not a history month.
   const activeMembersQuery = useListMembers(undefined, { query: { queryKey: getListMembersQueryKey(), enabled: canViewEmployees, ...SESSION_FRESHNESS } });
@@ -63,7 +64,27 @@ export default function CardDetailPage() {
     if (!canUse || !sessionDialog || !card) return;
     setDialogError('');
     const data = { ...input, cardId: card.id };
-    const opts = { onSuccess: () => { refresh(); setSessionDialog(null); notify(sessionDialog.session ? 'Đã cập nhật lần dùng thẻ.' : 'Đã ghi lần dùng thẻ.'); }, onError: (e: unknown) => { setDialogError(errorText(e)); fail(e); } };
+    const isNewSession = sessionDialog.session === null;
+    const printWindow = isNewSession && printPreferences.autoPrintServiceSessions ? reservePrintWindow() : null;
+    const opts = {
+      onSuccess: (saved: ServiceSession) => {
+        refresh();
+        setSessionDialog(null);
+        if (isNewSession && printPreferences.autoPrintServiceSessions) {
+          const printed = printServiceSession(printWindow, saved, printPreferences);
+          notify(printed
+            ? 'Đã ghi lần dùng thẻ và mở phiếu in.'
+            : 'Đã ghi lần dùng thẻ. Trình duyệt chặn cửa sổ in; hãy cho phép cửa sổ bật lên để tự in.');
+          return;
+        }
+        notify('Đã cập nhật lần dùng thẻ.');
+      },
+      onError: (e: unknown) => {
+        if (printWindow && !printWindow.closed) printWindow.close();
+        setDialogError(errorText(e));
+        fail(e);
+      },
+    };
     if (sessionDialog.session) updateSession.mutate({ id: sessionDialog.session.id, data }, opts);
     else createSession.mutate({ data }, opts);
   }
@@ -111,12 +132,22 @@ export default function CardDetailPage() {
               ) : <span aria-label="Số điện thoại đã được che">{card.phone}</span>}
               <span>· Thẻ {card.serviceType}</span>
             </p></div>
-          {canEdit && (
-            <div className="head-actions">
+          <div className="head-actions">
+            <button type="button" className="btn" onClick={() => {
+              const printWindow = reservePrintWindow();
+              if (!printWindow) {
+                notify('Trình duyệt chặn cửa sổ in; hãy cho phép cửa sổ bật lên rồi thử lại.');
+                return;
+              }
+              if (!printTreatmentCard(printWindow, card, printPreferences)) {
+                notify('Không mở được phiếu in thẻ.');
+              }
+            }} data-testid="button-print-card"><Printer size={14} />In thẻ</button>
+            {canEdit && <>
               <button type="button" className="btn" onClick={() => { setDialogError(''); setCardDialog(true); }} data-testid="button-edit-card"><Pencil size={14} />Sửa thẻ</button>
               <button type="button" className="icon-btn danger" onClick={askDeleteCard} aria-label="Xóa thẻ" data-testid="button-delete-card"><Trash2 size={15} /></button>
-            </div>
-          )}
+            </>}
+          </div>
         </div>
         <p className="rev-label">Giờ còn lại</p>
         <p className="rev-value mono" data-testid="text-card-remaining">{formatMinutes(card.remainingMinutes)}</p>

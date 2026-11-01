@@ -13,6 +13,7 @@ import { SessionDialog } from '@/components/session-dialog';
 import { initial, localDate, normalize, formatShortDate } from '@/lib/attendance';
 import { errorText, formatMinutes, formatMonth, formatVnd, SESSION_FRESHNESS, useRefreshMassage } from '@/lib/massage';
 import { summarizeEmployeeSessions } from '@/lib/employee-list-summary';
+import { printServiceSession, reservePrintWindow } from '@/lib/printing';
 
 export function MemberTags({ member }: { member: MemberRecord }) {
   const deleted = !!member.deletedAt;
@@ -27,7 +28,7 @@ export function MemberTags({ member }: { member: MemberRecord }) {
 }
 
 export default function EmployeesPage() {
-  const { members, membersLoading, membersError, retryMembers, canViewEmployees, canEditEmployees: canEdit, canDeleteEmployees, canAddEmployees, canEditCards, query, notify, fail, historyMonth, period, withHistory } = useShell();
+  const { members, membersLoading, membersError, retryMembers, canViewEmployees, canEditEmployees: canEdit, canDeleteEmployees, canAddEmployees, canEditCards, query, notify, fail, historyMonth, period, withHistory, printPreferences } = useShell();
   const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
   const [dialogError, setDialogError] = useState('');
@@ -57,9 +58,25 @@ export default function EmployeesPage() {
     if (!canEdit || !quick) return;
     const name = quick.name;
     setDialogError('');
+    const printWindow = printPreferences.autoPrintServiceSessions ? reservePrintWindow() : null;
     createSession.mutate({ data: input }, {
-      onSuccess: () => { refresh(); setQuick(null); notify(`Đã chấm công cho ${name}.`); },
-      onError: (e) => { setDialogError(errorText(e)); fail(e); },
+      onSuccess: (saved) => {
+        refresh();
+        setQuick(null);
+        if (printPreferences.autoPrintServiceSessions) {
+          const printed = printServiceSession(printWindow, saved, printPreferences);
+          notify(printed
+            ? `Đã chấm công cho ${name} và mở phiếu in.`
+            : `Đã chấm công cho ${name}. Trình duyệt chặn cửa sổ in; hãy cho phép cửa sổ bật lên để tự in.`);
+          return;
+        }
+        notify(`Đã chấm công cho ${name}.`);
+      },
+      onError: (e) => {
+        if (printWindow && !printWindow.closed) printWindow.close();
+        setDialogError(errorText(e));
+        fail(e);
+      },
     });
   }
 

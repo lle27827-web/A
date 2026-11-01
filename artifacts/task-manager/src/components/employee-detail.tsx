@@ -17,6 +17,7 @@ import { formatDate, formatShortDate } from '@/lib/attendance';
 import { MemberTags } from '@/pages/employees';
 import { SESSION_FRESHNESS, errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth, useRefreshMassage } from '@/lib/massage';
 import { serviceDurationLabel, summarizeServiceDurations } from '@/lib/service-duration-summary';
+import { printServiceSession, reservePrintWindow } from '@/lib/printing';
 
 export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null; readOnly: boolean }) {
   const shell = useShell();
@@ -71,9 +72,28 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
   function submitSession(input: ServiceSessionInput) {
     if (!canEdit || !sessionDialog) return;
     setDialogError('');
+    const isNewSession = sessionDialog.session === null;
+    const printWindow = isNewSession && shell.printPreferences.autoPrintServiceSessions
+      ? reservePrintWindow()
+      : null;
     const opts = {
-      onSuccess: () => { refresh(); setSessionDialog(null); notify(sessionDialog.session ? 'Đã cập nhật ca phục vụ.' : 'Đã ghi ca phục vụ.'); },
-      onError: (e: unknown) => { setDialogError(errorText(e)); fail(e); },
+      onSuccess: (saved: ServiceSession) => {
+        refresh();
+        setSessionDialog(null);
+        if (isNewSession && shell.printPreferences.autoPrintServiceSessions) {
+          const printed = printServiceSession(printWindow, saved, shell.printPreferences);
+          notify(printed
+            ? 'Đã ghi ca phục vụ và mở phiếu in.'
+            : 'Đã ghi ca phục vụ. Trình duyệt chặn cửa sổ in; hãy cho phép cửa sổ bật lên để tự in.');
+          return;
+        }
+        notify('Đã cập nhật ca phục vụ.');
+      },
+      onError: (e: unknown) => {
+        if (printWindow && !printWindow.closed) printWindow.close();
+        setDialogError(errorText(e));
+        fail(e);
+      },
     };
     if (sessionDialog.session) updateSession.mutate({ id: sessionDialog.session.id, data: input }, opts);
     else createSession.mutate({ data: input }, opts);

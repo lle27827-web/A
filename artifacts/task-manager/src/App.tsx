@@ -132,6 +132,8 @@ function SignedInApplication({
         <Route>
           {facility ? (
             <AppShell
+              key={userId ?? 'account'}
+              userId={userId}
               isOwner={isOwner}
               permissions={permissions}
               onSignOut={onSignOut}
