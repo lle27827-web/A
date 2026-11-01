@@ -269,6 +269,37 @@ function ClerkApplication() {
 }
 
 function App() {
+  useEffect(() => {
+    const root = document.documentElement;
+    const viewport = window.visualViewport;
+    const syncViewport = () => {
+      root.style.setProperty('--visible-viewport-height', `${Math.round(viewport?.height ?? window.innerHeight)}px`);
+      root.style.setProperty('--visible-viewport-top', `${Math.round(viewport?.offsetTop ?? 0)}px`);
+    };
+    const keepFocusedControlVisible = (event: FocusEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !target.matches('input, textarea, select')) return;
+      if (!target.closest('.dialog, .settings-dialog')) return;
+      window.setTimeout(() => {
+        if (target.isConnected) target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }, 300);
+    };
+
+    syncViewport();
+    viewport?.addEventListener('resize', syncViewport);
+    viewport?.addEventListener('scroll', syncViewport);
+    window.addEventListener('resize', syncViewport);
+    document.addEventListener('focusin', keepFocusedControlVisible);
+    return () => {
+      viewport?.removeEventListener('resize', syncViewport);
+      viewport?.removeEventListener('scroll', syncViewport);
+      window.removeEventListener('resize', syncViewport);
+      document.removeEventListener('focusin', keepFocusedControlVisible);
+      root.style.removeProperty('--visible-viewport-height');
+      root.style.removeProperty('--visible-viewport-top');
+    };
+  }, []);
+
   return (
     <ColorThemeProvider>
       <WouterRouter base={basePath}>

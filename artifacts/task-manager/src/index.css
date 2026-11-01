@@ -135,7 +135,7 @@
 
 @layer base {
   * { @apply border-border; }
-  body { @apply font-sans antialiased bg-background text-foreground; margin: 0; min-width: 320px; min-height: 100dvh; font-weight: 600; line-height: 1.45; }
+  body { @apply font-sans antialiased bg-background text-foreground; margin: 0; width: 100%; min-width: 320px; min-height: 100dvh; overflow-x: hidden; font-weight: 600; line-height: 1.45; }
   button, input, textarea, select { box-sizing: border-box; min-width: 0; max-width: 100%; font: inherit; }
   button { cursor: pointer; }
   button:disabled { cursor: not-allowed; opacity: .55; }
@@ -151,7 +151,7 @@
 .mono { font-variant-numeric: tabular-nums; }
 .muted { color: hsl(var(--muted-foreground)); }
 
-.app { box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+.app { box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; height: var(--visible-viewport-height, 100dvh); overflow: hidden; display: flex; flex-direction: column; }
 .topbar { position: sticky; top: 0; z-index: 20; background: hsl(var(--background) / .92); backdrop-filter: blur(8px); border-bottom: 1px solid hsl(var(--border)); }
 .topbar-inner { width: min(1200px, 100% - 32px); margin: 0 auto; min-height: 60px; display: flex; align-items: center; gap: 16px; }
 .brand { display: inline-flex; align-items: center; gap: 8px; color: hsl(var(--brand-red)); text-decoration: none; font-family: var(--app-font-display); font-weight: 800; font-size: 16px; letter-spacing: -.04em; white-space: nowrap; }
@@ -252,7 +252,7 @@
 .status-chip.leave .dot { background: hsl(var(--info)); }
 .row-actions { display: flex; justify-content: flex-end; gap: 2px; }
 
-.member-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; max-height: calc(100dvh - 190px); overflow-y: auto; }
+.member-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; max-height: calc(var(--visible-viewport-height, 100dvh) - 190px); overflow-y: auto; }
 .member-list li { display: flex; align-items: center; gap: 2px; border-radius: 8px; }
 .member-list li.selected { background: hsl(var(--primary) / .08); }
 .member-btn { flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; padding: 6px; border: 0; border-radius: 8px; color: hsl(var(--foreground)); background: transparent; text-align: left; font-size: 13px; }
@@ -271,8 +271,8 @@
 .empty p { margin: 0; font-size: 13px; }
 .empty.small { flex-direction: row; padding: 14px; text-align: left; }
 
-.modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; overflow-y: auto; overscroll-behavior: contain; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); background: hsl(var(--overlay) / .72); backdrop-filter: blur(3px); }
-.dialog { box-sizing: border-box; width: min(100%, 460px); max-width: 100%; max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 20px; border: 1px solid hsl(var(--border)); border-radius: 14px; background: hsl(var(--card)); box-shadow: var(--shadow); animation: rise .18s ease both; }
+.modal-backdrop { position: fixed; inset: var(--visible-viewport-top, 0px) 0 auto; height: var(--visible-viewport-height, 100dvh); box-sizing: border-box; z-index: 50; display: grid; place-items: center; overflow-y: auto; overscroll-behavior: contain; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); background: hsl(var(--overlay) / .72); backdrop-filter: blur(3px); }
+.dialog { box-sizing: border-box; width: min(100%, 460px); max-width: 100%; max-height: calc(var(--visible-viewport-height, 100dvh) - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 20px; border: 1px solid hsl(var(--border)); border-radius: 14px; background: hsl(var(--card)); box-shadow: var(--shadow); animation: rise .18s ease both; }
 .dialog-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .dialog-head h2 { min-width: 0; overflow-wrap: anywhere; margin: 0; font-family: var(--app-font-display); font-size: 18px; letter-spacing: -.04em; }
 .form-grid { display: grid; gap: 12px; }
@@ -331,9 +331,9 @@ option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
 .gear-btn:hover { border-color: hsl(var(--detail-foreground) / .8); transform: scale(1.04); }
 .mode-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 99px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: 12px; font-weight: 800; }
 .settings-overlay { position: fixed; inset: 0; z-index: 60; background: hsl(var(--overlay) / .75); backdrop-filter: blur(3px); }
-.settings-dialog { position: fixed; z-index: 61; top: 50%; left: 50%; transform: translate(-50%, -50%); box-sizing: border-box; width: min(calc(100vw - 24px), 480px); max-width: calc(100vw - 16px); max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 22px; border: 1px solid hsl(var(--border)); border-radius: 16px; background: hsl(var(--card)); color: hsl(var(--foreground)); box-shadow: var(--shadow); }
+.settings-dialog { position: fixed; z-index: 61; top: calc(var(--visible-viewport-top, 0px) + var(--visible-viewport-height, 100dvh) / 2); left: 50%; transform: translate(-50%, -50%); box-sizing: border-box; width: min(calc(100vw - 24px), 480px); max-width: calc(100vw - 16px); max-height: calc(var(--visible-viewport-height, 100dvh) - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 22px; border: 1px solid hsl(var(--border)); border-radius: 16px; background: hsl(var(--card)); color: hsl(var(--foreground)); box-shadow: var(--shadow); }
 .settings-dialog.palette-mode { width: min(calc(100vw - 20px), 860px); max-width: calc(100vw - 16px); }
-.settings-dialog.palette-mode .palette-controls { max-width: none; max-height: calc(100dvh - 150px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+.settings-dialog.palette-mode .palette-controls { max-width: none; max-height: calc(var(--visible-viewport-height, 100dvh) - 150px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 .settings-dialog h2 { margin: 0; font-family: var(--app-font-display); font-size: 19px; letter-spacing: -.04em; }
 .settings-dialog fieldset { border: 0; padding: 0; margin: 16px 0 0; }
 .settings-dialog legend { font-size: 12px; font-weight: 700; color: hsl(var(--muted-foreground)); margin-bottom: 8px; }
@@ -608,8 +608,10 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   .stat dd { font-size: clamp(16px, 5vw, 22px); overflow-wrap: anywhere; }
   .reports, .tiles, .emp-item { min-width: 0; }
   .table-wrap { max-width: 100%; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
-  .settings-dialog { width: calc(100vw - 24px); max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); padding: 16px; }
+  .settings-dialog { width: calc(100vw - 24px); max-height: calc(var(--visible-viewport-height, 100dvh) - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); padding: 16px; }
   input, select, textarea { box-sizing: border-box; min-width: 0; max-width: 100%; }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+  select, textarea { font-size: 16px !important; }
   .field, .field-row, .field-row > *, .form-grid, .form-grid > * { min-width: 0; max-width: 100%; }
   .field input, .field select, .field textarea { padding-inline: 8px; }
   .dialog-actions { justify-content: stretch; }
@@ -623,7 +625,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   .account { flex-wrap: wrap; }
   .tiles { grid-template-columns: minmax(0, 1fr); }
   .panel { padding: 12px; }
-  .settings-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); padding: 12px; }
+  .settings-dialog { width: calc(100vw - 16px); max-height: calc(var(--visible-viewport-height, 100dvh) - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); padding: 12px; }
   .settings-dialog .dialog-head { gap: 8px; }
   .settings-dialog .dialog-head h2 { font-size: 17px; }
 }
@@ -659,7 +661,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 
 @media (max-height: 680px) {
   .auth-page { justify-content: flex-start; }
-  .settings-dialog { top: max(8px, env(safe-area-inset-top)); transform: translateX(-50%); max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  .settings-dialog { top: calc(var(--visible-viewport-top, 0px) + max(8px, env(safe-area-inset-top))); transform: translateX(-50%); max-height: calc(var(--visible-viewport-height, 100dvh) - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 }
 
 /* Navigation and attendance controls stay in-flow and usable in dialogs on phones. */
@@ -856,7 +858,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .settings-dialog[data-testid="dialog-member"] {
   width: min(360px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);
-  max-height: calc(100dvh - 32px);
+  max-height: calc(var(--visible-viewport-height, 100dvh) - 32px);
   padding: 16px;
   box-sizing: border-box;
 }
@@ -1663,4 +1665,75 @@ button.btn[data-testid="button-no-access-sign-out"]:hover:not(:disabled) {
   border-color: hsl(27 32% 50%);
   color: hsl(27 42% 21%);
   background: hsl(39 54% 88%);
+}
+
+/* Keep edit forms inside the part of an iPhone/Android screen still visible above the keyboard. */
+.settings-overlay {
+  inset: var(--visible-viewport-top, 0px) 0 auto;
+  height: var(--visible-viewport-height, 100dvh);
+}
+body:has(.settings-dialog) .screen-nav,
+body:has(.modal-backdrop) .screen-nav {
+  display: none;
+}
+.dialog.personal-surface-dialog {
+  --card: 27 32% 22%;
+  --card-foreground: 38 47% 91%;
+  --foreground: 38 47% 91%;
+  --border: 27 25% 38%;
+  --muted: 27 25% 29%;
+  --muted-foreground: 35 25% 78%;
+  --secondary: 27 26% 32%;
+  --input: 27 28% 26%;
+  border-color: hsl(var(--detail-border));
+  color: hsl(0 0% 100%);
+  background: hsl(27 32% 22%);
+}
+
+/* Larger, heavier brown typography and stronger frames in the four main management sections. */
+.main .panel.page[aria-labelledby="emp-title"],
+.main .panel.page[aria-labelledby="cards-title"],
+.main .panel.page[data-testid="section-services"],
+.main .appointment-panel {
+  border: 3px solid hsl(var(--frame-border));
+}
+.main .panel.page[aria-labelledby="emp-title"] .page-title,
+.main .panel.page[aria-labelledby="cards-title"] .page-title,
+.main .panel.page[data-testid="section-services"] .page-title,
+.main .panel.page[data-testid="section-services"] h2,
+.main .appointment-panel .panel-head h2,
+.main .appointments-title-block .page-title {
+  color: hsl(var(--foreground));
+  font-size: clamp(20px, 2.8vw, 24px);
+  font-weight: 800;
+  line-height: 1.25;
+}
+.main .panel.page[aria-labelledby="emp-title"] .emp-row,
+.main .panel.page[data-testid="section-services"] .emp-row,
+.main .panel.page[aria-labelledby="cards-title"] .card-list-item {
+  border: 2px solid hsl(var(--frame-border));
+  color: hsl(var(--foreground));
+}
+.main .panel.page[aria-labelledby="emp-title"] .emp-row strong,
+.main .panel.page[data-testid="section-services"] .emp-row strong,
+.main .panel.page[aria-labelledby="cards-title"] .card-list-customer,
+.main .appointment-panel .appointment-customer {
+  color: hsl(var(--foreground));
+  font-size: 16px;
+  font-weight: 800;
+}
+.main .panel.page[aria-labelledby="emp-title"] .employee-summary,
+.main .panel.page[data-testid="section-services"] .emp-row .muted,
+.main .panel.page[aria-labelledby="cards-title"] .card-list-meta,
+.main .appointment-panel .appointment-detail-lines,
+.main .appointment-panel .appointment-when {
+  color: hsl(var(--foreground));
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.main .appointment-panel .appointment-row {
+  margin: 5px 0;
+  border: 2px solid hsl(var(--frame-border));
+  border-radius: 12px;
 }

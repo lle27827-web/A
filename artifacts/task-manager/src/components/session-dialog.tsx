@@ -122,7 +122,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
     `${service.customerRate > 0 ? `Tiền dịch vụ ${formatVnd(service.customerRate)}/giờ` : 'Chưa cài tiền dịch vụ'} · ${service.hourlyRate > 0 ? `Tiền công ${formatVnd(service.hourlyRate)}/giờ` : 'Chưa cài tiền công'}${service.saved ? ' · đã lưu' : ''}`;
   return (
     <Modal title={session ? 'Sửa ca phục vụ' : quick ? `Chấm công${fixedMember ? ` · ${fixedMember.name}` : ''}` : 'Thêm ca phục vụ'}
-      onClose={onClose} testId="dialog-session">
+      onClose={onClose} testId="dialog-session" className="personal-surface-dialog">
       <form className="form-grid" onSubmit={submit} noValidate>
         <fieldset className="field service-pick">
           <legend>Loại hình dịch vụ</legend>

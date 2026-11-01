@@ -45,7 +45,7 @@ export function AttendanceDialog({ record, members, busy, error, initialDate, in
 
   return (
     <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
-      <section className="dialog" role="dialog" aria-modal="true" aria-labelledby="attendance-dialog-title" onKeyDown={(event) => {
+       <section className="dialog personal-surface-dialog" role="dialog" aria-modal="true" aria-labelledby="attendance-dialog-title" onKeyDown={(event) => {
         if (event.key !== 'Tab') return;
         const els = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled)'));
         const first = els[0]; const last = els[els.length - 1];

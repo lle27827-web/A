@@ -1,7 +1,6 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import * as D from '@radix-ui/react-dialog';
-import { AlertTriangle, ArrowLeft, Home, LoaderCircle, X } from 'lucide-react';
-import { Link } from 'wouter';
+import { AlertTriangle, LoaderCircle, X } from 'lucide-react';
 
 export function Modal({ title, description, onClose, children, testId, className }: { title: string; description?: string; onClose: () => void; children: ReactNode; testId?: string; className?: string }) {
   const opener = useRef<HTMLElement | null>(null);
@@ -25,10 +24,6 @@ export function Modal({ title, description, onClose, children, testId, className
           </div>
           {description && <p className="sub" aria-hidden="true" style={{ marginBottom: 14 }}>{description}</p>}
           {children}
-          <nav className="window-nav bottom" aria-label="Điều hướng cửa sổ">
-            <Link href="/" onClick={onClose} className="btn ghost" data-testid="link-window-home"><Home size={14} aria-hidden="true" />Trang chính</Link>
-            <button type="button" className="btn ghost" onClick={onClose} data-testid="button-window-back"><ArrowLeft size={14} aria-hidden="true" />Trở về</button>
-          </nav>
         </D.Content>
       </D.Portal>
     </D.Root>
