@@ -21,7 +21,7 @@ type StoredPalettes = Partial<Record<AppColorTheme, Partial<PaletteColors>>>;
 const DEFAULT_PALETTE: Record<PaletteToken, string> = {
     background: '44 78% 63%',
     foreground: '30 42% 14%',
-    card: '0 0% 100%',
+    card: '48 88% 84%',
     'card-foreground': '30 42% 14%',
     border: '39 44% 48%',
     'frame-border': '27 52% 31%',
@@ -118,6 +118,10 @@ function isHexColor(value: unknown): value is string {
   return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
 }
 
+function normalizeStoredPaletteColor(token: PaletteToken, color: string): string {
+  return token === 'card' && color.toUpperCase() === '#FFFFFF' ? '#FAECB2' : color.toUpperCase();
+}
+
 function isDarkHex(hex: string): boolean {
   const channels = [1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16) / 255);
   const [red, green, blue] = channels.map((channel) => (
@@ -142,7 +146,9 @@ function readStoredPalettes(): StoredPalettes {
       if (!hasLegacyColors) return {};
       result.custom = Object.fromEntries(PALETTE_TOKENS.map((token) => [
         token,
-        isHexColor(overrides[token]) ? overrides[token].toUpperCase() : hslToHex(BASE_PALETTES[legacyTheme][token]),
+        isHexColor(overrides[token])
+          ? normalizeStoredPaletteColor(token, overrides[token])
+          : hslToHex(BASE_PALETTES[legacyTheme][token]),
       ])) as PaletteColors;
       return result;
     }
@@ -152,7 +158,7 @@ function readStoredPalettes(): StoredPalettes {
       const valid: Partial<PaletteColors> = {};
       for (const token of PALETTE_TOKENS) {
         const color = (candidate as Record<string, unknown>)[token];
-        if (isHexColor(color)) valid[token] = color.toUpperCase();
+        if (isHexColor(color)) valid[token] = normalizeStoredPaletteColor(token, color);
       }
       if (Object.keys(valid).length > 0) result[theme] = valid;
     }

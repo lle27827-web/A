@@ -40,7 +40,7 @@
   --border: 39 44% 48%;
   --frame-border: 27 52% 31%;
   --input: 39 44% 48%;
-  --card: 0 0% 100%;
+  --card: 48 88% 84%;
   --card-foreground: 30 42% 14%;
   --primary: 38 78% 34%;
   --primary-foreground: 0 0% 100%;
@@ -1427,7 +1427,7 @@ select,
 textarea {
   border-color: hsl(27 25% 62%);
   color: hsl(27 42% 18%);
-  background-color: hsl(0 0% 100%);
+  background-color: hsl(48 88% 84%);
   color-scheme: light;
 }
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"])::placeholder,
@@ -1437,14 +1437,14 @@ textarea::placeholder {
 }
 option {
   color: hsl(27 42% 18%);
-  background: hsl(0 0% 100%);
+  background: hsl(48 88% 84%);
 }
 .search,
 .inline-search,
 .card-search-box {
   border-color: hsl(27 25% 62%);
   color: hsl(27 42% 18%);
-  background: hsl(0 0% 100%);
+  background: hsl(48 88% 84%);
 }
 .search input::placeholder,
 .inline-search input::placeholder,
@@ -1590,7 +1590,7 @@ body :is(h1, h2, h3, .page-title, .rev-value, .p-big, .p-mid, .dc-num) {
 .personal-surface-dialog select:not(.service-select) {
   border-color: hsl(27 25% 62%);
   color: hsl(27 42% 18%);
-  background-color: hsl(0 0% 100%);
+  background-color: hsl(48 88% 84%);
   color-scheme: light;
 }
 .personal input::placeholder,
@@ -1739,4 +1739,25 @@ body:has(.modal-backdrop) .screen-nav {
   margin: 5px 0;
   border: 2px solid hsl(var(--frame-border));
   border-radius: 12px;
+}
+
+/* Keep the four home shortcuts white as functional controls, with a thicker brown frame. */
+.home .tile-employees,
+.home .tile-cards,
+.home .tile-appointments,
+.home .tile-services,
+.home .tile-employees:hover,
+.home .tile-cards:hover,
+.home .tile-appointments:hover,
+.home .tile-services:hover {
+  border: 3px solid hsl(27 52% 31%);
+  background: hsl(0 0% 100%);
+}
+
+.main .panel.page[aria-labelledby="emp-title"] .emp-row,
+.main .panel.page[data-testid="section-services"] .emp-row,
+.main .panel.page[aria-labelledby="cards-title"] .card-list-item,
+.main .appointment-panel .appointment-row {
+  border-width: 3px;
+  border-color: hsl(var(--frame-border));
 }
