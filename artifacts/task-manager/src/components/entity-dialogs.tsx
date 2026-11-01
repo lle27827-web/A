@@ -33,6 +33,8 @@ export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId
   const [amount, setAmount] = useState(card ? String(card.purchaseAmount) : '');
   const [purchaseDate, setPurchaseDate] = useState(card?.purchaseDate ?? defaultDate);
   const [servicePickerOpen, setServicePickerOpen] = useState(false);
+  const servicePickerTriggerRef = useRef<HTMLButtonElement>(null);
+  const servicePickerReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const note = card?.note ?? '';
   const [error, setError] = useState('');
   const catalog = servicesQuery.data ?? [];
@@ -41,6 +43,20 @@ export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId
   const totalMinutes = parseHoursToMinutes(hours);
   const money = parseMoney(amount);
   const callHref = phoneCallHref(phone);
+
+  function toggleServicePicker() {
+    if (servicePickerOpen) {
+      setServicePickerOpen(false);
+      requestAnimationFrame(() => servicePickerReturnFocusRef.current?.focus());
+      return;
+    }
+    servicePickerReturnFocusRef.current = servicePickerTriggerRef.current;
+    setServicePickerOpen(true);
+  }
+  function closeServicePicker() {
+    setServicePickerOpen(false);
+    requestAnimationFrame(() => servicePickerReturnFocusRef.current?.focus());
+  }
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -91,8 +107,8 @@ export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId
         </div>
         <fieldset className="field service-pick">
           <legend>Loại dịch vụ</legend>
-          <button id="c-service-picker-trigger" type="button" className="choice-row service-picker-trigger"
-            onClick={() => setServicePickerOpen((open) => !open)} aria-expanded={servicePickerOpen}
+          <button ref={servicePickerTriggerRef} id="c-service-picker-trigger" type="button" className="choice-row service-picker-trigger"
+            onClick={toggleServicePicker} aria-expanded={servicePickerOpen}
             aria-controls="card-service-choices" aria-busy={servicesQuery.isLoading}
             disabled={servicesQuery.isLoading || (servicesQuery.isError && !legacy)}
             data-testid="button-open-card-service-picker">
@@ -100,10 +116,12 @@ export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId
             <ChevronRight size={16} aria-hidden="true" />
           </button>
           {servicePickerOpen && (
-            <div id="card-service-choices" className="choice-list service-choice-list inline-service-choice-list" role="group" aria-label="Danh sách dịch vụ" data-testid="list-card-service-choices">
+            <div id="card-service-choices" className="choice-list service-choice-list inline-service-choice-list" role="group" aria-label="Danh sách dịch vụ" data-testid="list-card-service-choices" onKeyDown={(event) => {
+              if (event.key === 'Escape') { event.preventDefault(); closeServicePicker(); }
+            }}>
               {serviceOptions.map((name) => (
                 <button key={name} type="button" className="choice-row service-choice-row" aria-pressed={serviceType === name}
-                  onClick={() => { setServiceType(name); setServicePickerOpen(false); setError(''); }}
+                  onClick={() => { setServiceType(name); closeServicePicker(); setError(''); }}
                   data-testid={`button-card-service-choice-${name}`}>
                   <span className="grow"><strong>{name}</strong>{legacy === name && <span className="muted">Không còn trong danh sách</span>}</span>
                   {serviceType === name ? <Check size={17} aria-label="Đã chọn" /> : <ChevronRight size={17} aria-hidden="true" />}

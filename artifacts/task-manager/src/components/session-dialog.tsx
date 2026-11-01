@@ -49,6 +49,8 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
   const note = session?.note ?? '';
   const [error, setError] = useState('');
   const autoPickedFor = useRef<string | null>(null);
+  const servicePickerTriggerRef = useRef<HTMLButtonElement>(null);
+  const servicePickerReturnFocusRef = useRef<HTMLButtonElement | null>(null);
 
   const member = members.find((m) => String(m.id) === memberId) ?? null;
   const fixedMember = fixedMemberId ? members.find((m) => m.id === fixedMemberId) ?? null : null;
@@ -91,6 +93,19 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
     }),
   ];
   const selectedChoice = serviceChoices.find((service) => service.id === serviceId) ?? null;
+  function toggleServicePicker() {
+    if (servicePickerOpen) {
+      setServicePickerOpen(false);
+      requestAnimationFrame(() => servicePickerReturnFocusRef.current?.focus());
+      return;
+    }
+    servicePickerReturnFocusRef.current = servicePickerTriggerRef.current;
+    setServicePickerOpen(true);
+  }
+  function closeServicePicker() {
+    setServicePickerOpen(false);
+    requestAnimationFrame(() => servicePickerReturnFocusRef.current?.focus());
+  }
 
   // Preselect catalog service only when the card label exactly matches a catalog name (new sessions only).
   useEffect(() => {
@@ -131,9 +146,10 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
             : catalog.length === 0 && !session ? <span className="hint warn" role="alert">Chưa có dịch vụ nào. <Link href="/services" className="link-soft">Thêm dịch vụ</Link> trước khi chấm công.</span>
             : (
               <button
+                ref={servicePickerTriggerRef}
                 type="button"
                 className="choice-row service-picker-trigger"
-                onClick={() => setServicePickerOpen((open) => !open)}
+                onClick={toggleServicePicker}
                 aria-expanded={servicePickerOpen}
                 aria-controls="session-service-choices"
                 data-testid="button-open-service-picker"
@@ -147,7 +163,9 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
               </button>
             )}
           {servicePickerOpen && (
-            <div id="session-service-choices" className="choice-list service-choice-list inline-service-choice-list" role="group" aria-label="Danh sách loại hình dịch vụ" data-testid="dialog-service-picker">
+            <div id="session-service-choices" className="choice-list service-choice-list inline-service-choice-list" role="group" aria-label="Danh sách loại hình dịch vụ" data-testid="dialog-service-picker" onKeyDown={(event) => {
+              if (event.key === 'Escape') { event.preventDefault(); closeServicePicker(); }
+            }}>
               {serviceChoices.map((service) => {
                 const isSelected = service.id === serviceId;
                 return (
@@ -156,7 +174,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
                     type="button"
                     className="choice-row service-choice-row"
                     aria-pressed={isSelected}
-                    onClick={() => { setServiceId(service.id); setError(''); setServicePickerOpen(false); }}
+                    onClick={() => { setServiceId(service.id); setError(''); closeServicePicker(); }}
                     data-testid={`button-service-choice-${service.id}`}
                   >
                     <Sparkles size={17} aria-hidden="true" />
