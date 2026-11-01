@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetPersonalComparisonQueryKey, getGetPersonalNotebookQueryKey, getListMembersQueryKey,
@@ -41,6 +41,8 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
   const [syncError, setSyncError] = useState('');
   const [notice, setNotice] = useState('');
   const syncing = useRef(false);
+  const dayTab = useRef<HTMLButtonElement>(null);
+  const monthTab = useRef<HTMLButtonElement>(null);
   // Match the facility's main roster: current active employees today, historical
   // identities only when explicitly looking at an older month.
   const memberParams = useMemo(() => comparisonMemberParams(month, localDate().slice(0, 7)), [month]);
@@ -73,6 +75,14 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
   const result = comparisonResult(personal.length, reference.length, serviceDifferences.length);
   const rangeLabel = scope === 'day' ? `ngày ${formatShortDate(date)}` : formatMonth(month).toLowerCase();
   function pick(id: number | null) { setMemberId(id); setConfirming(false); setSyncError(''); setNotice(''); }
+  function handleScopeTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    const nextScope = scope === 'day' ? 'month' : 'day';
+    setScope(nextScope);
+    setConfirming(false);
+    (nextScope === 'day' ? dayTab.current : monthTab.current)?.focus();
+  }
   function runSync() {
     if (!d || !selectedMember || memberId === null || syncing.current || sync.isPending) return;
     syncing.current = true;
@@ -117,9 +127,10 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
           <h3 data-testid="text-comparison-source">Cơ sở · {selectedMember?.label} · {rangeLabel}</h3>
           <button type="button" className="back as-button" disabled={sync.isPending} onClick={() => pick(null)} data-testid="button-compare-change"><ArrowLeft size={14} />Chọn nhân viên khác</button>
           <div className="seg" role="tablist" aria-label="Phạm vi đối chiếu">
-            <button type="button" role="tab" aria-selected={scope === 'day'} className={scope === 'day' ? 'active' : ''} disabled={sync.isPending} onClick={() => { setScope('day'); setConfirming(false); }} data-testid="tab-cmp-day">Đối chiếu ngày</button>
-            <button type="button" role="tab" aria-selected={scope === 'month'} className={scope === 'month' ? 'active' : ''} disabled={sync.isPending} onClick={() => { setScope('month'); setConfirming(false); }} data-testid="tab-cmp-month">Đối chiếu tháng</button>
+            <button ref={dayTab} id="tab-cmp-day" type="button" role="tab" aria-controls="tabpanel-cmp-day" aria-selected={scope === 'day'} tabIndex={scope === 'day' ? 0 : -1} className={scope === 'day' ? 'active' : ''} disabled={sync.isPending} onKeyDown={handleScopeTabKeyDown} onClick={() => { setScope('day'); setConfirming(false); }} data-testid="tab-cmp-day">Đối chiếu ngày</button>
+            <button ref={monthTab} id="tab-cmp-month" type="button" role="tab" aria-controls="tabpanel-cmp-month" aria-selected={scope === 'month'} tabIndex={scope === 'month' ? 0 : -1} className={scope === 'month' ? 'active' : ''} disabled={sync.isPending} onKeyDown={handleScopeTabKeyDown} onClick={() => { setScope('month'); setConfirming(false); }} data-testid="tab-cmp-month">Đối chiếu tháng</button>
           </div>
+          <div className="cmp-tabpanel" id={`tabpanel-cmp-${scope}`} role="tabpanel" aria-labelledby={`tab-cmp-${scope}`} tabIndex={0}>
           {notice && result !== 'matched' && <div className="banner success" role="status" data-testid="status-sync-success"><Check size={15} /><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Đóng">Đóng</button></div>}
           {syncError && <div className="banner danger" role="alert" data-testid="status-sync-error"><AlertCircle size={15} /><span>{syncError}</span></div>}
           {cmp.isLoading || cmp.isFetching ? <Skeleton rows={4} label="Đang tải đối chiếu mới nhất" />
@@ -147,15 +158,18 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
               ) : (
                 <section className="cmp-section" aria-labelledby="cmp-disc" data-testid="section-cmp-discrepancies">
                   <h3 id="cmp-disc">Tổng giờ chưa khớp theo dịch vụ</h3>
-                  {serviceDifferences.map((difference, i) => (
-                    <CompactDifference key={difference.serviceName} {...difference} index={i} />
-                  ))}
+                  <ol className="cmp-difference-list" aria-label="Danh sách dịch vụ chưa khớp">
+                    {serviceDifferences.map((difference, i) => (
+                      <li key={difference.serviceName}><CompactDifference {...difference} index={i} /></li>
+                    ))}
+                  </ol>
                 </section>
               )}
               <button type="button" className="btn" disabled={sync.isPending || cmp.isFetching} onClick={() => { setSyncError(''); setNotice(''); setConfirming(true); }} data-testid="button-open-sync">
                 <RefreshCw size={14} />Cập nhật dữ liệu từ cơ sở
               </button>
             </>)}
+          </div>
         </div>
       )}
     </Modal>

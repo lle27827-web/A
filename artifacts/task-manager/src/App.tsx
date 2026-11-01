@@ -278,7 +278,7 @@ function App() {
     };
     const keepFocusedControlVisible = (event: FocusEvent) => {
       const target = event.target;
-      if (!(target instanceof HTMLElement) || !target.matches('input, textarea, select')) return;
+      if (!(target instanceof HTMLElement) || !target.matches('input, textarea, select, button, a[href], [role="tab"], [tabindex="0"]')) return;
       if (!target.closest('.dialog, .settings-dialog')) return;
       window.setTimeout(() => {
         if (target.isConnected) target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
