@@ -46,8 +46,8 @@ export default function EmployeesPage() {
     },
   });
   const summaries = useMemo(() => summarizeEmployeeSessions(sessionsQuery.data ?? [], period.date), [sessionsQuery.data, period.date]);
-  const dayLabel = period.date === period.today ? 'Hôm nay' : `Ngày ${formatShortDate(period.date)}`;
-  const monthLabel = historyMonth ? formatMonth(period.month) : 'Tháng này';
+  const dayLabel = period.date === period.today ? 'Tổng lương hôm nay' : `Tổng lương ngày ${formatShortDate(period.date)}`;
+  const monthLabel = historyMonth ? `Tổng lương tháng ${formatMonth(period.month)}` : 'Tổng lương tháng này';
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const createSession = useCreateServiceSession();
   const cardsQuery = useListTreatmentCards(undefined, { query: { queryKey: getListTreatmentCardsQueryKey(), enabled: canEdit && canEditCards && quick !== null } });
@@ -115,7 +115,6 @@ export default function EmployeesPage() {
                     <span className="initials big">{initial(m.name)}</span>
                     <span className="grow">
                       <strong>{m.name}<MemberTags member={m} /></strong>
-                      <span className="muted">{historyMonth ? 'Lương, lịch sử ca trong tháng' : 'Chấm công · Chi tiết'}</span>
                       {sessionsQuery.isLoading ? <span className="employee-summary muted">Đang tải lương và ca…</span> : !sessionsQuery.isError && (
                         <span className="employee-summary" data-testid={`summary-employee-${m.id}`}>
                           <span>{monthLabel}: {formatVnd(summary?.monthEarnings ?? 0)} · {summary?.monthSessionCount ?? 0} ca ({serviceText(summary?.monthServices ?? [])})</span>
