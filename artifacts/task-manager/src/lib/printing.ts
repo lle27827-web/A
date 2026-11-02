@@ -43,9 +43,9 @@ export const DEFAULT_PRINT_PREFERENCES: PrintPreferences = {
 type PrintPaperSpec = PrintPageLayout & { value: PrintPaperSize; label: string };
 
 const PAPER_SPECS: readonly PrintPaperSpec[] = [
-  { value: 'thermal-58', label: 'Máy in nhiệt 58 mm', page: '58mm auto', width: '50mm', widthMm: 58, heightMm: 180, fontSize: '11pt', previewFontPx: 10, previewWidthPx: 150, margin: '3mm' },
-  { value: 'thermal-80', label: 'Máy in nhiệt 80 mm', page: '80mm auto', width: '72mm', widthMm: 80, heightMm: 200, fontSize: '12pt', previewFontPx: 11, previewWidthPx: 185, margin: '4mm' },
-  { value: 'thermal-110', label: 'Máy in nhiệt 110 mm', page: '110mm auto', width: '102mm', widthMm: 110, heightMm: 220, fontSize: '13pt', previewFontPx: 12, previewWidthPx: 220, margin: '4mm' },
+  { value: 'thermal-58', label: 'Máy in nhiệt 58 mm', page: '58mm 180mm', width: '50mm', widthMm: 58, heightMm: 180, fontSize: '11pt', previewFontPx: 10, previewWidthPx: 150, margin: '3mm' },
+  { value: 'thermal-80', label: 'Máy in nhiệt 80 mm', page: '80mm 200mm', width: '72mm', widthMm: 80, heightMm: 200, fontSize: '12pt', previewFontPx: 11, previewWidthPx: 185, margin: '4mm' },
+  { value: 'thermal-110', label: 'Máy in nhiệt 110 mm', page: '110mm 220mm', width: '102mm', widthMm: 110, heightMm: 220, fontSize: '13pt', previewFontPx: 12, previewWidthPx: 220, margin: '4mm' },
   { value: 'a0', label: 'A0 · 841 × 1189 mm', page: 'A0 portrait', width: '821mm', widthMm: 841, heightMm: 1189, fontSize: '20pt', previewFontPx: 15, previewWidthPx: 320, margin: '10mm' },
   { value: 'a1', label: 'A1 · 594 × 841 mm', page: 'A1 portrait', width: '574mm', widthMm: 594, heightMm: 841, fontSize: '18pt', previewFontPx: 14, previewWidthPx: 310, margin: '10mm' },
   { value: 'a2', label: 'A2 · 420 × 594 mm', page: 'A2 portrait', width: '400mm', widthMm: 420, heightMm: 594, fontSize: '17pt', previewFontPx: 14, previewWidthPx: 295, margin: '10mm' },

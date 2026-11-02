@@ -1,8 +1,12 @@
+import { useState } from 'react';
+import { Printer } from 'lucide-react';
 import {
   CARD_CHECKBOX_COUNT,
   getPrintPageLayout,
   PRINT_PAPER_OPTIONS,
+  printRowsInWindow,
   printPreviewRows,
+  reservePrintWindow,
   type PrintPaperSize,
 } from '@/lib/printing';
 
@@ -12,6 +16,7 @@ export function PrintPreview({ paperSize, customWidthMm, customHeightMm, facilit
   customHeightMm: number;
   facilityPhone: string;
 }) {
+  const [printFeedback, setPrintFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
   const paperLabel = PRINT_PAPER_OPTIONS.find((option) => option.value === paperSize)?.label ?? 'Khổ giấy';
   const layout = getPrintPageLayout(paperSize, customWidthMm, customHeightMm);
   const previews = [
@@ -19,6 +24,35 @@ export function PrintPreview({ paperSize, customWidthMm, customHeightMm, facilit
     { kind: 'topup' as const, title: 'Thẻ khách hàng', caption: 'Nạp thẻ' },
     { kind: 'session' as const, title: 'Phiếu chấm công', caption: 'Phiếu chấm công' },
   ];
+
+  function printSample(kind: typeof previews[number]['kind'], title: string, caption: string) {
+    setPrintFeedback(null);
+    const printWindow = reservePrintWindow();
+    if (!printWindow) {
+      setPrintFeedback({ kind: 'error', message: 'Trình duyệt đang chặn cửa sổ in. Hãy cho phép cửa sổ bật lên rồi thử lại.' });
+      return;
+    }
+    const isCard = kind !== 'session';
+    const printed = printRowsInWindow(
+      printWindow,
+      title,
+      printPreviewRows(kind),
+      paperSize,
+      {
+        checkboxCount: isCard ? CARD_CHECKBOX_COUNT : 0,
+        facilityPhone,
+        cardFooter: isCard,
+        customWidthMm,
+        customHeightMm,
+      },
+    );
+    if (!printed) {
+      if (!printWindow.closed) printWindow.close();
+      setPrintFeedback({ kind: 'error', message: 'Không thể mở phiếu in thử.' });
+      return;
+    }
+    setPrintFeedback({ kind: 'success', message: `Đã mở phiếu ${caption}. Chọn máy in trong hộp thoại để in.` });
+  }
 
   return (
     <section className="print-preview-area" aria-labelledby="print-preview-title">
@@ -69,9 +103,23 @@ export function PrintPreview({ paperSize, customWidthMm, customHeightMm, facilit
               )}
             </article>
             <figcaption>{preview.caption}</figcaption>
+            <button
+              type="button"
+              className="btn ghost small print-preview-test"
+              onClick={() => printSample(preview.kind, preview.title, preview.caption)}
+              aria-label={`In thử mẫu ${preview.caption}, khổ ${paperLabel}`}
+              data-testid={`button-print-preview-${preview.kind}`}
+            >
+              <Printer size={14} aria-hidden="true" /> In thử
+            </button>
           </figure>
         ))}
       </div>
+      {printFeedback && (
+        <p className={`print-preview-feedback ${printFeedback.kind === 'error' ? 'is-error' : 'is-success'}`} role={printFeedback.kind === 'error' ? 'alert' : 'status'}>
+          {printFeedback.message}
+        </p>
+      )}
       <p className="print-preview-note">Bản xem trước theo đúng tỷ lệ khổ giấy đã chọn. Kích thước in thực tế và khổ máy hỗ trợ được chọn trong hộp thoại in của thiết bị.</p>
     </section>
   );

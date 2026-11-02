@@ -134,6 +134,9 @@ test('paper list covers common printer formats and a custom size', () => {
   for (const size of ['thermal-58', 'thermal-80', 'thermal-110', 'a0', 'a4', 'a7', 'b4', 'b5', 'letter', 'legal', 'executive', 'statement', 'tabloid', 'custom'] as const) {
     assert.equal(available.has(size), true, `missing ${size}`);
   }
+  assert.equal(getPrintPageLayout('thermal-58').page, '58mm 180mm');
+  assert.equal(getPrintPageLayout('thermal-80').page, '80mm 200mm');
+  assert.equal(getPrintPageLayout('thermal-110').page, '110mm 220mm');
   const a4 = getPrintPageLayout('a4');
   const a3 = getPrintPageLayout('a3');
   assert.equal(a4.page, 'A4 portrait');
