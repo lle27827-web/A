@@ -1771,3 +1771,19 @@ body:has(.modal-backdrop) .screen-nav {
   border-width: 3px;
   border-color: hsl(var(--frame-border));
 }
+
+/* Force white text on the dark revenue and employee-detail surfaces. */
+.revenue-summary {
+  --revenue-foreground: 0 0% 100%;
+  color: hsl(0 0% 100%);
+}
+.detail > .salary-hero,
+.detail > .day-salary,
+.detail > [data-testid="section-day-sessions"] {
+  --detail-foreground: 0 0% 100%;
+  --detail-muted: 0 0% 92%;
+  --foreground: 0 0% 100%;
+  --card-foreground: 0 0% 100%;
+  --muted-foreground: 0 0% 92%;
+  color: hsl(0 0% 100%);
+}
