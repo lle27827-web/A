@@ -1017,6 +1017,20 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .grant-details .group-title { margin: 0; }
 .grant-detail-email { margin: 0; font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
 .grant-permission-list { display: grid; gap: 6px; margin: 0; padding-left: 20px; color: hsl(var(--foreground)); font-size: 13px; }
+.access-grants-dialog { font-size: 16px; }
+.access-grants-dialog .dialog-head h2 { font-size: 22px; }
+.access-grants-dialog .group-title { font-size: 16px; }
+.access-grants-dialog .hint { font-size: 13px; line-height: 1.45; }
+.access-grants-dialog .form-error { font-size: 14px; }
+.access-grants-dialog .field { font-size: 15px; }
+.access-grants-dialog .field input { font-size: 15px; }
+.access-grants-dialog .grant-group legend { font-size: 15px; }
+.access-grants-dialog .grant-check { font-size: 16px; line-height: 1.45; }
+.access-grants-dialog .grant-email-suffix { font-size: 15px; }
+.access-grants-dialog .grant-row .muted { font-size: 14px; }
+.access-grants-dialog .grant-detail-email { font-size: 15px; }
+.access-grants-dialog .grant-permission-list { font-size: 15px; line-height: 1.5; }
+.access-grants-dialog .dialog-actions .btn { font-size: 15px; }
 
 /* Brown surfaces for employee details and attendance panels. */
 .detail > .salary-hero,
