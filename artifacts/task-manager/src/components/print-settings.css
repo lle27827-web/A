@@ -95,8 +95,13 @@
 }
 
 .print-preview-sheet {
+  box-sizing: border-box;
+  display: grid;
+  align-content: start;
+  gap: 2px;
   width: 100%;
-  max-width: 320px;
+  max-width: min(100%, 320px);
+  min-height: 0;
   min-width: 0;
   padding: 12px;
   overflow-wrap: anywhere;
@@ -107,12 +112,6 @@
   font: 12px/1.4 Arial, sans-serif;
 }
 
-.print-preview-sheet--thermal-58 { max-width: 180px; font-size: 10px; }
-.print-preview-sheet--thermal-80 { max-width: 220px; font-size: 11px; }
-.print-preview-sheet--a6 { max-width: 220px; min-height: 255px; font-size: 11px; }
-.print-preview-sheet--a5 { max-width: 270px; min-height: 300px; font-size: 12px; }
-.print-preview-sheet--a4 { max-width: 320px; min-height: 340px; font-size: 13px; }
-
 .print-preview-sheet-header {
   display: grid;
   justify-items: center;
@@ -121,12 +120,6 @@
   margin-bottom: 4px;
   border-bottom: 1px dashed #79552a;
   text-align: center;
-}
-
-.print-preview-sheet-header strong {
-  color: #8b3025;
-  font-size: 1.2em;
-  letter-spacing: .08em;
 }
 
 .print-preview-sheet-header span { font-weight: 700; }

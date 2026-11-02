@@ -287,13 +287,33 @@ export default function CardDetailPage() {
           onSubmit={(data) => {
             if (!canEdit || addHours.isPending) return;
             setDialogError('');
+            const printWindow = printPreferences.autoPrintCardTopUps ? reservePrintWindow() : null;
             addHours.mutate({ id: card.id, data }, {
               onSuccess: (saved) => {
                 cache.setQueryData<TreatmentCard[]>(getListTreatmentCardsQueryKey(), (old) =>
                   old?.map((item) => item.id === saved.id ? saved : item));
-                refresh(); setHoursDialog(false); notify(`Đã nạp ${formatMinutes(data.minutes)} · ${formatVnd(data.amount)} vào thẻ.`);
+                refresh();
+                setHoursDialog(false);
+                const baseMessage = `Đã nạp ${formatMinutes(data.minutes)} · ${formatVnd(data.amount)} vào thẻ.`;
+                if (printPreferences.autoPrintCardTopUps) {
+                  const payment = saved.topUps
+                    .filter((item) => item.source === 'topup' && item.minutes === data.minutes && item.amount === data.amount)
+                    .sort((a, b) => b.id - a.id)[0];
+                  const printed = payment ? printCardTopUp(printWindow, saved, payment, printPreferences) : false;
+                  notify(printed
+                    ? `${baseMessage} Đã mở phiếu in.`
+                    : payment
+                      ? `${baseMessage} Không mở được phiếu in; hãy cho phép cửa sổ bật lên.`
+                      : `${baseMessage} Không nhận được dữ liệu phiếu để tự in; có thể in trong lịch sử thẻ.`);
+                } else {
+                  notify(baseMessage);
+                }
               },
-              onError: (e) => { setDialogError(errorText(e)); fail(e); },
+              onError: (e) => {
+                if (printWindow && !printWindow.closed) printWindow.close();
+                setDialogError(errorText(e));
+                fail(e);
+              },
             });
           }} />
       )}

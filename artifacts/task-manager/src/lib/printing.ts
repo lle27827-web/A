@@ -1,29 +1,102 @@
 import type { CardTopUp, ServiceSession, TreatmentCard } from '@workspace/api-client-react';
 
-export type PrintPaperSize = 'thermal-58' | 'thermal-80' | 'a6' | 'a5' | 'a4';
+export type PrintPaperSize =
+  | 'thermal-58' | 'thermal-80' | 'thermal-110'
+  | 'a0' | 'a1' | 'a2' | 'a3' | 'a4' | 'a5' | 'a6' | 'a7'
+  | 'b4' | 'b5' | 'letter' | 'legal' | 'executive' | 'statement' | 'tabloid'
+  | 'custom';
+
 export type PrintPreferences = {
   autoPrintServiceSessions: boolean;
+  autoPrintCardSales: boolean;
+  autoPrintCardTopUps: boolean;
   paperSize: PrintPaperSize;
+  customWidthMm: number;
+  customHeightMm: number;
   facilityPhone: string;
 };
+
 export type PrintRow = { label: string; value: string };
+export type PrintPreviewKind = 'sale' | 'topup' | 'session';
+export type PrintPageLayout = {
+  page: string;
+  width: string;
+  widthMm: number;
+  heightMm: number;
+  fontSize: string;
+  previewFontPx: number;
+  previewWidthPx: number;
+  margin: string;
+};
 export const CARD_CHECKBOX_COUNT = 10;
 
 export const DEFAULT_PRINT_PREFERENCES: PrintPreferences = {
   autoPrintServiceSessions: false,
+  autoPrintCardSales: false,
+  autoPrintCardTopUps: false,
   paperSize: 'thermal-80',
+  customWidthMm: 100,
+  customHeightMm: 150,
   facilityPhone: '',
 };
 
-export const PRINT_PAPER_OPTIONS: { value: PrintPaperSize; label: string }[] = [
-  { value: 'thermal-58', label: 'Nhiệt 58 mm · nhỏ' },
-  { value: 'thermal-80', label: 'Nhiệt 80 mm' },
-  { value: 'a6', label: 'A6' },
-  { value: 'a5', label: 'A5' },
-  { value: 'a4', label: 'A4 · lớn' },
+type PrintPaperSpec = PrintPageLayout & { value: PrintPaperSize; label: string };
+
+const PAPER_SPECS: readonly PrintPaperSpec[] = [
+  { value: 'thermal-58', label: 'Máy in nhiệt 58 mm', page: '58mm auto', width: '50mm', widthMm: 58, heightMm: 180, fontSize: '11pt', previewFontPx: 10, previewWidthPx: 150, margin: '3mm' },
+  { value: 'thermal-80', label: 'Máy in nhiệt 80 mm', page: '80mm auto', width: '72mm', widthMm: 80, heightMm: 200, fontSize: '12pt', previewFontPx: 11, previewWidthPx: 185, margin: '4mm' },
+  { value: 'thermal-110', label: 'Máy in nhiệt 110 mm', page: '110mm auto', width: '102mm', widthMm: 110, heightMm: 220, fontSize: '13pt', previewFontPx: 12, previewWidthPx: 220, margin: '4mm' },
+  { value: 'a0', label: 'A0 · 841 × 1189 mm', page: 'A0 portrait', width: '821mm', widthMm: 841, heightMm: 1189, fontSize: '20pt', previewFontPx: 15, previewWidthPx: 320, margin: '10mm' },
+  { value: 'a1', label: 'A1 · 594 × 841 mm', page: 'A1 portrait', width: '574mm', widthMm: 594, heightMm: 841, fontSize: '18pt', previewFontPx: 14, previewWidthPx: 310, margin: '10mm' },
+  { value: 'a2', label: 'A2 · 420 × 594 mm', page: 'A2 portrait', width: '400mm', widthMm: 420, heightMm: 594, fontSize: '17pt', previewFontPx: 14, previewWidthPx: 295, margin: '10mm' },
+  { value: 'a3', label: 'A3 · 297 × 420 mm', page: 'A3 portrait', width: '277mm', widthMm: 297, heightMm: 420, fontSize: '16pt', previewFontPx: 13, previewWidthPx: 270, margin: '10mm' },
+  { value: 'a4', label: 'A4 · 210 × 297 mm', page: 'A4 portrait', width: '190mm', widthMm: 210, heightMm: 297, fontSize: '16pt', previewFontPx: 13, previewWidthPx: 245, margin: '10mm' },
+  { value: 'a5', label: 'A5 · 148 × 210 mm', page: 'A5 portrait', width: '132mm', widthMm: 148, heightMm: 210, fontSize: '14pt', previewFontPx: 12, previewWidthPx: 205, margin: '8mm' },
+  { value: 'a6', label: 'A6 · 105 × 148 mm', page: 'A6 portrait', width: '96mm', widthMm: 105, heightMm: 148, fontSize: '12pt', previewFontPx: 11, previewWidthPx: 175, margin: '6mm' },
+  { value: 'a7', label: 'A7 · 74 × 105 mm', page: 'A7 portrait', width: '66mm', widthMm: 74, heightMm: 105, fontSize: '10pt', previewFontPx: 10, previewWidthPx: 155, margin: '4mm' },
+  { value: 'b4', label: 'B4 · 250 × 353 mm', page: '250mm 353mm', width: '234mm', widthMm: 250, heightMm: 353, fontSize: '15pt', previewFontPx: 13, previewWidthPx: 260, margin: '8mm' },
+  { value: 'b5', label: 'B5 · 176 × 250 mm', page: '176mm 250mm', width: '160mm', widthMm: 176, heightMm: 250, fontSize: '13pt', previewFontPx: 12, previewWidthPx: 220, margin: '8mm' },
+  { value: 'letter', label: 'US Letter · 216 × 279 mm', page: '215.9mm 279.4mm', width: '195.9mm', widthMm: 215.9, heightMm: 279.4, fontSize: '16pt', previewFontPx: 13, previewWidthPx: 248, margin: '10mm' },
+  { value: 'legal', label: 'US Legal · 216 × 356 mm', page: '215.9mm 355.6mm', width: '195.9mm', widthMm: 215.9, heightMm: 355.6, fontSize: '16pt', previewFontPx: 13, previewWidthPx: 248, margin: '10mm' },
+  { value: 'executive', label: 'Executive · 184 × 267 mm', page: '184.15mm 266.7mm', width: '168.15mm', widthMm: 184.15, heightMm: 266.7, fontSize: '13pt', previewFontPx: 12, previewWidthPx: 225, margin: '8mm' },
+  { value: 'statement', label: 'Statement · 140 × 216 mm', page: '139.7mm 215.9mm', width: '123.7mm', widthMm: 139.7, heightMm: 215.9, fontSize: '12pt', previewFontPx: 11, previewWidthPx: 195, margin: '8mm' },
+  { value: 'tabloid', label: 'Tabloid · 279 × 432 mm', page: '279.4mm 431.8mm', width: '259.4mm', widthMm: 279.4, heightMm: 431.8, fontSize: '16pt', previewFontPx: 13, previewWidthPx: 280, margin: '10mm' },
+  { value: 'custom', label: 'Khổ riêng · nhập kích thước', page: '', width: '', widthMm: 100, heightMm: 150, fontSize: '12pt', previewFontPx: 11, previewWidthPx: 185, margin: '4mm' },
 ];
 
+export const PRINT_PAPER_OPTIONS = PAPER_SPECS.map(({ value, label }) => ({ value, label }));
+
 const STORAGE_PREFIX = 'so-cong:print-settings:';
+const CUSTOM_DIMENSION_MIN_MM = 20;
+const CUSTOM_DIMENSION_MAX_MM = 1200;
+
+export function normalizeCustomPaperDimension(value: unknown, fallback: number): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.round(Math.min(CUSTOM_DIMENSION_MAX_MM, Math.max(CUSTOM_DIMENSION_MIN_MM, parsed)));
+}
+
+export function getPrintPageLayout(
+  paperSize: PrintPaperSize,
+  customWidthMm = DEFAULT_PRINT_PREFERENCES.customWidthMm,
+  customHeightMm = DEFAULT_PRINT_PREFERENCES.customHeightMm,
+): PrintPageLayout {
+  const spec = PAPER_SPECS.find((option) => option.value === paperSize) ?? PAPER_SPECS[1]!;
+  if (paperSize !== 'custom') return spec;
+
+  const widthMm = normalizeCustomPaperDimension(customWidthMm, DEFAULT_PRINT_PREFERENCES.customWidthMm);
+  const heightMm = normalizeCustomPaperDimension(customHeightMm, DEFAULT_PRINT_PREFERENCES.customHeightMm);
+  return {
+    page: `${widthMm}mm ${heightMm}mm`,
+    width: `${Math.max(10, widthMm - 8)}mm`,
+    widthMm,
+    heightMm,
+    fontSize: '12pt',
+    previewFontPx: 11,
+    previewWidthPx: Math.round(Math.max(140, Math.min(320, 120 + widthMm * 0.65))),
+    margin: '4mm',
+  };
+}
 
 function formatPrintMinutes(minutes: number): string {
   const hours = Math.floor(minutes / 60);
@@ -48,7 +121,11 @@ export function readPrintPreferences(userId?: string | null): PrintPreferences {
       : DEFAULT_PRINT_PREFERENCES.paperSize;
     return {
       autoPrintServiceSessions: stored.autoPrintServiceSessions === true,
+      autoPrintCardSales: stored.autoPrintCardSales === true,
+      autoPrintCardTopUps: stored.autoPrintCardTopUps === true,
       paperSize,
+      customWidthMm: normalizeCustomPaperDimension(stored.customWidthMm, DEFAULT_PRINT_PREFERENCES.customWidthMm),
+      customHeightMm: normalizeCustomPaperDimension(stored.customHeightMm, DEFAULT_PRINT_PREFERENCES.customHeightMm),
       facilityPhone: typeof stored.facilityPhone === 'string' ? stored.facilityPhone.slice(0, 40) : '',
     };
   } catch {
@@ -63,14 +140,6 @@ export function writePrintPreferences(userId: string | null | undefined, prefere
     // Keep the current session usable when browser storage is unavailable.
   }
 }
-
-const PAGE_LAYOUT: Record<PrintPaperSize, { page: string; width: string; fontSize: string; margin: string }> = {
-  'thermal-58': { page: '58mm auto', width: '50mm', fontSize: '11pt', margin: '3mm' },
-  'thermal-80': { page: '80mm auto', width: '72mm', fontSize: '12pt', margin: '4mm' },
-  a6: { page: 'A6 portrait', width: '96mm', fontSize: '12pt', margin: '6mm' },
-  a5: { page: 'A5 portrait', width: '132mm', fontSize: '14pt', margin: '8mm' },
-  a4: { page: 'A4 portrait', width: '190mm', fontSize: '16pt', margin: '10mm' },
-};
 
 export function escapePrintText(value: string): string {
   return value.replace(/[&<>"']/gu, (character) => ({
@@ -119,6 +188,10 @@ export function treatmentCardPrintRows(card: TreatmentCard): PrintRow[] {
   return cardTransactionRows(card, cardPurchaseMinutes(card), card.purchaseDate, 'Số giờ mua', 'Ngày bán thẻ');
 }
 
+export function cardSalePrintRows(card: TreatmentCard, minutes: number, purchaseDate: string): PrintRow[] {
+  return cardTransactionRows(card, minutes, purchaseDate, 'Số giờ mua', 'Ngày bán thẻ');
+}
+
 export function cardTopUpPrintRows(card: TreatmentCard, payment: CardTopUp): PrintRow[] {
   return cardTransactionRows(card, payment.minutes, payment.paymentDate, 'Số giờ nạp', 'Ngày nạp');
 }
@@ -132,26 +205,39 @@ export function serviceSessionPrintRows(session: ServiceSession): PrintRow[] {
   ];
 }
 
-export function printPreviewRows(type: 'card' | 'session'): PrintRow[] {
-  if (type === 'card') {
-    const sampleCard: TreatmentCard = {
-      id: 0,
-      customerName: 'Khách mẫu',
-      phone: '0900 000 000',
-      serviceType: 'Massage thư giãn',
-      totalMinutes: 300,
-      usedMinutes: 60,
-      remainingMinutes: 240,
-      purchaseAmount: 0,
-      totalPaidAmount: 0,
-      topUps: [],
-      purchaseDate: '2026-11-02',
+function sampleTreatmentCard(): TreatmentCard {
+  return {
+    id: 0,
+    customerName: 'Khách mẫu',
+    phone: '0900 000 000',
+    serviceType: 'Massage thư giãn',
+    totalMinutes: 300,
+    usedMinutes: 60,
+    remainingMinutes: 240,
+    purchaseAmount: 0,
+    totalPaidAmount: 0,
+    topUps: [],
+    purchaseDate: '2026-11-02',
+    note: '',
+    createdAt: '2026-11-02T00:00:00.000Z',
+  };
+}
+
+export function printPreviewRows(type: PrintPreviewKind): PrintRow[] {
+  const sampleCard = sampleTreatmentCard();
+  if (type === 'sale') return treatmentCardPrintRows(sampleCard);
+  if (type === 'topup') {
+    const sampleTopUp: CardTopUp = {
+      id: 1,
+      minutes: 120,
+      amount: 0,
+      paymentDate: '2026-11-02',
+      source: 'topup',
       note: '',
       createdAt: '2026-11-02T00:00:00.000Z',
     };
-    return treatmentCardPrintRows(sampleCard);
+    return cardTopUpPrintRows(sampleCard, sampleTopUp);
   }
-
   const sampleSession: ServiceSession = {
     id: 0,
     cardId: null,
@@ -177,9 +263,16 @@ export function buildPrintDocumentHtml(
   title: string,
   rows: PrintRow[],
   paperSize: PrintPaperSize,
-  options: { checkboxCount?: number; facilityPhone?: string; cardFooter?: boolean; footerText?: string } = {},
+  options: {
+    checkboxCount?: number;
+    facilityPhone?: string;
+    cardFooter?: boolean;
+    footerText?: string;
+    customWidthMm?: number;
+    customHeightMm?: number;
+  } = {},
 ): string {
-  const layout = PAGE_LAYOUT[paperSize];
+  const layout = getPrintPageLayout(paperSize, options.customWidthMm, options.customHeightMm);
   const renderedRows = rows.map(({ label, value }) =>
     `<div class="row"><span class="label">${escapePrintText(label)}</span><strong>${escapePrintText(value)}</strong></div>`,
   ).join('');
@@ -203,14 +296,13 @@ export function buildPrintDocumentHtml(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${safeTitle} · SỔ CÔNG</title>
+  <title>${safeTitle}</title>
   <style>
     @page { size: ${layout.page}; margin: ${layout.margin}; }
     * { box-sizing: border-box; }
     body { margin: 0; color: #21190f; background: #fff; font: ${layout.fontSize}/1.45 Arial, sans-serif; }
     .ticket { width: ${layout.width}; max-width: 100%; margin: 0 auto; padding: 5mm 2mm; }
     header { text-align: center; border-bottom: 1px dashed #79552a; padding-bottom: 4mm; margin-bottom: 4mm; }
-    .brand { margin: 0 0 2mm; color: #8b3025; font-size: 1.25em; font-weight: 800; letter-spacing: .08em; }
     h1 { margin: 0; font-size: 1.05em; }
     .row { display: grid; gap: 1mm; padding: 2.5mm 0; border-bottom: 1px solid #e5ded2; overflow-wrap: anywhere; }
     .label { color: #675b4b; font-size: .82em; }
@@ -218,9 +310,6 @@ export function buildPrintDocumentHtml(
     .checklist { margin-top: 4mm; padding-top: 3mm; }
     .checklist-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2mm; }
     .check-square { display: block; width: 7mm; height: 7mm; border: .35mm solid #21190f; break-inside: avoid; }
-    .paper-thermal-58 .checklist-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .paper-a5 .checklist-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-    .paper-a4 .checklist-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
     .facility-phone { margin: 4mm 0 0; color: #675b4b; text-align: center; font-size: .72em; overflow-wrap: anywhere; }
     .footer { margin-top: 5mm; text-align: center; color: #675b4b; font-size: .8em; }
     .print-actions { margin-top: 6mm; text-align: center; }
@@ -230,7 +319,7 @@ export function buildPrintDocumentHtml(
 </head>
 <body>
   <main class="ticket paper-${paperSize}">
-    <header><p class="brand">SỔ CÔNG</p><h1>${safeTitle}</h1></header>
+    <header><h1>${safeTitle}</h1></header>
     ${renderedRows}
     ${renderedChecklist}
     ${renderedCardFooter}
@@ -259,7 +348,14 @@ export function printRowsInWindow(
   title: string,
   rows: PrintRow[],
   paperSize: PrintPaperSize,
-  options: { checkboxCount?: number; facilityPhone?: string; cardFooter?: boolean; footerText?: string } = {},
+  options: {
+    checkboxCount?: number;
+    facilityPhone?: string;
+    cardFooter?: boolean;
+    footerText?: string;
+    customWidthMm?: number;
+    customHeightMm?: number;
+  } = {},
 ): boolean {
   if (!printWindow || printWindow.closed) return false;
   try {
@@ -288,7 +384,35 @@ export function printTreatmentCard(printWindow: Window | null, card: TreatmentCa
     'Thẻ khách hàng',
     treatmentCardPrintRows(card),
     preferences.paperSize,
-    { checkboxCount: CARD_CHECKBOX_COUNT, facilityPhone: preferences.facilityPhone, cardFooter: true },
+    {
+      checkboxCount: CARD_CHECKBOX_COUNT,
+      facilityPhone: preferences.facilityPhone,
+      cardFooter: true,
+      customWidthMm: preferences.customWidthMm,
+      customHeightMm: preferences.customHeightMm,
+    },
+  );
+}
+
+export function printCardSale(
+  printWindow: Window | null,
+  card: TreatmentCard,
+  minutes: number,
+  purchaseDate: string,
+  preferences: PrintPreferences,
+): boolean {
+  return printRowsInWindow(
+    printWindow,
+    'Thẻ khách hàng',
+    cardSalePrintRows(card, minutes, purchaseDate),
+    preferences.paperSize,
+    {
+      checkboxCount: CARD_CHECKBOX_COUNT,
+      facilityPhone: preferences.facilityPhone,
+      cardFooter: true,
+      customWidthMm: preferences.customWidthMm,
+      customHeightMm: preferences.customHeightMm,
+    },
   );
 }
 
@@ -303,7 +427,13 @@ export function printCardTopUp(
     'Thẻ khách hàng',
     cardTopUpPrintRows(card, payment),
     preferences.paperSize,
-    { checkboxCount: CARD_CHECKBOX_COUNT, facilityPhone: preferences.facilityPhone, cardFooter: true },
+    {
+      checkboxCount: CARD_CHECKBOX_COUNT,
+      facilityPhone: preferences.facilityPhone,
+      cardFooter: true,
+      customWidthMm: preferences.customWidthMm,
+      customHeightMm: preferences.customHeightMm,
+    },
   );
 }
 
@@ -313,6 +443,6 @@ export function printServiceSession(printWindow: Window | null, session: Service
     'Phiếu chấm công',
     serviceSessionPrintRows(session),
     preferences.paperSize,
-    {},
+    { customWidthMm: preferences.customWidthMm, customHeightMm: preferences.customHeightMm },
   );
 }

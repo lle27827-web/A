@@ -10,7 +10,7 @@ import { ErrorBanner, Skeleton } from '@/components/modal';
 import { formatShortDate, localDate } from '@/lib/attendance';
 import { errorText, formatMinutes, formatVnd, useRefreshMassage } from '@/lib/massage';
 import { phoneCallHref } from '@/lib/phone';
-import { printTreatmentCard, reservePrintWindow } from '@/lib/printing';
+import { printCardSale, printTreatmentCard, reservePrintWindow } from '@/lib/printing';
 
 export default function CardsPage() {
   const { canEditCards: canEdit, query, setQuery, notify, fail, printPreferences } = useShell();
@@ -99,16 +99,37 @@ export default function CardsPage() {
       {open && canEdit && (
         <CardDialog card={null} defaultDate={localDate()} busy={create.isPending} serverError={dialogError} mergeTargetId={mergeTarget}
           onCancelMerge={() => setMergeTarget(null)} onClose={() => { setMergeTarget(null); setOpen(false); }}
-          onSubmit={(data) => { if (create.isPending) return; setDialogError(''); setMergeTarget(null); create.mutate({ data }, {
+          onSubmit={(data) => {
+            if (create.isPending) return;
+            setDialogError('');
+            setMergeTarget(null);
+            const printWindow = printPreferences.autoPrintCardSales ? reservePrintWindow() : null;
+            create.mutate({ data }, {
             onSuccess: (card) => {
               cache.setQueryData<TreatmentCard[]>(getListTreatmentCardsQueryKey(), (old) =>
                 [card, ...(old ?? []).filter((c) => c.id !== card.id)].sort((a, b) => b.purchaseDate.localeCompare(a.purchaseDate) || b.id - a.id));
-              refresh(); setOpen(false);
-              notify(card.mergedIntoExisting ? `Đã cộng giờ và tiền vào thẻ hiện có của ${card.customerName}; lịch sử đã được lưu.` : `Đã bán thẻ cho ${card.customerName}.`);
+              refresh();
+              setOpen(false);
+              const baseMessage = card.mergedIntoExisting
+                ? `Đã cộng giờ và tiền vào thẻ hiện có của ${card.customerName}; lịch sử đã được lưu.`
+                : `Đã bán thẻ cho ${card.customerName}.`;
+              if (printPreferences.autoPrintCardSales) {
+                const printed = printCardSale(printWindow, card, data.totalMinutes, data.purchaseDate, printPreferences);
+                notify(printed ? `${baseMessage} Đã mở phiếu in.` : `${baseMessage} Không mở được phiếu in; hãy cho phép cửa sổ bật lên.`);
+              } else {
+                notify(baseMessage);
+              }
               navigate(`/cards/${card.id}`);
             },
-            onError: (e) => { const t = mergeConflictTarget(e); if (t) { setMergeTarget(t); return; } setDialogError(errorText(e)); fail(e); },
-          }); }} />
+            onError: (e) => {
+              if (printWindow && !printWindow.closed) printWindow.close();
+              const t = mergeConflictTarget(e);
+              if (t) { setMergeTarget(t); return; }
+              setDialogError(errorText(e));
+              fail(e);
+            },
+          });
+        }} />
       )}
     </section>
   );

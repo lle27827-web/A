@@ -173,6 +173,26 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
                 />
                 <span><strong>Tự in phiếu khi chấm công</strong><small>Sau khi lưu ca mới thành công</small></span>
               </label>
+              <label className="print-setting-switch">
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={printPrefs.autoPrintCardSales}
+                  onChange={(event) => onPrintPreferencesChange({ ...printPrefs, autoPrintCardSales: event.target.checked })}
+                  data-testid="switch-auto-print-card-sales"
+                />
+                <span><strong>Tự in phiếu khi bán thẻ</strong><small>Sau khi lưu giao dịch bán thẻ thành công</small></span>
+              </label>
+              <label className="print-setting-switch">
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={printPrefs.autoPrintCardTopUps}
+                  onChange={(event) => onPrintPreferencesChange({ ...printPrefs, autoPrintCardTopUps: event.target.checked })}
+                  data-testid="switch-auto-print-card-topups"
+                />
+                <span><strong>Tự in phiếu khi nạp thẻ</strong><small>Sau khi lưu giao dịch nạp thẻ thành công</small></span>
+              </label>
               <label className="field" htmlFor="print-paper-size">Khổ giấy
                 <select id="print-paper-size" value={printPrefs.paperSize}
                   onChange={(event) => onPrintPreferencesChange({ ...printPrefs, paperSize: event.target.value as PrintPreferences['paperSize'] })}
@@ -180,6 +200,23 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
                   {PRINT_PAPER_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
+              {printPrefs.paperSize === 'custom' && (
+                <div className="field-row">
+                  <label className="field" htmlFor="print-paper-width">Chiều rộng (mm)
+                    <input id="print-paper-width" type="number" inputMode="numeric" min={20} max={1200} step={1}
+                      value={printPrefs.customWidthMm}
+                      onChange={(event) => onPrintPreferencesChange({ ...printPrefs, customWidthMm: Number(event.target.value) })}
+                      data-testid="input-print-paper-width" />
+                  </label>
+                  <label className="field" htmlFor="print-paper-height">Chiều cao (mm)
+                    <input id="print-paper-height" type="number" inputMode="numeric" min={20} max={1200} step={1}
+                      value={printPrefs.customHeightMm}
+                      onChange={(event) => onPrintPreferencesChange({ ...printPrefs, customHeightMm: Number(event.target.value) })}
+                      data-testid="input-print-paper-height" />
+                  </label>
+                </div>
+              )}
+              <p className="print-preview-note">Có các khổ nhiệt, ISO A/B và khổ Mỹ thông dụng; khổ riêng nhập chiều rộng và cao. Máy in có thể giới hạn lựa chọn thực tế trong hộp thoại in.</p>
               <label className="field" htmlFor="print-facility-phone">Số điện thoại cơ sở trên thẻ
                 <input id="print-facility-phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={40}
                   value={printPrefs.facilityPhone}
@@ -187,7 +224,8 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
                   placeholder="Nhập số điện thoại cơ sở"
                   data-testid="input-print-facility-phone" />
               </label>
-              <PrintPreview paperSize={printPrefs.paperSize} facilityPhone={printPrefs.facilityPhone} />
+              <PrintPreview paperSize={printPrefs.paperSize} customWidthMm={printPrefs.customWidthMm}
+                customHeightMm={printPrefs.customHeightMm} facilityPhone={printPrefs.facilityPhone} />
             </section>
           )}
 
