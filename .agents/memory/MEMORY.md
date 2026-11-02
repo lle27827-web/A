@@ -22,3 +22,4 @@
 - [Service catalog deletion](service-catalog-deletion.md) — removing a service from choices must preserve recorded history; a same-name recreation is a new identity.
 - [Theme profiles](theme-profiles.md) — keep yellow and dark-brown presets independent; all-color customization belongs to a separate profile.
 - [Print paper sizes](print-paper-sizes.md) — use explicit valid page dimensions for thermal receipts; `width auto` may be ignored.
+- [Push to main](push-to-main.md) — push completed project changes to `main` without asking for confirmation again.
