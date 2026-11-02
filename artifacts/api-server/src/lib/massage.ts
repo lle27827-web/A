@@ -320,6 +320,7 @@ async function createPartitionedCard(input: TreatmentCardInput, values: Omit<Tre
     const operation = await reservePartitionOperation({
       operationId,
       requestHash,
+      action: "card.create",
       expectedEventCount: isMerge ? 2 : 1,
       idAllocations: isMerge
         ? { card_top_ups: 1 }
@@ -773,6 +774,7 @@ export async function addCardHours(id: number, minutes: number, amount: number, 
       const operation = await reservePartitionOperation({
         operationId,
         requestHash,
+        action: "card.topup",
         expectedEventCount: 2,
         idAllocations: { card_top_ups: 1 },
       });
@@ -1041,6 +1043,7 @@ async function savePartitionedSession(
     const operation = await reservePartitionOperation({
       operationId,
       requestHash,
+      action: "service-session.save",
       expectedEventCount: eventCount,
       idAllocations: id === undefined ? { service_sessions: 1 } : {},
     });
@@ -1114,6 +1117,7 @@ export async function deleteSession(
       const operation = await reservePartitionOperation({
         operationId,
         requestHash,
+        action: "service-session.delete",
         expectedEventCount: 1,
         idAllocations: {},
       });

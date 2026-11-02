@@ -50,6 +50,7 @@ export async function commitPartitionedMutations(input: {
     let operation = existing ?? await reservePartitionOperation({
       operationId: input.operationId,
       requestHash,
+      action: input.action,
       expectedEventCount: input.expectedEventCount,
       idAllocations: input.idAllocations ?? {},
     });

@@ -59,4 +59,11 @@ export {
   type PartitionedStorageStatus,
 } from "./partitioned-storage-runtime";
 export type { MutationDraft } from "./partitioned-storage-runtime";
+export {
+  getPreferredDomainWriteRoutes,
+  getPartitionActionEntityTypes,
+  getPartitionDataDomain,
+  resolveDomainWriteRoutes,
+} from "./domain-partitioning";
+export type { DomainWriteRoute, PartitionDataDomain } from "./domain-partitioning";
 export * from "./schema";

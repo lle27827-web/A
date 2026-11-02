@@ -4,9 +4,12 @@ import {
   applyPartitionMutations,
   buildPartitionEventInsertBatch,
   comparePartitionRevisions,
+  getPartitionActionEntityTypes,
+  getPartitionDataDomain,
   hashPartitionRequest,
   makePartitionEntityKey,
   nextPartitionWriteBackend,
+  resolveDomainWriteRoutes,
   resolvePartitionWritePair,
   resolvePartitionWriteBackend,
   shouldAdvancePartitionCursor,
@@ -24,6 +27,112 @@ const fourShards = [
   { backend: "database_url_3" as const },
   { backend: "database_url_4" as const },
 ];
+
+test("partition domains assign each application table to the requested store group", () => {
+  assert.equal(getPartitionDataDomain("attendance"), "facility");
+  assert.equal(getPartitionDataDomain("service_sessions"), "facility");
+  assert.equal(getPartitionDataDomain("treatment_cards"), "cards");
+  assert.equal(getPartitionDataDomain("card_usage_history"), "cards");
+  assert.equal(getPartitionDataDomain("personal_sessions"), "personal");
+  assert.equal(getPartitionDataDomain("members"), "shared");
+  assert.equal(getPartitionDataDomain("appointments"), "shared");
+  assert.equal(getPartitionDataDomain("unlisted_table"), undefined);
+  for (const table of [
+    "members",
+    "member_versions",
+    "attendance",
+    "treatment_cards",
+    "card_top_ups",
+    "card_usage_history",
+    "service_sessions",
+    "service_types",
+    "manager_grants",
+    "personal_services",
+    "personal_sessions",
+    "personal_settings",
+    "appointments",
+    "tasks",
+  ]) {
+    assert.ok(getPartitionDataDomain(table), `Missing data-domain assignment for ${table}`);
+  }
+});
+
+test("partition actions declare all data groups they can update", () => {
+  assert.deepEqual(getPartitionActionEntityTypes("attendance.create"), ["attendance"]);
+  assert.deepEqual(getPartitionActionEntityTypes("card.topup"), ["treatment_cards", "card_top_ups"]);
+  assert.deepEqual(getPartitionActionEntityTypes("service-session.save"), [
+    "service_sessions", "treatment_cards", "appointments",
+  ]);
+  assert.deepEqual(getPartitionActionEntityTypes("retention.cleanup"), [
+    "attendance", "service_sessions", "card_usage_history", "personal_sessions",
+  ]);
+  assert.equal(getPartitionActionEntityTypes("unknown.action"), undefined);
+  for (const action of [
+    "attendance.create", "attendance.update", "attendance.delete",
+    "appointment.create", "appointment.update", "appointment.delete",
+    "access-grant.create", "access-grant.update", "access-grant.delete",
+    "card.create", "card.update", "card.merge", "card.delete", "card.topup",
+    "member.create", "member.update", "member.delete",
+    "personal-service.create", "personal-service.update", "personal-service.delete",
+    "personal-session.create", "personal-session.update", "personal-session.delete",
+    "personal-settings.update", "personal-sync.replace",
+    "retention.manual-delete-range", "retention.cleanup",
+    "service-type.create", "service-type.update", "service-type.delete",
+    "service-session.save", "service-session.delete",
+  ]) {
+    assert.ok(getPartitionActionEntityTypes(action), `Missing mutation policy for ${action}`);
+  }
+});
+
+test("domain routing starts each data group at its assigned store and keeps two copies", () => {
+  const available = new Map([
+    ["database_url_1", "available"],
+    ["database_url", "available"],
+    ["database_url_3", "available"],
+    ["database_url_4", "available"],
+  ]) as Map<"database_url_1" | "database_url" | "database_url_3" | "database_url_4", PartitionCapacityState>;
+  const routes = resolveDomainWriteRoutes([
+    "attendance",
+    "treatment_cards",
+    "personal_sessions",
+    "appointments",
+  ], available);
+  assert.deepEqual(routes.attendance, {
+    domain: "facility",
+    primary: "database_url_1",
+    replica: "database_url",
+  });
+  assert.deepEqual(routes.treatment_cards, {
+    domain: "cards",
+    primary: "database_url",
+    replica: "database_url_3",
+  });
+  assert.deepEqual(routes.personal_sessions, {
+    domain: "personal",
+    primary: "database_url_3",
+    replica: "database_url_4",
+  });
+  assert.deepEqual(routes.appointments, {
+    domain: "shared",
+    primary: "database_url_4",
+    replica: "database_url_3",
+  });
+});
+
+test("domain routing advances within the same four-store ring when a primary is full", () => {
+  const capacity = new Map([
+    ["database_url_1", "available"],
+    ["database_url", "full"],
+    ["database_url_3", "available"],
+    ["database_url_4", "available"],
+  ]) as Map<"database_url_1" | "database_url" | "database_url_3" | "database_url_4", PartitionCapacityState>;
+  const routes = resolveDomainWriteRoutes(["treatment_cards"], capacity);
+  assert.deepEqual(routes.treatment_cards, {
+    domain: "cards",
+    primary: "database_url_3",
+    replica: "database_url_4",
+  });
+});
 
 test("partition keys keep equal local IDs distinct across stores", () => {
   assert.equal(makePartitionEntityKey("database_url_1", 27), "database_url_1:27");

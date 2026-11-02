@@ -23,6 +23,12 @@ import {
   type PartitionMutation,
 } from "./storage-partitioning";
 import {
+  getPartitionActionEntityTypes,
+  getPreferredDomainWriteRoutes,
+  resolveDomainWriteRoutes,
+  type DomainWriteRoute,
+} from "./domain-partitioning";
+import {
   resolveDatabaseNodes,
   type DatabaseBackend,
   type DatabaseNodeConfig,
@@ -38,6 +44,9 @@ export type ReservedOperation = {
   revision: string;
   expectedEventCount: number;
   allocatedIds: IdAllocation;
+  routeEntityTypes?: string[];
+  domainEntityTypes?: string[];
+  domainRoutes?: Record<string, DomainWriteRoute>;
   state: "pending" | "committed" | "needs_reconciliation";
 };
 export type MutationDraft = Omit<PartitionMutation, "eventId" | "operationId" | "revision">;
@@ -104,7 +113,8 @@ const STATE_TABLE = "public.storage_partition_state";
 const OPERATIONS_TABLE = "public.storage_partition_operations";
 const ID_SEQUENCES_TABLE = "public.storage_partition_id_sequences";
 const neonApiKey = process.env.NEON_API_KEY?.trim();
-const isPartitionedMode = process.env.DATABASE_STORAGE_MODE === "partitioned";
+const isDomainPartitionedMode = process.env.DATABASE_STORAGE_MODE === "domain_partitioned";
+const isPartitionedMode = isDomainPartitionedMode || process.env.DATABASE_STORAGE_MODE === "partitioned";
 const PARTITION_DEFAULT_STORAGE_LIMIT_BYTES = 460_000_000n;
 const CAPACITY_CHECK_TIMEOUT_MS = 15_000;
 const COMPUTE_CACHE_MAX_AGE_MS = 6 * 60 * 60_000;
@@ -172,7 +182,7 @@ export function isPartitionedStorageEnabled(): boolean {
 
 export type PartitionedStorageStatus = {
   enabled: boolean;
-  strategy: "replication_failover" | "partitioned_forward_only";
+  strategy: "replication_failover" | "partitioned_forward_only" | "partitioned_by_domain";
   coordinatorBackend: "database_url_4";
   coordinatorReady: boolean | null;
   writeCursor: DatabaseBackend | null;
@@ -285,7 +295,11 @@ export async function getPartitionedStorageStatus(): Promise<PartitionedStorageS
 
   return {
     enabled: isPartitionedMode,
-    strategy: isPartitionedMode ? "partitioned_forward_only" : "replication_failover",
+    strategy: isDomainPartitionedMode
+      ? "partitioned_by_domain"
+      : isPartitionedMode
+        ? "partitioned_forward_only"
+        : "replication_failover",
     coordinatorBackend: "database_url_4",
     coordinatorReady,
     writeCursor,
@@ -398,12 +412,29 @@ async function verifyEventSchema(node: RuntimeNode): Promise<void> {
           WHERE table_schema = 'public'
             AND table_name = 'storage_partition_events'
             AND column_name = 'committed'
-        ) AS has_commit_marker`,
+        ) AS has_commit_marker,
+        EXISTS (
+          SELECT 1 FROM pg_publication_tables
+          WHERE schemaname = 'public' AND tablename = 'storage_partition_events'
+        ) AS published,
+        EXISTS (
+          SELECT 1
+          FROM pg_subscription_rel sr
+          JOIN pg_class c ON c.oid = sr.srrelid
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'public' AND c.relname = 'storage_partition_events'
+        ) AS subscribed`,
       [EVENT_TABLE],
     );
     if (!result.rows[0]?.events || result.rows[0]?.has_commit_marker !== true) {
       throw new PartitionStorageError(
         `Partition event schema is incomplete on ${node.backend}.`,
+        "partition_schema_missing",
+      );
+    }
+    if (result.rows[0]?.published === true || result.rows[0]?.subscribed === true) {
+      throw new PartitionStorageError(
+        `Partition journal replication must be disabled for ${node.backend}; otherwise the two-copy writes can conflict.`,
         "partition_schema_missing",
       );
     }
@@ -540,7 +571,13 @@ async function checkAllCapacities(): Promise<Map<DatabaseBackend, PartitionCapac
 }
 
 function parseReservedOperation(row: Record<string, unknown>): ReservedOperation {
-  let result = row.result as { allocatedIds?: IdAllocation; replicaBackend?: DatabaseBackend } | null;
+  let result = row.result as {
+    allocatedIds?: IdAllocation;
+    replicaBackend?: DatabaseBackend;
+    routeEntityTypes?: string[];
+    domainEntityTypes?: string[];
+    domainRoutes?: Record<string, DomainWriteRoute>;
+  } | null;
   if (typeof result === "string") {
     try {
       result = JSON.parse(result) as typeof result;
@@ -556,6 +593,23 @@ function parseReservedOperation(row: Record<string, unknown>): ReservedOperation
       "partition_operation_incomplete",
     );
   }
+  if (result?.domainRoutes) {
+    for (const [table, route] of Object.entries(result.domainRoutes)) {
+      if (
+        !BASE_TABLES.has(table) ||
+        !route ||
+        !BACKEND_ORDER.includes(route.primary) ||
+        !BACKEND_ORDER.includes(route.replica) ||
+        route.primary === route.replica ||
+        !["facility", "cards", "personal", "shared"].includes(route.domain)
+      ) {
+        throw new PartitionStorageError(
+          "Partition operation has an invalid data-domain route.",
+          "partition_operation_incomplete",
+        );
+      }
+    }
+  }
   return {
     operationId: String(row.operation_id),
     requestHash: String(row.request_hash),
@@ -564,6 +618,9 @@ function parseReservedOperation(row: Record<string, unknown>): ReservedOperation
     revision: String(row.revision),
     expectedEventCount: Number(row.expected_event_count),
     allocatedIds: result?.allocatedIds ?? {},
+    ...(result?.routeEntityTypes ? { routeEntityTypes: result.routeEntityTypes } : {}),
+    ...(result?.domainEntityTypes ? { domainEntityTypes: result.domainEntityTypes } : {}),
+    ...(result?.domainRoutes ? { domainRoutes: result.domainRoutes } : {}),
     state: row.state as ReservedOperation["state"],
   };
 }
@@ -571,6 +628,7 @@ function parseReservedOperation(row: Record<string, unknown>): ReservedOperation
 export async function reservePartitionOperation(input: {
   operationId: string;
   requestHash: string;
+  action?: string;
   expectedEventCount: number;
   idAllocations: Readonly<Record<string, number>>;
 }): Promise<ReservedOperation> {
@@ -633,13 +691,40 @@ export async function reservePartitionOperation(input: {
         "partition_schema_missing",
       );
     }
-    const pair = resolvePartitionWritePair(
-      state.write_backend as DatabaseBackend,
-      BACKEND_ORDER,
-      capacity,
-    );
-    const targetBackend = pair.primary;
-    const replicaBackend = pair.replica;
+    let domainRoutes: Record<string, DomainWriteRoute> | undefined;
+    let routeEntityTypes: string[] | undefined;
+    let targetBackend: DatabaseBackend;
+    let replicaBackend: DatabaseBackend;
+    if (isDomainPartitionedMode) {
+      const actionEntityTypes = input.action ? getPartitionActionEntityTypes(input.action) : undefined;
+      if (!actionEntityTypes?.length) {
+        throw new PartitionStorageError(
+          "The operation has no approved data-domain route.",
+          "partition_entity_invalid",
+          400,
+        );
+      }
+      routeEntityTypes = [...new Set(actionEntityTypes)];
+      domainRoutes = getPreferredDomainWriteRoutes(routeEntityTypes);
+      const firstRoute = domainRoutes[routeEntityTypes[0]!];
+      if (!firstRoute) {
+        throw new PartitionStorageError(
+          "The operation has no approved data-domain route.",
+          "partition_entity_invalid",
+          400,
+        );
+      }
+      targetBackend = firstRoute.primary;
+      replicaBackend = firstRoute.replica;
+    } else {
+      const pair = resolvePartitionWritePair(
+        state.write_backend as DatabaseBackend,
+        BACKEND_ORDER,
+        capacity,
+      );
+      targetBackend = pair.primary;
+      replicaBackend = pair.replica;
+    }
     const allocatedIds: IdAllocation = {};
     for (const [entityType, count] of Object.entries(input.idAllocations)) {
       if (count === 0) {
@@ -680,7 +765,11 @@ export async function reservePartitionOperation(input: {
         revision,
         input.expectedEventCount,
         input.requestHash,
-         JSON.stringify({ allocatedIds, replicaBackend }),
+        JSON.stringify({
+          allocatedIds,
+          replicaBackend,
+          ...(domainRoutes ? { domainRoutes, routeEntityTypes } : {}),
+        }),
       ],
     );
     await client.query("COMMIT");
@@ -692,6 +781,7 @@ export async function reservePartitionOperation(input: {
       revision,
       expectedEventCount: input.expectedEventCount,
       allocatedIds,
+      ...(domainRoutes ? { domainRoutes, routeEntityTypes } : {}),
       state: "pending",
     };
   } catch (error) {
@@ -745,10 +835,215 @@ function deterministicEventId(operationId: string, index: number): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+function groupDomainEntityTypes(
+  entityTypes: readonly string[],
+  routes: Record<string, DomainWriteRoute>,
+): Array<{ primary: DatabaseBackend; replica: DatabaseBackend; entityTypes: string[] }> {
+  const groups = new Map<string, { primary: DatabaseBackend; replica: DatabaseBackend; entityTypes: string[] }>();
+  for (const entityType of entityTypes) {
+    const route = routes[entityType];
+    if (!route) {
+      throw new PartitionStorageError(
+        `No data-domain route exists for ${entityType}.`,
+        "partition_operation_incomplete",
+      );
+    }
+    const key = `${route.primary}:${route.replica}`;
+    const group = groups.get(key) ?? {
+      primary: route.primary,
+      replica: route.replica,
+      entityTypes: [],
+    };
+    group.entityTypes.push(entityType);
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}
+
+async function persistDomainRoutePlan(
+  operation: ReservedOperation,
+  entityTypes: string[],
+  routes: Record<string, DomainWriteRoute>,
+): Promise<ReservedOperation> {
+  const firstRoute = routes[entityTypes[0]!];
+  if (!firstRoute) {
+    throw new PartitionStorageError("The operation has no data-domain route.", "partition_operation_incomplete");
+  }
+  const coordinator = nodesByBackend.get("database_url_4")!;
+  const replicaBackend = firstRoute.replica;
+  const saved = await coordinator.pool.query(
+    `UPDATE ${OPERATIONS_TABLE}
+     SET target_backend = $2,
+         result = coalesce(result, '{}'::jsonb) ||
+           jsonb_build_object(
+             'replicaBackend', $3,
+             'domainRoutes', $4::jsonb,
+             'domainEntityTypes', $5::jsonb
+           ),
+         state = 'pending', updated_at = now()
+     WHERE operation_id = $1 AND request_hash = $6 AND state <> 'committed'`,
+    [
+      operation.operationId,
+      firstRoute.primary,
+      replicaBackend,
+      JSON.stringify(routes),
+      JSON.stringify(entityTypes),
+      operation.requestHash,
+    ],
+  );
+  if (saved.rowCount !== 1) {
+    throw new PartitionStorageError(
+      "DB4 could not save the data-domain routing decision.",
+      "partition_coordinator_unavailable",
+    );
+  }
+  return {
+    ...operation,
+    targetBackend: firstRoute.primary,
+    replicaBackend,
+    domainEntityTypes: entityTypes,
+    domainRoutes: routes,
+    state: "pending",
+  };
+}
+
+async function writeDomainEventsToNode(
+  node: RuntimeNode,
+  operation: ReservedOperation,
+  events: readonly PartitionMutation[],
+): Promise<void> {
+  if (!events.length) return;
+  const client = await node.pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SET LOCAL statement_timeout = '20s'");
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+      [`so-cong:partition-operation:${operation.operationId}`],
+    );
+    const entityTypes = [...new Set(events.map((event) => event.entityType))];
+    const existing = await client.query(
+      `SELECT event_id FROM ${EVENT_TABLE}
+       WHERE operation_id = $1 AND entity_type = ANY($2::text[])`,
+      [operation.operationId, entityTypes],
+    );
+    const expectedIds = events.map((event) => event.eventId).sort();
+    const existingIds = existing.rows.map((row) => String(row.event_id)).sort();
+    const exactReplay = expectedIds.length === existingIds.length &&
+      expectedIds.every((eventId, index) => eventId === existingIds[index]);
+    if (existing.rows.length !== 0 && !exactReplay) {
+      throw new PartitionStorageError(
+        `Stored data-domain events on ${node.backend} do not match the reserved operation.`,
+        "partition_operation_incomplete",
+      );
+    }
+    if (existing.rows.length === 0) {
+      const batch = buildPartitionEventInsertBatch(events);
+      const sourceBackends = events.map((event) => {
+        const route = operation.domainRoutes?.[event.entityType];
+        if (!route) {
+          throw new PartitionStorageError(
+            `No data-domain route exists for ${event.entityType}.`,
+            "partition_operation_incomplete",
+          );
+        }
+        return route.primary;
+      });
+      await client.query(
+        `INSERT INTO ${EVENT_TABLE}
+         (event_id, operation_id, revision, source_backend, entity_type, entity_key, action, payload, committed)
+         SELECT rows.event_id, rows.operation_id, rows.revision, rows.source_backend,
+           rows.entity_type, rows.entity_key, rows.action, rows.payload, false
+         FROM unnest(
+           $1::uuid[], $2::uuid[], $3::bigint[], $4::text[], $5::text[],
+           $6::text[], $7::text[], $8::jsonb[]
+         ) AS rows(event_id, operation_id, revision, source_backend, entity_type, entity_key, action, payload)`,
+        [
+          batch.eventIds,
+          batch.operationIds,
+          batch.revisions,
+          sourceBackends,
+          batch.entityTypes,
+          batch.entityKeys,
+          batch.actions,
+          batch.payloads,
+        ],
+      );
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function reconcileDomainPartitionOperation(
+  operation: ReservedOperation,
+): Promise<ReservedOperation> {
+  const entityTypes = operation.domainEntityTypes;
+  const routes = operation.domainRoutes;
+  if (!entityTypes?.length || !routes) return operation;
+  const groups = groupDomainEntityTypes(entityTypes, routes);
+  const eventIds = new Set<string>();
+  for (const group of groups) {
+    const primary = nodesByBackend.get(group.primary);
+    const replica = nodesByBackend.get(group.replica);
+    if (!primary || !replica) return operation;
+    try {
+      const [primaryRows, replicaRows] = await Promise.all([
+        primary.pool.query(
+          `SELECT event_id, entity_type FROM ${EVENT_TABLE}
+           WHERE operation_id = $1 AND entity_type = ANY($2::text[]) AND committed = true
+           ORDER BY event_id`,
+          [operation.operationId, group.entityTypes],
+        ),
+        replica.pool.query(
+          `SELECT event_id, entity_type FROM ${EVENT_TABLE}
+           WHERE operation_id = $1 AND entity_type = ANY($2::text[]) AND committed = true
+           ORDER BY event_id`,
+          [operation.operationId, group.entityTypes],
+        ),
+      ]);
+      const primaryIds = primaryRows.rows.map((row) => String(row.event_id));
+      const replicaIds = replicaRows.rows.map((row) => String(row.event_id));
+      if (
+        primaryIds.length !== replicaIds.length ||
+        primaryIds.some((id, index) => id !== replicaIds[index])
+      ) return operation;
+      for (const id of primaryIds) {
+        if (eventIds.has(id)) return operation;
+        eventIds.add(id);
+      }
+    } catch {
+      return operation;
+    }
+  }
+  const expected = Array.from(
+    { length: operation.expectedEventCount },
+    (_, index) => deterministicEventId(operation.operationId, index),
+  ).sort();
+  const actual = [...eventIds].sort();
+  if (actual.length !== expected.length ||
+      expected.some((eventId, index) => eventId !== actual[index])) return operation;
+  const coordinator = nodesByBackend.get("database_url_4")!;
+  const result = await coordinator.pool.query(
+    `UPDATE ${OPERATIONS_TABLE}
+     SET state = 'committed', error_code = NULL, updated_at = now()
+     WHERE operation_id = $1 AND request_hash = $2`,
+    [operation.operationId, operation.requestHash],
+  );
+  if (result.rowCount !== 1) return operation;
+  partitionReadCache.clear();
+  return { ...operation, state: "committed" };
+}
+
 export async function reconcilePartitionOperation(
   operation: ReservedOperation,
 ): Promise<ReservedOperation> {
   if (operation.state === "committed") return operation;
+  if (isDomainPartitionedMode) return reconcileDomainPartitionOperation(operation);
   const target = nodesByBackend.get(operation.targetBackend);
   const replica = nodesByBackend.get(operation.replicaBackend);
   const coordinator = nodesByBackend.get("database_url_4");
@@ -851,6 +1146,194 @@ async function writePendingEventsToNode(
   } finally {
     client.release();
   }
+}
+
+async function appendDomainPartitionOperation(
+  originalOperation: ReservedOperation,
+  events: readonly PartitionMutation[],
+  mutations: readonly MutationDraft[],
+): Promise<void> {
+  const actionTypes = new Set(originalOperation.routeEntityTypes ?? []);
+  const entityTypes = [...new Set(events.map((event) => event.entityType))].sort();
+  if (
+    !entityTypes.length ||
+    entityTypes.some((entityType) => !actionTypes.has(entityType))
+  ) {
+    throw new PartitionStorageError(
+      "The operation contains a table outside its approved data-domain route.",
+      "partition_entity_invalid",
+      400,
+    );
+  }
+  if (
+    originalOperation.domainEntityTypes &&
+    (originalOperation.domainEntityTypes.length !== entityTypes.length ||
+      originalOperation.domainEntityTypes.some((entityType, index) => entityType !== entityTypes[index]))
+  ) {
+    throw new PartitionStorageError(
+      "A retry attempted to change the operation's data-domain tables.",
+      "partition_operation_conflict",
+      409,
+    );
+  }
+
+  const capacity = await checkAllCapacities();
+  let operation = originalOperation;
+  let routes = originalOperation.domainRoutes ?? {};
+  if (!originalOperation.domainEntityTypes) {
+    try {
+      routes = resolveDomainWriteRoutes(entityTypes, capacity);
+    } catch {
+      throw new PartitionStorageError(
+        "Two verified writable databases are required for each affected data group.",
+        "partition_operation_incomplete",
+      );
+    }
+    operation = await persistDomainRoutePlan(operation, entityTypes, routes);
+  } else {
+    const groups = groupDomainEntityTypes(entityTypes, routes);
+    const failedRoute = groups
+      .flatMap((group) => [group.primary, group.replica])
+      .find((backend) => capacity.get(backend) !== "available");
+    if (failedRoute) {
+      const failedState = capacity.get(failedRoute);
+      if (failedState === "unknown") {
+        throw new PartitionStorageError(
+          `Capacity for ${failedRoute} is unknown; the write is paused.`,
+          "partition_operation_incomplete",
+        );
+      }
+      operation = await rerouteDomainPartitionOperation(
+        operation,
+        entityTypes,
+        failedRoute,
+        failedState === "full" ? "full" : "unavailable",
+      );
+      routes = operation.domainRoutes ?? {};
+    }
+  }
+
+  const nodeEvents = new Map<DatabaseBackend, PartitionMutation[]>();
+  for (const event of events) {
+    const route = routes[event.entityType];
+    if (!route) {
+      throw new PartitionStorageError(
+        `No data-domain route exists for ${event.entityType}.`,
+        "partition_operation_incomplete",
+      );
+    }
+    for (const backend of [route.primary, route.replica]) {
+      const rows = nodeEvents.get(backend) ?? [];
+      rows.push(event);
+      nodeEvents.set(backend, rows);
+    }
+  }
+
+  let failedBackend: DatabaseBackend | undefined;
+  try {
+    for (const [backend, nodeEventsForBackend] of nodeEvents) {
+      const node = nodesByBackend.get(backend);
+      if (!node) {
+        throw new PartitionStorageError("A routed database is not configured.", "partition_not_configured");
+      }
+      failedBackend = backend;
+      await writeDomainEventsToNode(node, operation, nodeEventsForBackend);
+    }
+  } catch (error) {
+    const failedState = isDatabaseCapacityError(error)
+      ? "full"
+      : isDatabaseAvailabilityError(error)
+        ? "unavailable"
+        : undefined;
+    if (failedState) {
+      if (failedBackend) {
+        const rerouted = await rerouteDomainPartitionOperation(
+          operation,
+          entityTypes,
+          failedBackend,
+          failedState,
+        );
+        return appendDomainPartitionOperation(rerouted, events, mutations);
+      }
+    }
+    const coordinator = nodesByBackend.get("database_url_4")!;
+    await coordinator.pool.query(
+      `UPDATE ${OPERATIONS_TABLE}
+       SET state = 'needs_reconciliation', error_code = $2, updated_at = now()
+       WHERE operation_id = $1 AND state <> 'committed'`,
+      [
+        operation.operationId,
+        error instanceof PartitionStorageError ? error.code : "domain_event_write_failed",
+      ],
+    ).catch(() => undefined);
+    if (error instanceof PartitionStorageError) throw error;
+    throw new PartitionStorageError(
+      "A data-domain copy could not be confirmed; retry using the same operation ID.",
+      "partition_operation_incomplete",
+    );
+  }
+
+  try {
+    for (const [backend, expectedEvents] of nodeEvents) {
+      const node = nodesByBackend.get(backend)!;
+      const eventIds = expectedEvents.map((event) => event.eventId);
+      const marked = await node.pool.query(
+        `UPDATE ${EVENT_TABLE} SET committed = true
+         WHERE operation_id = $1 AND event_id = ANY($2::uuid[])
+         RETURNING event_id`,
+        [operation.operationId, eventIds],
+      );
+      if (marked.rows.length !== eventIds.length) {
+        throw new Error(`Incomplete committed event copy on ${backend}.`);
+      }
+    }
+    const coordinator = nodesByBackend.get("database_url_4")!;
+    const committed = await coordinator.pool.query(
+      `UPDATE ${OPERATIONS_TABLE}
+       SET state = 'committed', error_code = NULL, updated_at = now()
+       WHERE operation_id = $1 AND request_hash = $2`,
+      [operation.operationId, operation.requestHash],
+    );
+    if (committed.rowCount !== 1) throw new Error("DB4 did not confirm the operation.");
+    partitionReadCache.invalidate(mutations.map((mutation) => mutation.entityType));
+  } catch {
+    throw new PartitionStorageError(
+      "The write may be present, but completion could not be confirmed. Retry with the same operation ID.",
+      "partition_operation_incomplete",
+    );
+  }
+}
+
+async function rerouteDomainPartitionOperation(
+  operation: ReservedOperation,
+  entityTypes: string[],
+  failedBackend: DatabaseBackend,
+  failedState: "full" | "unavailable",
+): Promise<ReservedOperation> {
+  capacityCache.delete(failedBackend);
+  const capacity = await checkAllCapacities();
+  capacity.set(failedBackend, failedState);
+  let routes: Record<string, DomainWriteRoute>;
+  try {
+    routes = resolveDomainWriteRoutes(entityTypes, capacity);
+  } catch {
+    throw new PartitionStorageError(
+      "Two verified writable databases are not available for every affected data group.",
+      "partition_operation_incomplete",
+    );
+  }
+  const current = operation.domainRoutes ?? {};
+  if (entityTypes.every((entityType) => {
+    const previous = current[entityType];
+    const next = routes[entityType];
+    return previous?.primary === next?.primary && previous?.replica === next?.replica;
+  })) {
+    throw new PartitionStorageError(
+      "No alternate two-database route is available for this data group.",
+      "partition_operation_incomplete",
+    );
+  }
+  return persistDomainRoutePlan(operation, entityTypes, routes);
 }
 
 export async function appendReservedPartitionOperation(
@@ -1022,6 +1505,9 @@ export async function appendReservedPartitionOperation(
       revision: operation.revision,
     };
   });
+  if (isDomainPartitionedMode) {
+    return appendDomainPartitionOperation(operation, events, mutations);
+  }
 
   const writableState = async (node: RuntimeNode): Promise<PartitionCapacityState> => {
     const state = await checkCapacity(node);

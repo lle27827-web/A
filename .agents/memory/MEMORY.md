@@ -6,6 +6,7 @@
 - [OpenAPI date query strings](openapi-date-query-strings.md) — keep URL dates as validated `YYYY-MM-DD` strings; Express query values arrive as text.
 - [Vercel database access](vercel-database-access.md) — keep historical rows in their original store; route new rows and append-only edits/deletes to the next shard.
 - [Partition coordinator placement](failover-coordinator-placement.md) — use DB4 for routing coordination and preserve its acknowledged single-point-of-failure limitation.
+- [Partition journal replication](partition-journal-replication.md) — keep the directly dual-written event journal out of Neon logical replication.
 - [Account access](owner-guest-access.md) — mandatory login, owner-delegated employee/card/revenue rights, isolated notebooks and embedded session verification.
 - [Appointment access](appointment-access.md) — appointment records need a dedicated manager grant; editing requires viewing and never comes from other facility permissions.
 - [Vercel SPA routing](vercel-spa-routing.md) — use raw route regex and an index destination; path transforms alone cannot resolve static SPA pages.
