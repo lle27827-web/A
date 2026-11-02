@@ -950,6 +950,13 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .grant-check { display: flex; align-items: center; gap: 8px; min-height: 32px; font-size: 13px; cursor: pointer; }
 .grant-check input { width: 16px; height: 16px; accent-color: hsl(var(--primary)); }
 .grant-check:has(input:disabled) { opacity: .55; cursor: not-allowed; }
+.grant-email-field { min-width: 0; }
+.grant-email-control { display: flex; align-items: center; min-width: 0; overflow: hidden; border: 1px solid hsl(var(--border)); border-radius: 8px; background: hsl(var(--card)); }
+.grant-email-control:focus-within { border-color: hsl(var(--primary) / .6); box-shadow: 0 0 0 3px hsl(var(--primary) / .08); }
+.field .grant-email-control input { flex: 1 1 auto; width: auto; min-width: 0; max-width: none; border: 0; background: transparent; box-shadow: none; }
+.field .grant-email-control input:focus { border: 0; box-shadow: none; }
+.grant-email-suffix { flex: 0 0 auto; padding: 0 9px 0 2px; color: hsl(var(--muted-foreground)); font-size: 13px; font-weight: 500; white-space: nowrap; }
+.grant-email-field > .hint { line-height: 1.4; }
 .appointments-page { display: grid; gap: 16px; width: 100%; max-width: 980px; margin: 0 auto; }
 .appointments-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; padding: 2px 2px 4px; }
 .appointments-title-block { min-width: 0; }

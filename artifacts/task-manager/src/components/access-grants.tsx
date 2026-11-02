@@ -7,6 +7,7 @@ import type { AccessGrant, FacilityPermissions, MemberRecord } from '@workspace/
 import { AlertCircle, ChevronDown, ChevronRight, KeyRound, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
 import { errorText } from '@/lib/massage';
+import { hasDuplicateManagerGrantEmail, managerGrantEmailInputValue, normalizeManagerGrantEmail } from '@/lib/manager-grant-email';
 
 type Scope = 'none' | 'all' | 'selected';
 type Draft = {
@@ -16,7 +17,6 @@ type Draft = {
 };
 
 const EMPTY: Draft = { id: null, email: '', scope: 'none', employeeIds: [], viewCards: false, editCards: false, viewRevenue: false, editEmployees: false, deleteEmployees: false, editServices: false, viewAppointments: false, editAppointments: false };
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function fromGrant(g: AccessGrant): Draft {
   const p = g.permissions;
@@ -113,9 +113,15 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!draft || save.isPending) return;
-    const email = draft.email.trim().toLowerCase();
-    if (!EMAIL.test(email) || email.length > 254) return setError('Nhập email hợp lệ.');
-    if (draft.id === null && list.some((g) => g.email.toLowerCase() === email)) return setError('Email này đã có quyền. Hãy sửa dòng hiện có.');
+    const email = normalizeManagerGrantEmail(draft.email, draft.id === null);
+    if (!email) {
+      return setError(draft.id === null
+        ? 'Tên Gmail chỉ dùng chữ, số và dấu chấm; không dùng dấu chấm ở đầu, cuối hoặc liền nhau.'
+        : 'Nhập email hợp lệ.');
+    }
+    if (draft.id === null && hasDuplicateManagerGrantEmail(email, list.map((grant) => grant.email))) {
+      return setError('Email này đã có quyền. Hãy sửa dòng hiện có.');
+    }
     if (draft.scope === 'selected' && draft.employeeIds.length === 0) return setError('Chọn ít nhất một nhân viên.');
     const permissions = toPermissions(draft);
     if (!hasAny(permissions)) return setError('Chọn ít nhất một quyền.');
@@ -160,10 +166,19 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
         {draft ? (
           <form className="grant-form" onSubmit={submit} noValidate data-testid="form-access-grant">
             <h3 className="group-title">{draft.id === null ? 'Cấp quyền mới' : 'Sửa quyền'}</h3>
-            <label className="field" htmlFor="grant-email">Email
-              <input id="grant-email" type="email" inputMode="email" autoComplete="off" value={draft.email} maxLength={254}
-                readOnly={draft.id !== null} onChange={(e) => set('email', e.target.value)}
-                aria-invalid={!!error} aria-describedby={error ? 'grant-error' : undefined} data-testid="input-grant-email" />
+            <label className="field grant-email-field" htmlFor="grant-email">Email
+              <span className="grant-email-control">
+                <input id="grant-email" type={draft.id === null ? 'text' : 'email'} inputMode="email" autoComplete="off"
+                  autoCapitalize="none" spellCheck={false} value={managerGrantEmailInputValue(draft.email, draft.id === null)} maxLength={254}
+                  readOnly={draft.id !== null}
+                  onChange={(e) => set('email', draft.id === null ? managerGrantEmailInputValue(e.target.value, true) : e.target.value)}
+                  aria-label={draft.id === null ? 'Tên tài khoản Gmail' : undefined}
+                  aria-invalid={!!error}
+                  aria-describedby={[draft.id === null ? 'grant-email-hint' : null, error ? 'grant-error' : null].filter(Boolean).join(' ') || undefined}
+                  data-testid="input-grant-email" />
+                {draft.id === null && <span className="grant-email-suffix" aria-hidden="true">@gmail.com</span>}
+              </span>
+              {draft.id === null && <span id="grant-email-hint" className="hint">Đuôi @gmail.com được thêm tự động; có thể dán địa chỉ Gmail đầy đủ.</span>}
             </label>
 
             <fieldset className="grant-group">
