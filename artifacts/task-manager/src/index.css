@@ -1775,7 +1775,16 @@ body:has(.modal-backdrop) .screen-nav {
 /* Force white text on the dark revenue and employee-detail surfaces. */
 .revenue-summary {
   --revenue-foreground: 0 0% 100%;
+  --foreground: 0 0% 100%;
+  --muted-foreground: 0 0% 92%;
   color: hsl(0 0% 100%);
+}
+.revenue-summary * {
+  color: hsl(0 0% 100%) !important;
+}
+.main .panel.page[aria-labelledby="emp-title"] .emp-list .emp-row,
+.main .panel.page[aria-labelledby="emp-title"] .emp-list .emp-row * {
+  color: hsl(0 0% 100%) !important;
 }
 .detail > .salary-hero,
 .detail > .day-salary,
@@ -1786,4 +1795,9 @@ body:has(.modal-backdrop) .screen-nav {
   --card-foreground: 0 0% 100%;
   --muted-foreground: 0 0% 92%;
   color: hsl(0 0% 100%);
+}
+.detail > .salary-hero *,
+.detail > .day-salary *,
+.detail > [data-testid="section-day-sessions"] * {
+  color: hsl(0 0% 100%) !important;
 }
