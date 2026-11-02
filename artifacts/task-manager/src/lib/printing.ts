@@ -132,7 +132,7 @@ export function serviceSessionPrintRows(session: ServiceSession): PrintRow[] {
   ];
 }
 
-export function printPreviewRows(type: 'card' | 'session', facilityPhone: string): PrintRow[] {
+export function printPreviewRows(type: 'card' | 'session'): PrintRow[] {
   if (type === 'card') {
     const sampleCard: TreatmentCard = {
       id: 0,
@@ -215,7 +215,6 @@ export function buildPrintDocumentHtml(
     .row { display: grid; gap: 1mm; padding: 2.5mm 0; border-bottom: 1px solid #e5ded2; overflow-wrap: anywhere; }
     .label { color: #675b4b; font-size: .82em; }
     .row strong { font-size: 1em; }
-    .checklist { margin-top: 4mm; border-top: 1px dashed #79552a; padding-top: 3mm; }
     .checklist { margin-top: 4mm; padding-top: 3mm; }
     .checklist-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2mm; }
     .check-square { display: block; width: 7mm; height: 7mm; border: .35mm solid #21190f; break-inside: avoid; }
@@ -311,7 +310,7 @@ export function printCardTopUp(
 export function printServiceSession(printWindow: Window | null, session: ServiceSession, preferences: PrintPreferences): boolean {
   return printRowsInWindow(
     printWindow,
-    'Phiếu chấm công nhân viên',
+    'Phiếu chấm công',
     serviceSessionPrintRows(session),
     preferences.paperSize,
     {},

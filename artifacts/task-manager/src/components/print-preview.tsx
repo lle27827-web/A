@@ -1,6 +1,6 @@
 import {
+  CARD_CHECKBOX_COUNT,
   PRINT_PAPER_OPTIONS,
-  hourChecklistLabels,
   printPreviewRows,
   type PrintPaperSize,
 } from '@/lib/printing';
@@ -11,8 +11,8 @@ export function PrintPreview({ paperSize, facilityPhone }: {
 }) {
   const paperLabel = PRINT_PAPER_OPTIONS.find((option) => option.value === paperSize)?.label ?? 'Khổ giấy';
   const previews = [
-    { kind: 'card' as const, title: 'Thẻ liệu trình khách hàng', caption: 'Thẻ khách hàng' },
-    { kind: 'session' as const, title: 'Phiếu chấm công nhân viên', caption: 'Phiếu chấm công' },
+    { kind: 'card' as const, title: 'Thẻ khách hàng', caption: 'Thẻ khách hàng' },
+    { kind: 'session' as const, title: 'Phiếu chấm công', caption: 'Phiếu chấm công' },
   ];
 
   return (
@@ -34,7 +34,7 @@ export function PrintPreview({ paperSize, facilityPhone }: {
                 <span>{preview.title}</span>
               </header>
               <div className="print-preview-rows">
-                {printPreviewRows(preview.kind, facilityPhone).map((row) => (
+                {printPreviewRows(preview.kind).map((row) => (
                   <div className="print-preview-row" key={`${preview.kind}-${row.label}`}>
                     <span>{row.label}</span>
                     <strong>{row.value}</strong>
@@ -42,18 +42,22 @@ export function PrintPreview({ paperSize, facilityPhone }: {
                 ))}
               </div>
               {preview.kind === 'card' && (
-                <section className="print-preview-checklist" aria-label="Ví dụ ô đánh dấu giờ đã mua">
-                  <strong>Đánh dấu giờ đã sử dụng</strong>
+                <section className="print-preview-checklist" aria-label="10 ô đánh dấu lượt sử dụng">
                   <div className={`print-preview-checklist-grid print-preview-checklist-grid--${paperSize}`}>
-                    {hourChecklistLabels(300).map((label, index) => (
-                      <span className="print-preview-check-cell" key={`${label}-${index}`}>
-                        <i aria-hidden="true" />{label}
-                      </span>
+                    {Array.from({ length: CARD_CHECKBOX_COUNT }, (_, index) => (
+                      <i className="print-preview-check-box" key={`usage-check-${index}`} aria-hidden="true" />
                     ))}
                   </div>
                 </section>
               )}
-              <footer>Cảm ơn quý khách</footer>
+              {preview.kind === 'card' && (
+                <>
+                  <p className="print-preview-facility-phone">
+                    Số điện thoại cơ sở: {facilityPhone.trim() || '________________'}
+                  </p>
+                  <footer>Cảm ơn quý khách đã sử dụng dịch vụ</footer>
+                </>
+              )}
             </article>
             <figcaption>{preview.caption}</figcaption>
           </figure>

@@ -146,40 +146,31 @@
 .print-preview-row strong { font-size: 1em; }
 
 .print-preview-checklist {
-  display: grid;
-  gap: 5px;
   padding-top: 8px;
   margin-top: 5px;
   border-top: 1px dashed #79552a;
 }
 
-.print-preview-checklist > strong { font-size: .9em; }
-
 .print-preview-checklist-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 4px 3px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  justify-items: center;
+  gap: 6px 3px;
 }
 
-.print-preview-checklist-grid--thermal-58 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.print-preview-checklist-grid--a5 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.print-preview-checklist-grid--a4 { grid-template-columns: repeat(8, minmax(0, 1fr)); }
-
-.print-preview-check-cell {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  min-width: 0;
-  font-size: .72em;
-  overflow-wrap: anywhere;
-}
-
-.print-preview-check-cell i {
-  display: inline-block;
-  flex: 0 0 10px;
-  width: 10px;
-  height: 10px;
+.print-preview-check-box {
+  display: block;
+  width: 14px;
+  height: 14px;
   border: 1px solid #21190f;
+}
+
+.print-preview-facility-phone {
+  margin: 8px 0 0;
+  color: #675b4b;
+  font-size: .72em;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .print-preview-sheet footer {

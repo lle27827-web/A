@@ -17,7 +17,7 @@ import { SessionDialog } from '@/components/session-dialog';
 import { SessionTable } from '@/components/session-table';
 import { formatShortDate, localDate } from '@/lib/attendance';
 import { SESSION_FRESHNESS, errorText, formatMinutes, formatVnd, useRefreshMassage } from '@/lib/massage';
-import { printServiceSession, printTreatmentCard, reservePrintWindow } from '@/lib/printing';
+import { printCardTopUp, printServiceSession, printTreatmentCard, reservePrintWindow } from '@/lib/printing';
 
 export default function CardDetailPage() {
   const params = useParams<{ id: string }>();
@@ -108,6 +108,30 @@ export default function CardDetailPage() {
       confirmLabel: 'Xóa thẻ',
       onConfirm: () => deleteCard.mutate({ id: card.id }, { onSuccess: () => { refresh(); setConfirm(null); notify('Đã xóa thẻ khỏi danh sách; lịch sử ca nhân viên vẫn được giữ.'); navigate('/cards'); }, onError: (e) => { setConfirm(null); fail(e); } }),
     });
+  }
+  function printOriginalPurchase() {
+    if (!card) return;
+    const printWindow = reservePrintWindow();
+    if (!printWindow) {
+      notify('Trình duyệt chặn cửa sổ in; hãy cho phép cửa sổ bật lên rồi thử lại.');
+      return;
+    }
+    if (!printTreatmentCard(printWindow, card, printPreferences)) {
+      printWindow.close();
+      notify('Không mở được phiếu mua thẻ.');
+    }
+  }
+  function printTopUp(payment: TreatmentCard['topUps'][number]) {
+    if (!card) return;
+    const printWindow = reservePrintWindow();
+    if (!printWindow) {
+      notify('Trình duyệt chặn cửa sổ in; hãy cho phép cửa sổ bật lên rồi thử lại.');
+      return;
+    }
+    if (!printCardTopUp(printWindow, card, payment, printPreferences)) {
+      printWindow.close();
+      notify('Không mở được phiếu nạp thẻ.');
+    }
   }
 
   function dialogMembers(session: ServiceSession | null): MemberRecord[] {
@@ -202,14 +226,37 @@ export default function CardDetailPage() {
                 <span className="muted">{formatShortDate(payment.paymentDate)} · {formatMinutes(payment.minutes)}</span>
                 <span className="muted">Ghi lúc {new Date(payment.createdAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</span>
               </span>
-              <strong className="mono">{formatVnd(payment.amount)}</strong>
+              <div className="head-actions">
+                <strong className="mono">{formatVnd(payment.amount)}</strong>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  aria-label={`In phiếu nạp ${formatMinutes(payment.minutes)} ngày ${formatShortDate(payment.paymentDate)}`}
+                  data-testid={`button-print-card-topup-${payment.id}`}
+                  disabled={payment.minutes <= 0}
+                  onClick={() => printTopUp(payment)}
+                >
+                  <Printer size={14} />
+                </button>
+              </div>
             </li>
           ))}
           <li className="emp-row wrap" data-testid="row-card-initial-purchase">
             <span className="grow"><strong>Mua thẻ ban đầu</strong>
               <span className="muted">{formatShortDate(card.purchaseDate)} · {formatMinutes(card.totalMinutes - card.topUps.reduce((sum, payment) => sum + payment.minutes, 0))}</span>
             </span>
-            <strong className="mono">{formatVnd(card.purchaseAmount)}</strong>
+            <div className="head-actions">
+              <strong className="mono">{formatVnd(card.purchaseAmount)}</strong>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label={`In phiếu mua thẻ ngày ${formatShortDate(card.purchaseDate)}`}
+                data-testid="button-print-card-initial-purchase"
+                onClick={printOriginalPurchase}
+              >
+                <Printer size={14} />
+              </button>
+            </div>
           </li>
         </ul>
 
