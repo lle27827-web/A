@@ -84,6 +84,32 @@ test('each top-up slip uses the exact top-up hours and date, not the card balanc
   assert.equal(treatmentCardPrintRows(cardWithTopUp)[3]?.value, '10 giờ');
 });
 
+test('top-up receipt uses the same card slip layout as a purchase', () => {
+  const options = {
+    checkboxCount: CARD_CHECKBOX_COUNT,
+    facilityPhone: '028 1234 5678',
+    cardFooter: true,
+  };
+  const purchaseHtml = buildPrintDocumentHtml(
+    'Thẻ khách hàng',
+    cardSalePrintRows(card, 120, '2026-11-02'),
+    'a4',
+    options,
+  );
+  const topUpHtml = buildPrintDocumentHtml(
+    'Thẻ khách hàng',
+    cardTopUpPrintRows(card, topUp),
+    'a4',
+    options,
+  );
+  const removeTransactionRows = (html: string) => html.replace(/<div class="row">[\s\S]*?<\/div>/gu, '<TRANSACTION_ROW>');
+
+  assert.equal(removeTransactionRows(topUpHtml), removeTransactionRows(purchaseHtml));
+  assert.match(topUpHtml, /Số giờ nạp/u);
+  assert.match(topUpHtml, /Ngày nạp/u);
+  assert.equal([...topUpHtml.matchAll(/class="check-square"/gu)].length, CARD_CHECKBOX_COUNT);
+});
+
 test('automatic sale receipt uses only the newly purchased hours and date, including merged sales', () => {
   assert.deepEqual(cardSalePrintRows(card, 120, '2026-11-02').slice(3), [
     { label: 'Số giờ mua', value: '2 giờ' },

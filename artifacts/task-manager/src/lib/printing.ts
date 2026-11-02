@@ -378,11 +378,11 @@ export function printRowsInWindow(
   }
 }
 
-export function printTreatmentCard(printWindow: Window | null, card: TreatmentCard, preferences: PrintPreferences): boolean {
+function printCardTransaction(printWindow: Window | null, rows: PrintRow[], preferences: PrintPreferences): boolean {
   return printRowsInWindow(
     printWindow,
     'Thẻ khách hàng',
-    treatmentCardPrintRows(card),
+    rows,
     preferences.paperSize,
     {
       checkboxCount: CARD_CHECKBOX_COUNT,
@@ -392,6 +392,10 @@ export function printTreatmentCard(printWindow: Window | null, card: TreatmentCa
       customHeightMm: preferences.customHeightMm,
     },
   );
+}
+
+export function printTreatmentCard(printWindow: Window | null, card: TreatmentCard, preferences: PrintPreferences): boolean {
+  return printCardTransaction(printWindow, treatmentCardPrintRows(card), preferences);
 }
 
 export function printCardSale(
@@ -401,19 +405,7 @@ export function printCardSale(
   purchaseDate: string,
   preferences: PrintPreferences,
 ): boolean {
-  return printRowsInWindow(
-    printWindow,
-    'Thẻ khách hàng',
-    cardSalePrintRows(card, minutes, purchaseDate),
-    preferences.paperSize,
-    {
-      checkboxCount: CARD_CHECKBOX_COUNT,
-      facilityPhone: preferences.facilityPhone,
-      cardFooter: true,
-      customWidthMm: preferences.customWidthMm,
-      customHeightMm: preferences.customHeightMm,
-    },
-  );
+  return printCardTransaction(printWindow, cardSalePrintRows(card, minutes, purchaseDate), preferences);
 }
 
 export function printCardTopUp(
@@ -422,19 +414,7 @@ export function printCardTopUp(
   payment: CardTopUp,
   preferences: PrintPreferences,
 ): boolean {
-  return printRowsInWindow(
-    printWindow,
-    'Thẻ khách hàng',
-    cardTopUpPrintRows(card, payment),
-    preferences.paperSize,
-    {
-      checkboxCount: CARD_CHECKBOX_COUNT,
-      facilityPhone: preferences.facilityPhone,
-      cardFooter: true,
-      customWidthMm: preferences.customWidthMm,
-      customHeightMm: preferences.customHeightMm,
-    },
-  );
+  return printCardTransaction(printWindow, cardTopUpPrintRows(card, payment), preferences);
 }
 
 export function printServiceSession(printWindow: Window | null, session: ServiceSession, preferences: PrintPreferences): boolean {
