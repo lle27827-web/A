@@ -94,6 +94,25 @@
   margin: 0;
 }
 
+.print-preview-modes {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+}
+
+.print-preview-mode {
+  min-height: 32px;
+  min-width: 96px;
+}
+
+.print-preview-mode.is-active {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
 .print-preview-sheet {
   box-sizing: border-box;
   display: grid;

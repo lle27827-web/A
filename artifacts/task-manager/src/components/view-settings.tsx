@@ -213,7 +213,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
                   onChange={(event) => onPrintPreferencesChange({ ...printPrefs, autoPrintCardTopUps: event.target.checked })}
                   data-testid="switch-auto-print-card-topups"
                 />
-                <span><strong>Tự in phiếu khi nạp thẻ</strong><small>Sau khi lưu giao dịch nạp thẻ thành công</small></span>
+                <span><strong>Tự in phiếu khi nạp thẻ</strong><small>Dùng chung mẫu thẻ khách hàng; in số giờ và ngày nạp</small></span>
               </label>
               <label className="field" htmlFor="print-paper-size">Khổ giấy
                 <select id="print-paper-size" value={printPrefs.paperSize}

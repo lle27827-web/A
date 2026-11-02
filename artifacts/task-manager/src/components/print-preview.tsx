@@ -17,15 +17,15 @@ export function PrintPreview({ paperSize, customWidthMm, customHeightMm, facilit
   facilityPhone: string;
 }) {
   const [printFeedback, setPrintFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
+  const [cardPreviewKind, setCardPreviewKind] = useState<'sale' | 'topup'>('sale');
   const paperLabel = PRINT_PAPER_OPTIONS.find((option) => option.value === paperSize)?.label ?? 'Khổ giấy';
   const layout = getPrintPageLayout(paperSize, customWidthMm, customHeightMm);
   const previews = [
-    { kind: 'sale' as const, title: 'Thẻ khách hàng', caption: 'Bán thẻ' },
-    { kind: 'topup' as const, title: 'Thẻ khách hàng', caption: 'Nạp thẻ' },
+    { kind: 'card' as const, title: 'Thẻ khách hàng', caption: 'Mẫu thẻ khách hàng' },
     { kind: 'session' as const, title: 'Phiếu chấm công', caption: 'Phiếu chấm công' },
   ];
 
-  function printSample(kind: typeof previews[number]['kind'], title: string, caption: string) {
+  function printSample(kind: 'sale' | 'topup' | 'session', title: string, caption: string) {
     setPrintFeedback(null);
     const printWindow = reservePrintWindow();
     if (!printWindow) {
@@ -61,8 +61,35 @@ export function PrintPreview({ paperSize, customWidthMm, customHeightMm, facilit
         <span>{paperLabel}</span>
       </div>
       <div className="print-preview-grid">
-        {previews.map((preview) => (
-          <figure className="print-preview-figure" key={preview.kind}>
+        {previews.map((preview) => {
+          const sampleKind = preview.kind === 'card' ? cardPreviewKind : 'session';
+          const sampleCaption = preview.kind === 'card'
+            ? (cardPreviewKind === 'sale' ? 'Mua thẻ' : 'Nạp thẻ')
+            : 'Phiếu chấm công';
+          const isCard = preview.kind === 'card';
+          const figureCaption = isCard ? `Mẫu thẻ khách hàng · ${sampleCaption}` : sampleCaption;
+          return (
+            <figure className="print-preview-figure" key={preview.kind}>
+              {isCard && (
+                <div className="print-preview-modes" role="group" aria-label="Loại giao dịch trên mẫu thẻ khách hàng">
+                  <button
+                    type="button"
+                    className={`btn ghost small print-preview-mode${cardPreviewKind === 'sale' ? ' is-active' : ''}`}
+                    aria-pressed={cardPreviewKind === 'sale'}
+                    onClick={() => setCardPreviewKind('sale')}
+                  >
+                    Mua thẻ
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ghost small print-preview-mode${cardPreviewKind === 'topup' ? ' is-active' : ''}`}
+                    aria-pressed={cardPreviewKind === 'topup'}
+                    onClick={() => setCardPreviewKind('topup')}
+                  >
+                    Nạp thẻ
+                  </button>
+                </div>
+              )}
             <article
               className={`print-preview-sheet print-preview-sheet--${paperSize}`}
               style={{
@@ -70,21 +97,21 @@ export function PrintPreview({ paperSize, customWidthMm, customHeightMm, facilit
                 aspectRatio: `${layout.widthMm} / ${layout.heightMm}`,
                 fontSize: `${layout.previewFontPx}px`,
               }}
-              aria-label={`Xem trước ${preview.caption}, ${paperLabel}${paperSize === 'custom' ? `, ${layout.widthMm} nhân ${layout.heightMm} milimét` : ''}`}
-              data-testid={`print-preview-${preview.kind}`}
+              aria-label={`Xem trước ${figureCaption}, ${paperLabel}${paperSize === 'custom' ? `, ${layout.widthMm} nhân ${layout.heightMm} milimét` : ''}`}
+              data-testid={`print-preview-${sampleKind}`}
             >
               <header className="print-preview-sheet-header">
                 <span>{preview.title}</span>
               </header>
               <div className="print-preview-rows">
-                {printPreviewRows(preview.kind).map((row) => (
-                  <div className="print-preview-row" key={`${preview.kind}-${row.label}`}>
+                {printPreviewRows(sampleKind).map((row) => (
+                  <div className="print-preview-row" key={`${sampleKind}-${row.label}`}>
                     <span>{row.label}</span>
                     <strong>{row.value}</strong>
                   </div>
                 ))}
               </div>
-              {preview.kind !== 'session' && (
+              {isCard && (
                 <section className="print-preview-checklist" aria-label="10 ô đánh dấu lượt sử dụng">
                   <div className="print-preview-checklist-grid">
                     {Array.from({ length: CARD_CHECKBOX_COUNT }, (_, index) => (
@@ -93,7 +120,7 @@ export function PrintPreview({ paperSize, customWidthMm, customHeightMm, facilit
                   </div>
                 </section>
               )}
-              {preview.kind !== 'session' && (
+              {isCard && (
                 <>
                   <p className="print-preview-facility-phone">
                     Số điện thoại cơ sở: {facilityPhone.trim() || '________________'}
@@ -102,25 +129,26 @@ export function PrintPreview({ paperSize, customWidthMm, customHeightMm, facilit
                 </>
               )}
             </article>
-            <figcaption>{preview.caption}</figcaption>
+            <figcaption>{figureCaption}</figcaption>
             <button
               type="button"
               className="btn ghost small print-preview-test"
-              onClick={() => printSample(preview.kind, preview.title, preview.caption)}
-              aria-label={`In thử mẫu ${preview.caption}, khổ ${paperLabel}`}
-              data-testid={`button-print-preview-${preview.kind}`}
+              onClick={() => printSample(sampleKind, preview.title, sampleCaption)}
+              aria-label={`In thử mẫu ${sampleCaption}, khổ ${paperLabel}`}
+              data-testid={`button-print-preview-${sampleKind}`}
             >
-              <Printer size={14} aria-hidden="true" /> In thử
+              <Printer size={14} aria-hidden="true" /> In thử {sampleCaption.toLocaleLowerCase('vi')}
             </button>
           </figure>
-        ))}
+          );
+        })}
       </div>
       {printFeedback && (
         <p className={`print-preview-feedback ${printFeedback.kind === 'error' ? 'is-error' : 'is-success'}`} role={printFeedback.kind === 'error' ? 'alert' : 'status'}>
           {printFeedback.message}
         </p>
       )}
-      <p className="print-preview-note">Bản xem trước theo đúng tỷ lệ khổ giấy đã chọn. Kích thước in thực tế và khổ máy hỗ trợ được chọn trong hộp thoại in của thiết bị.</p>
+      <p className="print-preview-note">Mua và nạp thẻ dùng chung mẫu in; chỉ số giờ và ngày giao dịch thay đổi. Bản xem trước theo khổ đã chọn; hộp thoại thiết bị chọn máy in thực tế.</p>
     </section>
   );
 }
