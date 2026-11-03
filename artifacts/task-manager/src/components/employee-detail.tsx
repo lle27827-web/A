@@ -30,7 +30,6 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
   const { historyMonth, withHistory } = shell;
   const { month, date: day, currentMonth, today } = shell.period;
   const [sessionDialog, setSessionDialog] = useState<{ session: ServiceSession | null } | null>(null);
-  const [showDaySessions, setShowDaySessions] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [memberDialog, setMemberDialog] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
@@ -53,8 +52,11 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
 
   const sessions = useMemo(() => sessionsQuery.data ?? [], [sessionsQuery.data]);
   const daySessions = useMemo(() => sessions.filter((s) => s.workDate === day), [sessions, day]);
+  const monthTypes = useMemo(() => summarizeServiceHours(sessions), [sessions]);
   const dayTypes = useMemo(() => summarizeServiceHours(daySessions), [daySessions]);
   const dayEarnings = daySessions.reduce((a, s) => a + s.earnings, 0);
+  const monthMinutes = sessions.reduce((total, session) => total + session.minutes, 0);
+  const dayMinutes = daySessions.reduce((total, session) => total + session.minutes, 0);
 
   // Month/day live in the URL so history survives reload, back and direct links.
   function goPeriod(nextMonth: string, nextDay?: string) {
@@ -142,7 +144,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
     <section className="panel" aria-labelledby="day-title" data-testid="section-day-sessions">
       <div className="panel-head wrap">
         <div><h2 id="day-title" className="day-title"><CalendarDays size={16} aria-hidden="true" />{formatDate(day)}</h2>
-          <p className="sub">{formatMinutes(daySessions.reduce((a, s) => a + s.minutes, 0))} · {formatVnd(dayEarnings)}</p></div>
+          <p className="sub">{daySessions.length} ca · {formatMinutes(dayMinutes)} · {formatVnd(dayEarnings)}</p></div>
       </div>
       {sessionsQuery.isLoading ? <Skeleton rows={3} label="Đang tải lịch sử chấm công" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được lịch sử chấm công." onRetry={() => void sessionsQuery.refetch()} /> : daySessions.length === 0 ? (
         <div className="empty small"><CalendarDays size={18} /><p>Chưa có dịch vụ trong ngày này.</p></div>
@@ -162,7 +164,10 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
       <section className="salary-hero compact" aria-labelledby="salary-title" data-testid="section-salary">
         <div className="month-nav">
           <button type="button" className="icon-btn" onClick={() => changeMonth(shiftMonth(month, -1))} aria-label="Tháng trước" data-testid="button-prev-month"><ChevronLeft size={16} /></button>
-          <h1 id="salary-title" className="salary-label">Tổng lương {formatMonth(month).toLowerCase()} · <span data-testid="text-member-name">{member.name}</span><MemberTags member={member} /></h1>
+          <div className="employee-month-heading">
+            <h1 id="salary-title" className="salary-label">Tổng lương {formatMonth(month).toLowerCase()}</h1>
+            <p className="employee-detail-name" data-testid="text-member-name">{member.name}<MemberTags member={member} /></p>
+          </div>
           <button type="button" className="icon-btn" disabled={month >= currentMonth} onClick={() => changeMonth(shiftMonth(month, 1))} aria-label="Tháng sau" data-testid="button-next-month"><ChevronRight size={16} /></button>
           {month !== currentMonth && <button type="button" className="link-soft as-button" onClick={() => changeMonth(currentMonth)} data-testid="button-current-month">Tháng này</button>}
         </div>
@@ -171,6 +176,12 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
         )}
         {payroll.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải lương" /> : payroll.isError ? <ErrorBanner text="Không tải được lương." onRetry={() => void payroll.refetch()} /> : (
           <p className="rev-value mono" data-testid="text-total-salary">{formatVnd(p?.totalSalary ?? 0)}</p>
+        )}
+        {sessionsQuery.isLoading ? <span className="muted" role="status">Đang tải số liệu tháng…</span> : !sessionsQuery.isError && (
+          <div className="employee-period-stats" data-testid="employee-month-stats">
+            <span>{sessions.length} ca · {formatMinutes(monthMinutes)}</span>
+            {monthTypes.map((item) => <span key={item.serviceType}>{serviceHoursLabel(item, formatMinutes)}</span>)}
+          </div>
         )}
       </section>
       <section className="day-salary" aria-labelledby="day-salary-title" data-testid="section-day-salary">
@@ -183,6 +194,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
       {sessionsQuery.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải lương ngày" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được giờ dịch vụ." onRetry={() => void sessionsQuery.refetch()} /> : (
           <>
             <p className="day-salary-value mono" data-testid="text-day-salary">{formatVnd(dayEarnings)}</p>
+            <p className="employee-day-stats" data-testid="employee-day-stats">{daySessions.length} ca · {formatMinutes(dayMinutes)}</p>
             {dayTypes.length > 0 ? (
               <ul className="type-counts" aria-label="Tổng giờ theo dịch vụ">{dayTypes.map((item) => <li key={item.serviceType}>{serviceHoursLabel(item, formatMinutes)}</li>)}</ul>
             ) : <p className="muted small">Chưa có dịch vụ trong ngày.</p>}
@@ -190,19 +202,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
         )}
       </section>
 
-      <button
-        type="button"
-        className="btn small"
-        aria-expanded={showDaySessions}
-        aria-controls="employee-day-sessions"
-        onClick={() => setShowDaySessions((visible) => !visible)}
-        data-testid="button-toggle-day-sessions"
-      >
-        {showDaySessions ? 'Ẩn lịch sử chấm công' : 'Xem lịch sử chấm công'}
-      </button>
-      <div id="employee-day-sessions" hidden={!showDaySessions}>
-        {showDaySessions && selectedDayPanel}
-      </div>
+      {selectedDayPanel}
 
       {canEdit && (
         <div className="employee-management-actions" aria-label={`Thao tác với nhân viên ${member.name}`}>

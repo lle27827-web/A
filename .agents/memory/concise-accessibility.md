@@ -15,11 +15,11 @@ Comparison discrepancies should briefly identify service, date, customer if pres
 
 **How to apply:** simplify presentation only; retain occurrence-level comparison, wage calculations and explicit confirmation before replacing private shifts.
 
-In the facility employee roster, show monthly and selected-day wages without repeating shift counts or service-by-service listings. In employee details, summarize selected-day time by service; keep individual attendance rows collapsed until requested.
+In the facility employee roster, keep employee names left-aligned and show monthly and selected-day wages in a larger, right-aligned summary without repeating shift counts or service-by-service listings. In employee details, right-align money and statistics, keep the employee name left-aligned, show month/day totals and service hours, and leave each attendance row expanded with customer type/name, service and duration.
 
-**Why:** the user asked for concise wage rows and per-service total hours instead of repeated session counts, while retaining access to individual shift records.
+**Why:** the user requested left-aligned names, right-aligned financial totals, larger type, full service-hour statistics and always-visible attendance details.
 
-**How to apply:** add up all minutes for each service type, show the readable duration, and keep detailed rows available behind an explicit control.
+**How to apply:** do not put shift details in the roster list; in employee detail, aggregate minutes by service for the selected month/day and render every daily attendance row without a reveal control.
 
 Do not show note inputs or note rows on the application's screens. Facility and personal attendance use separate whole-hour and minute inputs; new shifts default to 1 hour and 0 minutes, with quick choices for 30 minutes, 1 hour, 2 hours and 3 hours.
 

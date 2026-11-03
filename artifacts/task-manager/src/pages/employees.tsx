@@ -111,15 +111,13 @@ export default function EmployeesPage() {
                 <li key={m.id} className="emp-item">
                   <button type="button" className="emp-row as-row" onClick={() => { if (historyMonth) navigate(withHistory(`/employees/${m.id}`)); else setChoice(m); }} aria-haspopup="dialog" data-testid={`button-employee-${m.id}`}>
                     <span className="initials big">{initial(m.name)}</span>
-                    <span className="grow">
-                      <strong>{m.name}<MemberTags member={m} /></strong>
-                      {sessionsQuery.isLoading ? <span className="employee-summary muted">Đang tải tổng lương…</span> : !sessionsQuery.isError && (
-                        <span className="employee-summary" data-testid={`summary-employee-${m.id}`}>
-                          <span>{monthLabel}: {formatVnd(summary?.monthEarnings ?? 0)}</span>
-                          <span>{dayLabel}: {formatVnd(summary?.dayEarnings ?? 0)}</span>
-                        </span>
-                      )}
-                    </span>
+                    <span className="employee-name grow"><strong>{m.name}<MemberTags member={m} /></strong></span>
+                    {sessionsQuery.isLoading ? <span className="employee-summary muted">Đang tải tổng lương…</span> : !sessionsQuery.isError && (
+                      <span className="employee-summary" data-testid={`summary-employee-${m.id}`}>
+                        <span><span>{monthLabel}</span><strong>{formatVnd(summary?.monthEarnings ?? 0)}</strong></span>
+                        <span><span>{dayLabel}</span><strong>{formatVnd(summary?.dayEarnings ?? 0)}</strong></span>
+                      </span>
+                    )}
                     <ChevronRight size={18} />
                   </button>
                   {canDeleteEmployees && <button type="button" className="icon-btn danger" disabled={del.isPending} onClick={() => askDelete(m)} aria-label={`Xóa nhân viên ${m.name}`} data-testid={`button-delete-member-${m.id}`}><Trash2 size={15} /></button>}

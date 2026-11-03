@@ -501,7 +501,10 @@ a.hit:hover, .emp-row:hover, .card-row:hover { border-color: hsl(var(--primary) 
 /* ---- SỔ CÔNG: service catalog + employee choice ---- */
 .emp-row.as-row { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 .emp-row .grow, .choice-row .grow, .settings-link .grow { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.employee-summary { display: flex; flex-direction: column; gap: 2px; color: hsl(var(--muted-foreground)); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
+.employee-name { flex: 1 1 auto; text-align: left; }
+.employee-summary { display: flex; flex: 0 1 auto; flex-direction: column; align-items: flex-end; gap: 5px; color: hsl(var(--muted-foreground)); font-size: 14px; line-height: 1.35; text-align: right; overflow-wrap: anywhere; }
+.employee-summary > span { display: grid; justify-items: end; gap: 1px; }
+.employee-summary strong { color: hsl(var(--foreground)); font-size: 16px; font-weight: 800; }
 .choice-list { display: grid; gap: 10px; margin-top: 12px; }
 .choice-row, .settings-link { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--muted) / .35); color: hsl(var(--foreground)); font: inherit; font-size: 14px; text-align: left; text-decoration: none; cursor: pointer; transition: border-color .15s, background .15s; }
 .choice-row:hover:not(:disabled), .settings-link:hover { border-color: hsl(var(--primary) / .55); background: hsl(var(--primary) / .06); }
@@ -535,13 +538,33 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .detail-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .salary-hero.compact { padding: 16px 18px; }
 .salary-hero.compact .rev-value { margin: 6px 0 0; }
-.salary-label { margin: 0; font-size: 13px; font-weight: 700; color: hsl(var(--muted-foreground)); flex: 1; min-width: 0; text-align: center; }
+.salary-label { margin: 0; font-size: 16px; font-weight: 800; color: hsl(var(--muted-foreground)); flex: 1; min-width: 0; text-align: center; }
 .salary-label span { color: hsl(var(--foreground)); }
-.day-salary { padding: 14px 18px; border: 1px solid hsl(var(--border)); border-radius: 16px; background: hsl(var(--card)); }
+.day-salary { padding: 16px 18px; border: 1px solid hsl(var(--border)); border-radius: 16px; background: hsl(var(--card)); text-align: right; }
 .day-salary .rev-label { margin: 0; }
-.day-salary-value { margin: 4px 0 8px; font-size: 22px; font-weight: 700; }
-.type-counts { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
-.type-counts li { padding: 3px 10px; border: 1px solid hsl(var(--border)); border-radius: 999px; font-size: 12px; color: hsl(var(--muted-foreground)); }
+.day-salary-value { margin: 4px 0 5px; font-size: clamp(25px, 6vw, 34px); font-weight: 800; }
+.employee-month-heading { flex: 1; min-width: 0; text-align: center; }
+.employee-detail-name { margin: 4px 0 0; font-size: 19px; line-height: 1.25; font-weight: 800; color: hsl(var(--foreground)); text-align: left; overflow-wrap: anywhere; }
+.salary-hero.compact .rev-value { text-align: right; font-size: clamp(30px, 7vw, 44px); }
+.employee-period-stats { display: grid; justify-items: end; gap: 6px; margin-top: 12px; text-align: right; font-size: 16px; font-weight: 700; }
+.employee-period-stats > span:not(:first-child) { padding: 5px 10px; border: 1px solid hsl(var(--border)); border-radius: 10px; }
+.employee-day-stats { margin: -2px 0 12px; font-size: 16px; font-weight: 700; }
+.type-counts { display: grid; justify-items: end; gap: 7px; list-style: none; margin: 0; padding: 0; }
+.type-counts li { padding: 7px 12px; border: 1px solid hsl(var(--border)); border-radius: 10px; font-size: 16px; font-weight: 700; color: hsl(var(--muted-foreground)); }
+.employee-session-row { text-align: right; }
+.employee-session-row .shift-main { justify-content: flex-end; }
+.employee-session-customer, .employee-session-duration { font-size: 16px; line-height: 1.45; overflow-wrap: anywhere; }
+.employee-session-customer strong, .employee-session-duration strong { color: hsl(var(--foreground)); font-size: 17px; font-weight: 800; }
+.employee-session-duration { margin: 0; }
+.employee-session-row .shift-actions { justify-content: flex-end; }
+.detail [data-testid="section-day-sessions"] .panel-head .sub { text-align: right; font-size: 16px; font-weight: 700; }
+@media (max-width: 480px) {
+  .employee-summary { max-width: 54%; font-size: 12px; }
+  .employee-summary strong { font-size: 14px; }
+  .employee-name { overflow-wrap: anywhere; }
+  .employee-session-customer, .employee-session-duration { font-size: 15px; }
+  .employee-session-customer strong, .employee-session-duration strong { font-size: 16px; }
+}
 .type-counts strong { color: hsl(var(--foreground)); margin-left: 4px; }
 .search-results { margin-bottom: 14px; }
 
