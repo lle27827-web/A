@@ -786,14 +786,17 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .revenue-month-navigation {
   display: flex;
   min-width: 0;
+  width: 100%;
   flex: 1 1 auto;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
 }
 .revenue-day-navigation .rev-label-key,
 .revenue-month-navigation .rev-label-key {
   flex: 1 1 auto;
   min-width: 0;
+  text-align: center;
 }
 .revenue-period-arrow {
   display: grid;
@@ -834,15 +837,17 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 }
 .revenue-period-primary-row {
   display: flex;
+  flex-direction: column;
   min-width: 0;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: center;
   gap: 12px;
   padding: 10px 12px;
   border: 3px solid hsl(27 52% 31%);
   border-radius: 10px;
   background: #454545;
   color: hsl(0 0% 100%);
+  text-align: center;
 }
 .revenue-period-primary-row .rev-label-key {
   min-width: 0;
@@ -850,6 +855,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   overflow-wrap: anywhere;
 }
 .revenue-period-card .rev-value {
+  width: 100%;
   flex: 0 0 auto;
   margin: 0;
   padding: 0;
@@ -859,7 +865,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   color: hsl(0 0% 100%);
   font-size: clamp(20px, 4vw, 28px);
   font-weight: 800;
-  text-align: right;
+  text-align: center;
 }
 .revenue-period-key-metrics {
   display: grid;
