@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
 import { getGetMassageSummaryQueryKey, useGetMassageSummary } from '@workspace/api-client-react';
-import { ArrowRight, CalendarDays, CreditCard, Sparkles, Users } from 'lucide-react';
+import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, CreditCard, Sparkles, Users } from 'lucide-react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { useShell } from '@/components/app-shell';
+import { DatePickerDialog } from '@/components/date-picker-dialog';
 import { ErrorBanner } from '@/components/modal';
 import { formatShortDate, statusCode } from '@/lib/attendance';
 import { formatMinutes, formatMonth, formatVnd } from '@/lib/massage';
 import { serviceDurationLabel, type ServiceDurationDetail } from '@/lib/service-duration-summary';
-import { resolveRevenuePeriod } from '@/lib/revenue-period';
+import { resolveRevenuePeriod, shiftRevenueDateMonth } from '@/lib/revenue-period';
 import { useVietnamToday } from '@/lib/use-vietnam-today';
 import { PaymentDetailsDialog } from '@/components/payment-details-dialog';
 import './revenue-history.css';
@@ -55,10 +56,15 @@ export default function HomePage() {
   const search = useSearch();
   const [, navigate] = useLocation();
   const [paymentDetails, setPaymentDetails] = useState<{ method: PaymentMethodFilter; date?: string } | null>(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const { month, date, maxDate, currentMonth, isHistory } = resolveRevenuePeriod(search, today);
   const dayLabel = date === today ? 'hôm nay' : `ngày ${formatShortDate(date)}`;
   const summaryParams = useMemo(() => ({ month, date }), [month, date]);
   const summary = useGetMassageSummary(summaryParams, { query: { queryKey: getGetMassageSummaryQueryKey(summaryParams), enabled: permissions.viewRevenue, refetchOnWindowFocus: true, staleTime: 20_000, refetchInterval: 60_000 } });
+  const navigateToRevenueDate = (nextDate: string) => {
+    setDatePickerOpen(false);
+    navigate(nextDate === today ? '/' : `/?month=${nextDate.slice(0, 7)}&date=${nextDate}`);
+  };
 
   // While searching, the shared SearchResults (mounted in AppShell) replaces the home tiles and report.
   if (query.trim()) return null;
@@ -179,7 +185,24 @@ export default function HomePage() {
 
                 <section className="revenue-period-card" aria-labelledby="rev-day-title" data-testid="revenue-day-summary">
                   <div className="revenue-period-primary-row">
-                    <h2 id="rev-day-title" className="rev-label rev-label-key">Tổng doanh thu ngày · {formatShortDate(date)}</h2>
+                    <div className="revenue-day-navigation">
+                      <button type="button" className="revenue-month-arrow" aria-label="Tháng trước" data-testid="button-revenue-previous-month"
+                        onClick={() => navigateToRevenueDate(shiftRevenueDateMonth(date, -1, today))}>
+                        <ChevronLeft size={19} aria-hidden="true" />
+                      </button>
+                      <h2 id="rev-day-title" className="rev-label rev-label-key">
+                        Tổng doanh thu ngày ·{' '}
+                        <button type="button" className="revenue-date-trigger" onClick={() => setDatePickerOpen(true)}
+                          aria-label={`Chọn ngày xem doanh thu, hiện tại ${formatShortDate(date)}`} data-testid="button-open-revenue-date-picker">
+                          {formatShortDate(date)}
+                        </button>
+                      </h2>
+                      <button type="button" className="revenue-month-arrow" aria-label="Tháng sau" data-testid="button-revenue-next-month"
+                        disabled={month >= currentMonth}
+                        onClick={() => navigateToRevenueDate(shiftRevenueDateMonth(date, 1, today))}>
+                        <ChevronRight size={19} aria-hidden="true" />
+                      </button>
+                    </div>
                     <p
                       className="rev-value mono"
                       data-testid="text-today-revenue"
@@ -222,6 +245,8 @@ export default function HomePage() {
             )}
         </div>
       </section>}
+      {datePickerOpen && <DatePickerDialog value={date} title="Chọn ngày xem doanh thu" immediate maxDate={today}
+        onClose={() => setDatePickerOpen(false)} onSelect={navigateToRevenueDate} />}
       {paymentDetails && <PaymentDetailsDialog month={month} date={paymentDetails.date} method={paymentDetails.method}
         onClose={() => setPaymentDetails(null)} />}
     </div>

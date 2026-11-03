@@ -718,6 +718,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   .net-revenue-row dt { min-width: 0; }
   .net-revenue-values { max-width: 48%; overflow-wrap: anywhere; }
   .net-revenue-values span { white-space: normal; }
+  .revenue-day-navigation { flex: 1 1 100%; }
   .revenue-period-primary-row { align-items: flex-start; flex-wrap: wrap; }
   .revenue-period-primary-row .rev-value { flex: 1 1 100%; text-align: left; }
   .revenue-period-key-metrics > div { align-items: flex-start; flex-wrap: wrap; }
@@ -777,6 +778,54 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 }
 .revenue-period-card .rev-label-key {
   color: hsl(0 0% 100%);
+}
+.revenue-day-navigation {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 8px;
+}
+.revenue-day-navigation .rev-label-key {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.revenue-month-arrow {
+  display: grid;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  padding: 0;
+  border: 3px solid hsl(27 52% 31%);
+  border-radius: 10px;
+  background: #454545;
+  color: hsl(0 0% 100%);
+  cursor: pointer;
+}
+.revenue-month-arrow:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+.revenue-date-trigger {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.revenue-month-arrow:focus-visible,
+.revenue-date-trigger:focus-visible {
+  outline: 3px solid hsl(0 0% 100%);
+  outline-offset: 2px;
 }
 .revenue-period-primary-row {
   display: flex;

@@ -19,6 +19,17 @@ export function monthLastDate(month: string): string {
   return `${month}-${new Date(Date.UTC(year, number, 0)).getUTCDate()}`;
 }
 
+export function shiftRevenueDateMonth(date: string, offset: number, maxDate: string): string {
+  const [year, month, day] = date.split('-').map(Number);
+  const monthIndex = year * 12 + month - 1 + offset;
+  const nextYear = Math.floor(monthIndex / 12);
+  const nextMonthIndex = ((monthIndex % 12) + 12) % 12;
+  const nextMonth = String(nextMonthIndex + 1).padStart(2, '0');
+  const lastDay = new Date(Date.UTC(nextYear, nextMonthIndex + 1, 0)).getUTCDate();
+  const candidate = `${nextYear}-${nextMonth}-${String(Math.min(day, lastDay)).padStart(2, '0')}`;
+  return candidate > maxDate ? maxDate : candidate;
+}
+
 export function resolveRevenuePeriod(search: string, today: string) {
   const params = new URLSearchParams(search);
   const currentMonth = today.slice(0, 7);
