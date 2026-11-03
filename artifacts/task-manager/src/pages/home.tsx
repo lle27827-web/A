@@ -134,7 +134,10 @@ export default function HomePage() {
                     </div>
                   </div>
                   <details className="revenue-details">
-                    <summary aria-label="Xem thêm chi tiết doanh thu tháng">Xem thêm</summary>
+                    <summary>
+                      <span className="revenue-details-closed">Xem chi tiết</span>
+                      <span className="revenue-details-open">Ẩn chi tiết</span>
+                    </summary>
                     <dl className="rev-breakdown">
                       <div className="service-duration-row" tabIndex={0}>
                         <dt>Ca dịch vụ trong tháng</dt>
@@ -197,7 +200,10 @@ export default function HomePage() {
                     </div>
                   </div>
                   <details className="revenue-details">
-                    <summary aria-label={`Xem thêm chi tiết doanh thu ${dayLabel}`}>Xem thêm</summary>
+                    <summary>
+                      <span className="revenue-details-closed">Xem chi tiết</span>
+                      <span className="revenue-details-open">Ẩn chi tiết</span>
+                    </summary>
                     <dl className="rev-breakdown">
                       <div className="service-duration-row" tabIndex={0}>
                         <dt>Ca dịch vụ {dayLabel}</dt>

@@ -770,9 +770,9 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .revenue-period-card {
   min-width: 0;
   padding: 12px;
-  border: 3px solid hsl(0 0% 28%);
+  border: 3px solid hsl(27 52% 31%);
   border-radius: 14px;
-  background: hsl(0 0% 38%);
+  background: #5a5a5a;
   color: hsl(0 0% 100%);
 }
 .revenue-period-card .rev-label-key {
@@ -785,9 +785,9 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  border: 2px solid hsl(0 0% 28%);
+  border: 3px solid hsl(27 52% 31%);
   border-radius: 10px;
-  background: hsl(0 0% 32%);
+  background: #454545;
   color: hsl(0 0% 100%);
 }
 .revenue-period-primary-row .rev-label-key {
@@ -818,9 +818,9 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  border: 2px solid hsl(0 0% 28%);
+  border: 3px solid hsl(27 52% 31%);
   border-radius: 10px;
-  background: hsl(0 0% 32%);
+  background: #454545;
   color: hsl(0 0% 100%);
   font-weight: 800;
 }
@@ -840,6 +840,17 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   cursor: pointer;
   font-weight: 800;
   overflow-wrap: anywhere;
+}
+.revenue-details > summary:focus-visible {
+  outline: 3px solid hsl(0 0% 100%);
+  outline-offset: 3px;
+}
+.revenue-details .revenue-details-open,
+.revenue-details[open] .revenue-details-closed {
+  display: none;
+}
+.revenue-details[open] .revenue-details-open {
+  display: inline;
 }
 .revenue-details[open] > summary {
   margin-bottom: 8px;
@@ -863,9 +874,9 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 }
 .revenue-summary .rev-breakdown > div {
   padding: 10px 12px;
-  border: 2px solid hsl(0 0% 28%);
+  border: 3px solid hsl(27 52% 31%);
   border-radius: 10px;
-  background: hsl(0 0% 38%);
+  background: #454545;
 }
 .window-nav.bottom { margin: 18px 0 0; }
 .history-pick { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; margin-top: 12px; }
@@ -1891,14 +1902,16 @@ body:has(.modal-backdrop) .screen-nav {
   color: hsl(0 0% 100%) !important;
 }
 .main .revenue .revenue-summary > .revenue-period-card {
-  background-color: #707070 !important;
-  border-color: #404040 !important;
+  background-color: #5a5a5a !important;
+  border-color: hsl(27 52% 31%) !important;
+  border-width: 3px !important;
 }
 .main .revenue .revenue-summary > .revenue-period-card .revenue-period-primary-row,
 .main .revenue .revenue-summary > .revenue-period-card .revenue-period-key-metrics > div,
 .main .revenue .revenue-summary > .revenue-period-card .revenue-details .rev-breakdown > div {
-  background-color: #5e5e5e !important;
-  border-color: #3f3f3f !important;
+  background-color: #454545 !important;
+  border-color: hsl(27 52% 31%) !important;
+  border-width: 3px !important;
 }
 .main .panel.page[aria-labelledby="emp-title"] .emp-list .emp-row,
 .main .panel.page[aria-labelledby="emp-title"] .emp-list .emp-row * {
