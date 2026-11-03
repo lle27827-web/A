@@ -8,6 +8,8 @@ export const cardTopUpsTable = pgTable("card_top_ups", {
   minutes: integer("minutes").notNull(),
   amount: integer("amount").notNull(),
   paymentDate: date("payment_date", { mode: "string" }).notNull(),
+  paymentMethod: text("payment_method"),
+  sellerName: text("seller_name"),
   source: text("source").notNull().default("topup"),
   note: text("note").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

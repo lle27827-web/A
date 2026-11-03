@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { getGetMassageSummaryQueryKey, useGetMassageSummary } from '@workspace/api-client-react';
 import { ArrowRight, CalendarDays, CreditCard, Sparkles, Users } from 'lucide-react';
 import { Link, useLocation, useSearch } from 'wouter';
@@ -9,7 +9,31 @@ import { formatMinutes, formatMonth, formatVnd } from '@/lib/massage';
 import { serviceDurationLabel, type ServiceDurationDetail } from '@/lib/service-duration-summary';
 import { resolveRevenuePeriod } from '@/lib/revenue-period';
 import { useVietnamToday } from '@/lib/use-vietnam-today';
+import { PaymentDetailsDialog } from '@/components/payment-details-dialog';
 import './revenue-history.css';
+import './payment-report.css';
+
+type PaymentMethodFilter = 'cash' | 'transfer' | 'unrecorded';
+
+function PaymentReportRow({ label, amount, method, testId, onSelect }: {
+  label: string;
+  amount: number;
+  method: PaymentMethodFilter;
+  testId: string;
+  onSelect: (method: PaymentMethodFilter) => void;
+}) {
+  return (
+    <div className="payment-report-row">
+      <dt>{label}</dt>
+      <dd>
+        <button type="button" className="payment-report-trigger mono" onClick={() => onSelect(method)}
+          aria-label={`${label}: ${formatVnd(amount)}. Xem chi tiết giao dịch.`} data-testid={testId}>
+          {formatVnd(amount)}
+        </button>
+      </dd>
+    </div>
+  );
+}
 
 function ServiceBreakdownList({ items, label, testId }: {
   items: ServiceDurationDetail[];
@@ -30,6 +54,7 @@ export default function HomePage() {
   const today = useVietnamToday();
   const search = useSearch();
   const [, navigate] = useLocation();
+  const [paymentDetails, setPaymentDetails] = useState<{ method: PaymentMethodFilter; date?: string } | null>(null);
   const { month, date, maxDate, currentMonth, isHistory } = resolveRevenuePeriod(search, today);
   const dayLabel = date === today ? 'hôm nay' : `ngày ${formatShortDate(date)}`;
   const summaryParams = useMemo(() => ({ month, date }), [month, date]);
@@ -102,6 +127,9 @@ export default function HomePage() {
               </div>
               <div tabIndex={0}><dt>Doanh thu khách lẻ (tháng)</dt><dd className="mono" data-testid="text-service-revenue">{formatVnd(summary.data?.serviceRevenue ?? 0)}</dd></div>
               <div tabIndex={0}><dt>Doanh thu bán và nạp thẻ (tháng)</dt><dd className="mono" data-testid="text-card-revenue">{formatVnd(summary.data?.cardRevenue ?? 0)}</dd></div>
+              <PaymentReportRow label="Tiền mặt (tháng)" amount={summary.data?.paymentBreakdown.cash.total ?? 0} method="cash" testId="button-payment-cash-month" onSelect={(method) => setPaymentDetails({ method })} />
+              <PaymentReportRow label="Chuyển khoản (tháng)" amount={summary.data?.paymentBreakdown.transfer.total ?? 0} method="transfer" testId="button-payment-transfer-month" onSelect={(method) => setPaymentDetails({ method })} />
+              {(summary.data?.paymentBreakdown.unrecorded.total ?? 0) > 0 && <PaymentReportRow label="Chưa ghi phương thức (tháng)" amount={summary.data?.paymentBreakdown.unrecorded.total ?? 0} method="unrecorded" testId="button-payment-unrecorded-month" onSelect={(method) => setPaymentDetails({ method })} />}
               <div className="net-revenue-row rev-key" tabIndex={0}><dt>Doanh thu đã khấu trừ trong tháng</dt><dd className="mono" data-testid="text-net-revenue"><strong>{formatVnd(summary.data?.netRevenue ?? 0)}</strong></dd></div>
               <div tabIndex={0}><dt>Khách lẻ (tháng)</dt><dd className="mono" data-testid="text-walk-in-visits">{summary.data?.walkInVisits ?? 0} lượt</dd></div>
               <div tabIndex={0}><dt>Khách thẻ (tháng)</dt><dd className="mono" data-testid="text-card-visits">{summary.data?.cardVisits ?? 0} lượt</dd></div>
@@ -136,6 +164,9 @@ export default function HomePage() {
               </div>
               <div tabIndex={0}><dt>Khách lẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-service-revenue">{formatVnd(summary.data?.today.serviceRevenue ?? 0)}</dd></div>
               <div tabIndex={0}><dt>Bán và nạp thẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-card-revenue">{formatVnd(summary.data?.today.cardRevenue ?? 0)}</dd></div>
+              <PaymentReportRow label={`Tiền mặt ${dayLabel}`} amount={summary.data?.today.paymentBreakdown.cash.total ?? 0} method="cash" testId="button-payment-cash-day" onSelect={(method) => setPaymentDetails({ method, date })} />
+              <PaymentReportRow label={`Chuyển khoản ${dayLabel}`} amount={summary.data?.today.paymentBreakdown.transfer.total ?? 0} method="transfer" testId="button-payment-transfer-day" onSelect={(method) => setPaymentDetails({ method, date })} />
+              {(summary.data?.today.paymentBreakdown.unrecorded.total ?? 0) > 0 && <PaymentReportRow label={`Chưa ghi phương thức ${dayLabel}`} amount={summary.data?.today.paymentBreakdown.unrecorded.total ?? 0} method="unrecorded" testId="button-payment-unrecorded-day" onSelect={(method) => setPaymentDetails({ method, date })} />}
               <div className="net-revenue-row rev-key" tabIndex={0}><dt>Doanh thu đã khấu trừ {dayLabel}</dt><dd className="mono" data-testid="text-today-net-revenue"><strong>{formatVnd(summary.data?.today.netRevenue ?? 0)}</strong></dd></div>
               <div tabIndex={0}><dt>Khách lẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-walk-in-visits">{summary.data?.today.walkInVisits ?? 0} lượt</dd></div>
               <div tabIndex={0}><dt>Khách thẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-card-visits">{summary.data?.today.cardVisits ?? 0} lượt</dd></div>
@@ -144,6 +175,8 @@ export default function HomePage() {
         )}
         </div>
       </section>}
+      {paymentDetails && <PaymentDetailsDialog month={month} date={paymentDetails.date} method={paymentDetails.method}
+        onClose={() => setPaymentDetails(null)} />}
     </div>
   );
 }

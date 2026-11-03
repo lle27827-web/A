@@ -6,6 +6,7 @@ import { Link } from 'wouter';
 import { Modal } from '@/components/modal';
 import { DurationInputs } from '@/components/duration-inputs';
 import { DatePickerDialog } from '@/components/date-picker-dialog';
+import { PaymentMethodPicker, type PaymentMethodChoice } from '@/components/payment-method-picker';
 import { formatShortDate, normalize } from '@/lib/attendance';
 import { formatMinutes, formatVnd, parseHoursAndMinutes } from '@/lib/massage';
 
@@ -39,6 +40,9 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
   const catalog = catalogQuery.data ?? [];
   const [memberId, setMemberId] = useState(String(session?.memberId ?? fixedMemberId ?? defaultMemberId ?? ''));
   const [cardId, setCardId] = useState(String(session ? session.cardId ?? '' : fixedCardId ?? ''));
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodChoice | ''>(
+    session ? (session.cardId === null ? session.paymentMethod ?? '' : 'cash') : 'cash',
+  );
   const [date, setDate] = useState(session?.workDate ?? defaultDate);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [servicePickerOpen, setServicePickerOpen] = useState(false);
@@ -123,11 +127,14 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
     if (serviceId === KEEP && !session) return setError('Ca mới phải chọn dịch vụ trong danh mục.');
     if (!date) return setError('Hãy chọn ngày.');
     if (minutes === null) return setError('Nhập số giờ từ 0 đến 24, số phút từ 0 đến 59; tổng thời lượng phải từ 1 phút đến 24 giờ.');
+    if (!cardId && paymentMethod !== 'cash' && paymentMethod !== 'transfer') {
+      return setError('Chọn tiền mặt hoặc chuyển khoản cho ca khách lẻ.');
+    }
     if (!cardId && customerRate <= 0 && !keepsSnapshot) return setError('Hãy cài giá khách trả cho dịch vụ trước khi ghi ca khách lẻ.');
     setError('');
     const input: ServiceSessionInput = { memberId: member.id, workDate: date, minutes, note, serviceTypeId: serviceId === KEEP ? null : Number(serviceId) };
-    if (cardId) input.cardId = Number(cardId);
-    else { input.cardId = null; input.customerName = customerName.trim(); }
+    if (cardId) { input.cardId = Number(cardId); input.paymentMethod = null; }
+    else { input.cardId = null; input.customerName = customerName.trim(); input.paymentMethod = paymentMethod as PaymentMethodChoice; }
     onSubmit(input);
   }
 
@@ -233,6 +240,9 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
             )}
           </div>
         </details>
+        {cardId
+          ? <p className="hint" data-testid="text-session-payment-card">Thanh toán bằng thẻ · không thu thêm tiền mặt hoặc chuyển khoản.</p>
+          : <PaymentMethodPicker id="session" value={paymentMethod} onChange={setPaymentMethod} />}
         {shown && <p className="form-error" role="alert"><AlertCircle size={13} /> {shown}</p>}
         <div className="dialog-actions">
           <button type="button" className="btn ghost" onClick={onClose}>Hủy</button>

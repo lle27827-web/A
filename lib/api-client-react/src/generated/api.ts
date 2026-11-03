@@ -37,6 +37,7 @@ import type {
   GetAttendanceSummaryParams,
   GetMassageSummaryParams,
   GetMemberPayrollParams,
+  GetPaymentDetailsParams,
   GetPersonalComparisonParams,
   GetPersonalNotebookParams,
   HealthStatus,
@@ -49,6 +50,7 @@ import type {
   MemberPayroll,
   MemberRecord,
   MemberUpdate,
+  PaymentDetails,
   PersonalComparison,
   PersonalNotebook,
   PersonalService,
@@ -4155,6 +4157,84 @@ export function useGetMassageSummary<TData = Awaited<ReturnType<typeof getMassag
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetMassageSummaryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPaymentDetailsUrl = (params: GetPaymentDetailsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/payment-details?${stringifiedParams}` : `/api/payment-details`
+}
+
+export const getPaymentDetails = async (params: GetPaymentDetailsParams, options?: Parameters<typeof customFetch>[1]): Promise<PaymentDetails> => {
+
+  return customFetch<PaymentDetails>(getGetPaymentDetailsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPaymentDetailsQueryKey = (params?: GetPaymentDetailsParams,) => {
+    return [
+    `/api/payment-details`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetPaymentDetailsQueryOptions = <TData = Awaited<ReturnType<typeof getPaymentDetails>>, TError = ErrorType<void>>(params: GetPaymentDetailsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPaymentDetails>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPaymentDetailsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPaymentDetails>>> = ({ signal }) => getPaymentDetails(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPaymentDetails>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPaymentDetailsQueryResult = NonNullable<Awaited<ReturnType<typeof getPaymentDetails>>>
+export type GetPaymentDetailsQueryError = ErrorType<void>
+
+
+
+export function useGetPaymentDetails<TData = Awaited<ReturnType<typeof getPaymentDetails>>, TError = ErrorType<void>>(
+ params: GetPaymentDetailsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPaymentDetails>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPaymentDetailsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

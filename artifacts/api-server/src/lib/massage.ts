@@ -185,7 +185,7 @@ export function escapeLikePattern(value: string): string {
 }
 
 async function creditCard(tx: Tx, card: typeof treatmentCardsTable.$inferSelect, minutes: number, amount: number,
-  paymentDate: string, source: string, note = "") {
+  paymentDate: string, source: string, note = "", paymentMethod: "cash" | "transfer" | null = null, sellerName: string | null = null) {
   if (!Number.isSafeInteger(minutes) || minutes < 1 || minutes > 600000 ||
       !Number.isSafeInteger(amount) || amount < 0 || amount > 1000000000) {
     throw new MassageError(400, "Số giờ hoặc số tiền nạp không hợp lệ.");
@@ -194,7 +194,7 @@ async function creditCard(tx: Tx, card: typeof treatmentCardsTable.$inferSelect,
     throw new MassageError(400, "Tổng số giờ của thẻ không được vượt quá 10.000 giờ.");
   }
   validDate(paymentDate);
-  await tx.insert(cardTopUpsTable).values({ cardId: card.id, minutes, amount, paymentDate, source, note });
+  await tx.insert(cardTopUpsTable).values({ cardId: card.id, minutes, amount, paymentDate, source, note, paymentMethod, sellerName });
   const [row] = await tx.update(treatmentCardsTable).set({ totalMinutes: card.totalMinutes + minutes })
     .where(eq(treatmentCardsTable.id, card.id)).returning();
   return cardWithHistory(tx, row, await usedMinutes(tx, row.id));
@@ -207,7 +207,11 @@ async function usedMinutes(tx: Tx, cardId: number, excludeId?: number) {
     .from(cardUsageHistoryTable).where(eq(cardUsageHistoryTable.cardId, cardId));
   return Number(live.used) + Number(archived.used);
 }
-function cardValues(input: TreatmentCardInput) {
+type CardValueInput = Omit<TreatmentCardInput, "purchasePaymentMethod" | "sellerName"> & {
+  purchasePaymentMethod?: string | null;
+  sellerName?: string | null;
+};
+function cardValues(input: CardValueInput) {
   validDate(input.purchaseDate);
   const customerName = input.customerName.trim();
   const serviceType = input.serviceType.trim();
@@ -216,8 +220,19 @@ function cardValues(input: TreatmentCardInput) {
   const { mergeTargetId: _confirmation, ...data } = input;
   return { ...data, customerName, serviceType, phone, note: input.note?.trim() ?? "" };
 }
+function validatedCardPayment(input: { purchasePaymentMethod?: string | null; sellerName?: string | null }) {
+  const paymentMethod = input.purchasePaymentMethod;
+  const sellerName = input.sellerName?.trim() ?? "";
+  if (paymentMethod !== "cash" && paymentMethod !== "transfer") {
+    throw new MassageError(400, "Chọn tiền mặt hoặc chuyển khoản cho giao dịch thẻ.");
+  }
+  if (!sellerName || sellerName.length > 120) {
+    throw new MassageError(400, "Nhập tên người bán hoặc nạp thẻ.");
+  }
+  return { purchasePaymentMethod: paymentMethod as "cash" | "transfer", sellerName };
+}
 export async function createCard(input: TreatmentCardInput, operationId?: string) {
-  const values = cardValues(input);
+  const values = cardValues({ ...input, ...validatedCardPayment(input) });
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi bán thẻ.");
     return createPartitionedCard(input, values, operationId);
@@ -237,7 +252,7 @@ export async function createCard(input: TreatmentCardInput, operationId?: string
     if (existing) {
       if (input.mergeTargetId !== existing.id) throw new MassageError(409, "Thẻ đã có. Xác nhận cộng vào thẻ hiện có?", { mergeTargetId: existing.id });
       return { ...await creditCard(tx, existing, values.totalMinutes, values.purchaseAmount, values.purchaseDate,
-        "merged_sale", values.note), mergedIntoExisting: true };
+        "merged_sale", values.note, values.purchasePaymentMethod as "cash" | "transfer", values.sellerName!), mergedIntoExisting: true };
     }
     if (input.mergeTargetId) throw new MassageError(409, "Thẻ cần gộp đã thay đổi. Hãy kiểm tra thông tin và lưu lại.");
     const [row] = await tx.insert(treatmentCardsTable).values(values).returning();
@@ -245,7 +260,7 @@ export async function createCard(input: TreatmentCardInput, operationId?: string
   });
 }
 
-async function createPartitionedCard(input: TreatmentCardInput, values: Omit<TreatmentCardInput, "mergeTargetId">, operationId: string) {
+async function createPartitionedCard(input: TreatmentCardInput, values: ReturnType<typeof cardValues>, operationId: string) {
   return withPartitionWriteMutex("card-identities", async () => {
     const requestHash = hashPartitionRequest({ action: "card.create", input });
     const prior = await getReservedPartitionOperation(operationId, requestHash);
@@ -379,6 +394,8 @@ async function createPartitionedCard(input: TreatmentCardInput, values: Omit<Tre
           minutes: values.totalMinutes,
           amount: values.purchaseAmount,
           paymentDate: values.purchaseDate,
+          paymentMethod: values.purchasePaymentMethod,
+          sellerName: values.sellerName,
           source: "merged_sale",
           note: values.note,
           createdAt: new Date(),
@@ -424,6 +441,8 @@ async function createPartitionedCard(input: TreatmentCardInput, values: Omit<Tre
                 minutes: values.totalMinutes,
                 amount: values.purchaseAmount,
                 paymentDate: values.purchaseDate,
+                paymentMethod: values.purchasePaymentMethod,
+                sellerName: values.sellerName,
                 source: "merged_sale",
                 note: values.note,
                 createdAt: new Date(),
@@ -533,6 +552,8 @@ export async function updateCard(id: number, input: TreatmentCardUpdate, operati
                 minutes: oldFundingMinutes,
                 amount: values.purchaseAmount,
                 paymentDate: values.purchaseDate,
+                paymentMethod: values.purchasePaymentMethod ?? null,
+                sellerName: values.sellerName ?? null,
                 source: "merged_card",
                 note: `Gộp thẻ #${old.id}${values.note ? ` · ${values.note}` : ""}`,
                 createdAt: now,
@@ -585,7 +606,10 @@ export async function updateCard(id: number, input: TreatmentCardUpdate, operati
       // into the payment ledger avoids counting the sale twice or booking it today.
       await tx.insert(cardTopUpsTable).values({ cardId: target.id,
         minutes: values.totalMinutes - Number(topUpTotal.minutes), amount: values.purchaseAmount,
-        paymentDate: values.purchaseDate, source: "merged_card",
+        paymentDate: values.purchaseDate,
+        paymentMethod: values.purchasePaymentMethod ?? null,
+        sellerName: values.sellerName ?? null,
+        source: "merged_card",
         note: `Gộp thẻ #${old.id}${values.note ? ` · ${values.note}` : ""}` });
       await tx.update(cardTopUpsTable).set({ cardId: target.id }).where(eq(cardTopUpsTable.cardId, id));
       await tx.update(serviceSessionsTable).set({ cardId: target.id }).where(eq(serviceSessionsTable.cardId, id));
@@ -715,17 +739,25 @@ export async function deleteMember(id: number, operationId?: string) {
 }
 
 /** Additive update, serialized with usage/edit operations to avoid lost hours. */
-export async function addCardHours(id: number, minutes: number, amount: number, operationId?: string) {
+export async function addCardHours(
+  id: number,
+  minutes: number,
+  amount: number,
+  paymentMethod: string,
+  sellerName: string,
+  operationId?: string,
+) {
   if (!Number.isSafeInteger(minutes) || minutes < 1 || minutes > 600000) {
     throw new MassageError(400, "Số giờ nạp phải lớn hơn 0 và không quá 10.000 giờ.");
   }
+  const tender = validatedCardPayment({ purchasePaymentMethod: paymentMethod, sellerName });
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng cho giao dịch nạp thẻ.");
     if (!Number.isSafeInteger(amount) || amount < 0 || amount > 1_000_000_000) {
       throw new MassageError(400, "Số tiền nạp không hợp lệ.");
     }
     return withPartitionWriteMutex("card-ledger", async () => {
-      const requestHash = hashPartitionRequest({ action: "card.topup", id, minutes, amount });
+      const requestHash = hashPartitionRequest({ action: "card.topup", id, minutes, amount, ...tender });
       const prior = await getReservedPartitionOperation(operationId, requestHash);
       if (prior) {
         const { operation: reconciledPrior, rows: freshRows } = await reconcileAndReload(
@@ -784,12 +816,14 @@ export async function addCardHours(id: number, minutes: number, amount: number, 
         if (!topUpId) throw new MassageError(503, "Không cấp được mã giao dịch nạp thẻ.");
         const paymentDate = currentBusinessDate();
         const updatedCard = { ...card, totalMinutes: card.totalMinutes + minutes };
-        const payment = {
+        const topUpEvent = {
           id: topUpId,
           cardId: id,
           minutes,
           amount,
           paymentDate,
+          paymentMethod: tender.purchasePaymentMethod,
+          sellerName: tender.sellerName,
           source: "topup",
           note: "",
           createdAt: new Date(),
@@ -805,7 +839,7 @@ export async function addCardHours(id: number, minutes: number, amount: number, 
             entityType: "card_top_ups",
             entityKey: partitionEntityKey("card_top_ups", topUpId),
             action: "upsert",
-            payload: payment,
+            payload: topUpEvent,
           },
         ]);
       }
@@ -825,10 +859,10 @@ export async function addCardHours(id: number, minutes: number, amount: number, 
       );
     });
   }
-  return idempotentTransaction(operationId, "nạp thẻ", "card.topup", { id, minutes, amount }, async (tx) => {
+  return idempotentTransaction(operationId, "nạp thẻ", "card.topup", { id, minutes, amount, ...tender }, async (tx) => {
     const [card] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
     if (!card || card.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
-    return creditCard(tx, card, minutes, amount, currentBusinessDate(), "topup");
+    return creditCard(tx, card, minutes, amount, currentBusinessDate(), "topup", "", tender.purchasePaymentMethod, tender.sellerName);
   });
 }
 
@@ -854,6 +888,10 @@ export async function saveSession(
     const [old] = id ? await tx.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, id)).for("update") : [];
     if (id && !old) throw new MassageError(404, "Không tìm thấy lượt phục vụ.");
     const cardId = input.cardId ?? null;
+    const paymentMethod: "cash" | "transfer" | null = cardId === null ? input.paymentMethod as "cash" | "transfer" : null;
+    if (cardId === null && paymentMethod !== "cash" && paymentMethod !== "transfer") {
+      throw new MassageError(400, "Chọn tiền mặt hoặc chuyển khoản cho ca khách lẻ.");
+    }
     if (permissions && (!canEditEmployee(permissions, input.memberId)
       || (old && !canEditEmployee(permissions, old.memberId ?? 0))
       || ((old?.cardId != null || cardId !== null) && !(permissions.viewCards && permissions.editCards)))) {
@@ -899,6 +937,7 @@ export async function saveSession(
       serviceType, serviceTypeId, workDate: input.workDate, minutes: input.minutes,
       customerHourlyRate: customerRate ?? 0,
       customerCharge: Math.round(input.minutes * (customerRate ?? 0) / 60),
+      paymentMethod,
       hourlyRate: rate,
       earnings: Math.round(input.minutes * rate / 60), note: input.note?.trim() ?? "",
     };
@@ -967,6 +1006,10 @@ async function savePartitionedSession(
     const old = id === undefined ? undefined : sessionRows.find((row) => row.id === id);
     if (id !== undefined && !old) throw new MassageError(404, "Không tìm thấy lượt phục vụ.");
     const cardId = input.cardId ?? null;
+    const paymentMethod: "cash" | "transfer" | null = cardId === null ? input.paymentMethod as "cash" | "transfer" : null;
+    if (cardId === null && paymentMethod !== "cash" && paymentMethod !== "transfer") {
+      throw new MassageError(400, "Chọn tiền mặt hoặc chuyển khoản cho ca khách lẻ.");
+    }
     if (permissions && (!canEditEmployee(permissions, input.memberId)
       || (old && !canEditEmployee(permissions, old.memberId ?? 0))
       || ((old?.cardId != null || cardId !== null) && !(permissions.viewCards && permissions.editCards)))) {
@@ -1021,6 +1064,7 @@ async function savePartitionedSession(
       minutes: input.minutes,
       customerHourlyRate: customerRate ?? 0,
       customerCharge: Math.round(input.minutes * (customerRate ?? 0) / 60),
+      paymentMethod,
       hourlyRate: rate,
       earnings: Math.round(input.minutes * rate / 60),
       note: input.note?.trim() ?? "",

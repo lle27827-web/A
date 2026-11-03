@@ -2,7 +2,7 @@ import type { ServiceSession } from '@workspace/api-client-react';
 import { Pencil, Trash2, UserX } from 'lucide-react';
 import { Link } from 'wouter';
 import { formatShortDate } from '@/lib/attendance';
-import { formatMinutes, formatVnd } from '@/lib/massage';
+import { formatMinutes, formatVnd, paymentMethodLabel } from '@/lib/massage';
 
 export function SessionTable({ sessions, caption, canEdit, showDate, showTime, showEmployee, linkCards, visibleActions, cardHistory, busy, canEditRow, onEdit, onDelete, testId }: {
   sessions: ServiceSession[]; caption: string; canEdit: boolean; showDate?: boolean; showTime?: boolean; showEmployee?: boolean; linkCards?: boolean; visibleActions?: boolean; cardHistory?: boolean; busy?: boolean; canEditRow?: (s: ServiceSession) => boolean;
@@ -49,6 +49,7 @@ export function SessionTable({ sessions, caption, canEdit, showDate, showTime, s
                 {!cardHistory && <td className="mono nowrap"><div className="cell-stack">
                    <strong>{s.cardId !== null ? 'Đã tính khi bán thẻ' : `Tiền dịch vụ ${formatVnd(s.customerCharge)}`}</strong>
                   <span className="muted">Lương {formatVnd(s.earnings)} · {formatVnd(s.hourlyRate)}/giờ</span>
+                   <span className="muted">Thanh toán: {s.cardId !== null ? 'Thẻ' : paymentMethodLabel(s.paymentMethod)}</span>
                 </div></td>}
                 {canEdit && visibleActions && !rowEdit && <td className="action-cell muted">—</td>}
                 {canEdit && !visibleActions && !rowEdit && <td />}

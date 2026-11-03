@@ -1141,6 +1141,8 @@ export const ListTreatmentCardsResponseItem = zod.object({
   "hasBeenUsed": zod.boolean().optional().describe('Thẻ đã từng có lượt sử dụng.'),
   "remainingMinutes": zod.number().int(),
   "purchaseAmount": zod.number().int(),
+  "purchasePaymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable(),
+  "sellerName": zod.string().nullable(),
   "totalPaidAmount": zod.number(),
   "mergedIntoExisting": zod.boolean().optional(),
   "topUps": zod.array(zod.object({
@@ -1148,6 +1150,8 @@ export const ListTreatmentCardsResponseItem = zod.object({
   "minutes": zod.number().int(),
   "amount": zod.number().int(),
   "paymentDate": zod.string(),
+  "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable(),
+  "sellerName": zod.string().nullable(),
   "source": zod.string(),
   "note": zod.string(),
   "createdAt": zod.coerce.date()
@@ -1172,6 +1176,8 @@ export const createTreatmentCardBodyPurchaseAmountMin = 0;
 export const createTreatmentCardBodyPurchaseAmountMax = 1000000000;
 
 export const createTreatmentCardBodyPurchaseDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const createTreatmentCardBodySellerNameMax = 120;
+
 export const createTreatmentCardBodyNoteMax = 2000;
 
 
@@ -1184,6 +1190,8 @@ export const CreateTreatmentCardBody = zod.object({
   "totalMinutes": zod.number().int().min(1).max(createTreatmentCardBodyTotalMinutesMax),
   "purchaseAmount": zod.number().int().min(createTreatmentCardBodyPurchaseAmountMin).max(createTreatmentCardBodyPurchaseAmountMax),
   "purchaseDate": zod.string().regex(createTreatmentCardBodyPurchaseDateRegExp),
+  "purchasePaymentMethod": zod.enum(['cash', 'transfer']).optional(),
+  "sellerName": zod.string().min(1).max(createTreatmentCardBodySellerNameMax).optional(),
   "note": zod.string().max(createTreatmentCardBodyNoteMax).optional()
 })
 
@@ -1197,6 +1205,8 @@ export const CreateTreatmentCardResponse = zod.object({
   "hasBeenUsed": zod.boolean().optional().describe('Thẻ đã từng có lượt sử dụng.'),
   "remainingMinutes": zod.number().int(),
   "purchaseAmount": zod.number().int(),
+  "purchasePaymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable(),
+  "sellerName": zod.string().nullable(),
   "totalPaidAmount": zod.number(),
   "mergedIntoExisting": zod.boolean().optional(),
   "topUps": zod.array(zod.object({
@@ -1204,6 +1214,8 @@ export const CreateTreatmentCardResponse = zod.object({
   "minutes": zod.number().int(),
   "amount": zod.number().int(),
   "paymentDate": zod.string(),
+  "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable(),
+  "sellerName": zod.string().nullable(),
   "source": zod.string(),
   "note": zod.string(),
   "createdAt": zod.coerce.date()
@@ -1259,6 +1271,8 @@ export const UpdateTreatmentCardResponse = zod.object({
   "hasBeenUsed": zod.boolean().optional().describe('Thẻ đã từng có lượt sử dụng.'),
   "remainingMinutes": zod.number().int(),
   "purchaseAmount": zod.number().int(),
+  "purchasePaymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable(),
+  "sellerName": zod.string().nullable(),
   "totalPaidAmount": zod.number(),
   "mergedIntoExisting": zod.boolean().optional(),
   "topUps": zod.array(zod.object({
@@ -1266,6 +1280,8 @@ export const UpdateTreatmentCardResponse = zod.object({
   "minutes": zod.number().int(),
   "amount": zod.number().int(),
   "paymentDate": zod.string(),
+  "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable(),
+  "sellerName": zod.string().nullable(),
   "source": zod.string(),
   "note": zod.string(),
   "createdAt": zod.coerce.date()
@@ -1298,11 +1314,15 @@ export const addTreatmentCardHoursBodyMinutesMax = 600000;
 export const addTreatmentCardHoursBodyAmountMin = 0;
 export const addTreatmentCardHoursBodyAmountMax = 1000000000;
 
+export const addTreatmentCardHoursBodySellerNameMax = 120;
+
 
 
 export const AddTreatmentCardHoursBody = zod.object({
   "minutes": zod.number().int().min(1).max(addTreatmentCardHoursBodyMinutesMax),
-  "amount": zod.number().int().min(addTreatmentCardHoursBodyAmountMin).max(addTreatmentCardHoursBodyAmountMax)
+  "amount": zod.number().int().min(addTreatmentCardHoursBodyAmountMin).max(addTreatmentCardHoursBodyAmountMax),
+  "paymentMethod": zod.enum(['cash', 'transfer']),
+  "sellerName": zod.string().min(1).max(addTreatmentCardHoursBodySellerNameMax)
 })
 
 export const AddTreatmentCardHoursResponse = zod.object({
@@ -1315,6 +1335,8 @@ export const AddTreatmentCardHoursResponse = zod.object({
   "hasBeenUsed": zod.boolean().optional().describe('Thẻ đã từng có lượt sử dụng.'),
   "remainingMinutes": zod.number().int(),
   "purchaseAmount": zod.number().int(),
+  "purchasePaymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable(),
+  "sellerName": zod.string().nullable(),
   "totalPaidAmount": zod.number(),
   "mergedIntoExisting": zod.boolean().optional(),
   "topUps": zod.array(zod.object({
@@ -1322,6 +1344,8 @@ export const AddTreatmentCardHoursResponse = zod.object({
   "minutes": zod.number().int(),
   "amount": zod.number().int(),
   "paymentDate": zod.string(),
+  "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable(),
+  "sellerName": zod.string().nullable(),
   "source": zod.string(),
   "note": zod.string(),
   "createdAt": zod.coerce.date()
@@ -1357,6 +1381,7 @@ export const ListServiceSessionsResponseItem = zod.object({
   "minutes": zod.number().int(),
   "customerHourlyRate": zod.number().int(),
   "customerCharge": zod.number().int(),
+  "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable().describe('Ca dùng thẻ luôn hiển thị theo nguồn Thẻ; dữ liệu cũ chưa ghi phương thức là null.'),
   "hourlyRate": zod.number().int(),
   "earnings": zod.number().int(),
   "note": zod.string(),
@@ -1388,6 +1413,7 @@ export const CreateServiceSessionBody = zod.object({
   "serviceType": zod.string().max(createServiceSessionBodyServiceTypeMax).optional(),
   "workDate": zod.string().regex(createServiceSessionBodyWorkDateRegExp),
   "minutes": zod.number().int().min(1).max(createServiceSessionBodyMinutesMax),
+  "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullish(),
   "note": zod.string().max(createServiceSessionBodyNoteMax).optional()
 })
 
@@ -1403,6 +1429,7 @@ export const CreateServiceSessionResponse = zod.object({
   "minutes": zod.number().int(),
   "customerHourlyRate": zod.number().int(),
   "customerCharge": zod.number().int(),
+  "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable().describe('Ca dùng thẻ luôn hiển thị theo nguồn Thẻ; dữ liệu cũ chưa ghi phương thức là null.'),
   "hourlyRate": zod.number().int(),
   "earnings": zod.number().int(),
   "note": zod.string(),
@@ -1440,6 +1467,7 @@ export const UpdateServiceSessionBody = zod.object({
   "serviceType": zod.string().max(updateServiceSessionBodyServiceTypeMax).optional(),
   "workDate": zod.string().regex(updateServiceSessionBodyWorkDateRegExp),
   "minutes": zod.number().int().min(1).max(updateServiceSessionBodyMinutesMax),
+  "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullish(),
   "note": zod.string().max(updateServiceSessionBodyNoteMax).optional()
 })
 
@@ -1455,6 +1483,7 @@ export const UpdateServiceSessionResponse = zod.object({
   "minutes": zod.number().int(),
   "customerHourlyRate": zod.number().int(),
   "customerCharge": zod.number().int(),
+  "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable().describe('Ca dùng thẻ luôn hiển thị theo nguồn Thẻ; dữ liệu cũ chưa ghi phương thức là null.'),
   "hourlyRate": zod.number().int(),
   "earnings": zod.number().int(),
   "note": zod.string(),
@@ -1518,6 +1547,26 @@ export const GetMassageSummaryResponse = zod.object({
   "minutes": zod.number().int().describe('Thời lượng của từng ca trong nhóm.'),
   "visits": zod.number().int().describe('Số ca có cùng loại dịch vụ và thời lượng.')
 })),
+  "paymentBreakdown": zod.object({
+  "cash": zod.object({
+  "total": zod.number(),
+  "walkInServices": zod.number(),
+  "cardSales": zod.number(),
+  "cardTopUps": zod.number()
+}),
+  "transfer": zod.object({
+  "total": zod.number(),
+  "walkInServices": zod.number(),
+  "cardSales": zod.number(),
+  "cardTopUps": zod.number()
+}),
+  "unrecorded": zod.object({
+  "total": zod.number(),
+  "walkInServices": zod.number(),
+  "cardSales": zod.number(),
+  "cardTopUps": zod.number()
+})
+}),
   "today": zod.object({
   "date": zod.coerce.date(),
   "revenue": zod.number(),
@@ -1535,8 +1584,57 @@ export const GetMassageSummaryResponse = zod.object({
   "serviceType": zod.string(),
   "minutes": zod.number().int().describe('Thời lượng của từng ca trong nhóm.'),
   "visits": zod.number().int().describe('Số ca có cùng loại dịch vụ và thời lượng.')
-}))
+})),
+  "paymentBreakdown": zod.object({
+  "cash": zod.object({
+  "total": zod.number(),
+  "walkInServices": zod.number(),
+  "cardSales": zod.number(),
+  "cardTopUps": zod.number()
+}),
+  "transfer": zod.object({
+  "total": zod.number(),
+  "walkInServices": zod.number(),
+  "cardSales": zod.number(),
+  "cardTopUps": zod.number()
+}),
+  "unrecorded": zod.object({
+  "total": zod.number(),
+  "walkInServices": zod.number(),
+  "cardSales": zod.number(),
+  "cardTopUps": zod.number()
 })
+})
+})
+})
+
+
+export const getPaymentDetailsQueryMonthRegExp = new RegExp('^\\d{4}-(0[1-9]|1[0-2])$');
+export const getPaymentDetailsQueryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const GetPaymentDetailsQueryParams = zod.object({
+  "month": zod.coerce.string().regex(getPaymentDetailsQueryMonthRegExp),
+  "date": zod.coerce.string().regex(getPaymentDetailsQueryDateRegExp).optional(),
+  "method": zod.enum(['cash', 'transfer', 'unrecorded'])
+})
+
+export const GetPaymentDetailsResponse = zod.object({
+  "month": zod.string(),
+  "date": zod.coerce.date().nullable(),
+  "method": zod.enum(['cash', 'transfer', 'unrecorded']),
+  "transactions": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['walk_in_service', 'card_sale', 'card_topup']),
+  "date": zod.coerce.date(),
+  "customerName": zod.string(),
+  "serviceType": zod.string(),
+  "employeeName": zod.string().nullable(),
+  "sellerName": zod.string().nullable(),
+  "minutes": zod.number().int().nullable(),
+  "amount": zod.number(),
+  "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable()
+}))
 })
 
 

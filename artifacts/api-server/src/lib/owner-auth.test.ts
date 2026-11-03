@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { Request, Response } from "express";
 import { apiAuthorizationGate, isPublicEmployeeRead, managerRequestAllowed } from "./owner-auth";
-import { ownerPermissions } from "./facility-permissions";
+import { noPermissions, ownerPermissions } from "./facility-permissions";
 import { createAsyncTtlCache } from "./user-identity-cache";
 
 function request(method: string, path: string, query: Record<string, unknown> = {}): Request {
@@ -56,6 +56,7 @@ test("guests cannot query cards, facility revenue, or unscoped service sessions"
     "/treatment-cards",
     "/service-types",
     "/massage-summary",
+    "/payment-details",
     "/member-payroll",
     "/service-sessions",
   ]) {
@@ -70,6 +71,13 @@ test("guests cannot query cards, facility revenue, or unscoped service sessions"
     isPublicEmployeeRead(request("GET", "/member-payroll", { month: "2026-10" })),
     false,
   );
+});
+
+test("payment transaction details require the revenue grant", async () => {
+  const none = noPermissions();
+  assert.equal(await managerRequestAllowed(request("GET", "/payment-details"), none), false);
+  assert.equal(await managerRequestAllowed(request("GET", "/payment-details"), { ...none, viewRevenue: true }), true);
+  assert.equal(await managerRequestAllowed(request("POST", "/payment-details"), { ...none, viewRevenue: true }), false);
 });
 
 test("all guest write methods remain private", () => {

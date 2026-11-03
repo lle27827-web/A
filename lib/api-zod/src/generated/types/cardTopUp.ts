@@ -5,12 +5,17 @@
  * API công khai để quản lý dữ liệu nhân viên, chấm công, dịch vụ và thẻ liệu trình.
  * OpenAPI spec version: 0.1.0
  */
+import type { CardTopUpPaymentMethod } from './cardTopUpPaymentMethod';
 
 export interface CardTopUp {
   id: number;
   minutes: number;
   amount: number;
   paymentDate: string;
+  /** @nullable */
+  paymentMethod: CardTopUpPaymentMethod;
+  /** @nullable */
+  sellerName: string | null;
   source: string;
   note: string;
   createdAt: Date;

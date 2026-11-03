@@ -16,7 +16,7 @@ import { ConfirmDialog, ErrorBanner, Skeleton, type ConfirmState } from '@/compo
 import { SessionDialog } from '@/components/session-dialog';
 import { SessionTable } from '@/components/session-table';
 import { formatShortDate, localDate } from '@/lib/attendance';
-import { SESSION_FRESHNESS, errorText, formatMinutes, formatVnd, useRefreshMassage } from '@/lib/massage';
+import { SESSION_FRESHNESS, errorText, formatMinutes, formatVnd, paymentMethodLabel, useRefreshMassage } from '@/lib/massage';
 import { printCardTopUp, printServiceSession, printTreatmentCard, reservePrintWindow } from '@/lib/printing';
 
 export default function CardDetailPage() {
@@ -224,6 +224,7 @@ export default function CardDetailPage() {
                     : 'Nạp thẻ'}
                 </strong>
                 <span className="muted">{formatShortDate(payment.paymentDate)} · {formatMinutes(payment.minutes)}</span>
+                <span className="muted">{paymentMethodLabel(payment.paymentMethod)}{payment.sellerName ? ` · Người bán: ${payment.sellerName}` : ' · Người bán: Chưa ghi'}</span>
                 <span className="muted">Ghi lúc {new Date(payment.createdAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</span>
               </span>
               <div className="head-actions">
@@ -244,6 +245,7 @@ export default function CardDetailPage() {
           <li className="emp-row wrap" data-testid="row-card-initial-purchase">
             <span className="grow"><strong>Mua thẻ ban đầu</strong>
               <span className="muted">{formatShortDate(card.purchaseDate)} · {formatMinutes(card.totalMinutes - card.topUps.reduce((sum, payment) => sum + payment.minutes, 0))}</span>
+              <span className="muted">{paymentMethodLabel(card.purchasePaymentMethod)}{card.sellerName ? ` · Người bán: ${card.sellerName}` : ' · Người bán: Chưa ghi'}</span>
             </span>
             <div className="head-actions">
               <strong className="mono">{formatVnd(card.purchaseAmount)}</strong>

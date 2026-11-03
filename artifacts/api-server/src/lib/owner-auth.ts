@@ -189,7 +189,7 @@ export async function managerRequestAllowed(req: Request, p: FacilityPermissions
     if (path === "/appointments") return p.viewAppointments;
     if (path === "/access-grants") return hasGrantManagementAccess(p);
     if (path === "/members" || path === "/history-months" || path === "/attendance" || path === "/attendance/summary") return true; // rows filtered at source
-    if (path === "/massage-summary") return p.viewRevenue;
+    if (path === "/massage-summary" || path === "/payment-details") return p.viewRevenue;
     if (path === "/service-types") return p.allEmployees || p.employeeIds.length > 0 || p.viewCards || p.editServices;
     if (path === "/member-payroll") return canViewEmployee(p, positiveId(req.query.memberId));
     if (path === "/service-sessions") {

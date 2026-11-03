@@ -12,7 +12,8 @@ test("card balance and service payroll stay consistent through edits and concurr
   const services: number[] = [];
   let memberId: number | undefined;
   const record = async (input: Parameters<typeof saveSession>[0], id?: number) => {
-    const session = await saveSession(input, id);
+    const normalized = input.cardId === null && !input.paymentMethod ? { ...input, paymentMethod: "cash" as const } : input;
+    const session = await saveSession(normalized, id);
     if (!sessions.includes(session.id)) sessions.push(session.id);
     return session;
   };
@@ -26,6 +27,7 @@ test("card balance and service payroll stay consistent through edits and concurr
     return cardResponse(card, await balance(cardId)).remainingMinutes;
   };
   const fails = (status: number) => (error: unknown) => error instanceof MassageError && error.status === status;
+  const topUp = (id: number, minutes: number, amount: number) => addCardHours(id, minutes, amount, "cash", marker);
   try {
     const [member] = await db.insert(membersTable).values({ name: marker, hourlyRate: 0 }).returning();
     memberId = member.id;
@@ -37,6 +39,7 @@ test("card balance and service payroll stay consistent through edits and concurr
       const card = await createCard({
         customerName: `${marker}-${cards.length}`, phone: "0000000000", serviceType: "Dịch vụ kiểm tra",
         totalMinutes: minutes, purchaseAmount: 1000000, purchaseDate: "2099-10-13",
+        purchasePaymentMethod: "cash", sellerName: marker,
       });
       cards.push(card.id);
       return card;
@@ -45,20 +48,20 @@ test("card balance and service payroll stay consistent through edits and concurr
     const b = await makeCard(120);
     const c = await makeCard(30);
     const topupCard = await makeCard(120);
-    const before = await addCardHours(topupCard.id, 90, 0);
+    const before = await topUp(topupCard.id, 90, 0);
     assert.equal(before.totalMinutes, 210);
     assert.equal(before.remainingMinutes, 210);
     assert.equal(before.purchaseAmount, 1000000);
     assert.equal(before.purchaseDate, "2099-10-13");
-    await Promise.all([addCardHours(topupCard.id, 30, 0), addCardHours(topupCard.id, 60, 0)]);
-    const after = await addCardHours(topupCard.id, 1, 0);
+    await Promise.all([topUp(topupCard.id, 30, 0), topUp(topupCard.id, 60, 0)]);
+    const after = await topUp(topupCard.id, 1, 0);
     assert.equal(after.totalMinutes, 301, "concurrent top-ups add, rather than overwrite");
-    await assert.rejects(addCardHours(topupCard.id, 0, 0), fails(400));
-    await assert.rejects(addCardHours(topupCard.id, -1, 0), fails(400));
-    await assert.rejects(addCardHours(topupCard.id, 1.5, 0), fails(400));
-    await assert.rejects(addCardHours(topupCard.id, 600000, 0), fails(400));
+    await assert.rejects(topUp(topupCard.id, 0, 0), fails(400));
+    await assert.rejects(topUp(topupCard.id, -1, 0), fails(400));
+    await assert.rejects(topUp(topupCard.id, 1.5, 0), fails(400));
+    await assert.rejects(topUp(topupCard.id, 600000, 0), fails(400));
     const topupVisit = await record({ memberId, serviceTypeId: service.id, cardId: topupCard.id, workDate: "2099-10-13", minutes: 60, note: marker });
-    const toppedWithHistory = await addCardHours(topupCard.id, 30, 0);
+    const toppedWithHistory = await topUp(topupCard.id, 30, 0);
     assert.equal(toppedWithHistory.totalMinutes, 331);
     assert.equal(toppedWithHistory.usedMinutes, 60);
     assert.equal(toppedWithHistory.remainingMinutes, 271);
@@ -130,6 +133,7 @@ test("card balance and service payroll stay consistent through edits and concurr
     const removedCard = await createCard({
       customerName: marker, phone: "0000", serviceType: "test", totalMinutes: 120,
       purchaseAmount: 50, purchaseDate: "2099-12-01", note: "",
+      purchasePaymentMethod: "cash", sellerName: marker,
     });
     cards.push(removedCard.id);
     const linkedSession = await record({ ...input, cardId: removedCard.id, minutes: 60, workDate: "2099-12-01" });
@@ -161,7 +165,7 @@ test("card balance and service payroll stay consistent through edits and concurr
 
     const usedBeforeTopUp = await makeCard(120);
     const oldUsage = await record({ ...input, cardId: usedBeforeTopUp.id, minutes: 30 });
-    await addCardHours(usedBeforeTopUp.id, 60, 10000);
+    await topUp(usedBeforeTopUp.id, 60, 10000);
     await deleteCard(usedBeforeTopUp.id);
     const [topUpArchive] = await db.select().from(treatmentCardsTable)
       .where(eq(treatmentCardsTable.id, usedBeforeTopUp.id));
@@ -196,7 +200,7 @@ test("card balance and service payroll stay consistent through edits and concurr
     assert.ok(archivedCard.deletedAt);
     assert.equal((await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, linkedSession.id))).length, 1);
     await assert.rejects(record({ ...input, cardId: removedCard.id, minutes: 90, workDate: "2099-12-01" }, linkedSession.id), fails(404));
-    await assert.rejects(addCardHours(removedCard.id, 60, 0), fails(404));
+    await assert.rejects(topUp(removedCard.id, 60, 0), fails(404));
     await assert.rejects(updateCard(removedCard.id, { customerName: marker }), fails(404));
     const cardMinutesBeforeRemoval = await balance(b.id);
     const removedCardMinutesBeforeRemoval = await balance(removedCard.id);

@@ -54,3 +54,9 @@ The overall monthly most-used service ranks walk-in sessions and sessions on act
 **Why:** the user asked to replace the card-only most-used row with one overall service ranking that includes both walk-in and card use.
 
 **How to apply:** count monthly service sessions by recorded service type across both channels, use the same archived-card filter as other active reports, and break ties consistently.
+
+Cash and transfer totals come from walk-in service charges, card sales and card top-ups. A card redemption is labeled “Thẻ” in attendance history and never adds cash or transfer revenue. Store the manually entered seller with each card sale/top-up. Legacy transactions without a recorded payment method remain unknown; do not backfill them as cash.
+
+**Why:** the user requested cash/transfer selection and per-channel reporting, chose manual seller entry, and specified prepaid-card use as “Thẻ, không thu thêm.”
+
+**How to apply:** preserve transaction-level payment method and seller data through card merges and top-ups; let payment-detail views reconcile to monthly/daily totals without counting card redemptions. Keep missing historical methods null and visibly unclassified.

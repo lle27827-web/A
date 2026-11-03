@@ -5,6 +5,7 @@
  * API công khai để quản lý dữ liệu nhân viên, chấm công, dịch vụ và thẻ liệu trình.
  * OpenAPI spec version: 0.1.0
  */
+import type { PaymentBreakdown } from './paymentBreakdown';
 import type { ServiceDurationBreakdown } from './serviceDurationBreakdown';
 
 export interface DailyRevenue {
@@ -22,4 +23,5 @@ export interface DailyRevenue {
   walkInVisits: number;
   cardVisits: number;
   serviceBreakdown: ServiceDurationBreakdown[];
+  paymentBreakdown: PaymentBreakdown;
 }

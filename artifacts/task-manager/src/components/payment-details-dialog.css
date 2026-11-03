@@ -1,0 +1,46 @@
+.payment-details-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  padding: 10px 0 14px;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.payment-detail-list {
+  display: grid;
+  gap: 10px;
+  max-height: min(60vh, 560px);
+  overflow: auto;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.payment-detail-row {
+  min-width: 0;
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--card));
+  padding: 12px;
+  overflow-wrap: anywhere;
+}
+
+.payment-detail-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.payment-detail-row p {
+  margin: 6px 0 0;
+}
+
+.payment-detail-row > strong {
+  display: block;
+  margin-top: 8px;
+}
+
+.payment-detail-empty {
+  margin-top: 18px;
+}

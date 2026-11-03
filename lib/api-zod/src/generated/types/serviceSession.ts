@@ -5,6 +5,7 @@
  * API công khai để quản lý dữ liệu nhân viên, chấm công, dịch vụ và thẻ liệu trình.
  * OpenAPI spec version: 0.1.0
  */
+import type { ServiceSessionPaymentMethod } from './serviceSessionPaymentMethod';
 
 export interface ServiceSession {
   id: number;
@@ -21,6 +22,11 @@ export interface ServiceSession {
   minutes: number;
   customerHourlyRate: number;
   customerCharge: number;
+  /**
+     * Ca dùng thẻ luôn hiển thị theo nguồn Thẻ; dữ liệu cũ chưa ghi phương thức là null.
+     * @nullable
+     */
+  paymentMethod: ServiceSessionPaymentMethod;
   hourlyRate: number;
   earnings: number;
   note: string;

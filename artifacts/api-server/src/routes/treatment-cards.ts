@@ -115,8 +115,11 @@ router.patch("/treatment-cards/:id", massageHandler(async (req, res) => {
 }));
 router.post("/treatment-cards/:id/hours", massageHandler(async (req, res) => {
   const { id } = parseInput(AddTreatmentCardHoursParams, req.params);
-  const { minutes, amount } = parseInput(AddTreatmentCardHoursBody, req.body);
-  const card = await addCardHours(id, minutes, amount, operationIdFromRequest(req.get("Idempotency-Key"), "nạp thẻ"));
+  const { minutes, amount, paymentMethod, sellerName } = parseInput(AddTreatmentCardHoursBody, req.body);
+  const card = await addCardHours(
+    id, minutes, amount, paymentMethod, sellerName,
+    operationIdFromRequest(req.get("Idempotency-Key"), "nạp thẻ"),
+  );
   res.json(AddTreatmentCardHoursResponse.parse(visibleCard(card, ownerView(res))));
 }));
 router.delete("/treatment-cards/:id", massageHandler(async (req, res) => {

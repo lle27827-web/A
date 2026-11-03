@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CardTopUp } from './cardTopUp';
+import type { TreatmentCardPurchasePaymentMethod } from './treatmentCardPurchasePaymentMethod';
 
 export interface TreatmentCard {
   id: number;
@@ -18,6 +19,10 @@ export interface TreatmentCard {
   hasBeenUsed?: boolean;
   remainingMinutes: number;
   purchaseAmount: number;
+  /** @nullable */
+  purchasePaymentMethod: TreatmentCardPurchasePaymentMethod;
+  /** @nullable */
+  sellerName: string | null;
   totalPaidAmount: number;
   mergedIntoExisting?: boolean;
   topUps: CardTopUp[];

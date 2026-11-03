@@ -808,6 +808,20 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/MassageSummary" }
         "400": { description: Tháng hoặc ngày không hợp lệ }
+  /payment-details:
+    get:
+      operationId: getPaymentDetails
+      parameters:
+        - { in: query, name: month, required: true, schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' } }
+        - { in: query, name: date, required: false, schema: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' } }
+        - { in: query, name: method, required: true, schema: { type: string, enum: [cash, transfer, unrecorded] } }
+      responses:
+        "200":
+          description: Chi tiết giao dịch theo phương thức thanh toán trong tháng hoặc ngày đã chọn
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentDetails" }
+        "400": { description: Bộ lọc không hợp lệ }
   /member-payroll:
     get:
       operationId: getMemberPayroll
@@ -1249,7 +1263,7 @@ components:
         hourlyRate: { type: integer, minimum: 0, maximum: 10000000 }
     TreatmentCard:
       type: object
-      required: [id, customerName, phone, serviceType, totalMinutes, usedMinutes, remainingMinutes, purchaseAmount, totalPaidAmount, topUps, purchaseDate, note, createdAt]
+      required: [id, customerName, phone, serviceType, totalMinutes, usedMinutes, remainingMinutes, purchaseAmount, purchasePaymentMethod, sellerName, totalPaidAmount, topUps, purchaseDate, note, createdAt]
       properties:
         id: { type: integer }
         customerName: { type: string }
@@ -1260,6 +1274,8 @@ components:
         hasBeenUsed: { type: boolean, description: "Thẻ đã từng có lượt sử dụng." }
         remainingMinutes: { type: integer }
         purchaseAmount: { type: integer }
+        purchasePaymentMethod: { type: ["string", "null"], enum: [cash, transfer, null] }
+        sellerName: { type: ["string", "null"] }
         totalPaidAmount: { type: number }
         mergedIntoExisting: { type: boolean }
         topUps:
@@ -1270,12 +1286,14 @@ components:
         createdAt: { type: string, format: date-time }
     CardTopUp:
       type: object
-      required: [id, minutes, amount, paymentDate, source, note, createdAt]
+      required: [id, minutes, amount, paymentDate, paymentMethod, sellerName, source, note, createdAt]
       properties:
         id: { type: integer }
         minutes: { type: integer }
         amount: { type: integer }
         paymentDate: { type: string }
+        paymentMethod: { type: ["string", "null"], enum: [cash, transfer, null] }
+        sellerName: { type: ["string", "null"] }
         source: { type: string }
         note: { type: string }
         createdAt: { type: string, format: date-time }
@@ -1290,13 +1308,17 @@ components:
         totalMinutes: { type: integer, minimum: 1, maximum: 600000 }
         purchaseAmount: { type: integer, minimum: 0, maximum: 1000000000 }
         purchaseDate: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        purchasePaymentMethod: { type: string, enum: [cash, transfer] }
+        sellerName: { type: string, minLength: 1, maxLength: 120 }
         note: { type: string, maxLength: 2000 }
     CardHoursInput:
       type: object
-      required: [minutes, amount]
+      required: [minutes, amount, paymentMethod, sellerName]
       properties:
         minutes: { type: integer, minimum: 1, maximum: 600000 }
         amount: { type: integer, minimum: 0, maximum: 1000000000 }
+        paymentMethod: { type: string, enum: [cash, transfer] }
+        sellerName: { type: string, minLength: 1, maxLength: 120 }
     TreatmentCardUpdate:
       type: object
       properties:
@@ -1326,7 +1348,7 @@ components:
         hourlyRate: { type: integer, minimum: 1, maximum: 10000000 }
     ServiceSession:
       type: object
-      required: [id, cardId, memberId, employeeName, customerName, serviceType, serviceTypeId, workDate, minutes, customerHourlyRate, customerCharge, hourlyRate, earnings, note, createdAt, archived]
+      required: [id, cardId, memberId, employeeName, customerName, serviceType, serviceTypeId, workDate, minutes, customerHourlyRate, customerCharge, paymentMethod, hourlyRate, earnings, note, createdAt, archived]
       properties:
         id: { type: integer }
         cardId: { type: ["integer", "null"] }
@@ -1339,6 +1361,7 @@ components:
         minutes: { type: integer }
         customerHourlyRate: { type: integer }
         customerCharge: { type: integer }
+        paymentMethod: { type: ["string", "null"], enum: [cash, transfer, null], description: "Ca dùng thẻ luôn hiển thị theo nguồn Thẻ; dữ liệu cũ chưa ghi phương thức là null." }
         hourlyRate: { type: integer }
         earnings: { type: integer }
         note: { type: string }
@@ -1355,10 +1378,11 @@ components:
         serviceType: { type: string, maxLength: 120 }
         workDate: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
         minutes: { type: integer, minimum: 1, maximum: 1440 }
+        paymentMethod: { type: ["string", "null"], enum: [cash, transfer, null] }
         note: { type: string, maxLength: 2000 }
     MassageSummary:
       type: object
-      required: [month, revenue, netRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits, topSoldCardService, mostUsedCardService, mostUsedWalkInService, mostUsedService, serviceBreakdown, today]
+      required: [month, revenue, netRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits, topSoldCardService, mostUsedCardService, mostUsedWalkInService, mostUsedService, serviceBreakdown, paymentBreakdown, today]
       properties:
         month: { type: string }
         revenue: { type: number, description: "Tổng doanh thu gộp: tiền dịch vụ khách lẻ cộng tiền bán thẻ trong tháng; không cộng lại khi dùng thẻ." }
@@ -1401,7 +1425,47 @@ components:
         serviceBreakdown:
           type: array
           items: { $ref: "#/components/schemas/ServiceDurationBreakdown" }
+        paymentBreakdown: { $ref: "#/components/schemas/PaymentBreakdown" }
         today: { $ref: "#/components/schemas/DailyRevenue" }
+    PaymentBucket:
+      type: object
+      required: [total, walkInServices, cardSales, cardTopUps]
+      properties:
+        total: { type: number }
+        walkInServices: { type: number }
+        cardSales: { type: number }
+        cardTopUps: { type: number }
+    PaymentBreakdown:
+      type: object
+      required: [cash, transfer, unrecorded]
+      properties:
+        cash: { $ref: "#/components/schemas/PaymentBucket" }
+        transfer: { $ref: "#/components/schemas/PaymentBucket" }
+        unrecorded: { $ref: "#/components/schemas/PaymentBucket" }
+    PaymentDetails:
+      type: object
+      required: [month, date, method, transactions]
+      properties:
+        month: { type: string }
+        date: { type: ["string", "null"], format: date }
+        method: { type: string, enum: [cash, transfer, unrecorded] }
+        transactions:
+          type: array
+          items: { $ref: "#/components/schemas/PaymentDetail" }
+    PaymentDetail:
+      type: object
+      required: [id, kind, date, customerName, serviceType, employeeName, sellerName, minutes, amount, paymentMethod]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [walk_in_service, card_sale, card_topup] }
+        date: { type: string, format: date }
+        customerName: { type: string }
+        serviceType: { type: string }
+        employeeName: { type: ["string", "null"] }
+        sellerName: { type: ["string", "null"] }
+        minutes: { type: ["integer", "null"] }
+        amount: { type: number }
+        paymentMethod: { type: ["string", "null"], enum: [cash, transfer, null] }
     ServiceDurationBreakdown:
       type: object
       required: [serviceType, minutes, visits]
@@ -1411,7 +1475,7 @@ components:
         visits: { type: integer, description: "Số ca có cùng loại dịch vụ và thời lượng." }
     DailyRevenue:
       type: object
-      required: [date, revenue, netRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits, serviceBreakdown]
+      required: [date, revenue, netRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits, serviceBreakdown, paymentBreakdown]
       properties:
         date: { type: string, format: date }
         revenue: { type: number }
@@ -1428,6 +1492,7 @@ components:
         serviceBreakdown:
           type: array
           items: { $ref: "#/components/schemas/ServiceDurationBreakdown" }
+        paymentBreakdown: { $ref: "#/components/schemas/PaymentBreakdown" }
     MemberPayroll:
       type: object
       required: [member, month, totalMinutes, totalSalary]

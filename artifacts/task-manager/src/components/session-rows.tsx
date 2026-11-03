@@ -2,7 +2,7 @@ import type { ServiceSession } from '@workspace/api-client-react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { Link } from 'wouter';
 import { formatShortDate } from '@/lib/attendance';
-import { formatMinutes, formatVnd } from '@/lib/massage';
+import { formatMinutes, formatVnd, paymentMethodLabel } from '@/lib/massage';
 
 /** Stacked, personal-notebook-style shift rows for one employee. */
 export function SessionRows({ sessions, title, canEditRow, linkCards, busy, onEdit, onDelete, testId }: {
@@ -30,6 +30,7 @@ export function SessionRows({ sessions, title, canEditRow, linkCards, busy, onEd
               <div><dt>Thời lượng</dt><dd className="mono">{formatMinutes(s.minutes)}</dd></div>
               <div><dt>Tiền công</dt><dd className="mono" data-testid={`text-session-pay-${s.id}`}>{formatVnd(s.earnings)}</dd></div>
               <div><dt>Tiền dịch vụ</dt><dd className="mono">{s.cardId !== null ? 'Tính khi bán thẻ' : formatVnd(s.customerCharge)}</dd></div>
+              <div><dt>Thanh toán</dt><dd>{s.cardId !== null ? 'Thẻ' : paymentMethodLabel(s.paymentMethod)}</dd></div>
             </dl>
             {editable && (
               <div className="row-actions text-actions shift-actions">

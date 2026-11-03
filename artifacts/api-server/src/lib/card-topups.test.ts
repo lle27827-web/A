@@ -19,7 +19,8 @@ test("paid top-ups and duplicate sales retain history and recognize cash once on
   const make = async (overrides: Partial<Parameters<typeof createCard>[0]> = {}) => {
     const input = {
       customerName: marker, phone: "0900 000-001", serviceType: `${marker} Service`,
-      totalMinutes: 120, purchaseAmount: 1000000, purchaseDate: oldDate, ...overrides,
+      totalMinutes: 120, purchaseAmount: 1000000, purchaseDate: oldDate,
+      purchasePaymentMethod: "cash" as const, sellerName: marker, ...overrides,
     };
     let card;
     try { card = await createCard(input); } catch (e) {
@@ -31,15 +32,19 @@ test("paid top-ups and duplicate sales retain history and recognize cash once on
     return card;
   };
   const isInvalid = (e: unknown) => e instanceof MassageError && e.status === 400;
+  const topUpWithCash = (id: number, minutes: number, amount: number) =>
+    addCardHours(id, minutes, amount, "cash", marker);
   try {
     const baseline = await getFacilityRevenue(month, today);
     const oldBaseline = await getFacilityRevenue("2097-01", oldDate);
     const original = await make();
-    const paid = await addCardHours(original.id, 60, 300000);
+    const paid = await addCardHours(original.id, 60, 300000, "transfer", marker);
     assert.equal(paid.purchaseDate, oldDate);
     assert.equal(paid.purchaseAmount, 1000000);
     assert.equal(paid.totalPaidAmount, 1300000);
     assert.equal(paid.topUps[0].paymentDate, today);
+    assert.equal(paid.topUps[0].paymentMethod, "transfer");
+    assert.equal(paid.topUps[0].sellerName, marker);
     assert.equal(paid.totalMinutes, 180);
     const merged = await make({
       customerName: `  ${marker.toUpperCase()}  `, phone: "0900000001",
@@ -56,16 +61,16 @@ test("paid top-ups and duplicate sales retain history and recognize cash once on
       make({ totalMinutes: 15, purchaseAmount: 50000, purchaseDate: today }),
       make({ totalMinutes: 15, purchaseAmount: 50000, purchaseDate: today }),
     ]);
-    await Promise.all([addCardHours(original.id, 5, 10000), addCardHours(original.id, 5, 10000)]);
+    await Promise.all([topUpWithCash(original.id, 5, 10000), topUpWithCash(original.id, 5, 10000)]);
     const [stored] = await db.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, original.id));
     assert.equal(stored.totalMinutes, 250, "simultaneous merges and top-ups must not lose hours");
     const history = await db.select().from(cardTopUpsTable).where(eq(cardTopUpsTable.cardId, original.id));
     assert.equal(history.length, 6);
     assert.equal(history.reduce((sum, p) => sum + p.amount, 0), 570000);
     for (const amount of [-1, 1000000001, 1.5, Number.NaN]) {
-      await assert.rejects(addCardHours(original.id, 5, amount), isInvalid);
+      await assert.rejects(topUpWithCash(original.id, 5, amount), isInvalid);
     }
-    await assert.rejects(addCardHours(original.id, 600000, 1000), isInvalid);
+    await assert.rejects(topUpWithCash(original.id, 600000, 1000), isInvalid);
     await assert.rejects(make({ totalMinutes: 600000, purchaseAmount: 1000, purchaseDate: today }), isInvalid);
     assert.equal((await db.select().from(cardTopUpsTable).where(eq(cardTopUpsTable.cardId, original.id))).length, 6);
     assert.equal(AddTreatmentCardHoursBody.safeParse({ minutes: 60 }).success, false);
@@ -78,7 +83,10 @@ test("paid top-ups and duplicate sales retain history and recognize cash once on
     }).returning();
     serviceId = service.id;
     for (const cardId of [original.id, null]) {
-      const session = await saveSession({ memberId, serviceTypeId: serviceId, cardId, minutes: 30, workDate: today });
+      const session = await saveSession({
+        memberId, serviceTypeId: serviceId, cardId, minutes: 30, workDate: today,
+        paymentMethod: cardId === null ? "cash" : null,
+      });
       sessionIds.push(session.id);
     }
     const report = GetMassageSummaryResponse.parse(await getFacilityRevenue(month, today));
@@ -88,6 +96,9 @@ test("paid top-ups and duplicate sales retain history and recognize cash once on
     assert.equal(report.netRevenue - baseline.netRevenue, 620000);
     assert.equal(report.today.cardRevenue - baseline.today.cardRevenue, 570000);
     assert.equal(report.today.netRevenue - baseline.today.netRevenue, 620000);
+    assert.equal(report.paymentBreakdown.cash.total - baseline.paymentBreakdown.cash.total, 370000);
+    assert.equal(report.paymentBreakdown.transfer.total - baseline.paymentBreakdown.transfer.total, 300000);
+    assert.equal(report.paymentBreakdown.unrecorded.total, baseline.paymentBreakdown.unrecorded.total);
     assert.equal(report.cardsSold, baseline.cardsSold, "top-ups must not create extra card-sale counts");
     const creditedUsedCard = await make({ totalMinutes: 60, purchaseAmount: 10000, purchaseDate: today });
     assert.equal(creditedUsedCard.id, original.id, "used cards still receive matching new sales as top-ups");

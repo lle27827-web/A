@@ -7,7 +7,7 @@ import {
   serviceSessionsTable,
   treatmentCardsTable,
 } from "@workspace/db";
-import { retainedDate, retainedMonthBounds } from "./massage";
+import { MassageError, retainedDate, retainedMonthBounds } from "./massage";
 
 /** Card-session wages remain in payroll but do not change this owner-defined revenue metric. */
 function revenueTotals(walkInCharges: number, cardPayments: number, walkInWages: number) {
@@ -57,16 +57,71 @@ async function getPartitionedFacilityRevenue(month: string, date: string, start:
 
 type PartitionRevenueCard = Pick<
   typeof treatmentCardsTable.$inferSelect,
-  "id" | "deletedAt" | "purchaseDate" | "purchaseAmount" | "serviceType"
+  "id" | "deletedAt" | "purchaseDate" | "purchaseAmount" | "purchasePaymentMethod" | "sellerName" | "serviceType" | "customerName" | "totalMinutes"
 >;
 type PartitionRevenueTopUp = Pick<
   typeof cardTopUpsTable.$inferSelect,
-  "cardId" | "paymentDate" | "amount"
+  "id" | "cardId" | "paymentDate" | "amount" | "paymentMethod" | "sellerName" | "source"
 >;
 type PartitionRevenueSession = Pick<
   typeof serviceSessionsTable.$inferSelect,
-  "workDate" | "cardId" | "serviceType" | "customerCharge" | "earnings" | "minutes"
+  "id" | "workDate" | "cardId" | "memberId" | "serviceType" | "customerName" | "employeeName" |
+  "customerCharge" | "earnings" | "minutes" | "paymentMethod"
 >;
+
+export type PaymentMethodFilter = "cash" | "transfer" | "unrecorded";
+type PaymentBucket = { total: number; walkInServices: number; cardSales: number; cardTopUps: number };
+type PaymentBreakdown = Record<PaymentMethodFilter, PaymentBucket>;
+
+function emptyPaymentBreakdown(): PaymentBreakdown {
+  const empty = (): PaymentBucket => ({ total: 0, walkInServices: 0, cardSales: 0, cardTopUps: 0 });
+  return { cash: empty(), transfer: empty(), unrecorded: empty() };
+}
+
+function paymentBucket(method: string | null | undefined): PaymentMethodFilter {
+  return method === "cash" || method === "transfer" ? method : "unrecorded";
+}
+
+function addPayment(
+  breakdown: PaymentBreakdown,
+  method: string | null | undefined,
+  kind: keyof Omit<PaymentBucket, "total">,
+  value: unknown,
+) {
+  const amountValue = amount(value);
+  const bucket = breakdown[paymentBucket(method)];
+  bucket[kind] += amountValue;
+  bucket.total += amountValue;
+}
+
+function aggregatePaymentBreakdown(
+  sessions: readonly PartitionRevenueSession[],
+  cards: readonly PartitionRevenueCard[],
+  topUps: readonly PartitionRevenueTopUp[],
+  start: string,
+  end: string,
+  date?: string,
+): PaymentBreakdown {
+  const inPeriod = (value: string) => value >= start && value < end && (!date || value === date);
+  const result = emptyPaymentBreakdown();
+  for (const row of sessions) {
+    if (row.cardId === null && inPeriod(row.workDate)) {
+      addPayment(result, row.paymentMethod, "walkInServices", row.customerCharge);
+    }
+  }
+  for (const row of cards) {
+    if (row.deletedAt === null && inPeriod(row.purchaseDate)) {
+      addPayment(result, row.purchasePaymentMethod, "cardSales", row.purchaseAmount);
+    }
+  }
+  const activeCardIds = new Set(cards.filter((card) => card.deletedAt === null).map((card) => card.id));
+  for (const row of topUps) {
+    if (activeCardIds.has(row.cardId) && inPeriod(row.paymentDate)) {
+      addPayment(result, row.paymentMethod, row.source === "topup" ? "cardTopUps" : "cardSales", row.amount);
+    }
+  }
+  return result;
+}
 
 export function aggregatePartitionedFacilityRevenue(
   month: string,
@@ -96,6 +151,8 @@ export function aggregatePartitionedFacilityRevenue(
   const monthTopUps = cardPayments.filter((topUp) => inMonth(topUp.paymentDate));
   const dayCardSales = activeCards.filter((card) => card.purchaseDate === date);
   const dayTopUps = cardPayments.filter((topUp) => topUp.paymentDate === date);
+  const monthlyPaymentBreakdown = aggregatePaymentBreakdown(sessions, cards, topUps, start, end);
+  const dailyPaymentBreakdown = aggregatePaymentBreakdown(sessions, cards, topUps, start, end, date);
   const monthCardRevenue = sum(monthCardSales, (card) => card.purchaseAmount) +
     sum(monthTopUps, (topUp) => topUp.amount);
   const dayCardRevenue = sum(dayCardSales, (card) => card.purchaseAmount) +
@@ -138,6 +195,7 @@ export function aggregatePartitionedFacilityRevenue(
         }
       : null,
     serviceBreakdown: serviceBreakdown(activeMonthSessions),
+    paymentBreakdown: monthlyPaymentBreakdown,
     today: {
       date,
       ...revenueTotals(dayWalkInRevenue, dayCardRevenue, sum(dayWalkIns, (row) => row.earnings)),
@@ -151,8 +209,54 @@ export function aggregatePartitionedFacilityRevenue(
       walkInVisits: dayWalkIns.length,
       cardVisits: daySessions.filter((row) => row.cardId !== null && activeCardIds.has(row.cardId)).length,
       serviceBreakdown: serviceBreakdown(activeDaySessions),
+      paymentBreakdown: dailyPaymentBreakdown,
     },
   };
+}
+
+async function getPaymentBreakdowns(start: string, end: string, date: string) {
+  const [sessions, sales, topUps] = await Promise.all([
+    db.select({
+      method: serviceSessionsTable.paymentMethod,
+      month: sql<number>`coalesce(sum(${serviceSessionsTable.customerCharge}), 0)`,
+      day: sql<number>`coalesce(sum(case when ${serviceSessionsTable.workDate} = ${date} then ${serviceSessionsTable.customerCharge} else 0 end), 0)`,
+    }).from(serviceSessionsTable).where(sql`${serviceSessionsTable.cardId} is null
+      and ${serviceSessionsTable.workDate} >= ${start} and ${serviceSessionsTable.workDate} < ${end}`)
+      .groupBy(serviceSessionsTable.paymentMethod),
+    db.select({
+      method: treatmentCardsTable.purchasePaymentMethod,
+      month: sql<number>`coalesce(sum(${treatmentCardsTable.purchaseAmount}), 0)`,
+      day: sql<number>`coalesce(sum(case when ${treatmentCardsTable.purchaseDate} = ${date} then ${treatmentCardsTable.purchaseAmount} else 0 end), 0)`,
+    }).from(treatmentCardsTable).where(sql`${treatmentCardsTable.deletedAt} is null
+      and ${treatmentCardsTable.purchaseDate} >= ${start} and ${treatmentCardsTable.purchaseDate} < ${end}`)
+      .groupBy(treatmentCardsTable.purchasePaymentMethod),
+    db.select({
+      method: cardTopUpsTable.paymentMethod,
+      source: cardTopUpsTable.source,
+      month: sql<number>`coalesce(sum(${cardTopUpsTable.amount}), 0)`,
+      day: sql<number>`coalesce(sum(case when ${cardTopUpsTable.paymentDate} = ${date} then ${cardTopUpsTable.amount} else 0 end), 0)`,
+    }).from(cardTopUpsTable).innerJoin(treatmentCardsTable,
+      sql`${treatmentCardsTable.id} = ${cardTopUpsTable.cardId}`)
+      .where(sql`${treatmentCardsTable.deletedAt} is null
+        and ${cardTopUpsTable.paymentDate} >= ${start} and ${cardTopUpsTable.paymentDate} < ${end}`)
+      .groupBy(cardTopUpsTable.paymentMethod, cardTopUpsTable.source),
+  ]);
+  const monthBreakdown = emptyPaymentBreakdown();
+  const dayBreakdown = emptyPaymentBreakdown();
+  for (const row of sessions) {
+    addPayment(monthBreakdown, row.method, "walkInServices", row.month);
+    addPayment(dayBreakdown, row.method, "walkInServices", row.day);
+  }
+  for (const row of sales) {
+    addPayment(monthBreakdown, row.method, "cardSales", row.month);
+    addPayment(dayBreakdown, row.method, "cardSales", row.day);
+  }
+  for (const row of topUps) {
+    const category = row.source === "topup" ? "cardTopUps" : "cardSales";
+    addPayment(monthBreakdown, row.method, category, row.month);
+    addPayment(dayBreakdown, row.method, category, row.day);
+  }
+  return { monthBreakdown, dayBreakdown };
 }
 
 async function getServiceBreakdown(start: string, end: string, date?: string) {
@@ -408,9 +512,10 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
     visits: Number(row.mostUsedServiceVisits),
     minutes: Number(row.mostUsedServiceMinutes),
   } : null;
-  const [monthlyServiceBreakdown, dailyServiceBreakdown] = await Promise.all([
+  const [monthlyServiceBreakdown, dailyServiceBreakdown, paymentBreakdowns] = await Promise.all([
     getServiceBreakdown(start, end),
     getServiceBreakdown(start, end, date),
+    getPaymentBreakdowns(start, end, date),
   ]);
   return {
     month, ...revenueTotals(walkInServiceRevenue, cardRevenue, walkInPayroll),
@@ -419,6 +524,7 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
     walkInVisits: Number(row.walkInVisits), cardVisits: Number(row.cardVisits),
     topSoldCardService, mostUsedCardService, mostUsedWalkInService, mostUsedService,
     serviceBreakdown: monthlyServiceBreakdown,
+    paymentBreakdown: paymentBreakdowns.monthBreakdown,
     today: {
       date, ...revenueTotals(dayWalkInServiceRevenue, dayCardRevenue, dayWalkInPayroll),
       serviceRevenue: dayServiceRevenue,
@@ -429,6 +535,177 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
       cardRevenue: dayCardRevenue, cardsSold: Number(row.dayCardsSold),
       walkInVisits: Number(row.dayWalkInVisits), cardVisits: Number(row.dayCardVisits),
       serviceBreakdown: dailyServiceBreakdown,
+      paymentBreakdown: paymentBreakdowns.dayBreakdown,
     },
   };
+}
+
+type PaymentDetailItem = {
+  id: string;
+  kind: "walk_in_service" | "card_sale" | "card_topup";
+  date: string;
+  memberId: number | null;
+  customerName: string;
+  serviceType: string;
+  employeeName: string | null;
+  sellerName: string | null;
+  minutes: number | null;
+  amount: number;
+  paymentMethod: string | null;
+};
+
+function methodMatches(value: string | null | undefined, selected: PaymentMethodFilter) {
+  return paymentBucket(value) === selected;
+}
+
+function sortPaymentDetails(rows: PaymentDetailItem[]) {
+  return rows.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+}
+
+/** Returns transaction-level detail only when a revenue viewer opens a tender row. */
+export async function getPaymentDetails(month: string, requestedDate: string | undefined, method: PaymentMethodFilter) {
+  const { start, end } = retainedMonthBounds(month);
+  const date = requestedDate ? retainedDate(requestedDate) : null;
+  if (date && !date.startsWith(`${month}-`)) {
+    throw new MassageError(400, "Ngày lọc phải nằm trong tháng đã chọn.");
+  }
+  const inPeriod = (value: string) =>
+    value >= start && value < end && (!date || value === date);
+
+  if (isPartitionedStorageEnabled()) {
+    const [cardRows, topUpRows, sessionRows] = await Promise.all([
+      readPartitionedTable("treatment_cards"),
+      readPartitionedTable("card_top_ups"),
+      readPartitionedTable("service_sessions"),
+    ]);
+    const cards = cardRows as unknown as (typeof treatmentCardsTable.$inferSelect)[];
+    const topUps = topUpRows as unknown as (typeof cardTopUpsTable.$inferSelect)[];
+    const sessions = sessionRows as unknown as (typeof serviceSessionsTable.$inferSelect)[];
+    const activeCards = cards.filter((card) => card.deletedAt === null);
+    const cardById = new Map(activeCards.map((card) => [card.id, card]));
+    const transactions: PaymentDetailItem[] = [];
+    for (const session of sessions) {
+      if (session.cardId !== null || !inPeriod(session.workDate) || !methodMatches(session.paymentMethod, method)) continue;
+      transactions.push({
+        id: `service:${session.id}`,
+        kind: "walk_in_service",
+        date: session.workDate,
+        memberId: session.memberId,
+        customerName: session.customerName || "Khách lẻ",
+        serviceType: session.serviceType || "Không tên",
+        employeeName: session.employeeName || null,
+        sellerName: null,
+        minutes: session.minutes,
+        amount: Number(session.customerCharge),
+        paymentMethod: session.paymentMethod,
+      });
+    }
+    for (const card of activeCards) {
+      if (!inPeriod(card.purchaseDate) || !methodMatches(card.purchasePaymentMethod, method)) continue;
+      transactions.push({
+        id: `card-sale:${card.id}`,
+        kind: "card_sale",
+        date: card.purchaseDate,
+        memberId: null,
+        customerName: card.customerName,
+        serviceType: card.serviceType,
+        employeeName: null,
+        sellerName: card.sellerName,
+        minutes: card.totalMinutes,
+        amount: Number(card.purchaseAmount),
+        paymentMethod: card.purchasePaymentMethod,
+      });
+    }
+    for (const payment of topUps) {
+      const card = cardById.get(payment.cardId);
+      if (!card || !inPeriod(payment.paymentDate) || !methodMatches(payment.paymentMethod, method)) continue;
+      transactions.push({
+        id: `card-payment:${payment.id}`,
+        kind: payment.source === "topup" ? "card_topup" : "card_sale",
+        date: payment.paymentDate,
+        memberId: null,
+        customerName: card.customerName,
+        serviceType: card.serviceType,
+        employeeName: null,
+        sellerName: payment.sellerName,
+        minutes: payment.minutes,
+        amount: Number(payment.amount),
+        paymentMethod: payment.paymentMethod,
+      });
+    }
+    return { month, date, method, transactions: sortPaymentDetails(transactions) };
+  }
+
+  const [sessions, sales, topUps] = await Promise.all([
+    db.select().from(serviceSessionsTable).where(sql`${serviceSessionsTable.cardId} is null
+      and ${serviceSessionsTable.workDate} >= ${start} and ${serviceSessionsTable.workDate} < ${end}`),
+    db.select().from(treatmentCardsTable).where(sql`${treatmentCardsTable.deletedAt} is null
+      and ${treatmentCardsTable.purchaseDate} >= ${start} and ${treatmentCardsTable.purchaseDate} < ${end}`),
+    db.select({
+      id: cardTopUpsTable.id,
+      cardId: cardTopUpsTable.cardId,
+      minutes: cardTopUpsTable.minutes,
+      amount: cardTopUpsTable.amount,
+      paymentDate: cardTopUpsTable.paymentDate,
+      paymentMethod: cardTopUpsTable.paymentMethod,
+      sellerName: cardTopUpsTable.sellerName,
+      source: cardTopUpsTable.source,
+      customerName: treatmentCardsTable.customerName,
+      serviceType: treatmentCardsTable.serviceType,
+      cardDeletedAt: treatmentCardsTable.deletedAt,
+    }).from(cardTopUpsTable).innerJoin(treatmentCardsTable,
+      sql`${treatmentCardsTable.id} = ${cardTopUpsTable.cardId}`)
+      .where(sql`${treatmentCardsTable.deletedAt} is null
+        and ${cardTopUpsTable.paymentDate} >= ${start} and ${cardTopUpsTable.paymentDate} < ${end}`),
+  ]);
+  const transactions: PaymentDetailItem[] = [];
+  for (const session of sessions) {
+    if (!inPeriod(session.workDate) || !methodMatches(session.paymentMethod, method)) continue;
+    transactions.push({
+      id: `service:${session.id}`,
+      kind: "walk_in_service",
+      date: session.workDate,
+      memberId: session.memberId,
+      customerName: session.customerName || "Khách lẻ",
+      serviceType: session.serviceType || "Không tên",
+      employeeName: session.employeeName || null,
+      sellerName: null,
+      minutes: session.minutes,
+      amount: Number(session.customerCharge),
+      paymentMethod: session.paymentMethod,
+    });
+  }
+  for (const card of sales) {
+    if (!inPeriod(card.purchaseDate) || !methodMatches(card.purchasePaymentMethod, method)) continue;
+    transactions.push({
+      id: `card-sale:${card.id}`,
+      kind: "card_sale",
+      date: card.purchaseDate,
+      memberId: null,
+      customerName: card.customerName,
+      serviceType: card.serviceType,
+      employeeName: null,
+      sellerName: card.sellerName,
+      minutes: card.totalMinutes,
+      amount: Number(card.purchaseAmount),
+      paymentMethod: card.purchasePaymentMethod,
+    });
+  }
+  for (const payment of topUps) {
+    if (!inPeriod(payment.paymentDate) || !methodMatches(payment.paymentMethod, method)) continue;
+    transactions.push({
+      id: `card-payment:${payment.id}`,
+      kind: payment.source === "topup" ? "card_topup" : "card_sale",
+      date: payment.paymentDate,
+      memberId: null,
+      customerName: payment.customerName,
+      serviceType: payment.serviceType,
+      employeeName: null,
+      sellerName: payment.sellerName,
+      minutes: payment.minutes,
+      amount: Number(payment.amount),
+      paymentMethod: payment.paymentMethod,
+    });
+  }
+  return { month, date, method, transactions: sortPaymentDetails(transactions) };
 }

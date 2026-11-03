@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import type { CardHoursInput, TreatmentCard } from '@workspace/api-client-react';
 import { AlertCircle, LoaderCircle } from 'lucide-react';
 import { Modal } from '@/components/modal';
+import { PaymentMethodPicker, type PaymentMethodChoice } from '@/components/payment-method-picker';
 import { formatMinutes, formatVnd, parseHoursToMinutes, parseMoney } from '@/lib/massage';
 
 export function CardHoursDialog({ card, busy, serverError, onClose, onSubmit }: {
@@ -10,6 +11,8 @@ export function CardHoursDialog({ card, busy, serverError, onClose, onSubmit }: 
 }) {
   const [hours, setHours] = useState('1');
   const [amount, setAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodChoice>('cash');
+  const [sellerName, setSellerName] = useState('');
   const [error, setError] = useState('');
   const minutes = parseHoursToMinutes(hours);
   const money = parseMoney(amount);
@@ -19,8 +22,9 @@ export function CardHoursDialog({ card, busy, serverError, onClose, onSubmit }: 
     if (!minutes || minutes > 600000) return setError('Số giờ nạp phải lớn hơn 0 và không quá 10.000 giờ.');
     if (card.totalMinutes + minutes > 600000) return setError('Tổng số giờ của thẻ không được vượt quá 10.000 giờ.');
     if (!amount.trim() || money === null || money < 0 || money > 1000000000) return setError('Nhập số tiền nạp từ 0 đến 1 tỷ đồng.');
+    if (!sellerName.trim()) return setError('Nhập tên người bán hoặc nạp thẻ.');
     setError('');
-    onSubmit({ minutes, amount: money });
+    onSubmit({ minutes, amount: money, paymentMethod, sellerName: sellerName.trim() });
   }
   const shown = error || serverError;
   return (
@@ -35,6 +39,11 @@ export function CardHoursDialog({ card, busy, serverError, onClose, onSubmit }: 
           <input id="card-add-amount" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)}
             required data-testid="input-card-add-amount" />
           {money !== null && amount.trim() && <span className="hint">{formatVnd(money)}</span>}
+        </label>
+        <PaymentMethodPicker id="card-topup" value={paymentMethod} onChange={setPaymentMethod} />
+        <label className="field" htmlFor="card-topup-seller">Tên người bán / nạp thẻ
+          <input id="card-topup-seller" value={sellerName} onChange={(e) => setSellerName(e.target.value)}
+            maxLength={120} autoComplete="name" required data-testid="input-card-topup-seller" />
         </label>
         {shown && <p className="form-error" role="alert"><AlertCircle size={13} />{shown}</p>}
         <div className="dialog-actions">

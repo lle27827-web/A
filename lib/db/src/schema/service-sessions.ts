@@ -18,6 +18,7 @@ export const serviceSessionsTable = pgTable("service_sessions", {
   minutes: integer("minutes").notNull(),
   customerHourlyRate: integer("customer_hourly_rate").notNull().default(0),
   customerCharge: integer("customer_charge").notNull().default(0),
+  paymentMethod: text("payment_method"),
   hourlyRate: integer("hourly_rate").notNull(),
   earnings: integer("earnings").notNull(),
   note: text("note").notNull().default(""),

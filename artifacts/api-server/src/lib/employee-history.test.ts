@@ -39,11 +39,12 @@ test("deleting employees hides current records while keeping prior-month history
     const card = await createCard({
       customerName: marker, phone: "0990000001", serviceType: marker,
       totalMinutes: 240, purchaseAmount: 1000000, purchaseDate: "2025-02-01",
+      purchasePaymentMethod: "cash", sellerName: marker,
     });
     cards.push(card.id);
-    const input = { memberId: original.id, serviceTypeId: service.id, cardId: card.id, workDate: "2025-02-10", minutes: 30, note: "Original note" };
+    const input = { memberId: original.id, serviceTypeId: service.id, cardId: card.id, workDate: "2025-02-10", minutes: 30, note: "Original note", paymentMethod: null };
     const visit = await saveSession(input);
-    const walkIn = await saveSession({ ...input, cardId: null, customerName: marker, workDate: "2025-02-11" });
+    const walkIn = await saveSession({ ...input, cardId: null, customerName: marker, workDate: "2025-02-11", paymentMethod: "cash" });
     sessionIds.push(visit.id, walkIn.id);
     const [attendance] = await db.insert(attendanceTable).values({
       memberId: original.id, employeeName: `${marker}-old`, workDate: "2025-02-11", status: "present",
@@ -102,7 +103,7 @@ test("deleting employees hides current records while keeping prior-month history
 
     // Legacy names are recovered only from actual recorded visits, never invented.
     const legacy = await makeEmployee(`${marker}-legacy-old`, "2025-01-01T03:00:00Z");
-    const legacyVisit = await saveSession({ ...input, memberId: legacy.id, cardId: null, workDate: "2025-02-12" });
+    const legacyVisit = await saveSession({ ...input, memberId: legacy.id, cardId: null, workDate: "2025-02-12", paymentMethod: "cash" });
     sessionIds.push(legacyVisit.id);
     await db.delete(memberVersionsTable).where(eq(memberVersionsTable.memberId, legacy.id));
     await updateEmployee(legacy.id, { name: `${marker}-legacy-now` });
@@ -114,7 +115,7 @@ test("deleting employees hides current records while keeping prior-month history
     assert.equal((await listMembersForPeriod("2025-02", unknown.id))[0]?.historicalNameSource, "unverified");
 
     // Backdated recorded visits still make a later-created employee visible.
-    const backdated = await saveSession({ ...input, memberId: later.id, cardId: null, workDate: "2025-02-13" });
+    const backdated = await saveSession({ ...input, memberId: later.id, cardId: null, workDate: "2025-02-13", paymentMethod: "cash" });
     sessionIds.push(backdated.id);
     assert.equal((await listMembersForPeriod("2025-02", later.id))[0]?.historicalNameSource, "session");
 

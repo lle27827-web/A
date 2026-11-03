@@ -5,6 +5,7 @@
  * API công khai để quản lý dữ liệu nhân viên, chấm công, dịch vụ và thẻ liệu trình.
  * OpenAPI spec version: 0.1.0
  */
+import type { CardHoursInputPaymentMethod } from './cardHoursInputPaymentMethod';
 
 export interface CardHoursInput {
   /**
@@ -17,4 +18,10 @@ export interface CardHoursInput {
      * @maximum 1000000000
      */
   amount: number;
+  paymentMethod: CardHoursInputPaymentMethod;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  sellerName: string;
 }

@@ -10,6 +10,8 @@ export const treatmentCardsTable = pgTable("treatment_cards", {
   totalMinutes: integer("total_minutes").notNull(),
   purchaseAmount: integer("purchase_amount").notNull(),
   purchaseDate: date("purchase_date", { mode: "string" }).notNull(),
+  purchasePaymentMethod: text("purchase_payment_method"),
+  sellerName: text("seller_name"),
   note: text("note").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),

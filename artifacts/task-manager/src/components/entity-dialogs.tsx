@@ -4,6 +4,7 @@ import { getListServiceTypesQueryKey, useListServiceTypes } from '@workspace/api
 import { AlertCircle, Check, ChevronRight, GitMerge, LoaderCircle, Phone } from 'lucide-react';
 import { Link } from 'wouter';
 import { Modal } from '@/components/modal';
+import { PaymentMethodPicker, type PaymentMethodChoice } from '@/components/payment-method-picker';
 import { SESSION_FRESHNESS, formatMinutes, formatVnd, hoursValue, parseHoursToMinutes, parseMoney } from '@/lib/massage';
 import { phoneCallHref } from '@/lib/phone';
 import { treatmentCardLimitError } from '@/lib/treatment-card-limits';
@@ -32,6 +33,8 @@ export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId
   const [hours, setHours] = useState(card ? hoursValue(card.totalMinutes) : '10');
   const [amount, setAmount] = useState(card ? String(card.purchaseAmount) : '');
   const [purchaseDate, setPurchaseDate] = useState(card?.purchaseDate ?? defaultDate);
+  const [purchasePaymentMethod, setPurchasePaymentMethod] = useState<PaymentMethodChoice>('cash');
+  const [sellerName, setSellerName] = useState('');
   const [servicePickerOpen, setServicePickerOpen] = useState(false);
   const servicePickerTriggerRef = useRef<HTMLButtonElement>(null);
   const servicePickerReturnFocusRef = useRef<HTMLButtonElement | null>(null);
@@ -68,11 +71,16 @@ export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId
     if (!totalMinutes) return setError('Tổng số giờ phải lớn hơn 0.');
     if (card && totalMinutes < card.usedMinutes) return setError(`Tổng giờ không được nhỏ hơn số đã dùng (${formatMinutes(card.usedMinutes)}).`);
     if (money === null) return setError('Hãy nhập số tiền đã trả.');
+    if (!card && !sellerName.trim()) return setError('Nhập tên người bán thẻ.');
     const limitError = treatmentCardLimitError(totalMinutes, money);
     if (limitError) return setError(limitError);
     if (!purchaseDate) return setError('Hãy chọn ngày mua.');
     setError('');
-    const draft = { customerName: customerName.trim(), phone: phone.trim(), serviceType: serviceType.trim(), totalMinutes, purchaseAmount: money, purchaseDate, note };
+    const draft = {
+      customerName: customerName.trim(), phone: phone.trim(), serviceType: serviceType.trim(),
+      totalMinutes, purchaseAmount: money, purchaseDate, note,
+      ...(!card ? { purchasePaymentMethod, sellerName: sellerName.trim() } : {}),
+    };
     draftRef.current = draft;
     submitting.current = true;
     onSubmit(draft);
@@ -142,6 +150,13 @@ export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId
             <span className="hint">{money !== null ? formatVnd(money) : ' '}</span>
           </label>
         </div>
+        {!card && <>
+          <PaymentMethodPicker id="card-sale" value={purchasePaymentMethod} onChange={setPurchasePaymentMethod} />
+          <label className="field" htmlFor="card-sale-seller">Tên người bán thẻ
+            <input id="card-sale-seller" value={sellerName} onChange={(e) => setSellerName(e.target.value)}
+              maxLength={120} autoComplete="name" required data-testid="input-card-sale-seller" />
+          </label>
+        </>}
         <label className="field" htmlFor="c-date">Ngày mua<input id="c-date" type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} required data-testid="input-card-date" /></label>
         {shown && <p className="form-error" role="alert"><AlertCircle size={13} /> {shown}</p>}
         <div className="dialog-actions">

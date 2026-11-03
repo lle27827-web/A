@@ -11,12 +11,15 @@ test("editing duplicate identity requires consent and preserves receipts, balanc
   const marker = randomUUID(), ids: number[] = [];
   let memberId: number | undefined, serviceTypeId: number | undefined;
   const input = { customerName: `Merge ${marker}`, phone: "0901234567", serviceType: `Service ${marker}`,
-    totalMinutes: 180, purchaseAmount: 300000, purchaseDate: "2091-02-03", note: "Source note" };
+    totalMinutes: 180, purchaseAmount: 300000, purchaseDate: "2091-02-03", note: "Source note",
+    purchasePaymentMethod: "cash" as const, sellerName: marker };
+  const topUp = (id: number, minutes: number, amount: number) =>
+    addCardHours(id, minutes, amount, "cash", marker);
   try {
     const target = await createCard(input); ids.push(target.id);
     const source = await createCard({ ...input, customerName: `Other ${marker}`, purchaseDate: "2091-01-05" }); ids.push(source.id);
-    await addCardHours(source.id, 60, 100000);
-    await addCardHours(target.id, 30, 50000);
+    await topUp(source.id, 60, 100000);
+    await topUp(target.id, 30, 50000);
     const [member] = await db.insert(membersTable).values({ name: `Merge fixture ${marker}` }).returning();
     memberId = member.id;
     const [service] = await db.insert(serviceTypesTable).values({ name: input.serviceType, hourlyRate: 40000 }).returning();
@@ -64,7 +67,7 @@ test("editing duplicate identity requires consent and preserves receipts, balanc
 
     // Base hours can be zero after a legitimate old edit; its receipt must not disappear.
     const zero = await createCard({ ...input, customerName: `Zero ${marker}`, totalMinutes: 60 }); ids.push(zero.id);
-    await addCardHours(zero.id, 60, 20000);
+    await topUp(zero.id, 60, 20000);
     await updateCard(zero.id, { totalMinutes: 60 });
     const zeroMerge = await updateCard(zero.id, { ...draft, mergeTargetId: target.id });
     assert.ok(zeroMerge.topUps.some((p) => p.source === "merged_card" && p.minutes === 0 && p.amount === 300000));

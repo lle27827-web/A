@@ -36,7 +36,7 @@ test("permission policy denies by default; employee, card, revenue and edit righ
   assert.equal(await managerRequestAllowed(req("GET", "/member-payroll", { memberId: "8" }), scoped), false);
   assert.equal(await managerRequestAllowed(req("GET", "/service-sessions", { memberId: ["7", "8"] }), scoped), false);
   assert.equal(await managerRequestAllowed(req("GET", "/service-sessions", { memberId: "7", cardId: "9" }), scoped), false);
-  for (const path of ["/massage-summary", "/treatment-cards"]) {
+  for (const path of ["/massage-summary", "/payment-details", "/treatment-cards"]) {
     assert.equal(await managerRequestAllowed(req("GET", path), scoped), false);
   }
   assert.equal(await managerRequestAllowed(req("GET", "/access-grants"), none), false);
@@ -166,7 +166,7 @@ test("scoped reads and delegated grants stay within persisted manager permission
     assert.equal(await managerRequestAllowed(req("PATCH", `/service-sessions/${visits[0]}`, {}, { memberId: employees[0] }), permissions), true);
     assert.equal(await managerRequestAllowed(req("PATCH", `/service-sessions/${visits[0]}`, {}, { memberId: employees[0], cardId: 1 }), permissions), false);
     await assert.rejects(deleteSession(visits[1], permissions), (e: unknown) => (e as { status: number }).status === 403);
-    await assert.rejects(saveSession({ memberId: employees[0], workDate: date, minutes: 60, note: "" }, visits[1], permissions),
+    await assert.rejects(saveSession({ memberId: employees[0], workDate: date, minutes: 60, note: "", paymentMethod: "cash" }, visits[1], permissions),
       (e: unknown) => (e as { status: number }).status === 403, "locked source row must still belong to permitted scope");
     assert.equal((await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, visits[1])))[0].memberId, employees[1]);
     assert.equal((await fetch(`${base}/owner/access-grants/${grant.id}`, { method: "DELETE" })).status, 204);

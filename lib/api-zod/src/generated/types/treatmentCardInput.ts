@@ -5,6 +5,7 @@
  * API công khai để quản lý dữ liệu nhân viên, chấm công, dịch vụ và thẻ liệu trình.
  * OpenAPI spec version: 0.1.0
  */
+import type { TreatmentCardInputPurchasePaymentMethod } from './treatmentCardInputPurchasePaymentMethod';
 
 export interface TreatmentCardInput {
   /** @minimum 1 */
@@ -36,6 +37,12 @@ export interface TreatmentCardInput {
   purchaseAmount: number;
   /** @pattern ^\d{4}-\d{2}-\d{2}$ */
   purchaseDate: string;
+  purchasePaymentMethod?: TreatmentCardInputPurchasePaymentMethod;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  sellerName?: string;
   /** @maxLength 2000 */
   note?: string;
 }

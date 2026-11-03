@@ -9,14 +9,15 @@ import {
 } from "@workspace/db";
 import {
   CreateServiceSessionBody, CreateServiceSessionResponse, DeleteServiceSessionParams,
-  GetMassageSummaryQueryParams, GetMassageSummaryResponse, GetMemberPayrollQueryParams, GetMemberPayrollResponse,
+  GetMassageSummaryQueryParams, GetMassageSummaryResponse, GetPaymentDetailsQueryParams, GetPaymentDetailsResponse,
+  GetMemberPayrollQueryParams, GetMemberPayrollResponse,
   ListServiceSessionsQueryParams, ListServiceSessionsResponse,
   UpdateServiceSessionBody, UpdateServiceSessionParams, UpdateServiceSessionResponse,
 } from "@workspace/api-zod";
 import { deleteSession, MassageError, monthBounds, retainedDate, retainedMonthBounds, saveSession, sessionResponse, validDate } from "../lib/massage";
 import { retentionCutoffDate } from "../lib/retention-window";
 import { massageHandler, parseInput } from "./massage-errors";
-import { getFacilityRevenue } from "../lib/facility-revenue";
+import { getFacilityRevenue, getPaymentDetails } from "../lib/facility-revenue";
 import { listMembersForPeriod } from "../lib/employee-history";
 import { noPermissions } from "../lib/facility-permissions";
 import type { OwnerAuthStatus } from "../lib/owner-auth";
@@ -82,6 +83,7 @@ router.get("/service-sessions", massageHandler(async (req, res) => {
       minutes: row.minutes,
       customerHourlyRate: row.customerHourlyRate,
       customerCharge: row.customerCharge,
+      paymentMethod: null,
       hourlyRate: row.hourlyRate,
       earnings: row.earnings,
       note: row.note,
@@ -109,6 +111,7 @@ router.get("/service-sessions", massageHandler(async (req, res) => {
     minutes: row.minutes,
     customerHourlyRate: row.customerHourlyRate,
     customerCharge: row.customerCharge,
+      paymentMethod: null,
     hourlyRate: row.hourlyRate,
     earnings: row.earnings,
     note: row.note,
@@ -147,6 +150,28 @@ router.get("/massage-summary", massageHandler(async (req, res) => {
   const { month, date } = parseInput(GetMassageSummaryQueryParams, req.query);
   res.set("Cache-Control", "private, no-store");
   res.json(GetMassageSummaryResponse.parse(await getFacilityRevenue(month, date)));
+}));
+router.get("/payment-details", massageHandler(async (req, res) => {
+  const { month, date, method } = parseInput(GetPaymentDetailsQueryParams, req.query);
+  res.set("Cache-Control", "private, no-store");
+  const result = await getPaymentDetails(month, date, method);
+  const auth = res.locals.facilityAuth as OwnerAuthStatus | undefined;
+  const permissions = auth?.permissions ?? noPermissions();
+  const transactions = result.transactions.map((transaction) => {
+    const { memberId, ...visible } = transaction;
+    if (!auth?.isOwner) {
+      if (transaction.kind === "walk_in_service" &&
+          memberId !== null && !permissions.allEmployees && !permissions.employeeIds.includes(memberId)) {
+        visible.employeeName = null;
+      }
+      if (transaction.kind !== "walk_in_service" && !permissions.viewCards) {
+        visible.customerName = "Khách mua thẻ";
+        visible.sellerName = null;
+      }
+    }
+    return visible;
+  });
+  res.json(GetPaymentDetailsResponse.parse({ ...result, transactions }));
 }));
 router.get("/member-payroll", massageHandler(async (req, res) => {
   const { memberId, month } = parseInput(GetMemberPayrollQueryParams, req.query);

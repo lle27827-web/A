@@ -5,6 +5,7 @@
  * API công khai để quản lý dữ liệu nhân viên, chấm công, dịch vụ và thẻ liệu trình.
  * OpenAPI spec version: 0.1.0
  */
+import type { ServiceSessionInputPaymentMethod } from './serviceSessionInputPaymentMethod';
 
 export interface ServiceSessionInput {
   /** @minimum 1 */
@@ -30,6 +31,8 @@ export interface ServiceSessionInput {
      * @maximum 1440
      */
   minutes: number;
+  /** @nullable */
+  paymentMethod?: ServiceSessionInputPaymentMethod;
   /** @maxLength 2000 */
   note?: string;
 }

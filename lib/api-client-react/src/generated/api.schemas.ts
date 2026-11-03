@@ -517,11 +517,37 @@ export interface MemberUpdate {
   hourlyRate?: number;
 }
 
+/**
+ * @nullable
+ */
+export type TreatmentCardPurchasePaymentMethod = typeof TreatmentCardPurchasePaymentMethod[keyof typeof TreatmentCardPurchasePaymentMethod] | null;
+
+
+export const TreatmentCardPurchasePaymentMethod = {
+  cash: 'cash',
+  transfer: 'transfer',
+} as const;
+
+/**
+ * @nullable
+ */
+export type CardTopUpPaymentMethod = typeof CardTopUpPaymentMethod[keyof typeof CardTopUpPaymentMethod] | null;
+
+
+export const CardTopUpPaymentMethod = {
+  cash: 'cash',
+  transfer: 'transfer',
+} as const;
+
 export interface CardTopUp {
   id: number;
   minutes: number;
   amount: number;
   paymentDate: string;
+  /** @nullable */
+  paymentMethod: CardTopUpPaymentMethod;
+  /** @nullable */
+  sellerName: string | null;
   source: string;
   note: string;
   createdAt: string;
@@ -538,6 +564,10 @@ export interface TreatmentCard {
   hasBeenUsed?: boolean;
   remainingMinutes: number;
   purchaseAmount: number;
+  /** @nullable */
+  purchasePaymentMethod: TreatmentCardPurchasePaymentMethod;
+  /** @nullable */
+  sellerName: string | null;
   totalPaidAmount: number;
   mergedIntoExisting?: boolean;
   topUps: CardTopUp[];
@@ -545,6 +575,14 @@ export interface TreatmentCard {
   note: string;
   createdAt: string;
 }
+
+export type TreatmentCardInputPurchasePaymentMethod = typeof TreatmentCardInputPurchasePaymentMethod[keyof typeof TreatmentCardInputPurchasePaymentMethod];
+
+
+export const TreatmentCardInputPurchasePaymentMethod = {
+  cash: 'cash',
+  transfer: 'transfer',
+} as const;
 
 export interface TreatmentCardInput {
   /** @minimum 1 */
@@ -576,9 +614,23 @@ export interface TreatmentCardInput {
   purchaseAmount: number;
   /** @pattern ^\d{4}-\d{2}-\d{2}$ */
   purchaseDate: string;
+  purchasePaymentMethod?: TreatmentCardInputPurchasePaymentMethod;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  sellerName?: string;
   /** @maxLength 2000 */
   note?: string;
 }
+
+export type CardHoursInputPaymentMethod = typeof CardHoursInputPaymentMethod[keyof typeof CardHoursInputPaymentMethod];
+
+
+export const CardHoursInputPaymentMethod = {
+  cash: 'cash',
+  transfer: 'transfer',
+} as const;
 
 export interface CardHoursInput {
   /**
@@ -591,6 +643,12 @@ export interface CardHoursInput {
      * @maximum 1000000000
      */
   amount: number;
+  paymentMethod: CardHoursInputPaymentMethod;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  sellerName: string;
 }
 
 export interface TreatmentCardUpdate {
@@ -653,6 +711,18 @@ export interface ServiceTypeInput {
   hourlyRate: number;
 }
 
+/**
+ * Ca dùng thẻ luôn hiển thị theo nguồn Thẻ; dữ liệu cũ chưa ghi phương thức là null.
+ * @nullable
+ */
+export type ServiceSessionPaymentMethod = typeof ServiceSessionPaymentMethod[keyof typeof ServiceSessionPaymentMethod] | null;
+
+
+export const ServiceSessionPaymentMethod = {
+  cash: 'cash',
+  transfer: 'transfer',
+} as const;
+
 export interface ServiceSession {
   id: number;
   /** @nullable */
@@ -668,12 +738,28 @@ export interface ServiceSession {
   minutes: number;
   customerHourlyRate: number;
   customerCharge: number;
+  /**
+     * Ca dùng thẻ luôn hiển thị theo nguồn Thẻ; dữ liệu cũ chưa ghi phương thức là null.
+     * @nullable
+     */
+  paymentMethod: ServiceSessionPaymentMethod;
   hourlyRate: number;
   earnings: number;
   note: string;
   createdAt: string;
   archived: boolean;
 }
+
+/**
+ * @nullable
+ */
+export type ServiceSessionInputPaymentMethod = typeof ServiceSessionInputPaymentMethod[keyof typeof ServiceSessionInputPaymentMethod] | null;
+
+
+export const ServiceSessionInputPaymentMethod = {
+  cash: 'cash',
+  transfer: 'transfer',
+} as const;
 
 export interface ServiceSessionInput {
   /** @minimum 1 */
@@ -699,6 +785,8 @@ export interface ServiceSessionInput {
      * @maximum 1440
      */
   minutes: number;
+  /** @nullable */
+  paymentMethod?: ServiceSessionInputPaymentMethod;
   /** @maxLength 2000 */
   note?: string;
 }
@@ -745,6 +833,19 @@ export interface ServiceDurationBreakdown {
   visits: number;
 }
 
+export interface PaymentBucket {
+  total: number;
+  walkInServices: number;
+  cardSales: number;
+  cardTopUps: number;
+}
+
+export interface PaymentBreakdown {
+  cash: PaymentBucket;
+  transfer: PaymentBucket;
+  unrecorded: PaymentBucket;
+}
+
 export interface DailyRevenue {
   date: string;
   revenue: number;
@@ -760,6 +861,7 @@ export interface DailyRevenue {
   walkInVisits: number;
   cardVisits: number;
   serviceBreakdown: ServiceDurationBreakdown[];
+  paymentBreakdown: PaymentBreakdown;
 }
 
 export interface MassageSummary {
@@ -794,7 +896,62 @@ export interface MassageSummary {
   /** @nullable */
   mostUsedService: MassageSummaryMostUsedService;
   serviceBreakdown: ServiceDurationBreakdown[];
+  paymentBreakdown: PaymentBreakdown;
   today: DailyRevenue;
+}
+
+export type PaymentDetailsMethod = typeof PaymentDetailsMethod[keyof typeof PaymentDetailsMethod];
+
+
+export const PaymentDetailsMethod = {
+  cash: 'cash',
+  transfer: 'transfer',
+  unrecorded: 'unrecorded',
+} as const;
+
+export type PaymentDetailKind = typeof PaymentDetailKind[keyof typeof PaymentDetailKind];
+
+
+export const PaymentDetailKind = {
+  walk_in_service: 'walk_in_service',
+  card_sale: 'card_sale',
+  card_topup: 'card_topup',
+} as const;
+
+/**
+ * @nullable
+ */
+export type PaymentDetailPaymentMethod = typeof PaymentDetailPaymentMethod[keyof typeof PaymentDetailPaymentMethod] | null;
+
+
+export const PaymentDetailPaymentMethod = {
+  cash: 'cash',
+  transfer: 'transfer',
+} as const;
+
+export interface PaymentDetail {
+  id: string;
+  kind: PaymentDetailKind;
+  date: string;
+  customerName: string;
+  serviceType: string;
+  /** @nullable */
+  employeeName: string | null;
+  /** @nullable */
+  sellerName: string | null;
+  /** @nullable */
+  minutes: number | null;
+  amount: number;
+  /** @nullable */
+  paymentMethod: PaymentDetailPaymentMethod;
+}
+
+export interface PaymentDetails {
+  month: string;
+  /** @nullable */
+  date: string | null;
+  method: PaymentDetailsMethod;
+  transactions: PaymentDetail[];
 }
 
 export interface MemberPayroll {
@@ -903,6 +1060,27 @@ month: string;
  */
 date?: string;
 };
+
+export type GetPaymentDetailsParams = {
+/**
+ * @pattern ^\d{4}-(0[1-9]|1[0-2])$
+ */
+month: string;
+/**
+ * @pattern ^\d{4}-\d{2}-\d{2}$
+ */
+date?: string;
+method: GetPaymentDetailsMethod;
+};
+
+export type GetPaymentDetailsMethod = typeof GetPaymentDetailsMethod[keyof typeof GetPaymentDetailsMethod];
+
+
+export const GetPaymentDetailsMethod = {
+  cash: 'cash',
+  transfer: 'transfer',
+  unrecorded: 'unrecorded',
+} as const;
 
 export type GetMemberPayrollParams = {
 /**

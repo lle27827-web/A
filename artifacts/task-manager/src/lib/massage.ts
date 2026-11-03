@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetMassageSummaryQueryKey,
+  getGetPaymentDetailsQueryKey,
   getGetMemberPayrollQueryKey,
   getGetPersonalComparisonQueryKey,
   getListMembersQueryKey,
@@ -12,6 +13,9 @@ import { statusCode } from '@/lib/attendance';
 
 const vnd = new Intl.NumberFormat('vi-VN');
 export function formatVnd(n: number) { return `${vnd.format(Math.round(n))} ₫`; }
+export function paymentMethodLabel(method: string | null | undefined) {
+  return method === 'cash' ? 'Tiền mặt' : method === 'transfer' ? 'Chuyển khoản' : 'Chưa ghi';
+}
 
 export function formatMinutes(min: number) {
   const h = Math.floor(min / 60);
@@ -95,6 +99,7 @@ export function useRefreshMassage() {
     void cache.invalidateQueries({ queryKey: getListTreatmentCardsQueryKey() });
     void cache.invalidateQueries({ queryKey: getListServiceSessionsQueryKey() });
     void cache.invalidateQueries({ queryKey: getGetMassageSummaryQueryKey() });
+    void cache.invalidateQueries({ queryKey: getGetPaymentDetailsQueryKey() });
     void cache.invalidateQueries({ queryKey: getGetMemberPayrollQueryKey() });
     void cache.invalidateQueries({ queryKey: getGetPersonalComparisonQueryKey() });
     if (opts.services) void cache.invalidateQueries({ queryKey: getListServiceTypesQueryKey() });
