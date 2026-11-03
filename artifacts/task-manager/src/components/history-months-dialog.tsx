@@ -14,11 +14,12 @@ export function defaultDateFor(month: string, today = vietnamToday()) {
  * Month-list window. `months` overrides the server list (personal notebook supplies its own);
  * otherwise the public facility history list is used.
  */
-export function HistoryMonthsDialog({ title = 'Xem lịch sử tháng', description, months, listOnly = false, onPick, onClose }: {
+export function HistoryMonthsDialog({ title = 'Xem lịch sử tháng', description, months, listOnly = false, includeCurrentMonth = false, onPick, onClose }: {
   title?: string;
   description?: string;
   months?: string[];
   listOnly?: boolean;
+  includeCurrentMonth?: boolean;
   onPick: (month: string, date: string) => void;
   onClose: () => void;
 }) {
@@ -26,7 +27,7 @@ export function HistoryMonthsDialog({ title = 'Xem lịch sử tháng', descript
   const currentMonth = today.slice(0, 7);
   const query = useListHistoryMonths({ query: { queryKey: getListHistoryMonthsQueryKey(), enabled: !months } });
   const list = [...new Set(months ?? query.data ?? [])]
-    .filter((m) => listOnly ? m < currentMonth : m <= currentMonth)
+    .filter((m) => listOnly && !includeCurrentMonth ? m < currentMonth : m <= currentMonth)
     .sort()
     .reverse();
   const [month, setMonth] = useState('');

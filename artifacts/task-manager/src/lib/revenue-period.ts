@@ -19,6 +19,13 @@ export function monthLastDate(month: string): string {
   return `${month}-${new Date(Date.UTC(year, number, 0)).getUTCDate()}`;
 }
 
+export function shiftRevenueDate(date: string, offset: number, maxDate: string): string {
+  const [year, month, day] = date.split('-').map(Number);
+  const next = new Date(Date.UTC(year, month - 1, day + offset));
+  const candidate = `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
+  return candidate > maxDate ? maxDate : candidate;
+}
+
 export function shiftRevenueDateMonth(date: string, offset: number, maxDate: string): string {
   const [year, month, day] = date.split('-').map(Number);
   const monthIndex = year * 12 + month - 1 + offset;

@@ -4,11 +4,12 @@ import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, CreditCard, Sparkl
 import { Link, useLocation, useSearch } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { DatePickerDialog } from '@/components/date-picker-dialog';
+import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { ErrorBanner } from '@/components/modal';
 import { formatShortDate, statusCode } from '@/lib/attendance';
 import { formatMinutes, formatMonth, formatVnd } from '@/lib/massage';
 import { serviceDurationLabel, type ServiceDurationDetail } from '@/lib/service-duration-summary';
-import { resolveRevenuePeriod, shiftRevenueDateMonth } from '@/lib/revenue-period';
+import { resolveRevenuePeriod, shiftRevenueDate, shiftRevenueDateMonth } from '@/lib/revenue-period';
 import { useVietnamToday } from '@/lib/use-vietnam-today';
 import { PaymentDetailsDialog } from '@/components/payment-details-dialog';
 import './revenue-history.css';
@@ -57,12 +58,14 @@ export default function HomePage() {
   const [, navigate] = useLocation();
   const [paymentDetails, setPaymentDetails] = useState<{ method: PaymentMethodFilter; date?: string } | null>(null);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const { month, date, maxDate, currentMonth, isHistory } = resolveRevenuePeriod(search, today);
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
+  const { month, date, currentMonth } = resolveRevenuePeriod(search, today);
   const dayLabel = date === today ? 'hôm nay' : `ngày ${formatShortDate(date)}`;
   const summaryParams = useMemo(() => ({ month, date }), [month, date]);
   const summary = useGetMassageSummary(summaryParams, { query: { queryKey: getGetMassageSummaryQueryKey(summaryParams), enabled: permissions.viewRevenue, refetchOnWindowFocus: true, staleTime: 20_000, refetchInterval: 60_000 } });
   const navigateToRevenueDate = (nextDate: string) => {
     setDatePickerOpen(false);
+    setMonthPickerOpen(false);
     navigate(nextDate === today ? '/' : `/?month=${nextDate.slice(0, 7)}&date=${nextDate}`);
   };
 
@@ -77,39 +80,23 @@ export default function HomePage() {
           <strong id="employees-link-title">Quản lý nhân viên</strong>
           <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>
         </Link>}
-        {!isHistory && permissions.viewCards && <Link href="/cards" className="tile tile-cards alt" aria-labelledby="cards-link-title" data-testid="link-cards">
+        {permissions.viewCards && <Link href="/cards" className="tile tile-cards alt" aria-labelledby="cards-link-title" data-testid="link-cards">
           <CreditCard size={28} aria-hidden="true" />
           <strong id="cards-link-title">Quản lý thẻ</strong>
           <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>
         </Link>}
-        {!isHistory && (permissions.viewAppointments || permissions.editAppointments) && <Link href="/appointments" className="tile tile-appointments alt" aria-labelledby="appointments-link-title" data-testid="link-appointments">
+        {(permissions.viewAppointments || permissions.editAppointments) && <Link href="/appointments" className="tile tile-appointments alt" aria-labelledby="appointments-link-title" data-testid="link-appointments">
           <CalendarDays size={28} aria-hidden="true" />
           <strong id="appointments-link-title">Lịch hẹn</strong>
           <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>
         </Link>}
-        {!isHistory && canEditServices && <Link href="/services" className="tile tile-services" aria-labelledby="services-link-title" data-testid="link-services-tile">
+        {canEditServices && <Link href="/services" className="tile tile-services" aria-labelledby="services-link-title" data-testid="link-services-tile">
           <Sparkles size={28} aria-hidden="true" />
           <strong id="services-link-title">Dịch vụ &amp; giá</strong>
           <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>
         </Link>}
       </div>
       {permissions.viewRevenue && <section className="revenue" aria-labelledby="rev-title" data-testid="section-revenue">
-        {isHistory && (
-          <div className="revenue-history-controls" data-testid="section-revenue-history">
-            <h2>Lịch sử doanh thu</h2>
-            <div className="form-grid">
-              <label className="field">Tháng
-                <input type="month" value={month} max={currentMonth} data-testid="input-revenue-month"
-                  onChange={(event) => { if (event.target.value) navigate(`/?month=${event.target.value}`); }} />
-              </label>
-              <label className="field">Ngày
-                <input type="date" value={date} min={`${month}-01`} max={maxDate} data-testid="input-revenue-date"
-                  onChange={(event) => { if (event.target.value) navigate(`/?month=${month}&date=${event.target.value}`); }} />
-              </label>
-            </div>
-            <Link href="/" className="btn ghost" data-testid="link-current-revenue">Về tháng hiện tại</Link>
-          </div>
-        )}
         <div className="revenue-summary" data-testid="revenue-summary">
           {summary.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải doanh thu" /> : summary.isError
             ? statusCode(summary.error) === 401 || statusCode(summary.error) === 403
@@ -119,7 +106,24 @@ export default function HomePage() {
               <>
                 <section className="revenue-period-card" aria-labelledby="rev-title" data-testid="revenue-month-summary">
                   <div className="revenue-period-primary-row">
-                    <h2 id="rev-title" className="rev-label rev-label-key">Tổng doanh thu cơ sở tháng · {formatMonth(month)}</h2>
+                    <div className="revenue-month-navigation">
+                      <button type="button" className="revenue-period-arrow" aria-label="Tháng trước" data-testid="button-revenue-month-previous"
+                        onClick={() => navigateToRevenueDate(shiftRevenueDateMonth(date, -1, today))}>
+                        <ChevronLeft size={19} aria-hidden="true" />
+                      </button>
+                      <h2 id="rev-title" className="rev-label rev-label-key">
+                        Tổng doanh thu cơ sở tháng ·{' '}
+                        <button type="button" className="revenue-date-trigger" onClick={() => setMonthPickerOpen(true)}
+                          aria-label={`Chọn tháng doanh thu, hiện tại ${formatMonth(month)}`} data-testid="button-open-revenue-month-picker">
+                          {formatMonth(month)}
+                        </button>
+                      </h2>
+                      <button type="button" className="revenue-period-arrow" aria-label="Tháng sau" data-testid="button-revenue-month-next"
+                        disabled={month >= currentMonth}
+                        onClick={() => navigateToRevenueDate(shiftRevenueDateMonth(date, 1, today))}>
+                        <ChevronRight size={19} aria-hidden="true" />
+                      </button>
+                    </div>
                     <p
                       className="rev-value mono"
                       data-testid="text-revenue"
@@ -186,8 +190,8 @@ export default function HomePage() {
                 <section className="revenue-period-card" aria-labelledby="rev-day-title" data-testid="revenue-day-summary">
                   <div className="revenue-period-primary-row">
                     <div className="revenue-day-navigation">
-                      <button type="button" className="revenue-month-arrow" aria-label="Tháng trước" data-testid="button-revenue-previous-month"
-                        onClick={() => navigateToRevenueDate(shiftRevenueDateMonth(date, -1, today))}>
+                      <button type="button" className="revenue-period-arrow" aria-label="Ngày trước" data-testid="button-revenue-previous-day"
+                        onClick={() => navigateToRevenueDate(shiftRevenueDate(date, -1, today))}>
                         <ChevronLeft size={19} aria-hidden="true" />
                       </button>
                       <h2 id="rev-day-title" className="rev-label rev-label-key">
@@ -197,9 +201,9 @@ export default function HomePage() {
                           {formatShortDate(date)}
                         </button>
                       </h2>
-                      <button type="button" className="revenue-month-arrow" aria-label="Tháng sau" data-testid="button-revenue-next-month"
-                        disabled={month >= currentMonth}
-                        onClick={() => navigateToRevenueDate(shiftRevenueDateMonth(date, 1, today))}>
+                      <button type="button" className="revenue-period-arrow" aria-label="Ngày sau" data-testid="button-revenue-next-day"
+                        disabled={date >= today}
+                        onClick={() => navigateToRevenueDate(shiftRevenueDate(date, 1, today))}>
                         <ChevronRight size={19} aria-hidden="true" />
                       </button>
                     </div>
@@ -247,6 +251,8 @@ export default function HomePage() {
       </section>}
       {datePickerOpen && <DatePickerDialog value={date} title="Chọn ngày xem doanh thu" immediate maxDate={today}
         onClose={() => setDatePickerOpen(false)} onSelect={navigateToRevenueDate} />}
+      {monthPickerOpen && <HistoryMonthsDialog title="Chọn tháng doanh thu" listOnly includeCurrentMonth
+        onClose={() => setMonthPickerOpen(false)} onPick={(_selectedMonth, selectedDate) => navigateToRevenueDate(selectedDate)} />}
       {paymentDetails && <PaymentDetailsDialog month={month} date={paymentDetails.date} method={paymentDetails.method}
         onClose={() => setPaymentDetails(null)} />}
     </div>

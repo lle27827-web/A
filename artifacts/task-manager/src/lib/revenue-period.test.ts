@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { followBusinessDay, monthLastDate, periodHref, previousRevenueMonth, resolveRevenuePeriod, shiftRevenueDateMonth, vietnamToday } from './revenue-period';
+import { followBusinessDay, monthLastDate, periodHref, previousRevenueMonth, resolveRevenuePeriod, shiftRevenueDate, shiftRevenueDateMonth, vietnamToday } from './revenue-period';
 
 test('Vietnam business dates and previous month handle midnight and year rollover', () => {
   assert.equal(vietnamToday(new Date('2026-12-31T18:00:00Z')), '2027-01-01');
@@ -22,6 +22,12 @@ test('revenue month arrows preserve the day, clamp short months and never select
   assert.equal(shiftRevenueDateMonth('2026-03-31', -1, '2026-11-03'), '2026-02-28');
   assert.equal(shiftRevenueDateMonth('2024-03-31', -1, '2026-11-03'), '2024-02-29');
   assert.equal(shiftRevenueDateMonth('2026-10-31', 1, '2026-11-03'), '2026-11-03');
+});
+
+test('revenue day arrows step one day, including month boundaries, without selecting future dates', () => {
+  assert.equal(shiftRevenueDate('2026-11-03', -1, '2026-11-03'), '2026-11-02');
+  assert.equal(shiftRevenueDate('2026-03-01', -1, '2026-11-03'), '2026-02-28');
+  assert.equal(shiftRevenueDate('2026-11-03', 1, '2026-11-03'), '2026-11-03');
 });
 
 test('invalid, future or mismatched inputs never send invalid API dates', () => {
