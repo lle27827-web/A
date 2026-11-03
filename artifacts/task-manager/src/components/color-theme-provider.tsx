@@ -44,10 +44,10 @@ const DEFAULT_PALETTE: Record<PaletteToken, string> = {
     'tile-foreground': '27 52% 24%',
     'tile-border': '27 52% 31%',
     'tile-accent': '27 52% 31%',
-    'detail-background': '27 42% 29%',
+    'detail-background': '0 0% 35%',
     'detail-foreground': '35 65% 93%',
     'detail-muted': '35 38% 80%',
-    'detail-border': '29 30% 49%',
+    'detail-border': '27 52% 31%',
     'personal-accent': '162 62% 28%',
     'search-background': '25 55% 22%',
     'search-foreground': '40 85% 94%',
@@ -59,28 +59,28 @@ const DEFAULT_PALETTE: Record<PaletteToken, string> = {
     'auth-button-foreground': '210 7% 24%',
     'auth-button-border': '220 13% 87%',
     'auth-button-hover': '210 17% 98%',
-    'revenue-background': '27 42% 29%',
+    'revenue-background': '0 0% 35%',
     'revenue-foreground': '35 65% 93%',
 };
 
 const DARK_PALETTE: Record<PaletteToken, string> = {
-    background: '27 28% 12%',
+    background: '0 0% 12%',
     foreground: '35 45% 88%',
-    card: '27 24% 18%',
+    card: '0 0% 20%',
     'card-foreground': '35 45% 88%',
-    border: '27 26% 34%',
-    'frame-border': '39 35% 46%',
+    border: '0 0% 38%',
+    'frame-border': '27 52% 31%',
     primary: '30 52% 62%',
     'primary-foreground': '27 50% 12%',
-    secondary: '27 25% 25%',
+    secondary: '0 0% 26%',
     'secondary-foreground': '35 45% 88%',
-    muted: '27 23% 22%',
+    muted: '0 0% 24%',
     'muted-foreground': '35 25% 70%',
     accent: '28 45% 48%',
     'accent-foreground': '35 65% 94%',
     destructive: '4 72% 58%',
     'destructive-foreground': '0 0% 100%',
-    input: '27 26% 36%',
+    input: '0 0% 36%',
     ring: '43 80% 62%',
     ok: '150 58% 48%',
     warn: '30 86% 56%',
@@ -89,10 +89,10 @@ const DARK_PALETTE: Record<PaletteToken, string> = {
     'tile-foreground': '27 52% 24%',
     'tile-border': '27 52% 31%',
     'tile-accent': '27 52% 31%',
-    'detail-background': '27 42% 29%',
+    'detail-background': '0 0% 35%',
     'detail-foreground': '35 65% 93%',
     'detail-muted': '35 38% 80%',
-    'detail-border': '29 30% 49%',
+    'detail-border': '27 52% 31%',
     'personal-accent': '29 45% 58%',
     'search-background': '25 56% 16%',
     'search-foreground': '40 80% 90%',
@@ -104,7 +104,7 @@ const DARK_PALETTE: Record<PaletteToken, string> = {
     'auth-button-foreground': '210 7% 24%',
     'auth-button-border': '220 13% 87%',
     'auth-button-hover': '210 17% 98%',
-    'revenue-background': '27 45% 22%',
+    'revenue-background': '0 0% 35%',
     'revenue-foreground': '36 80% 92%',
 };
 
@@ -120,6 +120,30 @@ function isHexColor(value: unknown): value is string {
 
 function normalizeStoredPaletteColor(token: PaletteToken, color: string): string {
   return token === 'card' && color.toUpperCase() === '#FFFFFF' ? '#FAECB2' : color.toUpperCase();
+}
+
+const GRAY_SURFACE_COLORS: Partial<Record<PaletteToken, string>> = {
+  background: '#1F1F1F',
+  card: '#5A5A5A',
+  secondary: '#454545',
+  muted: '#454545',
+  input: '#454545',
+  'detail-background': '#5A5A5A',
+  'revenue-background': '#5A5A5A',
+};
+
+function isBrownSurfaceColor(hex: string): boolean {
+  const [hue, saturation] = hexToHsl(hex).split(' ').map((part) => Number.parseFloat(part));
+  return hue >= 12 && hue <= 40 && saturation >= 15;
+}
+
+function migrateBrownSurfacesToGray(theme: AppColorTheme, colors: Partial<PaletteColors>) {
+  for (const token of Object.keys(GRAY_SURFACE_COLORS) as PaletteToken[]) {
+    const current = colors[token];
+    const gray = token === 'background' && theme === 'dark' ? '#1F1F1F'
+      : token === 'background' ? '#5A5A5A' : GRAY_SURFACE_COLORS[token];
+    if (current && gray && isBrownSurfaceColor(current)) colors[token] = gray;
+  }
 }
 
 function isDarkHex(hex: string): boolean {
@@ -150,6 +174,7 @@ function readStoredPalettes(): StoredPalettes {
           ? normalizeStoredPaletteColor(token, overrides[token])
           : hslToHex(BASE_PALETTES[legacyTheme][token]),
       ])) as PaletteColors;
+      migrateBrownSurfacesToGray('custom', result.custom);
       return result;
     }
     for (const theme of ['default', 'dark', 'custom'] as const) {
@@ -160,6 +185,7 @@ function readStoredPalettes(): StoredPalettes {
         const color = (candidate as Record<string, unknown>)[token];
         if (isHexColor(color)) valid[token] = normalizeStoredPaletteColor(token, color);
       }
+      migrateBrownSurfacesToGray(theme, valid);
       if (Object.keys(valid).length > 0) result[theme] = valid;
     }
     return result;

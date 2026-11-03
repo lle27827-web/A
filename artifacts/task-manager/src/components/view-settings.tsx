@@ -72,7 +72,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
     setTheme(nextTheme);
     setPaletteOpen(true);
   };
-  const themeName = theme === 'default' ? 'Vàng sa mạc' : theme === 'dark' ? 'Tối nâu' : 'Tùy chỉnh';
+  const themeName = theme === 'default' ? 'Vàng sa mạc' : theme === 'dark' ? 'Tối xám' : 'Tùy chỉnh';
 
   useEffect(() => {
     if (!open) setPaletteOpen(false);
@@ -133,12 +133,12 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
                     onChange={() => setTheme('dark')} data-testid="radio-theme-dark" />
                   <span className="theme-swatch theme-swatch-dark" aria-hidden="true" />
                   <span className="theme-option-copy">
-                    <strong>Tối nâu</strong>
-                    <span>Nền và khung tông nâu đậm</span>
+                    <strong>Tối xám</strong>
+                    <span>Nền xám đậm và các khung màu xám</span>
                   </span>
                 </label>
                 <button type="button" className="theme-edit-button" onClick={() => editThemeColors('dark')}
-                  aria-label="Sửa màu giao diện tối nâu" data-testid="button-edit-theme-dark">Sửa màu</button>
+                  aria-label="Sửa màu giao diện tối xám" data-testid="button-edit-theme-dark">Sửa màu</button>
               </div>
               <div className="theme-option-row">
                 <label className={`theme-option${theme === 'custom' ? ' selected' : ''}`}>

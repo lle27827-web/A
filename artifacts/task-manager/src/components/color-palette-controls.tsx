@@ -121,7 +121,7 @@ const groups: { title: string; description: string; tokens: { token: PaletteToke
   },
   {
     title: 'Chi tiết nhân viên và chấm công',
-    description: 'Nền nâu và chữ bên trong cửa sổ chi tiết nhân viên, ca làm và chấm công.',
+    description: 'Nền xám và chữ bên trong cửa sổ chi tiết nhân viên, ca làm và chấm công.',
     tokens: [
       { token: 'detail-background', label: 'Nền chi tiết/chấm công' },
       { token: 'detail-foreground', label: 'Chữ chính trong chi tiết' },

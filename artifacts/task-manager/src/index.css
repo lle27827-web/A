@@ -43,6 +43,8 @@ html.app-long-press-save-pending * {
   color-scheme: light;
   --background: 44 78% 63%;
   --foreground: 30 42% 14%;
+  --gray-panel: 0 0% 35%;
+  --gray-row: 0 0% 27%;
   --brand-red: 0 72% 34%;
   --border: 39 44% 48%;
   --frame-border: 27 52% 31%;
@@ -71,10 +73,10 @@ html.app-long-press-save-pending * {
   --tile-foreground: 27 52% 24%;
   --tile-border: 27 52% 31%;
   --tile-accent: 27 52% 31%;
-  --detail-background: 27 42% 29%;
+  --detail-background: 0 0% 35%;
   --detail-foreground: 35 65% 93%;
   --detail-muted: 35 38% 80%;
-  --detail-border: 29 30% 49%;
+  --detail-border: 27 52% 31%;
   --personal-accent: 162 62% 28%;
   --search-background: 25 55% 22%;
   --search-foreground: 40 85% 94%;
@@ -87,25 +89,25 @@ html.app-long-press-save-pending * {
   --auth-button-foreground: 210 7% 24%;
   --auth-button-border: 220 13% 87%;
   --auth-button-hover: 210 17% 98%;
-  --revenue-background: 27 42% 29%;
+  --revenue-background: 0 0% 35%;
   --revenue-foreground: 35 65% 93%;
 }
 
 :root[data-color-theme="dark"] {
   color-scheme: dark;
-  --background: 27 28% 12%;
+  --background: 0 0% 12%;
   --foreground: 35 45% 88%;
   --brand-red: 0 78% 68%;
-  --border: 27 26% 34%;
-  --frame-border: 39 35% 46%;
-  --input: 27 26% 36%;
-  --card: 27 24% 18%;
+  --border: 0 0% 38%;
+  --frame-border: 27 52% 31%;
+  --input: 0 0% 36%;
+  --card: 0 0% 20%;
   --card-foreground: 35 45% 88%;
   --primary: 30 52% 62%;
   --primary-foreground: 27 50% 12%;
-  --secondary: 27 25% 25%;
+  --secondary: 0 0% 26%;
   --secondary-foreground: 35 45% 88%;
-  --muted: 27 23% 22%;
+  --muted: 0 0% 24%;
   --muted-foreground: 35 25% 70%;
   --accent: 28 45% 48%;
   --accent-foreground: 35 65% 94%;
@@ -119,10 +121,10 @@ html.app-long-press-save-pending * {
   --tile-foreground: 27 52% 24%;
   --tile-border: 27 52% 31%;
   --tile-accent: 27 52% 31%;
-  --detail-background: 27 42% 29%;
+  --detail-background: 0 0% 35%;
   --detail-foreground: 35 65% 93%;
   --detail-muted: 35 38% 80%;
-  --detail-border: 29 30% 49%;
+  --detail-border: 27 52% 31%;
   --personal-accent: 29 45% 58%;
   --search-background: 25 56% 16%;
   --search-foreground: 40 80% 90%;
@@ -135,7 +137,7 @@ html.app-long-press-save-pending * {
   --auth-button-foreground: 210 7% 24%;
   --auth-button-border: 220 13% 87%;
   --auth-button-hover: 210 17% 98%;
-  --revenue-background: 27 45% 22%;
+  --revenue-background: 0 0% 35%;
   --revenue-foreground: 36 80% 92%;
 }
 
@@ -356,8 +358,8 @@ option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
 .theme-option input { flex: 0 0 auto; width: 17px; height: 17px; accent-color: hsl(var(--primary)); }
 .theme-swatch { flex: 0 0 auto; width: 34px; height: 30px; border: 1px solid hsl(var(--border)); border-radius: 7px; }
 .theme-swatch-default { background: linear-gradient(135deg, #e6c35d 0 50%, #ffffff 50%); }
-.theme-swatch-dark { background: linear-gradient(135deg, #281d16 0 50%, #493322 50%); }
-.theme-swatch-custom { background: linear-gradient(135deg, #e6c35d 0 33%, #2d2118 33% 66%, #a61d24 66%); }
+.theme-swatch-dark { background: linear-gradient(135deg, #1f1f1f 0 50%, #5a5a5a 50%); }
+.theme-swatch-custom { background: linear-gradient(135deg, #e6c35d 0 33%, #5a5a5a 33% 66%, #a61d24 66%); }
 .theme-option-copy { min-width: 0; display: grid; gap: 2px; }
 .theme-option-copy strong { font-size: 13px; }
 .theme-option-copy > span { color: hsl(var(--muted-foreground)); font-size: 12px; }
@@ -938,16 +940,16 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .personal-entry > svg:first-child { color: hsl(var(--personal-accent)); }
 @media (max-width: 520px) { .history-pick { grid-template-columns: 1fr; } }
 
-/* ---- Personal notebook: yellow canvas in light mode, brown in dark mode ---- */
+/* ---- Personal notebook: yellow canvas with gray revenue-style cards ---- */
 .personal {
   --jade: var(--personal-accent);
-  --card: 27 32% 22%;
-  --card-foreground: 38 47% 91%;
-  --border: 27 25% 38%;
-  --muted: 27 25% 29%;
-  --muted-foreground: 35 25% 78%;
-  --secondary: 27 26% 32%;
-  --input: 27 28% 26%;
+  --card: var(--gray-panel);
+  --card-foreground: 0 0% 100%;
+  --border: var(--frame-border);
+  --muted: var(--gray-row);
+  --muted-foreground: 0 0% 90%;
+  --secondary: 0 0% 32%;
+  --input: 0 0% 36%;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -978,21 +980,21 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .personal .p-hero .btn.danger-text,
 .personal .p-card .btn.danger-text { color: hsl(var(--destructive)); }
 .settings-dialog.personal-surface-dialog {
-  --card: 27 32% 22%;
-  --card-foreground: 38 47% 91%;
-  --foreground: 38 47% 91%;
-  --border: 27 25% 38%;
-  --muted: 27 25% 29%;
-  --muted-foreground: 35 25% 78%;
-  --secondary: 27 26% 32%;
-  --input: 27 28% 26%;
+  --card: var(--gray-panel);
+  --card-foreground: 0 0% 100%;
+  --foreground: 0 0% 100%;
+  --border: var(--frame-border);
+  --muted: var(--gray-row);
+  --muted-foreground: 0 0% 90%;
+  --secondary: 0 0% 32%;
+  --input: 0 0% 36%;
   color: hsl(var(--foreground));
   background: hsl(var(--card));
 }
 .p-card h2 { margin: 0; font-family: var(--app-font-display); font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
 .p-card h2 > svg { color: hsl(var(--jade)); }
 .p-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.p-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 11px 12px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--muted) / .35); }
+.p-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 11px 12px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--muted)); }
 .p-row .grow { display: flex; flex-direction: column; gap: 2px; min-width: 140px; }
 .p-date { padding: 4px 8px; border-radius: 8px; background: hsl(var(--jade) / .12); color: hsl(var(--jade)); font-size: 12px; font-weight: 800; }
 .p-date-button { border: 0; font: inherit; cursor: pointer; text-align: left; }
@@ -1441,15 +1443,15 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 }
 .employee-choice-row,
 .employee-choice-row:hover:not(:disabled) {
-  border-color: hsl(27 42% 20%);
+  border-color: hsl(var(--frame-border));
   color: hsl(40 70% 96%);
-  background: hsl(27 42% 29%);
+  background: hsl(var(--gray-row));
 }
 .employee-choice-row .muted {
   color: hsl(35 38% 84%);
 }
 .employee-choice-row:hover:not(:disabled) {
-  background: hsl(27 42% 23%);
+  background: hsl(var(--gray-panel));
 }
 .dialog.personal-surface-dialog .form-error {
   color: hsl(var(--destructive));
@@ -1487,18 +1489,18 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   background: hsl(145 50% 19%);
 }
 
-/* Brown list surfaces for employee names and customer card names. */
+/* Gray list surfaces with the same brown frame as revenue cards. */
 .emp-list .emp-row,
 .card-list-item {
-  border-color: hsl(29 32% 48%);
+  border-color: hsl(var(--frame-border));
   color: hsl(40 70% 96%);
-  background: hsl(27 42% 29%);
+  background: hsl(var(--gray-row));
 }
 .emp-list .emp-row:hover,
 .card-list-item:hover {
-  border-color: hsl(35 42% 62%);
+  border-color: hsl(var(--frame-border));
   color: hsl(40 70% 96%);
-  background: hsl(27 42% 24%);
+  background: hsl(var(--gray-panel));
 }
 .emp-list .emp-row .muted,
 .emp-list .emp-row .employee-summary,
@@ -1512,7 +1514,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   color: hsl(40 70% 96%);
 }
 .card-list-item .meter {
-  background: hsl(28 27% 42%);
+  background: hsl(0 0% 46%);
 }
 .card-list-item .meter > span {
   background: hsl(40 60% 82%);
@@ -1633,15 +1635,15 @@ option {
   color: hsl(27 18% 42%);
 }
 
-/* Service selection controls and their selected rows are brown in every view. */
+/* Service selection controls use the revenue gray in every view. */
 .service-choice-row,
 .service-choice-row[aria-pressed="true"],
 .service-picker-trigger,
 .service-select,
 .service-select option {
-  border-color: hsl(27 42% 20%);
+  border-color: hsl(var(--frame-border));
   color: hsl(40 70% 96%);
-  background: hsl(27 42% 29%);
+  background: hsl(var(--gray-row));
 }
 .service-choice-row .muted,
 .service-picker-trigger .muted {
@@ -1649,9 +1651,9 @@ option {
 }
 .service-choice-row:hover:not(:disabled),
 .service-picker-trigger:hover:not(:disabled) {
-  border-color: hsl(35 42% 62%);
+  border-color: hsl(var(--frame-border));
   color: hsl(40 70% 96%);
-  background: hsl(27 42% 23%);
+  background: hsl(var(--gray-panel));
 }
 .service-choice-row > svg,
 .service-picker-trigger > svg {
@@ -1727,22 +1729,22 @@ body :is(h1, h2, h3, .page-title, .rev-value, .p-big, .p-mid, .dc-num) {
   letter-spacing: -.025em;
 }
 
-/* Add-employee and add-card actions use the shared dark-brown treatment. */
+/* Add-employee and add-card actions use the revenue gray treatment. */
 .btn.employee-add-button,
 .btn.employee-add-submit,
 .btn.card-add-button,
 .btn.card-add-submit {
-  border-color: hsl(27 42% 20%);
+  border-color: hsl(var(--frame-border));
   color: hsl(40 70% 96%);
-  background: hsl(27 42% 29%);
+  background: hsl(var(--gray-row));
 }
 .btn.employee-add-button:hover:not(:disabled),
 .btn.employee-add-submit:hover:not(:disabled),
 .btn.card-add-button:hover:not(:disabled),
 .btn.card-add-submit:hover:not(:disabled) {
-  border-color: hsl(27 42% 16%);
+  border-color: hsl(var(--frame-border));
   color: hsl(40 70% 96%);
-  background: hsl(27 42% 23%);
+  background: hsl(var(--gray-panel));
 }
 
 /* Personal attendance stays yellow in both themes, with white form fields. */
@@ -1798,20 +1800,20 @@ body :is(h1, h2, h3, .page-title, .rev-value, .p-big, .p-mid, .dc-num) {
 .settings-dialog .theme-option,
 .settings-dialog .theme-option.selected,
 .settings-dialog .mode-option {
-  border-color: hsl(27 42% 20%);
+  border-color: hsl(var(--frame-border));
   color: hsl(40 70% 96%);
-  background: hsl(27 42% 29%);
+  background: hsl(var(--gray-row));
 }
 .settings-dialog .settings-link:hover,
 .settings-dialog .theme-option:hover,
 .settings-dialog .mode-option:hover {
-  border-color: hsl(35 42% 62%);
-  background: hsl(27 42% 23%);
+  border-color: hsl(var(--frame-border));
+  background: hsl(var(--gray-panel));
 }
 .settings-dialog .theme-option.selected,
 .settings-dialog .mode-option:has(input:checked) {
   border-color: hsl(44 78% 63%);
-  background: hsl(27 42% 23%);
+  background: hsl(var(--gray-panel));
 }
 .settings-dialog .theme-option-copy > span,
 .settings-dialog .mode-option span,
@@ -1826,13 +1828,13 @@ body :is(h1, h2, h3, .page-title, .rev-value, .p-big, .p-mid, .dc-num) {
 }
 .settings-dialog .theme-edit-button,
 .settings-dialog .theme-edit-button:hover {
-  border-color: hsl(27 42% 20%);
+  border-color: hsl(var(--frame-border));
   color: hsl(40 70% 96%);
-  background: hsl(27 42% 29%);
+  background: hsl(var(--gray-row));
 }
 .settings-dialog .theme-edit-button:hover {
-  border-color: hsl(35 42% 62%);
-  background: hsl(27 42% 23%);
+  border-color: hsl(var(--frame-border));
+  background: hsl(var(--gray-panel));
 }
 
 /* Sign-out actions use a warm off-white surface in every interface. */
@@ -1861,17 +1863,17 @@ body:has(.modal-backdrop) .screen-nav {
   display: none;
 }
 .dialog.personal-surface-dialog {
-  --card: 27 32% 22%;
-  --card-foreground: 38 47% 91%;
-  --foreground: 38 47% 91%;
-  --border: 27 25% 38%;
-  --muted: 27 25% 29%;
-  --muted-foreground: 35 25% 78%;
-  --secondary: 27 26% 32%;
-  --input: 27 28% 26%;
+  --card: var(--gray-panel);
+  --card-foreground: 0 0% 100%;
+  --foreground: 0 0% 100%;
+  --border: var(--frame-border);
+  --muted: var(--gray-row);
+  --muted-foreground: 0 0% 90%;
+  --secondary: 0 0% 32%;
+  --input: 0 0% 36%;
   border-color: hsl(var(--detail-border));
   color: hsl(0 0% 100%);
-  background: hsl(27 32% 22%);
+  background: hsl(var(--gray-panel));
 }
 
 /* Larger, heavier brown typography and stronger frames in the four main management sections. */
