@@ -105,74 +105,111 @@ export default function HomePage() {
           </div>
         )}
         <div className="revenue-summary" data-testid="revenue-summary">
-        <h1 id="rev-title" className="rev-label rev-label-key">Tổng doanh thu cơ sở · {formatMonth(month)}</h1>
-        {summary.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải doanh thu" /> : summary.isError
-          ? statusCode(summary.error) === 401 || statusCode(summary.error) === 403
-            ? <div className="banner danger" role="alert">Tài khoản này không còn quyền xem doanh thu.</div>
-            : <ErrorBanner text="Không tải được doanh thu. Hãy thử tải lại; nếu vẫn lỗi, kiểm tra kết nối database của máy chủ." onRetry={() => void summary.refetch()} />
-          : (
-          <>
-            <p
-              className="rev-value mono"
-              data-testid="text-revenue"
-              tabIndex={0}
-              aria-label={`Tổng doanh thu cơ sở: ${formatVnd(summary.data?.revenue ?? 0)}`}
-            >
-              {formatVnd(summary.data?.revenue ?? 0)}
-            </p>
-            <dl className="rev-breakdown">
-              <div className="service-duration-row" tabIndex={0}>
-                <dt>Ca dịch vụ trong tháng</dt>
-                <dd><ServiceBreakdownList items={summary.data?.serviceBreakdown ?? []} label="Chi tiết ca dịch vụ trong tháng" testId="list-facility-month-service-durations" /></dd>
-              </div>
-              <div tabIndex={0}><dt>Doanh thu khách lẻ (tháng)</dt><dd className="mono" data-testid="text-service-revenue">{formatVnd(summary.data?.serviceRevenue ?? 0)}</dd></div>
-              <div tabIndex={0}><dt>Doanh thu bán và nạp thẻ (tháng)</dt><dd className="mono" data-testid="text-card-revenue">{formatVnd(summary.data?.cardRevenue ?? 0)}</dd></div>
-              <PaymentReportRow label="Tiền mặt (tháng)" amount={summary.data?.paymentBreakdown.cash.total ?? 0} method="cash" testId="button-payment-cash-month" onSelect={(method) => setPaymentDetails({ method })} />
-              <PaymentReportRow label="Chuyển khoản (tháng)" amount={summary.data?.paymentBreakdown.transfer.total ?? 0} method="transfer" testId="button-payment-transfer-month" onSelect={(method) => setPaymentDetails({ method })} />
-              {(summary.data?.paymentBreakdown.unrecorded.total ?? 0) > 0 && <PaymentReportRow label="Chưa ghi phương thức (tháng)" amount={summary.data?.paymentBreakdown.unrecorded.total ?? 0} method="unrecorded" testId="button-payment-unrecorded-month" onSelect={(method) => setPaymentDetails({ method })} />}
-              <div className="net-revenue-row rev-key" tabIndex={0}><dt>Doanh thu đã khấu trừ trong tháng</dt><dd className="mono" data-testid="text-net-revenue"><strong>{formatVnd(summary.data?.netRevenue ?? 0)}</strong></dd></div>
-              <div tabIndex={0}><dt>Khách lẻ (tháng)</dt><dd className="mono" data-testid="text-walk-in-visits">{summary.data?.walkInVisits ?? 0} lượt</dd></div>
-              <div tabIndex={0}><dt>Khách thẻ (tháng)</dt><dd className="mono" data-testid="text-card-visits">{summary.data?.cardVisits ?? 0} lượt</dd></div>
-              <div data-testid="row-top-service-by-customer-type" tabIndex={0}>
-                <dt>Dịch vụ bán chạy nhất tháng</dt>
-                <dd className="mono">
-                  Khách lẻ: {summary.data?.mostUsedWalkInService
-                    ? `${summary.data.mostUsedWalkInService.serviceType} · ${summary.data.mostUsedWalkInService.visits} lượt`
-                    : 'chưa có lượt'}
-                  {' · '}
-                  Khách thẻ: {summary.data?.mostUsedCardService
-                    ? `${summary.data.mostUsedCardService.serviceType} · ${summary.data.mostUsedCardService.visits} lượt`
-                    : 'chưa có lượt'}
-                </dd>
-              </div>
-              <div data-testid="row-top-sold-card-service" tabIndex={0}>
-                <dt>Gói thẻ bán nhiều nhất tháng</dt>
-                <dd className="mono">{summary.data?.topSoldCardService
-                  ? `${summary.data.topSoldCardService.serviceType} · ${summary.data.topSoldCardService.cardsSold} thẻ`
-                  : 'Chưa có thẻ bán trong tháng'}</dd>
-              </div>
-              <div data-testid="row-most-used-service" tabIndex={0}>
-                <dt>Loại dịch vụ được sử dụng nhiều nhất tháng</dt>
-                <dd className="mono">{summary.data?.mostUsedService
-                  ? `${summary.data.mostUsedService.serviceType} · ${summary.data.mostUsedService.visits} lượt · ${formatMinutes(summary.data.mostUsedService.minutes)} · khách lẻ và thẻ`
-                  : 'Chưa có lượt sử dụng trong tháng'}</dd>
-              </div>
-              <div className="today-heading rev-key" tabIndex={0}><dt>Doanh thu {dayLabel}{date === today ? ` · ${formatShortDate(date)}` : ''}</dt><dd className="mono" data-testid="text-today-revenue">{formatVnd(summary.data?.today.revenue ?? 0)}</dd></div>
-              <div className="service-duration-row" tabIndex={0}>
-                <dt>Ca dịch vụ {dayLabel}</dt>
-                <dd><ServiceBreakdownList items={summary.data?.today.serviceBreakdown ?? []} label={`Chi tiết ca dịch vụ ${dayLabel}`} testId="list-facility-day-service-durations" /></dd>
-              </div>
-              <div tabIndex={0}><dt>Khách lẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-service-revenue">{formatVnd(summary.data?.today.serviceRevenue ?? 0)}</dd></div>
-              <div tabIndex={0}><dt>Bán và nạp thẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-card-revenue">{formatVnd(summary.data?.today.cardRevenue ?? 0)}</dd></div>
-              <PaymentReportRow label={`Tiền mặt ${dayLabel}`} amount={summary.data?.today.paymentBreakdown.cash.total ?? 0} method="cash" testId="button-payment-cash-day" onSelect={(method) => setPaymentDetails({ method, date })} />
-              <PaymentReportRow label={`Chuyển khoản ${dayLabel}`} amount={summary.data?.today.paymentBreakdown.transfer.total ?? 0} method="transfer" testId="button-payment-transfer-day" onSelect={(method) => setPaymentDetails({ method, date })} />
-              {(summary.data?.today.paymentBreakdown.unrecorded.total ?? 0) > 0 && <PaymentReportRow label={`Chưa ghi phương thức ${dayLabel}`} amount={summary.data?.today.paymentBreakdown.unrecorded.total ?? 0} method="unrecorded" testId="button-payment-unrecorded-day" onSelect={(method) => setPaymentDetails({ method, date })} />}
-              <div className="net-revenue-row rev-key" tabIndex={0}><dt>Doanh thu đã khấu trừ {dayLabel}</dt><dd className="mono" data-testid="text-today-net-revenue"><strong>{formatVnd(summary.data?.today.netRevenue ?? 0)}</strong></dd></div>
-              <div tabIndex={0}><dt>Khách lẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-walk-in-visits">{summary.data?.today.walkInVisits ?? 0} lượt</dd></div>
-              <div tabIndex={0}><dt>Khách thẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-card-visits">{summary.data?.today.cardVisits ?? 0} lượt</dd></div>
-            </dl>
-          </>
-        )}
+          {summary.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải doanh thu" /> : summary.isError
+            ? statusCode(summary.error) === 401 || statusCode(summary.error) === 403
+              ? <div className="banner danger" role="alert">Tài khoản này không còn quyền xem doanh thu.</div>
+              : <ErrorBanner text="Không tải được doanh thu. Hãy thử tải lại; nếu vẫn lỗi, kiểm tra kết nối database của máy chủ." onRetry={() => void summary.refetch()} />
+            : summary.data && (
+              <>
+                <section className="revenue-period-card" aria-labelledby="rev-title" data-testid="revenue-month-summary">
+                  <h2 id="rev-title" className="rev-label rev-label-key">Tổng doanh thu cơ sở tháng · {formatMonth(month)}</h2>
+                  <p
+                    className="rev-value mono"
+                    data-testid="text-revenue"
+                    tabIndex={0}
+                    aria-label={`Tổng doanh thu cơ sở tháng: ${formatVnd(summary.data.revenue)}`}
+                  >
+                    {formatVnd(summary.data.revenue)}
+                  </p>
+                  <div className="revenue-period-key-metrics">
+                    <div className="net-revenue-row" tabIndex={0}>
+                      <span>Doanh thu đã khấu trừ tháng</span>
+                      <strong className="mono" data-testid="text-net-revenue">{formatVnd(summary.data.netRevenue)}</strong>
+                    </div>
+                    <div className="revenue-card-row" tabIndex={0}>
+                      <span>Doanh thu bán thẻ tháng</span>
+                      <strong className="mono" data-testid="text-card-revenue">{formatVnd(summary.data.cardRevenue)}</strong>
+                    </div>
+                  </div>
+                  <details className="revenue-details">
+                    <summary>Chi tiết doanh thu tháng</summary>
+                    <dl className="rev-breakdown">
+                      <div className="service-duration-row" tabIndex={0}>
+                        <dt>Ca dịch vụ trong tháng</dt>
+                        <dd><ServiceBreakdownList items={summary.data.serviceBreakdown ?? []} label="Chi tiết ca dịch vụ trong tháng" testId="list-facility-month-service-durations" /></dd>
+                      </div>
+                      <div tabIndex={0}><dt>Doanh thu khách lẻ tháng</dt><dd className="mono" data-testid="text-service-revenue">{formatVnd(summary.data.serviceRevenue)}</dd></div>
+                      <PaymentReportRow label="Tiền mặt tháng" amount={summary.data.paymentBreakdown.cash.total} method="cash" testId="button-payment-cash-month" onSelect={(method) => setPaymentDetails({ method })} />
+                      <PaymentReportRow label="Chuyển khoản tháng" amount={summary.data.paymentBreakdown.transfer.total} method="transfer" testId="button-payment-transfer-month" onSelect={(method) => setPaymentDetails({ method })} />
+                      {summary.data.paymentBreakdown.unrecorded.total > 0 && <PaymentReportRow label="Chưa ghi phương thức tháng" amount={summary.data.paymentBreakdown.unrecorded.total} method="unrecorded" testId="button-payment-unrecorded-month" onSelect={(method) => setPaymentDetails({ method })} />}
+                      <div tabIndex={0}><dt>Khách lẻ tháng</dt><dd className="mono" data-testid="text-walk-in-visits">{summary.data.walkInVisits} lượt</dd></div>
+                      <div tabIndex={0}><dt>Khách thẻ tháng</dt><dd className="mono" data-testid="text-card-visits">{summary.data.cardVisits} lượt</dd></div>
+                      <div data-testid="row-top-service-by-customer-type" tabIndex={0}>
+                        <dt>Dịch vụ được dùng nhiều nhất theo loại khách</dt>
+                        <dd className="mono">
+                          Khách lẻ: {summary.data.mostUsedWalkInService
+                            ? `${summary.data.mostUsedWalkInService.serviceType} · ${summary.data.mostUsedWalkInService.visits} lượt`
+                            : 'chưa có lượt'}
+                          {' · '}
+                          Khách thẻ: {summary.data.mostUsedCardService
+                            ? `${summary.data.mostUsedCardService.serviceType} · ${summary.data.mostUsedCardService.visits} lượt`
+                            : 'chưa có lượt'}
+                        </dd>
+                      </div>
+                      <div data-testid="row-top-sold-card-service" tabIndex={0}>
+                        <dt>Gói thẻ bán nhiều nhất tháng</dt>
+                        <dd className="mono">{summary.data.topSoldCardService
+                          ? `${summary.data.topSoldCardService.serviceType} · ${summary.data.topSoldCardService.cardsSold} thẻ`
+                          : 'Chưa có thẻ bán trong tháng'}</dd>
+                      </div>
+                      <div data-testid="row-most-used-service" tabIndex={0}>
+                        <dt>Loại dịch vụ được sử dụng nhiều nhất tháng</dt>
+                        <dd className="mono">{summary.data.mostUsedService
+                          ? `${summary.data.mostUsedService.serviceType} · ${summary.data.mostUsedService.visits} lượt · ${formatMinutes(summary.data.mostUsedService.minutes)} · khách lẻ và thẻ`
+                          : 'Chưa có lượt sử dụng trong tháng'}</dd>
+                      </div>
+                    </dl>
+                  </details>
+                </section>
+
+                <section className="revenue-period-card" aria-labelledby="rev-day-title" data-testid="revenue-day-summary">
+                  <h2 id="rev-day-title" className="rev-label rev-label-key">Doanh thu {dayLabel}{date === today ? ` · ${formatShortDate(date)}` : ''}</h2>
+                  <p
+                    className="rev-value mono"
+                    data-testid="text-today-revenue"
+                    tabIndex={0}
+                    aria-label={`Tổng doanh thu ${dayLabel}: ${formatVnd(summary.data.today.revenue)}`}
+                  >
+                    {formatVnd(summary.data.today.revenue)}
+                  </p>
+                  <div className="revenue-period-key-metrics">
+                    <div className="net-revenue-row" tabIndex={0}>
+                      <span>Doanh thu đã khấu trừ {dayLabel}</span>
+                      <strong className="mono" data-testid="text-today-net-revenue">{formatVnd(summary.data.today.netRevenue)}</strong>
+                    </div>
+                    <div className="revenue-card-row" tabIndex={0}>
+                      <span>Doanh thu bán thẻ {dayLabel}</span>
+                      <strong className="mono" data-testid="text-today-card-revenue">{formatVnd(summary.data.today.cardRevenue)}</strong>
+                    </div>
+                  </div>
+                  <details className="revenue-details">
+                    <summary>Chi tiết doanh thu {dayLabel}</summary>
+                    <dl className="rev-breakdown">
+                      <div className="service-duration-row" tabIndex={0}>
+                        <dt>Ca dịch vụ {dayLabel}</dt>
+                        <dd><ServiceBreakdownList items={summary.data.today.serviceBreakdown ?? []} label={`Chi tiết ca dịch vụ ${dayLabel}`} testId="list-facility-day-service-durations" /></dd>
+                      </div>
+                      <div tabIndex={0}><dt>Doanh thu khách lẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-service-revenue">{formatVnd(summary.data.today.serviceRevenue)}</dd></div>
+                      <PaymentReportRow label={`Tiền mặt ${dayLabel}`} amount={summary.data.today.paymentBreakdown.cash.total} method="cash" testId="button-payment-cash-day" onSelect={(method) => setPaymentDetails({ method, date })} />
+                      <PaymentReportRow label={`Chuyển khoản ${dayLabel}`} amount={summary.data.today.paymentBreakdown.transfer.total} method="transfer" testId="button-payment-transfer-day" onSelect={(method) => setPaymentDetails({ method, date })} />
+                      {summary.data.today.paymentBreakdown.unrecorded.total > 0 && <PaymentReportRow label={`Chưa ghi phương thức ${dayLabel}`} amount={summary.data.today.paymentBreakdown.unrecorded.total} method="unrecorded" testId="button-payment-unrecorded-day" onSelect={(method) => setPaymentDetails({ method, date })} />}
+                      <div tabIndex={0}><dt>Khách lẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-walk-in-visits">{summary.data.today.walkInVisits} lượt</dd></div>
+                      <div tabIndex={0}><dt>Khách thẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-card-visits">{summary.data.today.cardVisits} lượt</dd></div>
+                    </dl>
+                  </details>
+                </section>
+              </>
+            )}
         </div>
       </section>}
       {paymentDetails && <PaymentDetailsDialog month={month} date={paymentDetails.date} method={paymentDetails.method}

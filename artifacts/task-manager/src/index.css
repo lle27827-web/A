@@ -718,6 +718,8 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   .net-revenue-row dt { min-width: 0; }
   .net-revenue-values { max-width: 48%; overflow-wrap: anywhere; }
   .net-revenue-values span { white-space: normal; }
+  .revenue-period-key-metrics > div { align-items: flex-start; flex-wrap: wrap; }
+  .revenue-period-key-metrics strong { flex: 1 1 100%; text-align: left; }
   .date-picker-controls { grid-template-columns: minmax(110px, 150px) minmax(0, 1fr); gap: 8px; }
   .date-picker-option > span:first-child { gap: 8px; }
   .employee-management-actions .btn { flex: 1; }
@@ -754,13 +756,73 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .revenue .rev-breakdown .net-revenue-row.rev-key dd strong { min-width: 0; max-width: 100%; font-size: 16px; line-height: 1.4; overflow-wrap: anywhere; }
 .revenue .rev-breakdown .net-revenue-row.rev-key dd { flex: 1 1 0; text-align: right; }
 .revenue-summary {
+  display: grid;
+  gap: 12px;
   min-width: 0;
   margin-top: 10px;
-  padding: 12px 14px 14px;
-  border: 1px solid hsl(var(--revenue-foreground) / .3);
-  border-radius: 14px;
-  background: hsl(var(--revenue-background));
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: hsl(var(--revenue-foreground));
+}
+.revenue-period-card {
+  min-width: 0;
+  padding: 12px;
+  border: 3px solid hsl(0 0% 28%);
+  border-radius: 14px;
+  background: hsl(0 0% 38%);
+  color: hsl(0 0% 100%);
+}
+.revenue-period-card .rev-label-key {
+  color: hsl(0 0% 100%);
+}
+.revenue-period-card .rev-value {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 2px solid hsl(0 0% 28%);
+  border-radius: 10px;
+  background: hsl(0 0% 32%);
+  color: hsl(0 0% 100%);
+}
+.revenue-period-key-metrics {
+  display: grid;
+  gap: 8px;
+}
+.revenue-period-key-metrics > div {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 2px solid hsl(0 0% 28%);
+  border-radius: 10px;
+  background: hsl(0 0% 32%);
+  color: hsl(0 0% 100%);
+  font-weight: 800;
+}
+.revenue-period-key-metrics strong {
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.revenue-details {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid hsl(0 0% 72% / .45);
+}
+.revenue-details > summary {
+  width: fit-content;
+  max-width: 100%;
+  cursor: pointer;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.revenue-details[open] > summary {
+  margin-bottom: 8px;
+}
+.revenue-details .rev-breakdown {
+  margin-top: 8px;
 }
 .revenue-summary .rev-label-key {
   color: hsl(var(--revenue-foreground));
@@ -776,12 +838,6 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .revenue-summary .rev-breakdown .rev-key dd strong {
   color: hsl(var(--revenue-foreground));
 }
-.revenue-summary .net-revenue-row {
-  border-color: hsl(var(--revenue-foreground) / .3);
-  background: transparent;
-}
-.revenue-summary > .rev-label-key,
-.revenue-summary > .rev-value,
 .revenue-summary .rev-breakdown > div {
   padding: 10px 12px;
   border: 2px solid hsl(0 0% 28%);
