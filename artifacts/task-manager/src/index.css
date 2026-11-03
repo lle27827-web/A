@@ -718,6 +718,8 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   .net-revenue-row dt { min-width: 0; }
   .net-revenue-values { max-width: 48%; overflow-wrap: anywhere; }
   .net-revenue-values span { white-space: normal; }
+  .revenue-period-primary-row { align-items: flex-start; flex-wrap: wrap; }
+  .revenue-period-primary-row .rev-value { flex: 1 1 100%; text-align: left; }
   .revenue-period-key-metrics > div { align-items: flex-start; flex-wrap: wrap; }
   .revenue-period-key-metrics strong { flex: 1 1 100%; text-align: left; }
   .date-picker-controls { grid-template-columns: minmax(110px, 150px) minmax(0, 1fr); gap: 8px; }
@@ -776,13 +778,34 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .revenue-period-card .rev-label-key {
   color: hsl(0 0% 100%);
 }
-.revenue-period-card .rev-value {
-  margin: 8px 0;
-  padding: 8px 10px;
+.revenue-period-primary-row {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
   border: 2px solid hsl(0 0% 28%);
   border-radius: 10px;
   background: hsl(0 0% 32%);
   color: hsl(0 0% 100%);
+}
+.revenue-period-primary-row .rev-label-key {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.revenue-period-card .rev-value {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: hsl(0 0% 100%);
+  font-size: clamp(20px, 4vw, 28px);
+  font-weight: 800;
+  text-align: right;
 }
 .revenue-period-key-metrics {
   display: grid;
@@ -1871,7 +1894,7 @@ body:has(.modal-backdrop) .screen-nav {
   background-color: #707070 !important;
   border-color: #404040 !important;
 }
-.main .revenue .revenue-summary > .revenue-period-card > .rev-value,
+.main .revenue .revenue-summary > .revenue-period-card .revenue-period-primary-row,
 .main .revenue .revenue-summary > .revenue-period-card .revenue-period-key-metrics > div,
 .main .revenue .revenue-summary > .revenue-period-card .revenue-details .rev-breakdown > div {
   background-color: #5e5e5e !important;

@@ -112,27 +112,29 @@ export default function HomePage() {
             : summary.data && (
               <>
                 <section className="revenue-period-card" aria-labelledby="rev-title" data-testid="revenue-month-summary">
-                  <h2 id="rev-title" className="rev-label rev-label-key">Tổng doanh thu cơ sở tháng · {formatMonth(month)}</h2>
-                  <p
-                    className="rev-value mono"
-                    data-testid="text-revenue"
-                    tabIndex={0}
-                    aria-label={`Tổng doanh thu cơ sở tháng: ${formatVnd(summary.data.revenue)}`}
-                  >
-                    {formatVnd(summary.data.revenue)}
-                  </p>
+                  <div className="revenue-period-primary-row">
+                    <h2 id="rev-title" className="rev-label rev-label-key">Tổng doanh thu cơ sở tháng · {formatMonth(month)}</h2>
+                    <p
+                      className="rev-value mono"
+                      data-testid="text-revenue"
+                      tabIndex={0}
+                      aria-label={`Tổng doanh thu cơ sở tháng: ${formatVnd(summary.data.revenue)}`}
+                    >
+                      {formatVnd(summary.data.revenue)}
+                    </p>
+                  </div>
                   <div className="revenue-period-key-metrics">
                     <div className="net-revenue-row" tabIndex={0}>
-                      <span>Doanh thu đã khấu trừ tháng</span>
+                      <span>Tổng doanh thu đã khấu trừ tháng</span>
                       <strong className="mono" data-testid="text-net-revenue">{formatVnd(summary.data.netRevenue)}</strong>
                     </div>
                     <div className="revenue-card-row" tabIndex={0}>
-                      <span>Doanh thu bán thẻ tháng</span>
+                      <span>Doanh thu bán và nạp thẻ tháng</span>
                       <strong className="mono" data-testid="text-card-revenue">{formatVnd(summary.data.cardRevenue)}</strong>
                     </div>
                   </div>
                   <details className="revenue-details">
-                    <summary>Chi tiết doanh thu tháng</summary>
+                    <summary aria-label="Xem thêm chi tiết doanh thu tháng">Xem thêm</summary>
                     <dl className="rev-breakdown">
                       <div className="service-duration-row" tabIndex={0}>
                         <dt>Ca dịch vụ trong tháng</dt>
@@ -173,27 +175,29 @@ export default function HomePage() {
                 </section>
 
                 <section className="revenue-period-card" aria-labelledby="rev-day-title" data-testid="revenue-day-summary">
-                  <h2 id="rev-day-title" className="rev-label rev-label-key">Doanh thu {dayLabel}{date === today ? ` · ${formatShortDate(date)}` : ''}</h2>
-                  <p
-                    className="rev-value mono"
-                    data-testid="text-today-revenue"
-                    tabIndex={0}
-                    aria-label={`Tổng doanh thu ${dayLabel}: ${formatVnd(summary.data.today.revenue)}`}
-                  >
-                    {formatVnd(summary.data.today.revenue)}
-                  </p>
+                  <div className="revenue-period-primary-row">
+                    <h2 id="rev-day-title" className="rev-label rev-label-key">Tổng doanh thu ngày · {formatShortDate(date)}</h2>
+                    <p
+                      className="rev-value mono"
+                      data-testid="text-today-revenue"
+                      tabIndex={0}
+                      aria-label={`Tổng doanh thu ${dayLabel}: ${formatVnd(summary.data.today.revenue)}`}
+                    >
+                      {formatVnd(summary.data.today.revenue)}
+                    </p>
+                  </div>
                   <div className="revenue-period-key-metrics">
                     <div className="net-revenue-row" tabIndex={0}>
-                      <span>Doanh thu đã khấu trừ {dayLabel}</span>
+                      <span>Tổng doanh thu đã khấu trừ {dayLabel}</span>
                       <strong className="mono" data-testid="text-today-net-revenue">{formatVnd(summary.data.today.netRevenue)}</strong>
                     </div>
                     <div className="revenue-card-row" tabIndex={0}>
-                      <span>Doanh thu bán thẻ {dayLabel}</span>
+                      <span>Doanh thu bán và nạp thẻ {dayLabel}</span>
                       <strong className="mono" data-testid="text-today-card-revenue">{formatVnd(summary.data.today.cardRevenue)}</strong>
                     </div>
                   </div>
                   <details className="revenue-details">
-                    <summary>Chi tiết doanh thu {dayLabel}</summary>
+                    <summary aria-label={`Xem thêm chi tiết doanh thu ${dayLabel}`}>Xem thêm</summary>
                     <dl className="rev-breakdown">
                       <div className="service-duration-row" tabIndex={0}>
                         <dt>Ca dịch vụ {dayLabel}</dt>
