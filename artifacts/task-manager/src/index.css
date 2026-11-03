@@ -147,7 +147,7 @@ html.app-long-press-save-pending * {
   body { @apply font-sans antialiased bg-background text-foreground; margin: 0; width: 100%; min-width: 320px; min-height: 100dvh; overflow-x: hidden; font-weight: 600; line-height: 1.45; }
   button, input, textarea, select { box-sizing: border-box; min-width: 0; max-width: 100%; font: inherit; }
   button { cursor: pointer; }
-  button:disabled { cursor: not-allowed; opacity: .55; }
+  button:disabled { cursor: not-allowed; opacity: 1; }
 }
 :focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
 .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
@@ -505,7 +505,7 @@ a.hit:hover, .emp-row:hover, .card-row:hover { border-color: hsl(var(--primary) 
 .choice-list { display: grid; gap: 10px; margin-top: 12px; }
 .choice-row, .settings-link { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--muted) / .35); color: hsl(var(--foreground)); font: inherit; font-size: 14px; text-align: left; text-decoration: none; cursor: pointer; transition: border-color .15s, background .15s; }
 .choice-row:hover:not(:disabled), .settings-link:hover { border-color: hsl(var(--primary) / .55); background: hsl(var(--primary) / .06); }
-.choice-row:disabled { opacity: .5; cursor: not-allowed; }
+.choice-row:disabled { opacity: 1; cursor: not-allowed; }
 .service-picker-trigger { min-height: 58px; }
 .service-choice-list { max-height: min(60dvh, 440px); overflow-y: auto; padding: 2px; }
 .inline-service-choice-list { max-height: min(40dvh, 320px); margin-top: 7px; overflow-x: hidden; overscroll-behavior: contain; border: 1px solid hsl(var(--border)); border-radius: 12px; }
@@ -1107,7 +1107,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .grant-group legend { padding: 0 4px; font-size: 12px; font-weight: 700; }
 .grant-check { display: flex; align-items: center; gap: 8px; min-height: 32px; font-size: 13px; cursor: pointer; }
 .grant-check input { width: 16px; height: 16px; accent-color: hsl(var(--primary)); }
-.grant-check:has(input:disabled) { opacity: .55; cursor: not-allowed; }
+.grant-check:has(input:disabled) { opacity: 1; cursor: not-allowed; }
 .grant-email-field { min-width: 0; }
 .grant-email-control { display: flex; align-items: center; min-width: 0; overflow: hidden; border: 1px solid hsl(var(--border)); border-radius: 8px; background: hsl(var(--card)); }
 .grant-email-control:focus-within { border-color: hsl(var(--primary) / .6); box-shadow: 0 0 0 3px hsl(var(--primary) / .08); }
@@ -1167,7 +1167,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .grant-row { min-width: 0; border: 1px solid hsl(var(--border)); border-radius: 10px; overflow: hidden; }
 .grant-account { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; padding: 12px; border: 0; background: transparent; color: hsl(var(--foreground)); text-align: left; font: inherit; cursor: pointer; }
 .grant-account:hover, .grant-account.selected { background: hsl(var(--primary) / .06); }
-.grant-account:disabled { opacity: .55; cursor: not-allowed; }
+.grant-account:disabled { opacity: 1; cursor: not-allowed; }
 .grant-account > svg { flex: 0 0 auto; color: hsl(var(--muted-foreground)); }
 .grant-row .grow { flex: 1 1 auto; display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
 .grant-row .muted { font-size: 12px; }
@@ -1222,7 +1222,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .auth-google-button { width: 100%; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 0 16px; border: 1px solid hsl(var(--auth-button-border)); border-radius: 8px; background: hsl(var(--auth-button-background)); color: hsl(var(--auth-button-foreground)); font-family: inherit; font-size: 14px; font-weight: 500; line-height: 1.2; cursor: pointer; transition: background-color .15s ease, box-shadow .15s ease; }
 .auth-google-button:hover:not(:disabled) { background: hsl(var(--auth-button-hover)); box-shadow: 0 1px 3px hsl(var(--shadow-color) / .3); }
 .auth-google-button:focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
-.auth-google-button:disabled { cursor: wait; opacity: .72; }
+.auth-google-button:disabled { cursor: wait; opacity: 1; }
 .auth-google-error { margin: 0; color: hsl(var(--destructive)); font-size: .875rem; text-align: center; }
 .no-access { width: min(480px, 100%); display: grid; gap: 14px; }
 .no-access h1 { margin: 0; font-family: var(--app-font-display); font-size: 22px; font-weight: 800; }
@@ -1452,6 +1452,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   border-color: hsl(var(--frame-border));
   color: hsl(40 70% 96%);
   background: hsl(var(--gray-row));
+  opacity: 1;
 }
 .employee-choice-row .muted {
   color: hsl(35 38% 84%);
@@ -1991,4 +1992,24 @@ body:has(.modal-backdrop) .screen-nav {
 .detail > .day-salary *,
 .detail > [data-testid="section-day-sessions"] * {
   color: hsl(0 0% 100%) !important;
+}
+.detail > .salary-hero :is(button, a.btn),
+.detail > .day-salary :is(button, a.btn),
+.detail > [data-testid="section-day-sessions"] :is(button, a.btn) {
+  color: hsl(27 42% 21%) !important;
+}
+.detail > .salary-hero :is(button, a.btn) *,
+.detail > .day-salary :is(button, a.btn) *,
+.detail > [data-testid="section-day-sessions"] :is(button, a.btn) * {
+  color: inherit !important;
+}
+.detail > .salary-hero :is(button.btn.danger, button.icon-btn.danger, .danger-text),
+.detail > .day-salary :is(button.btn.danger, button.icon-btn.danger, .danger-text),
+.detail > [data-testid="section-day-sessions"] :is(button.btn.danger, button.icon-btn.danger, .danger-text) {
+  color: hsl(0 66% 38%) !important;
+}
+.detail > .salary-hero :is(button.btn.danger, button.icon-btn.danger, .danger-text) *,
+.detail > .day-salary :is(button.btn.danger, button.icon-btn.danger, .danger-text) *,
+.detail > [data-testid="section-day-sessions"] :is(button.btn.danger, button.icon-btn.danger, .danger-text) * {
+  color: inherit !important;
 }
