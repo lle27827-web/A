@@ -780,6 +780,14 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   border-color: hsl(var(--revenue-foreground) / .3);
   background: transparent;
 }
+.revenue-summary > .rev-label-key,
+.revenue-summary > .rev-value,
+.revenue-summary .rev-breakdown > div {
+  padding: 10px 12px;
+  border: 2px solid hsl(0 0% 28%);
+  border-radius: 10px;
+  background: hsl(0 0% 38%);
+}
 .window-nav.bottom { margin: 18px 0 0; }
 .history-pick { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; margin-top: 12px; }
 .month-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 44dvh; overflow-y: auto; }
