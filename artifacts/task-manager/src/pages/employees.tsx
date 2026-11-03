@@ -11,7 +11,7 @@ import { MemberDialog } from '@/components/entity-dialogs';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
 import { SessionDialog } from '@/components/session-dialog';
 import { initial, localDate, normalize, formatShortDate } from '@/lib/attendance';
-import { errorText, formatMinutes, formatMonth, formatVnd, SESSION_FRESHNESS, useRefreshMassage } from '@/lib/massage';
+import { errorText, formatMonth, formatVnd, SESSION_FRESHNESS, useRefreshMassage } from '@/lib/massage';
 import { summarizeEmployeeSessions } from '@/lib/employee-list-summary';
 import { printServiceSession, reservePrintWindow } from '@/lib/printing';
 
@@ -103,22 +103,20 @@ export default function EmployeesPage() {
           {canAddEmployees && !members.length && <button type="button" className="btn primary employee-add-button" onClick={() => { setDialogError(''); setOpen(true); }}><Plus size={15} />Thêm nhân viên đầu tiên</button>}</div>
       ) : (
         <>
-          {sessionsQuery.isError && <ErrorBanner text="Không tải được tổng lương và ca dịch vụ." onRetry={() => void sessionsQuery.refetch()} />}
+          {sessionsQuery.isError && <ErrorBanner text="Không tải được tổng lương." onRetry={() => void sessionsQuery.refetch()} />}
           <ul className="emp-list">
             {list.map((m) => {
               const summary = summaries.get(m.id);
-              const serviceText = (services: { serviceType: string; visits: number; minutes: number }[]) =>
-                services.length ? services.map((service) => `${service.serviceType} · ${service.visits} ca × ${formatMinutes(service.minutes)}`).join('; ') : 'Chưa có ca';
               return (
                 <li key={m.id} className="emp-item">
                   <button type="button" className="emp-row as-row" onClick={() => { if (historyMonth) navigate(withHistory(`/employees/${m.id}`)); else setChoice(m); }} aria-haspopup="dialog" data-testid={`button-employee-${m.id}`}>
                     <span className="initials big">{initial(m.name)}</span>
                     <span className="grow">
                       <strong>{m.name}<MemberTags member={m} /></strong>
-                      {sessionsQuery.isLoading ? <span className="employee-summary muted">Đang tải lương và ca…</span> : !sessionsQuery.isError && (
+                      {sessionsQuery.isLoading ? <span className="employee-summary muted">Đang tải tổng lương…</span> : !sessionsQuery.isError && (
                         <span className="employee-summary" data-testid={`summary-employee-${m.id}`}>
-                          <span>{monthLabel}: {formatVnd(summary?.monthEarnings ?? 0)} · {summary?.monthSessionCount ?? 0} ca ({serviceText(summary?.monthServices ?? [])})</span>
-                          <span>{dayLabel}: {formatVnd(summary?.dayEarnings ?? 0)} · {summary?.daySessionCount ?? 0} ca ({serviceText(summary?.dayServices ?? [])})</span>
+                          <span>{monthLabel}: {formatVnd(summary?.monthEarnings ?? 0)}</span>
+                          <span>{dayLabel}: {formatVnd(summary?.dayEarnings ?? 0)}</span>
                         </span>
                       )}
                     </span>
@@ -139,7 +137,7 @@ export default function EmployeesPage() {
               <ClipboardCheck size={18} /><span className="grow"><strong>Chấm công</strong><span className="muted">Hôm nay</span></span><ChevronRight size={16} />
             </button>
             <button type="button" className="choice-row employee-choice-row" onClick={() => { const id = choice.id; setChoice(null); navigate(withHistory(`/employees/${id}`)); }} data-testid="button-choice-detail">
-              <Eye size={18} /><span className="grow"><strong>Xem chi tiết</strong><span className="muted">Lương, lịch sử ca</span></span><ChevronRight size={16} />
+              <Eye size={18} /><span className="grow"><strong>Xem chi tiết</strong><span className="muted">Lương và giờ dịch vụ</span></span><ChevronRight size={16} />
             </button>
           </div>
         </Modal>

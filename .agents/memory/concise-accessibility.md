@@ -15,6 +15,12 @@ Comparison discrepancies should briefly identify service, date, customer if pres
 
 **How to apply:** simplify presentation only; retain occurrence-level comparison, wage calculations and explicit confirmation before replacing private shifts.
 
+In the facility employee roster, show monthly and selected-day wages without repeating shift counts or service-by-service listings. In employee details, summarize selected-day time by service; keep individual attendance rows collapsed until requested.
+
+**Why:** the user asked for concise wage rows and per-service total hours instead of repeated session counts, while retaining access to individual shift records.
+
+**How to apply:** add up all minutes for each service type, show the readable duration, and keep detailed rows available behind an explicit control.
+
 Do not show note inputs or note rows on the application's screens. Facility and personal attendance use separate whole-hour and minute inputs; new shifts default to 1 hour and 0 minutes, with quick choices for 30 minutes, 1 hour, 2 hours and 3 hours.
 
 **Why:** the user explicitly asked to remove every note row, then requested a separate minutes input and quick duration choices in both attendance forms.
