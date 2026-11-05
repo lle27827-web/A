@@ -2105,6 +2105,16 @@ body:has(.modal-backdrop) .screen-nav {
 .detail .type-counts {
   justify-items: center;
 }
+.detail .employee-service-summary {
+  width: 100%;
+}
+.detail .employee-service-summary > strong {
+  display: block;
+  font-size: 16px;
+}
+.detail .employee-service-summary .service-duration-list {
+  margin-top: 5px;
+}
 .detail,
 .detail :not(input):not(textarea):not(select) {
   text-align: center !important;

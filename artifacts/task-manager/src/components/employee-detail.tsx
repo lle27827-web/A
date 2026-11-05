@@ -190,7 +190,14 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
         {sessionsQuery.isLoading ? <span className="muted" role="status">Đang tải số liệu tháng…</span> : !sessionsQuery.isError && (
           <div className="employee-period-stats" data-testid="employee-month-stats">
             <span>{sessions.length} ca · {formatMinutes(monthMinutes)}</span>
-            {monthTypes.map((item) => <span key={item.serviceType}>{serviceAttendanceLabel(item, formatMinutes)}</span>)}
+            <div className="employee-service-summary" data-testid="employee-month-service-breakdown">
+              <strong>Ca dịch vụ trong tháng</strong>
+              <ul className="service-duration-list" aria-label={`Ca và tổng giờ theo dịch vụ trong ${formatMonth(month).toLowerCase()}`}>
+                {monthTypes.length
+                  ? monthTypes.map((item) => <li key={item.serviceType}>{serviceAttendanceLabel(item, formatMinutes)}</li>)
+                  : <li>Chưa có ca dịch vụ</li>}
+              </ul>
+            </div>
           </div>
         )}
       </section>
