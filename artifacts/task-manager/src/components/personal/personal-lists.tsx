@@ -1,6 +1,6 @@
 import type { PersonalService, PersonalSession } from '@workspace/api-client-react';
 import { CalendarDays, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react';
-import { formatShortDate } from '@/lib/attendance';
+import { formatShortDayMonth } from '@/lib/attendance';
 import { formatMinutes, formatVnd } from '@/lib/massage';
 
 export function ServiceList({ services, busy, useFacility, settingBusy, settingError, onToggleFacility, onAdd, onEdit, onDelete }: {
@@ -54,19 +54,19 @@ export function ShiftList({ title, sessions, busy, emptyText, onEdit, onDelete, 
       ) : (
         <ul className="p-list">
           {sessions.map((s) => (
-            <li key={s.id} className="p-row" data-testid={`row-personal-shift-${s.id}`}>
+            <li key={s.id} className="p-row personal-shift-row" data-testid={`row-personal-shift-${s.id}`}>
               {onSelectDate ? (
                 <button
                   type="button"
                   className="p-date p-date-button mono"
                   onClick={() => onSelectDate(s.workDate)}
-                  aria-label={`Mở sổ ngày ${formatShortDate(s.workDate)}`}
+                  aria-label={`Mở sổ ngày ${formatShortDayMonth(s.workDate)}`}
                   data-testid={`button-open-personal-day-${s.id}`}
                 >
-                  {formatShortDate(s.workDate)}
+                  <time dateTime={s.workDate}>{formatShortDayMonth(s.workDate)}</time>
                 </button>
-              ) : <span className="p-date mono">{formatShortDate(s.workDate)}</span>}
-              <span className="grow">
+              ) : <time className="p-date mono" dateTime={s.workDate}>{formatShortDayMonth(s.workDate)}</time>}
+              <span className="personal-shift-details">
                 <strong>{s.serviceName}</strong>
                 {s.customerName && <span className="small" data-testid={`text-personal-shift-customer-${s.id}`}>Khách: {s.customerName}</span>}
                 <span className="muted mono">{formatMinutes(s.minutes)} · {formatVnd(s.hourlyRate)}/giờ</span>

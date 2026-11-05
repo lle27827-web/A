@@ -2798,3 +2798,72 @@ body:has(.modal-backdrop) .screen-nav {
   padding-top: 6px;
   border-top: 1px solid hsl(var(--frame-border) / .58);
 }
+
+/* Personal notebook: keep the two pay summaries distinct and all shift details stacked. */
+.personal .p-total-card {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px;
+  border: 2px solid hsl(var(--frame-border));
+  border-radius: 12px;
+  text-align: center;
+}
+.personal .p-totals > .p-total-card + .p-total-card {
+  padding-left: 14px;
+  border-left: 2px solid hsl(var(--frame-border));
+}
+.personal .p-total-card .rev-label,
+.personal .p-total-card .p-big,
+.personal .p-total-card .p-mid {
+  text-align: center;
+}
+.personal .p-total-card .service-duration-list {
+  width: 100%;
+  margin-top: 4px;
+  padding: 0;
+  list-style: none;
+  text-align: center;
+}
+.personal .p-total-card .service-duration-list li {
+  text-align: center;
+}
+.personal .p-card[data-testid="section-personal-shifts"] .day-title {
+  justify-content: center;
+  text-align: center;
+}
+.personal .p-card[data-testid="section-personal-shifts"] > .seg {
+  margin-inline: auto;
+}
+.personal .p-row.personal-shift-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.personal .personal-shift-row .p-date {
+  justify-self: center;
+  text-align: center;
+}
+.personal .personal-shift-details {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.personal .p-row.personal-shift-row .p-earn {
+  min-width: 0;
+  margin: 0;
+  text-align: center;
+}
+.personal .p-row.personal-shift-row .head-actions {
+  justify-content: center;
+  flex-wrap: wrap;
+  width: 100%;
+}

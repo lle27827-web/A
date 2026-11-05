@@ -29,6 +29,11 @@ export function formatShortDate(date: string) {
   return d && m && y ? `${d}/${m}/${y}` : date;
 }
 
+export function formatShortDayMonth(date: string) {
+  const [year, month, day] = date.split('-');
+  return year && month && day ? `${day}/${month}` : date;
+}
+
 export function normalize(text: string) {
   return text.toLocaleLowerCase('vi').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').trim();
 }

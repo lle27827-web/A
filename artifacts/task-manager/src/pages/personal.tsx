@@ -6,7 +6,7 @@ import {
   useGetPersonalNotebook, useUpdatePersonalService, useUpdatePersonalSession, useUpdatePersonalSettings,
 } from '@workspace/api-client-react';
 import type { PersonalService, PersonalSession } from '@workspace/api-client-react';
-import { summarizeServiceDurations, serviceDurationLabel } from '@/lib/service-duration-summary';
+import { serviceAttendanceLabel, summarizeServiceAttendance } from '@/lib/service-duration-summary';
 import { AlertCircle, ArrowLeft, BookHeart, CalendarDays, Check, ChevronLeft, ChevronRight, Home, LogIn, Plus, Scale, X } from 'lucide-react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { ConfirmDialog, ErrorBanner, Skeleton, type ConfirmState } from '@/components/modal';
@@ -15,7 +15,7 @@ import { defaultDateFor } from '@/components/history-months-dialog';
 import { ComparisonDialog } from '@/components/personal/comparison-dialog';
 import { PersonalServiceDialog, PersonalShiftDialog } from '@/components/personal/personal-dialogs';
 import { ServiceList, ShiftList } from '@/components/personal/personal-lists';
-import { formatShortDate } from '@/lib/attendance';
+import { formatShortDate, formatShortDayMonth } from '@/lib/attendance';
 import { errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth } from '@/lib/massage';
 import { resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
 
@@ -155,7 +155,7 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
     let announced = false;
     const rowSelector = `[data-testid="row-personal-shift-${pendingHistorySpeech.id}"]`;
     const expectedText = [
-      formatShortDate(pendingHistorySpeech.workDate),
+      formatShortDayMonth(pendingHistorySpeech.workDate),
       pendingHistorySpeech.serviceName,
       formatMinutes(pendingHistorySpeech.minutes),
       formatVnd(pendingHistorySpeech.earnings),
@@ -166,7 +166,7 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
       if (!row) return;
 
       const historyText = Array.from(row.children)
-        .filter((element) => element.matches('.p-date, .grow, .p-earn'))
+        .filter((element) => element.matches('.p-date, .personal-shift-details, .p-earn'))
         .map((element) => (element as HTMLElement).innerText || element.textContent || '')
         .join(' ')
         .replace(/\s+/gu, ' ')
@@ -201,9 +201,10 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
       window.clearTimeout(timeout);
     };
   }, [pendingHistorySpeech]);
-  const monthServiceDetails = useMemo(() => summarizeServiceDurations(sessions.map((s) => ({ serviceType: s.serviceName, minutes: s.minutes }))), [sessions]);
-  const dayServiceDetails = useMemo(() => summarizeServiceDurations(daySessions.map((s) => ({ serviceType: s.serviceName, minutes: s.minutes }))), [daySessions]);
-  const monthMinutes = sessions.reduce((a, s) => a + s.minutes, 0);
+  const monthServiceDetails = useMemo(() => summarizeServiceAttendance(sessions.map((s) => ({ serviceType: s.serviceName, minutes: s.minutes, visits: 1 }))), [sessions]);
+  const dayServiceDetails = useMemo(() => summarizeServiceAttendance(daySessions.map((s) => ({ serviceType: s.serviceName, minutes: s.minutes, visits: 1 }))), [daySessions]);
+  const monthTotalLabel = month === currentMonth ? 'Tổng lương tháng này' : `Tổng lương ${formatMonth(month).toLocaleLowerCase('vi')}`;
+  const dayTotalLabel = date === today ? 'Tổng lương hôm nay' : `Tổng lương ngày ${formatShortDayMonth(date)}`;
   const services = data?.services ?? [];
   const useFacility = data?.useFacilityRates === true;
   function toggleFacility(next: boolean) {
@@ -236,7 +237,7 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
         <div className="month-nav">
           <button type="button" className="icon-btn" onClick={() => goPeriod(shiftMonth(month, -1))} aria-label="Tháng trước" data-testid="button-personal-prev-month"><ChevronLeft size={16} /></button>
           <div className="personal-period">
-            <h1 id="p-title">{formatShortDate(date)}</h1>
+            <h1 id="p-title">{formatShortDayMonth(date)}</h1>
             <span>{formatMonth(month)}</span>
           </div>
           <button type="button" className="icon-btn" disabled={month >= currentMonth} onClick={() => goPeriod(shiftMonth(month, 1))} aria-label="Tháng sau" data-testid="button-personal-next-month"><ChevronRight size={16} /></button>
@@ -245,14 +246,14 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
           <p className="muted" data-testid="status-personal-totals-unavailable">Chưa xem được tổng thu nhập — sổ chưa tải được.</p>
         ) : (
           <div className="p-totals">
-            <div><span className="rev-label">Tổng doanh thu tháng</span><p className="p-big mono" data-testid="text-personal-month-total">{formatVnd(data?.totalMonth ?? 0)}</p><span className="muted small" data-testid="text-personal-month-count">{sessions.length} ca · {formatMinutes(monthMinutes)}</span>
+            <div className="p-total-card" data-testid="card-personal-month-total"><span className="rev-label">{monthTotalLabel}</span><p className="p-big mono" data-testid="text-personal-month-total">{formatVnd(data?.totalMonth ?? 0)}</p>
               <ul className="service-duration-list" aria-label="Chi tiết ca dịch vụ trong tháng" data-testid="list-personal-month-service-durations">
-                {monthServiceDetails.length ? monthServiceDetails.map((item) => <li key={`${item.serviceType}-${item.minutes}`}>{serviceDurationLabel(item, formatMinutes)}</li>) : <li>Chưa có ca dịch vụ</li>}
+                {monthServiceDetails.length ? monthServiceDetails.map((item) => <li key={item.serviceType}>{serviceAttendanceLabel(item, formatMinutes)}</li>) : <li>Chưa có ca dịch vụ</li>}
               </ul>
             </div>
-            <div><span className="rev-label">Ngày {formatShortDate(date)}</span><p className="p-mid mono" data-testid="text-personal-day-total">{formatVnd(data?.totalDay ?? 0)}</p><span className="muted small" data-testid="text-personal-day-count">{daySessions.length} ca</span>
-              <ul className="service-duration-list" aria-label={`Chi tiết ca dịch vụ ngày ${formatShortDate(date)}`} data-testid="list-personal-day-service-durations">
-                {dayServiceDetails.length ? dayServiceDetails.map((item) => <li key={`${item.serviceType}-${item.minutes}`}>{serviceDurationLabel(item, formatMinutes)}</li>) : <li>Chưa có ca dịch vụ</li>}
+            <div className="p-total-card" data-testid="card-personal-day-total"><span className="rev-label">{dayTotalLabel}</span><p className="p-mid mono" data-testid="text-personal-day-total">{formatVnd(data?.totalDay ?? 0)}</p>
+              <ul className="service-duration-list" aria-label={`Chi tiết ca dịch vụ ngày ${formatShortDayMonth(date)}`} data-testid="list-personal-day-service-durations">
+                {dayServiceDetails.length ? dayServiceDetails.map((item) => <li key={item.serviceType}>{serviceAttendanceLabel(item, formatMinutes)}</li>) : <li>Chưa có ca dịch vụ</li>}
               </ul>
             </div>
           </div>
