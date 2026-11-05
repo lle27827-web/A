@@ -14,7 +14,6 @@ import {
   type ServiceDurationDetail,
 } from '@/lib/service-duration-summary';
 import { resolveRevenuePeriod, shiftRevenueDate, shiftRevenueDateMonth } from '@/lib/revenue-period';
-import { useVietnamToday } from '@/lib/use-vietnam-today';
 import { PaymentDetailsDialog } from '@/components/payment-details-dialog';
 import './revenue-history.css';
 import './payment-report.css';
@@ -57,8 +56,8 @@ function ServiceBreakdownList({ items, label, testId }: {
 }
 
 export default function HomePage() {
-  const { query, withHistory, permissions, canViewEmployees, canEditServices } = useShell();
-  const today = useVietnamToday();
+  const { query, withHistory, permissions, canViewEmployees, canEditServices, period } = useShell();
+  const today = period.today;
   const search = useSearch();
   const [, navigate] = useLocation();
   const [paymentDetails, setPaymentDetails] = useState<{ method: PaymentMethodFilter; date?: string } | null>(null);

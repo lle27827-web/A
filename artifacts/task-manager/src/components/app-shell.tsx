@@ -6,7 +6,8 @@ import { Link, useLocation, useSearch } from 'wouter';
 import { SearchResults } from '@/components/search-results';
 import { ViewSettings, useViewPrefs, type ViewPrefs } from '@/components/view-settings';
 import { errorText, formatMonth, SESSION_FRESHNESS } from '@/lib/massage';
-import { periodHref, resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
+import { periodHref, resolveRevenuePeriod } from '@/lib/revenue-period';
+import { useVietnamToday } from '@/lib/use-vietnam-today';
 import {
   DEFAULT_PRINT_PREFERENCES,
   readPrintPreferences,
@@ -96,7 +97,7 @@ export function AppShell({
     readPrintPreferences(userId),
   );
   const search = useSearch();
-  const today = useMemo(() => vietnamToday(), []);
+  const today = useVietnamToday();
   const resolved = resolveRevenuePeriod(search, today);
   const historyMonth = resolved.month < resolved.currentMonth ? resolved.month : null;
   const selectedHistoryDate = historyMonth ? resolved.date : null;

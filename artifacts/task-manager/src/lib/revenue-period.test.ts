@@ -18,6 +18,19 @@ test('history defaults to a real last day and keeps a selected day after reload'
   assert.equal(period.isHistory, true);
 });
 
+test('the default dashboard switches to the new Vietnam month without changing stored history', () => {
+  const lastDayOfMonth = resolveRevenuePeriod('', '2026-10-31');
+  const firstDayOfNextMonth = resolveRevenuePeriod('', '2026-11-01');
+  assert.deepEqual(
+    [lastDayOfMonth.month, lastDayOfMonth.date, lastDayOfMonth.isHistory],
+    ['2026-10', '2026-10-31', false],
+  );
+  assert.deepEqual(
+    [firstDayOfNextMonth.month, firstDayOfNextMonth.date, firstDayOfNextMonth.isHistory],
+    ['2026-11', '2026-11-01', false],
+  );
+});
+
 test('revenue month arrows preserve the day, clamp short months and never select future dates', () => {
   assert.equal(shiftRevenueDateMonth('2026-03-31', -1, '2026-11-03'), '2026-02-28');
   assert.equal(shiftRevenueDateMonth('2024-03-31', -1, '2026-11-03'), '2024-02-29');
