@@ -474,7 +474,7 @@ export function AuthSetupPage() {
         <h1 id="auth-setup-title" ref={headingRef} tabIndex={-1}>Đăng nhập chưa được cấu hình</h1>
         <p>Cần cấu hình Clerk trước khi tài khoản có thể đăng nhập.</p>
         <p className="muted small">Thiết lập các biến APP_CLERK_SECRET_KEY, APP_CLERK_PUBLISHABLE_KEY, VITE_APP_CLERK_PUBLISHABLE_KEY và ADMIN_EMAIL.</p>
-        <Link href="/" className="btn primary">Trang chào mừng</Link>
+        <Link href="/" className="btn primary nav-home-action">Trang chào mừng</Link>
       </section>
     </main>
   );

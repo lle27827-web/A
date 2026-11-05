@@ -146,7 +146,7 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
       ) : (
         <div className="compare">
           <h3 ref={comparisonHeadingRef} tabIndex={-1} data-testid="text-comparison-source">Cơ sở · {selectedMember?.label} · {rangeLabel}</h3>
-          <button type="button" className="back as-button" disabled={sync.isPending} onClick={() => pick(null)} data-testid="button-compare-change"><ArrowLeft size={14} />Chọn nhân viên khác</button>
+          <button type="button" className="back as-button nav-return-action" disabled={sync.isPending} onClick={() => pick(null)} data-testid="button-compare-change"><ArrowLeft size={14} />Chọn nhân viên khác</button>
           <div className="seg" role="tablist" aria-label="Phạm vi đối chiếu">
             <button ref={dayTab} id="tab-cmp-day" type="button" role="tab" aria-controls="tabpanel-cmp-day" aria-selected={scope === 'day'} tabIndex={scope === 'day' ? 0 : -1} className={scope === 'day' ? 'active' : ''} disabled={sync.isPending} onKeyDown={handleScopeTabKeyDown} onClick={() => { setScope('day'); setConfirming(false); }} data-testid="tab-cmp-day">Đối chiếu ngày</button>
             <button ref={monthTab} id="tab-cmp-month" type="button" role="tab" aria-controls="tabpanel-cmp-month" aria-selected={scope === 'month'} tabIndex={scope === 'month' ? 0 : -1} className={scope === 'month' ? 'active' : ''} disabled={sync.isPending} onKeyDown={handleScopeTabKeyDown} onClick={() => { setScope('month'); setConfirming(false); }} data-testid="tab-cmp-month">Đối chiếu tháng</button>

@@ -96,7 +96,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
         <DialogPrimitive.Overlay className="settings-overlay" />
         <DialogPrimitive.Content className={`settings-dialog${paletteOpen ? ' palette-mode' : ''}`} data-testid={paletteOpen ? 'dialog-color-palette' : 'dialog-view-settings'}>
           <div className="dialog-head">
-            {paletteOpen && <button type="button" className="icon-btn" onClick={() => setPaletteOpen(false)} aria-label="Trở về cài đặt" data-testid="button-back-from-color-palette"><ArrowLeft size={18} /></button>}
+            {paletteOpen && <button type="button" className="icon-btn nav-return-action" onClick={() => setPaletteOpen(false)} aria-label="Trở về cài đặt" data-testid="button-back-from-color-palette"><ArrowLeft size={18} /></button>}
             <DialogPrimitive.Title asChild><h2>{paletteOpen ? `Bảng màu · ${themeName}` : 'Cài đặt'}</h2></DialogPrimitive.Title>
             <DialogPrimitive.Close asChild><button type="button" className="icon-btn" aria-label={paletteOpen ? 'Đóng bảng màu' : 'Đóng cài đặt'}><X size={18} /></button></DialogPrimitive.Close>
           </div>
@@ -277,8 +277,8 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
           )}
 
           <nav className="window-nav bottom" aria-label="Điều hướng cửa sổ">
-            <Link href="/" onClick={() => onOpenChange(false)} className="btn ghost" data-testid="link-settings-home"><Home size={14} aria-hidden="true" />Trang chính</Link>
-            <button type="button" className="btn ghost" onClick={() => onOpenChange(false)} data-testid="button-settings-back"><ArrowLeft size={14} aria-hidden="true" />Trở về</button>
+            <Link href="/" onClick={() => onOpenChange(false)} className="btn ghost nav-home-action" data-testid="link-settings-home"><Home size={14} aria-hidden="true" />Trang chính</Link>
+            <button type="button" className="btn ghost nav-return-action" onClick={() => onOpenChange(false)} data-testid="button-settings-back"><ArrowLeft size={14} aria-hidden="true" />Trở về</button>
           </nav>
           </>
           )}

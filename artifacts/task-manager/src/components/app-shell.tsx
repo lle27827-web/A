@@ -251,10 +251,10 @@ export function AppShell({
           {employeeMode ? employeeView : children}
           {(showResults || (location !== '/' && location !== '/attendance')) && (
             <nav className="screen-nav" aria-label="Điều hướng trang">
-              <Link href={withHistory('/')} onClick={() => setQuery('')} className="btn ghost" data-testid="link-return-home">
+              <Link href={withHistory('/')} onClick={() => setQuery('')} className="btn ghost nav-home-action" data-testid="link-return-home">
                 <Home size={15} aria-hidden="true" />Trang chính
               </Link>
-              <button type="button" className="btn ghost" onClick={goBack} data-testid="button-return-previous">
+              <button type="button" className="btn ghost nav-return-action" onClick={goBack} data-testid="button-return-previous">
                 <ArrowLeft size={15} aria-hidden="true" />Trở về
               </button>
             </nav>

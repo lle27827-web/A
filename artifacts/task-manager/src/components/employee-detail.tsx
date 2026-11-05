@@ -129,7 +129,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
   }
 
   const back = readOnly
-    ? <button type="button" className="back as-button" onClick={() => { shell.setView({ mode: 'owner', employeeId: shell.prefs.employeeId }); navigate(withHistory('/employees')); }} data-testid="link-back"><ArrowLeft size={15} />Trở về</button>
+    ? <button type="button" className="back as-button nav-return-action" onClick={() => { shell.setView({ mode: 'owner', employeeId: shell.prefs.employeeId }); navigate(withHistory('/employees')); }} data-testid="link-back"><ArrowLeft size={15} />Trở về</button>
     : null;
 
   if (memberId === null) {

@@ -2136,3 +2136,41 @@ body:has(.modal-backdrop) .screen-nav {
 .detail .back {
   justify-content: center;
 }
+
+/* Keep every customer detail readable on the dark-gray card rows. */
+.main .panel.page[aria-labelledby="cards-title"] .card-list-item,
+.main .panel.page[aria-labelledby="cards-title"] .card-list-open,
+.main .panel.page[aria-labelledby="cards-title"] .card-list-open:hover,
+.main .panel.page[aria-labelledby="cards-title"] .card-list-customer,
+.main .panel.page[aria-labelledby="cards-title"] .card-list-phone,
+.main .panel.page[aria-labelledby="cards-title"] .card-list-meta,
+.main .panel.page[aria-labelledby="cards-title"] .card-list-meta > span:not(.meter),
+.main .panel.page[aria-labelledby="cards-title"] .remain,
+.main .panel.page[aria-labelledby="cards-title"] .remain .muted {
+  color: #fff !important;
+}
+
+/* Shared return and home navigation controls use dark gray on every screen. */
+.btn.nav-home-action,
+.btn.nav-return-action,
+.icon-btn.nav-return-action,
+.back.nav-return-action {
+  border: 1px solid #333;
+  border-color: #333 !important;
+  color: #fff !important;
+  background: #424242 !important;
+}
+.btn.nav-home-action:hover:not(:disabled),
+.btn.nav-return-action:hover:not(:disabled),
+.icon-btn.nav-return-action:hover:not(:disabled),
+.back.nav-return-action:hover {
+  border-color: #292929 !important;
+  color: #fff !important;
+  background: #303030 !important;
+}
+.back.nav-return-action {
+  min-height: 36px;
+  padding: 0 11px;
+  border-radius: 8px;
+  text-decoration: none;
+}

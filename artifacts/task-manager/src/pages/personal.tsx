@@ -48,8 +48,8 @@ function PersonalFrame({ children, onSignOut, onTouchStart, onTouchEnd, onTouchC
       <main className="p-main" id="main" tabIndex={-1} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} onTouchCancel={onTouchCancel}>
         {children}
         <nav className="screen-nav" aria-label="Điều hướng trang">
-          <Link href="/" className="btn ghost" data-testid="link-personal-home"><Home size={15} aria-hidden="true" />Về sổ cơ sở</Link>
-          <button type="button" className="btn ghost" onClick={() => window.history.back()} data-testid="button-personal-back"><ArrowLeft size={15} aria-hidden="true" />Trở về</button>
+          <Link href="/" className="btn ghost nav-home-action" data-testid="link-personal-home"><Home size={15} aria-hidden="true" />Về sổ cơ sở</Link>
+          <button type="button" className="btn ghost nav-return-action" onClick={() => window.history.back()} data-testid="button-personal-back"><ArrowLeft size={15} aria-hidden="true" />Trở về</button>
         </nav>
       </main>
     </div>
