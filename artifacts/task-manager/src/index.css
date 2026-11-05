@@ -835,8 +835,8 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   padding: 0;
   border: 3px solid hsl(var(--frame-border));
   border-radius: 10px;
-  background: #777777;
-  color: hsl(0 0% 100%);
+  background: hsl(0 0% 100%);
+  color: hsl(0 0% 0%);
   cursor: pointer;
 }
 .revenue-period-arrow:disabled {
@@ -859,7 +859,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 }
 .revenue-period-arrow:focus-visible,
 .revenue-date-trigger:focus-visible {
-  outline: 3px solid hsl(0 0% 100%);
+  outline: 3px solid hsl(0 0% 0%);
   outline-offset: 2px;
 }
 .revenue-period-primary-row {
@@ -1999,8 +1999,12 @@ body:has(.modal-backdrop) .screen-nav {
 .main .revenue .revenue-summary > .revenue-period-card .revenue-service-summary,
 .main .revenue .revenue-summary > .revenue-period-card .revenue-details .rev-breakdown > div {
   background-color: #777777 !important;
-  border-color: hsl(var(--frame-border)) !important;
-  border-width: 3px !important;
+  border: 0 !important;
+  border-radius: 0;
+}
+.main .revenue .revenue-summary .revenue-period-arrow {
+  background-color: hsl(0 0% 100%) !important;
+  color: hsl(0 0% 0%) !important;
 }
 .revenue-service-summary {
   display: flex;
