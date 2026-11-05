@@ -1,0 +1,140 @@
+@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap");
+
+:root {
+  --page-yellow: #e9c75b;
+  --surface-gray: #777777;
+  --surface-border: #16130c;
+  --ink-brown: #4b321c;
+  --paper: #fffdf8;
+  font-family: "Be Vietnam Pro", sans-serif;
+  color: var(--ink-brown);
+  background: var(--page-yellow);
+}
+
+* { box-sizing: border-box; }
+html, body, #root { min-height: 100%; margin: 0; }
+body { font-family: "Be Vietnam Pro", sans-serif; }
+button { font: inherit; }
+
+.personal {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--page-yellow);
+  color: var(--ink-brown);
+}
+.p-top {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border-bottom: 1px solid rgba(75, 50, 28, .2);
+  background: rgba(233, 199, 91, .96);
+}
+.p-top-inner {
+  width: min(1080px, calc(100% - 32px));
+  min-height: 60px;
+  margin: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #a91d22;
+  font-family: Manrope, sans-serif;
+  font-weight: 800;
+  text-decoration: none;
+}
+.brand-mark {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px 9px 3px 9px;
+  background: #a91d22;
+  color: white;
+}
+.p-pill {
+  margin-left: auto;
+  padding: 5px 10px;
+  border: 1px solid rgba(75, 50, 28, .38);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.p-logout, .screen-nav button {
+  border: 1px solid #6e4b24;
+  border-radius: 9px;
+  background: var(--paper);
+  color: var(--ink-brown);
+  padding: 9px 13px;
+  font-weight: 700;
+}
+.p-main {
+  width: min(1080px, calc(100% - 32px));
+  margin: auto;
+  padding: 22px 0 36px;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+.p-hero, .p-card {
+  min-width: 0;
+  padding: 18px;
+  border: 2px solid var(--surface-border);
+  border-radius: 18px;
+  background: var(--surface-gray);
+  color: white;
+}
+.month-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.month-nav button, .p-actions button, .seg button, .head-actions button, .p-row button {
+  min-height: 38px;
+  border: 1px solid #6e4b24;
+  border-radius: 9px;
+  background: var(--paper);
+  color: var(--ink-brown);
+  padding: 8px 12px;
+  font-weight: 700;
+}
+.personal-period { text-align: center; }
+.personal-period h1 { margin: 0; font: 800 24px Manrope, sans-serif; }
+.personal-period span, .muted { opacity: .82; }
+.p-totals { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; margin: 14px 0; }
+.rev-label { font-size: 14px; font-weight: 800; }
+.p-big, .p-mid { margin: 7px 0; font: 800 34px Manrope, sans-serif; }
+.p-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.p-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.p-card h2 { margin: 0 0 13px; font: 800 17px Manrope, sans-serif; }
+.seg { display: flex; gap: 6px; margin-bottom: 12px; }
+.seg button.active { background: #d9b642; }
+.p-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.p-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,.54);
+  border-radius: 12px;
+  background: #777;
+  color: white;
+}
+.grow { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.head-actions { display: flex; gap: 6px; }
+.p-earn { white-space: nowrap; }
+.p-switch { display: flex; align-items: center; gap: 10px; margin: 12px 0; }
+.screen-nav { display: flex; gap: 8px; justify-content: flex-end; }
+@media (max-width: 820px) {
+  .p-grid, .p-totals { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .p-main { width: calc(100% - 22px); padding-top: 12px; }
+  .p-top-inner { width: calc(100% - 22px); flex-wrap: wrap; padding: 8px 0; }
+  .p-row { flex-wrap: wrap; }
+  .head-actions { width: 100%; }
+  .head-actions button { flex: 1; }
+  .screen-nav { justify-content: stretch; }
+  .screen-nav button { flex: 1; }
+}

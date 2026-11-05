@@ -2230,3 +2230,165 @@ body:has(.modal-backdrop) .screen-nav {
 .personal .cmp-shift * {
   color: #fff;
 }
+
+/* Desktop layout for the private personal notebook. Mobile keeps its current flow. */
+@media (min-width: 1200px) {
+  .personal .p-top-inner,
+  .personal .p-main {
+    width: min(1440px, calc(100% - 64px));
+  }
+
+  .personal .p-main {
+    gap: 20px;
+    padding-top: 28px;
+  }
+
+  .personal .p-hero {
+    display: grid;
+    grid-template-columns: minmax(250px, 0.27fr) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .personal .p-hero > .month-nav {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) 36px;
+    align-content: start;
+    align-items: center;
+    gap: 12px;
+    min-height: 100%;
+    padding: 28px 20px;
+    border-right: 1px solid hsl(var(--border));
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  .personal .p-hero > .month-nav .personal-period {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    text-align: center;
+  }
+
+  .personal .p-hero > .month-nav .personal-period h1 {
+    font-size: clamp(18px, 1.45vw, 24px);
+    overflow-wrap: normal;
+  }
+
+  .personal .p-hero > .month-nav .icon-btn {
+    width: 36px;
+    height: 36px;
+    border: 1px solid hsl(var(--border));
+    border-radius: 10px;
+    color: hsl(var(--foreground));
+    background: hsl(var(--card));
+  }
+
+  .personal .p-hero > .month-nav .icon-btn:first-child {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .personal .p-hero > .month-nav .icon-btn:last-child {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .personal .p-hero > .p-totals {
+    grid-column: 2;
+    grid-row: 1;
+    gap: 22px;
+    margin: 0;
+    padding: 28px 30px 20px;
+  }
+
+  .personal .p-hero > .p-totals > div + div {
+    padding-left: 22px;
+    border-left: 1px solid hsl(var(--border) / .75);
+  }
+
+  .personal .p-hero .p-big {
+    font-size: clamp(40px, 3.2vw, 54px);
+  }
+
+  .personal .p-hero .p-mid {
+    font-size: clamp(30px, 2.4vw, 40px);
+  }
+
+  .personal .p-hero > .p-actions {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: end;
+    margin: 0;
+    padding: 0 30px 26px;
+  }
+
+  .personal .p-hero > .p-actions .btn {
+    min-height: 42px;
+  }
+
+  .personal .p-hero > .hint {
+    grid-column: 2;
+    grid-row: 3;
+    margin: 0;
+    padding: 0 30px 20px;
+  }
+
+  .personal .p-grid {
+    grid-template-columns: minmax(0, 1.65fr) minmax(360px, .9fr);
+    align-items: start;
+    gap: 20px;
+  }
+
+  .personal .p-grid > .p-card {
+    padding: 22px;
+    border-radius: 19px;
+  }
+
+  .personal .p-grid > .p-card h2 {
+    font-size: 18px;
+  }
+
+  .personal .p-row {
+    gap: 16px;
+    padding: 14px 16px;
+  }
+
+  .personal .p-row .grow {
+    min-width: 0;
+    flex: 1 1 240px;
+  }
+
+  .personal .p-row .p-earn {
+    min-width: 116px;
+    margin-left: auto;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .personal .p-row .head-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 7px;
+  }
+
+  .personal .p-hero :is(button, a),
+  .personal .p-card :is(button, a) {
+    transition: transform .16s ease, box-shadow .16s ease;
+  }
+
+  .personal .p-hero :is(button, a):hover:not(:disabled),
+  .personal .p-card :is(button, a):hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  .personal .p-hero :is(button, a):focus-visible,
+  .personal .p-card :is(button, a):focus-visible {
+    outline: 3px solid hsl(var(--primary));
+    outline-offset: 3px;
+  }
+}
