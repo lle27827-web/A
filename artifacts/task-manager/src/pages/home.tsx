@@ -158,24 +158,10 @@ export default function HomePage() {
                       <span className="revenue-details-open">Ẩn chi tiết</span>
                     </summary>
                     <dl className="rev-breakdown">
-                      <div tabIndex={0}><dt>Doanh thu khách lẻ tháng</dt><dd className="mono" data-testid="text-service-revenue">{formatVnd(summary.data.serviceRevenue)}</dd></div>
                       <PaymentReportRow label="Tiền mặt tháng" amount={summary.data.paymentBreakdown.cash.total} method="cash" testId="button-payment-cash-month" onSelect={(method) => setPaymentDetails({ method })} />
                       <PaymentReportRow label="Chuyển khoản tháng" amount={summary.data.paymentBreakdown.transfer.total} method="transfer" testId="button-payment-transfer-month" onSelect={(method) => setPaymentDetails({ method })} />
-                      {summary.data.paymentBreakdown.unrecorded.total > 0 && <PaymentReportRow label="Chưa ghi phương thức tháng" amount={summary.data.paymentBreakdown.unrecorded.total} method="unrecorded" testId="button-payment-unrecorded-month" onSelect={(method) => setPaymentDetails({ method })} />}
                       <div tabIndex={0}><dt>Khách lẻ tháng</dt><dd className="mono" data-testid="text-walk-in-visits">{summary.data.walkInVisits} lượt</dd></div>
                       <div tabIndex={0}><dt>Khách thẻ tháng</dt><dd className="mono" data-testid="text-card-visits">{summary.data.cardVisits} lượt</dd></div>
-                      <div data-testid="row-top-service-by-customer-type" tabIndex={0}>
-                        <dt>Dịch vụ được dùng nhiều nhất theo loại khách</dt>
-                        <dd className="mono">
-                          Khách lẻ: {summary.data.mostUsedWalkInService
-                            ? `${summary.data.mostUsedWalkInService.serviceType} · ${summary.data.mostUsedWalkInService.visits} lượt`
-                            : 'chưa có lượt'}
-                          {' · '}
-                          Khách thẻ: {summary.data.mostUsedCardService
-                            ? `${summary.data.mostUsedCardService.serviceType} · ${summary.data.mostUsedCardService.visits} lượt`
-                            : 'chưa có lượt'}
-                        </dd>
-                      </div>
                       <div data-testid="row-top-sold-card-service" tabIndex={0}>
                         <dt>Gói thẻ bán nhiều nhất tháng</dt>
                         <dd className="mono">{summary.data.topSoldCardService
