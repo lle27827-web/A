@@ -364,18 +364,32 @@ export function printRowsInWindow(
 ): boolean {
   if (!printWindow || printWindow.closed) return false;
   try {
+    return printHtmlInWindow(
+      printWindow,
+      buildPrintDocumentHtml(title, rows, paperSize, options),
+    );
+  } catch {
+    if (!printWindow.closed) printWindow.close();
+    return false;
+  }
+}
+
+export function printHtmlInWindow(
+  printWindow: Window | null,
+  html: string,
+): boolean {
+  if (!printWindow || printWindow.closed) return false;
+  try {
     printWindow.document.open();
-    printWindow.document.write(buildPrintDocumentHtml(title, rows, paperSize, options));
+    printWindow.document.write(html);
     printWindow.document.close();
     printWindow.addEventListener('afterprint', () => {
       if (!printWindow.closed) printWindow.close();
     }, { once: true });
-    window.setTimeout(() => {
-      if (!printWindow.closed) {
-        printWindow.focus();
-        printWindow.print();
-      }
-    }, 300);
+    // Keep print() in the original user gesture. Deferring it to a timer can
+    // make browsers block the print dialog as an unexpected popup.
+    printWindow.focus();
+    printWindow.print();
     return true;
   } catch {
     if (!printWindow.closed) printWindow.close();

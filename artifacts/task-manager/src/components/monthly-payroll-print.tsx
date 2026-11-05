@@ -10,7 +10,7 @@ import {
 import { Download, Printer } from 'lucide-react';
 import { formatMonth, formatVnd, SESSION_FRESHNESS } from '@/lib/massage';
 import { vietnamToday } from '@/lib/revenue-period';
-import { reservePrintWindow } from '@/lib/printing';
+import { printHtmlInWindow, reservePrintWindow } from '@/lib/printing';
 import { buildMonthlyPayrollReport, type MonthlyPayrollReport } from '@/lib/monthly-payroll-report';
 
 function formatHours(minutes: number): string {
@@ -113,23 +113,18 @@ export function MonthlyPayrollPrint({ enabled }: { enabled: boolean }) {
       setFeedback('Trình duyệt đã chặn cửa sổ in. Hãy cho phép cửa sổ bật lên rồi thử lại.');
       return;
     }
+    let printed = false;
     try {
-      printWindow.document.open();
-      printWindow.document.write(buildPrintHtml(report, month));
-      printWindow.document.close();
-      printWindow.addEventListener('afterprint', () => {
-        if (!printWindow.closed) printWindow.close();
-      }, { once: true });
-      window.setTimeout(() => {
-        if (!printWindow.closed) {
-          printWindow.focus();
-          printWindow.print();
-        }
-      }, 250);
+      printed = printHtmlInWindow(printWindow, buildPrintHtml(report, month));
     } catch {
+      printed = false;
+    }
+    if (!printed) {
       if (!printWindow.closed) printWindow.close();
       setFeedback('Không thể mở mẫu in. Vui lòng thử lại.');
+      return;
     }
+    setFeedback('Đã mở bảng in. Chọn máy in trong hộp thoại để in.');
   }
 
   async function downloadWorkbook() {

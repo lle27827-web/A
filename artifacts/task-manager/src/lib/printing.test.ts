@@ -8,12 +8,40 @@ import {
   cardSalePrintRows,
   getPrintPageLayout,
   PRINT_PAPER_OPTIONS,
+  printHtmlInWindow,
   printPreviewRows,
   serviceSessionPrintRows,
   cardTopUpPrintRows,
   cardPurchaseMinutes,
   treatmentCardPrintRows,
 } from './printing.ts';
+
+test('printHtmlInWindow opens and prints synchronously from the user action', () => {
+  let written = '';
+  let focused = false;
+  let printed = false;
+  let afterPrint: (() => void) | undefined;
+  const printWindow = {
+    closed: false,
+    document: {
+      open() {},
+      write(html: string) { written = html; },
+      close() {},
+    },
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+      if (type === 'afterprint') afterPrint = listener as () => void;
+    },
+    focus() { focused = true; },
+    print() { printed = true; },
+    close() {},
+  } as unknown as Window;
+
+  assert.equal(printHtmlInWindow(printWindow, '<!doctype html><title>Phiếu</title>'), true);
+  assert.match(written, /<title>Phiếu<\/title>/u);
+  assert.equal(focused, true);
+  assert.equal(printed, true);
+  assert.equal(typeof afterPrint, 'function');
+});
 
 const card: TreatmentCard = {
   id: 1,
