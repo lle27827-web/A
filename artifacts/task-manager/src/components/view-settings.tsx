@@ -8,6 +8,7 @@ import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
 import { AccessGrantsDialog } from '@/components/access-grants';
 import { useColorTheme, type AppColorTheme } from '@/components/color-theme-provider';
 import { ColorPaletteControls } from '@/components/color-palette-controls';
+import { MonthlyPayrollPrint } from '@/components/monthly-payroll-print';
 import { PrintPreview } from '@/components/print-preview';
 import {
   DEFAULT_PRINT_PREFERENCES,
@@ -248,6 +249,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
               </label>
               <PrintPreview paperSize={printPrefs.paperSize} customWidthMm={printPrefs.customWidthMm}
                 customHeightMm={printPrefs.customHeightMm} facilityPhone={printPrefs.facilityPhone} />
+              <MonthlyPayrollPrint enabled={canViewEmployees} />
             </section>
           )}
 

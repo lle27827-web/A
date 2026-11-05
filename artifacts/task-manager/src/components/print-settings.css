@@ -203,3 +203,123 @@
   color: hsl(var(--muted-foreground));
   font-size: 11px;
 }
+
+.payroll-print-report {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  padding-top: 12px;
+  border-top: 1px solid hsl(var(--border));
+}
+
+.payroll-print-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.payroll-print-heading h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.payroll-print-heading p {
+  margin: 3px 0 0;
+  font-size: 12px;
+}
+
+.payroll-month-field {
+  width: min(100%, 190px);
+  margin: 0;
+}
+
+.payroll-report-table-scroll {
+  max-width: 100%;
+  max-height: 360px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--card));
+}
+
+.payroll-report-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.payroll-report-table th,
+.payroll-report-table td {
+  padding: 7px 8px;
+  border: 1px solid hsl(var(--border));
+  white-space: nowrap;
+}
+
+.payroll-report-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: hsl(var(--muted));
+  text-align: center;
+}
+
+.payroll-report-table thead tr:nth-child(2) th {
+  top: 31px;
+  font-size: 11px;
+}
+
+.payroll-report-table tbody th,
+.payroll-report-table tfoot th {
+  text-align: left;
+}
+
+.payroll-report-table tbody td.number,
+.payroll-report-table tbody td.money,
+.payroll-report-table tfoot td.number,
+.payroll-report-table tfoot td.money {
+  text-align: right;
+}
+
+.payroll-report-table tfoot th,
+.payroll-report-table tfoot td {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background: hsl(var(--muted));
+  font-weight: 850;
+}
+
+.payroll-report-total {
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.payroll-report-actions,
+.payroll-report-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.payroll-report-feedback {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+}
+
+@media (max-width: 520px) {
+  .payroll-print-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .payroll-month-field {
+    width: 100%;
+  }
+}
