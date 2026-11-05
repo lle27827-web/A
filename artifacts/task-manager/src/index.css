@@ -2393,3 +2393,370 @@ body:has(.modal-backdrop) .screen-nav {
     outline-offset: 3px;
   }
 }
+
+/* The added navigation is absent from the phone flow and only participates at desktop width. */
+.desktop-rail { display: none; }
+
+/* Desktop workspace: a persistent, permission-aware rail with roomy operational views.
+   Everything here begins above the phone/tablet layout, leaving its flow untouched. */
+@media (min-width: 1100px) {
+  .app:not(.attendance-app) {
+    display: grid;
+    grid-template-columns: 244px minmax(0, 1fr);
+    grid-template-rows: 68px minmax(0, 1fr);
+    height: var(--visible-viewport-height, 100dvh);
+    min-height: 100dvh;
+  }
+
+  .app:not(.attendance-app) > .topbar {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    position: relative;
+    border-bottom-width: 2px;
+  }
+
+  .app:not(.attendance-app) .topbar-inner {
+    width: auto;
+    max-width: none;
+    min-height: 68px;
+    margin: 0;
+    padding: 0 30px;
+    gap: 26px;
+  }
+
+  .app:not(.attendance-app) .brand { font-size: 18px; }
+  .app:not(.attendance-app) .brand-mark { width: 32px; height: 32px; }
+  .app:not(.attendance-app) .search { max-width: 720px; min-height: 42px; }
+  .app:not(.attendance-app) .account { gap: 14px; }
+
+  .desktop-rail {
+    grid-column: 1;
+    grid-row: 2;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 24px 14px 18px;
+    border-right: 1px solid hsl(var(--border));
+    background: hsl(var(--card) / .76);
+  }
+
+  .desktop-rail-nav {
+    display: grid;
+    gap: 5px;
+  }
+
+  .desktop-nav-link {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 12px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: hsl(var(--muted-foreground));
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background .16s ease, color .16s ease, border-color .16s ease, transform .16s ease;
+  }
+
+  .desktop-nav-link svg { flex: 0 0 auto; color: hsl(var(--primary)); }
+  .desktop-nav-link:hover {
+    border-color: hsl(var(--border));
+    color: hsl(var(--foreground));
+    background: hsl(var(--primary) / .055);
+    transform: translateX(2px);
+  }
+  .desktop-nav-link[aria-current="page"] {
+    border-color: hsl(var(--primary) / .28);
+    color: hsl(var(--foreground));
+    background: hsl(var(--primary) / .11);
+    box-shadow: inset 3px 0 hsl(var(--primary));
+  }
+  .desktop-nav-link:focus-visible { outline-offset: 3px; }
+
+  .desktop-rail-bottom {
+    display: grid;
+    gap: 12px;
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid hsl(var(--border));
+  }
+  .desktop-nav-link.personal-nav-link {
+    border-color: hsl(var(--personal-accent) / .4);
+    color: hsl(var(--foreground));
+    background: hsl(var(--personal-accent) / .075);
+  }
+  .desktop-nav-link.personal-nav-link svg { color: hsl(var(--personal-accent)); }
+  .app:not(.attendance-app) > .main {
+    grid-column: 2;
+    grid-row: 2;
+    width: auto;
+    max-width: none;
+    margin: 0;
+    padding: 30px clamp(28px, 3.2vw, 56px) 42px;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .app:not(.attendance-app) > .main > * { min-width: 0; }
+  .main .page { width: 100%; max-width: 1500px; margin-inline: auto; padding: 28px; border-radius: 18px; }
+  .main .detail { max-width: 1500px; gap: 20px; }
+  .main .content { gap: 20px; }
+  .main .layout { grid-template-columns: minmax(230px, 280px) minmax(0, 1fr); gap: 22px; }
+  .main .side { top: 16px; }
+  .main .panel { padding: 22px; border-radius: 16px; }
+  .main .panel-head { gap: 20px; margin-bottom: 18px; }
+  .main .page-title { font-size: clamp(30px, 2.7vw, 40px); }
+
+  /* Home and revenue are a working dashboard, not a stack of phone tiles. */
+  .home {
+    max-width: 1500px;
+    grid-template-columns: minmax(0, .76fr) minmax(0, 1.24fr);
+    align-items: start;
+    gap: 22px;
+    margin: 0 auto;
+  }
+  .home .tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .home .tile {
+    min-height: 164px;
+    padding: 19px;
+    border-radius: 16px 16px 16px 5px;
+  }
+  .home .tile.alt { border-radius: 16px 16px 5px 16px; }
+  .home .tile > svg { width: 23px; height: 23px; }
+  .home .tile strong { font-size: clamp(18px, 1.55vw, 24px); }
+  .home .revenue { min-width: 0; padding: 0; border: 0; background: transparent; }
+  .home .revenue-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 0; }
+  .home .revenue-summary > .revenue-period-card { min-width: 0; padding: 18px; border-width: 2px; border-radius: 16px; }
+  .home .revenue-period-primary-row { min-height: 128px; gap: 10px; padding: 14px; border-width: 2px; }
+  .home .revenue-period-primary-row .rev-label-key { font-size: 14px; }
+  .home .revenue-period-card .rev-value { font-size: clamp(24px, 2.1vw, 34px); }
+  .home .revenue-period-arrow { width: 34px; min-width: 34px; height: 34px; flex-basis: 34px; border-width: 2px; }
+  .home .revenue-period-key-metrics > div,
+  .home .revenue-summary .rev-breakdown > div { padding: 10px 12px; border-width: 2px; }
+  .home .revenue-period-key-metrics { gap: 7px; margin-top: 10px; }
+  .home .revenue-period-key-metrics > div { font-size: 12px; }
+  .home .revenue-service-summary { margin-top: 10px; padding: 12px; border: 2px solid hsl(var(--frame-border)); border-radius: 10px; }
+  .home .revenue-service-summary > span { font-size: 11px; }
+  .home .revenue-service-summary .service-duration-list { font-size: 13px; }
+  .home .revenue-details { margin-top: 10px; }
+  .home .rev-breakdown { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .home .rev-breakdown > div dt,
+  .home .rev-breakdown > div dd,
+  .home .rev-breakdown > div dd strong,
+  .home .rev-breakdown .service-duration-list { font-size: 12px; }
+  .home .payment-report-trigger { font-size: inherit; }
+
+  /* Employee roster and details: names and pay summaries remain on one scan line. */
+  .main .panel.page[aria-labelledby="emp-title"] { max-width: 1280px; }
+  .main .panel.page[aria-labelledby="emp-title"] .emp-list { gap: 8px; }
+  .main .panel.page[aria-labelledby="emp-title"] .emp-item { gap: 8px; }
+  .main .panel.page[aria-labelledby="emp-title"] .emp-row.as-row {
+    min-height: 76px;
+    display: grid;
+    grid-template-columns: 46px minmax(170px, .8fr) minmax(320px, 1fr) 22px;
+    gap: 18px;
+    padding: 14px 18px;
+    border-radius: 13px;
+  }
+  .main .panel.page[aria-labelledby="emp-title"] .employee-summary {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: clamp(18px, 3vw, 44px);
+    text-align: left;
+  }
+  .main .panel.page[aria-labelledby="emp-title"] .employee-summary > span { justify-items: start; }
+  .main .panel.page[aria-labelledby="emp-title"] .employee-summary > span > span { font-size: 11px; }
+  .main .panel.page[aria-labelledby="emp-title"] .employee-summary strong { font-size: 16px; }
+  .main .panel.page[aria-labelledby="emp-title"] .emp-item > .icon-btn { width: 42px; }
+
+  .detail:has(> [data-testid="section-salary"]) {
+    grid-template-columns: minmax(0, 1.2fr) minmax(340px, .8fr);
+    align-items: start;
+  }
+  .detail:has(> [data-testid="section-salary"]) > .salary-hero { grid-column: 1 / -1; }
+  .detail:has(> [data-testid="section-salary"]) > .day-salary { min-height: 100%; }
+  .detail:has(> [data-testid="section-salary"]) > [data-testid="section-day-sessions"] { grid-column: 2; grid-row: 2 / span 2; }
+  .detail:has(> [data-testid="section-salary"]) .salary-hero.compact {
+    display: grid;
+    grid-template-columns: minmax(260px, .9fr) minmax(180px, .55fr) minmax(280px, 1.2fr);
+    align-items: center;
+    gap: 16px 28px;
+    padding: 26px 30px;
+  }
+  .detail:has(> [data-testid="section-salary"]) .salary-hero.compact .month-nav { grid-column: 1; grid-row: 1; }
+  .detail:has(> [data-testid="section-salary"]) .salary-hero.compact > .rev-value { grid-column: 2; grid-row: 1; margin: 0; text-align: left; }
+  .detail:has(> [data-testid="section-salary"]) .employee-period-stats { grid-column: 3; grid-row: 1 / span 2; justify-items: stretch; margin: 0; text-align: left; }
+  .detail:has(> [data-testid="section-salary"]) .employee-service-summary { padding: 12px 16px; border-left: 1px solid hsl(var(--border)); }
+  .detail:has(> [data-testid="section-salary"]) .day-salary { padding: 22px; text-align: left; }
+  .detail:has(> [data-testid="section-salary"]) .day-salary-navigation { justify-content: flex-start; }
+  .detail:has(> [data-testid="section-salary"]) .day-salary-navigation .rev-label { text-align: left; }
+  .detail:has(> [data-testid="section-salary"]) .day-salary-value { font-size: 38px; }
+  .detail:has(> [data-testid="section-salary"]) .day-actions { display: flex; justify-content: flex-start; }
+  .detail:has(> [data-testid="section-salary"]) .day-actions .btn { width: auto; }
+
+  /* Customer cards use a compact ledger row on wide screens. */
+  .main .panel.page[aria-labelledby="cards-title"] { max-width: 1420px; }
+  .main .panel.page[aria-labelledby="cards-title"] .card-search { grid-template-columns: minmax(200px, .5fr) minmax(320px, 1fr) auto; align-items: end; gap: 8px 18px; }
+  .main .panel.page[aria-labelledby="cards-title"] .card-search > label { grid-column: 1; }
+  .main .panel.page[aria-labelledby="cards-title"] .card-search-box { grid-column: 2; grid-row: 1 / span 2; min-height: 42px; }
+  .main .panel.page[aria-labelledby="cards-title"] .card-search .hint { grid-column: 3; grid-row: 1 / span 2; align-self: center; }
+  .main .panel.page[aria-labelledby="cards-title"] .card-list { gap: 9px; }
+  .main .panel.page[aria-labelledby="cards-title"] .card-list-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px;
+    padding: 13px 18px;
+    border-radius: 13px;
+  }
+  .main .panel.page[aria-labelledby="cards-title"] .card-list-open {
+    grid-template-columns: minmax(150px, .75fr) minmax(125px, .6fr) minmax(250px, 1.6fr) minmax(110px, auto) 18px;
+    align-items: center;
+    gap: 8px 18px;
+  }
+  .main .panel.page[aria-labelledby="cards-title"] .card-list-customer { grid-column: 1; grid-row: 1; font-size: 15px; }
+  .main .panel.page[aria-labelledby="cards-title"] .card-list-phone { grid-column: 2; grid-row: 1; }
+  .main .panel.page[aria-labelledby="cards-title"] .card-list-meta { grid-column: 3; grid-row: 1; font-size: 12px; }
+  .main .panel.page[aria-labelledby="cards-title"] .remain { grid-column: 4; grid-row: 1; }
+  .main .panel.page[aria-labelledby="cards-title"] .card-list-open > svg { grid-column: 5; grid-row: 1; }
+  .main .panel.page[aria-labelledby="cards-title"] .card-list-meta .meter { min-width: 100px; }
+
+  .detail:has(> [data-testid="section-card"]) { max-width: 1420px; }
+  .detail:has(> [data-testid="section-card"]) > [data-testid="section-card"] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, .6fr);
+    align-items: center;
+    column-gap: 32px;
+    padding: 28px 32px;
+  }
+  .detail:has(> [data-testid="section-card"]) .hero-top { grid-column: 1 / -1; margin-bottom: 8px; }
+  .detail:has(> [data-testid="section-card"]) > [data-testid="section-card"] > .rev-label,
+  .detail:has(> [data-testid="section-card"]) > [data-testid="section-card"] > .rev-value,
+  .detail:has(> [data-testid="section-card"]) > [data-testid="section-card"] > .meter { grid-column: 1; }
+  .detail:has(> [data-testid="section-card"]) .facts { grid-column: 2; grid-row: 2 / span 3; grid-template-columns: repeat(2, minmax(0, 1fr)); padding-left: 24px; border-left: 1px solid hsl(var(--border)); }
+  .detail:has(> [data-testid="section-card"]) .card-actions-top { justify-content: flex-start; }
+  .detail:has(> [data-testid="section-card"]) .card-actions-top .btn { flex: 0 0 auto; min-width: 150px; }
+
+  /* Appointments and service pricing gain a readable working column. */
+  .appointments-page { width: min(1400px, 100%); margin-inline: auto; }
+  .appointments-heading { align-items: flex-end; margin-bottom: 22px; }
+  .appointment-panel { padding: 24px; }
+  .appointment-list { gap: 8px; }
+  .appointment-row {
+    grid-template-columns: minmax(155px, .58fr) minmax(200px, .75fr) minmax(350px, 1.7fr) auto;
+    align-items: center;
+    gap: 18px;
+    padding: 16px 18px;
+  }
+  .appointment-detail-lines { grid-column: auto; }
+  .appointment-actions { min-width: 68px; }
+  .appointment-empty { min-height: 220px; }
+
+  .main .panel[data-testid="section-services"] { max-width: 1320px; }
+  .main .panel[data-testid="section-services"] .emp-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .main .panel[data-testid="section-services"] .emp-row { align-items: center; min-height: 84px; padding: 16px 18px; }
+  .main .panel[data-testid="section-services"] .emp-row .grow { gap: 6px; }
+  .main .panel[data-testid="section-services"] .emp-row .muted { font-size: 13px; }
+
+  /* Dialogs and print preferences make practical use of desktop width. */
+  .modal-backdrop { padding: 32px; }
+  .dialog { width: min(720px, 100%); max-height: min(88vh, calc(var(--visible-viewport-height, 100dvh) - 64px)); padding: 28px; border-radius: 18px; }
+  .dialog-head { margin-bottom: 20px; }
+  .dialog-head h2 { font-size: 22px; }
+  .dialog .form-grid { gap: 16px; }
+  .dialog .field-row { gap: 16px; }
+  .dialog .dialog-actions { margin-top: 4px; }
+  .dialog .dialog-actions .btn { flex: 0 0 auto; min-width: 112px; }
+  .dialog .form-grid:has(> .field:nth-child(4)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dialog .form-grid > .dialog-actions,
+  .dialog .form-grid > .form-error,
+  .dialog .form-grid > .field:has(textarea),
+  .dialog .form-grid > .service-pick,
+  .dialog .form-grid > .extras { grid-column: 1 / -1; }
+  .settings-dialog {
+    width: min(860px, calc(100vw - 80px));
+    max-width: min(860px, calc(100vw - 80px));
+    max-height: min(90vh, calc(var(--visible-viewport-height, 100dvh) - 64px));
+    padding: 30px;
+    border-radius: 20px;
+  }
+  .settings-dialog.palette-mode { width: min(1100px, calc(100vw - 80px)); max-width: min(1100px, calc(100vw - 80px)); }
+  .settings-dialog.palette-mode .palette-controls { max-height: calc(var(--visible-viewport-height, 100dvh) - 220px); }
+  .settings-dialog .theme-option-row { gap: 12px; }
+  .settings-dialog .settings-link { min-height: 64px; padding: 14px 16px; }
+  .print-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
+  .print-settings > h3,
+  .print-settings > .print-preview-note,
+  .print-settings > .print-preview,
+  .print-settings > .monthly-payroll-print { grid-column: 1 / -1; }
+  .print-settings .field-row { align-self: start; }
+  .screen-nav { justify-content: flex-end; max-width: 1500px; margin: 22px auto 0; }
+  .screen-nav .btn { flex: 0 0 auto; min-width: 130px; }
+
+  /* Sign-in/recovery surfaces keep the same brand and palette, with a calm desktop card. */
+  .auth-page {
+    position: relative;
+    min-height: 100dvh;
+    justify-content: center;
+    gap: 24px;
+    padding: 56px 32px;
+    isolation: isolate;
+  }
+  .auth-page::before {
+    position: absolute;
+    z-index: -1;
+    content: "";
+    width: min(72vw, 980px);
+    height: min(72vw, 680px);
+    border: 1px solid hsl(var(--primary) / .15);
+    border-radius: 48% 52% 42% 58%;
+    box-shadow: 0 0 0 36px hsl(var(--primary) / .025), 0 0 0 72px hsl(var(--personal-accent) / .025);
+    transform: rotate(-12deg);
+    pointer-events: none;
+  }
+  .auth-page > .welcome { width: min(520px, 100%); }
+  .auth-page > .welcome h1,
+  .auth-page > .welcome h2 { font-size: clamp(34px, 4vw, 50px); line-height: 1.1; }
+  .auth-page .welcome-actions { width: min(420px, 100%); gap: 12px; }
+  .auth-page .welcome-actions .btn { min-height: 46px; flex: 1; }
+  .auth-sign-in-methods { width: min(480px, 100%); }
+  .auth-page > .panel,
+  .auth-page > .auth-sign-in-methods {
+    box-sizing: border-box;
+    padding: 28px;
+    border-radius: 18px;
+    box-shadow: 0 18px 50px hsl(var(--shadow-color) / .15);
+  }
+  .auth-page .auth-notice { width: min(620px, 100%); }
+  .auth-page .auth-reset-panel { width: min(620px, 100%); }
+  .auth-page .auth-reset-form { gap: 16px; }
+  .auth-page .auth-reset-form .btn { justify-self: start; min-width: 190px; }
+
+  /* Attendance surface is retained for its existing non-shell usage. */
+  .attendance-app { display: flex; flex-direction: column; }
+  .attendance-app .topbar-inner { width: min(1500px, calc(100% - 64px)); min-height: 68px; }
+  .attendance-app .main { width: min(1500px, calc(100% - 64px)); padding: 30px 0 42px; }
+  .attendance-app .footer { width: min(1500px, calc(100% - 64px)); }
+  .attendance-app .stats { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .attendance-app .stat:nth-child(5) { border-left: 1px solid hsl(var(--border)); padding-left: 12px; }
+  .attendance-app .member-list { max-height: calc(var(--visible-viewport-height, 100dvh) - 245px); }
+  .attendance-app .dialog-actions .btn { flex: 0 0 auto; }
+}
+
+@media (min-width: 1100px) and (max-width: 1350px) {
+  .app:not(.attendance-app) { grid-template-columns: 218px minmax(0, 1fr); }
+  .app:not(.attendance-app) > .main { padding-inline: 26px; }
+  .home { grid-template-columns: minmax(0, 1fr); }
+  .home .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .home .tile { min-height: 142px; }
+  .main .panel.page[aria-labelledby="cards-title"] .card-list-open {
+    grid-template-columns: minmax(130px, .8fr) minmax(115px, .65fr) minmax(220px, 1.5fr) minmax(100px, auto) 18px;
+    gap: 8px 12px;
+  }
+  .appointment-row { grid-template-columns: minmax(140px, .65fr) minmax(170px, .85fr) minmax(250px, 1.5fr) auto; gap: 12px; }
+}

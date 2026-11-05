@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { getListMembersQueryKey, useListMembers } from '@workspace/api-client-react';
 import type { FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
-import { AlertCircle, ArrowLeft, Check, Hand, History, Home, Search, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, BookHeart, CalendarDays, Check, CreditCard, Hand, History, Home, Search, Sparkles, Users, X } from 'lucide-react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { SearchResults } from '@/components/search-results';
 import { ViewSettings, useViewPrefs, type ViewPrefs } from '@/components/view-settings';
@@ -226,6 +226,30 @@ export function AppShell({
             </div>
           </div>
         </header>
+        <aside className="desktop-rail" aria-label="Điều hướng chính">
+          <nav className="desktop-rail-nav">
+            <Link href={withHistory('/')} onClick={() => setQuery('')} className="desktop-nav-link" aria-current={location === '/' || location === '/attendance' ? 'page' : undefined} data-testid="desktop-link-home">
+              <Home size={17} aria-hidden="true" /><span>Trang chính</span>
+            </Link>
+            {canViewEmployees && <Link href={withHistory('/employees')} className="desktop-nav-link" aria-current={employeeRoute ? 'page' : undefined} data-testid="desktop-link-employees">
+              <Users size={17} aria-hidden="true" /><span>Quản lý nhân viên</span>
+            </Link>}
+            {permissions.viewCards && <Link href="/cards" className="desktop-nav-link" aria-current={location.startsWith('/cards') ? 'page' : undefined} data-testid="desktop-link-cards">
+              <CreditCard size={17} aria-hidden="true" /><span>Quản lý thẻ</span>
+            </Link>}
+            {(permissions.viewAppointments || permissions.editAppointments) && <Link href="/appointments" className="desktop-nav-link" aria-current={location === '/appointments' ? 'page' : undefined} data-testid="desktop-link-appointments">
+              <CalendarDays size={17} aria-hidden="true" /><span>Lịch hẹn</span>
+            </Link>}
+            {permissions.editServices && <Link href="/services" className="desktop-nav-link" aria-current={location === '/services' ? 'page' : undefined} data-testid="desktop-link-services">
+              <Sparkles size={17} aria-hidden="true" /><span>Dịch vụ &amp; giá</span>
+            </Link>}
+          </nav>
+          <div className="desktop-rail-bottom">
+            <Link href="/personal" className="desktop-nav-link personal-nav-link" aria-current={location === '/personal' ? 'page' : undefined} data-testid="desktop-link-personal">
+              <BookHeart size={17} aria-hidden="true" /><span>Chấm công cá nhân</span>
+            </Link>
+          </div>
+        </aside>
         <main className="main" id="main" aria-label="Nội dung chính" tabIndex={-1}>
           {authStatusMessage && <div className="banner danger" role="status">{authStatusMessage}</div>}
           {historyMonth && employeeRoute && (
