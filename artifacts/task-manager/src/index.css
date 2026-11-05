@@ -560,7 +560,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .employee-session-customer, .employee-session-duration { font-size: 16px; line-height: 1.45; overflow-wrap: anywhere; }
 .employee-session-customer strong, .employee-session-duration strong { color: hsl(var(--foreground)); font-size: 17px; font-weight: 800; }
 .employee-session-duration { margin: 0; }
-.employee-session-row .shift-actions { justify-content: flex-end; }
+.employee-session-row .shift-actions { width: 100%; justify-content: space-between; }
 .detail [data-testid="section-day-sessions"] .panel-head .sub { text-align: right; font-size: 16px; font-weight: 700; }
 @media (max-width: 480px) {
   .employee-summary { max-width: 54%; font-size: 12px; }
@@ -2095,9 +2095,12 @@ body:has(.modal-backdrop) .screen-nav {
 .employee-session-row .employee-session-duration {
   text-align: center;
 }
-.employee-session-row .shift-main,
-.employee-session-row .shift-actions {
+.employee-session-row .shift-main {
   justify-content: center;
+}
+.employee-session-row .shift-actions {
+  width: 100%;
+  justify-content: space-between;
 }
 .detail .employee-period-stats,
 .detail .employee-period-stats > span,
