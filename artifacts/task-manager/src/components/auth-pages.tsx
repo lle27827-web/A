@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent, type Ref } from "react";
 import { Link, useSearch } from "wouter";
 import { shadcn } from "@clerk/themes";
 import { viVN } from "@clerk/localizations";
-import { BookHeart, Hand, LogIn, LogOut, UserPlus } from "lucide-react";
+import { BookHeart, BookOpen, Hand, LogIn, LogOut, UserPlus } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -501,6 +501,11 @@ export function AuthLoadingPage() {
   return (
     <main className="auth-page" aria-labelledby="session-loading-title">
       <section className="panel auth-notice" aria-busy="true" data-testid="status-restoring-session">
+        <div className="auth-loading-brand" aria-label="Sổ Công">
+          <BookOpen className="auth-loading-book" size={44} strokeWidth={2.2} aria-hidden="true" />
+          <span className="auth-loading-brand-name">Sổ Công</span>
+        </div>
+        <p className="auth-loading-tagline">Hãy đăng nhập để sử dụng dịch vụ</p>
         <h1 id="session-loading-title" ref={headingRef} tabIndex={-1}>Đang khôi phục phiên</h1>
         <p role="status" aria-live="polite">Đang kiểm tra phiên đăng nhập và quyền truy cập…</p>
       </section>
