@@ -185,14 +185,15 @@ html.app-long-press-save-pending * {
 .auth-notice p { margin: 0; line-height: 1.6; }
 .auth-notice .btn { justify-self: start; }
 .auth-notice[data-testid="status-restoring-session"] { justify-items: center; text-align: center; }
-.auth-loading-brand { display: grid; justify-items: center; gap: 2px; color: hsl(var(--brand-red)); }
+.auth-loading-brand { display: grid; justify-items: center; gap: 8px; color: hsl(var(--brand-red)); }
 .auth-loading-book { filter: drop-shadow(0 2px 1px hsl(var(--shadow-color) / .24)); }
 .auth-loading-brand-name {
   color: hsl(var(--brand-red));
   font-family: 'Caveat', cursive;
-  font-size: clamp(42px, 10vw, 58px);
+  font-size: clamp(68px, 8vw, 104px);
   font-weight: 700;
-  line-height: .95;
+  line-height: .9;
+  white-space: nowrap;
 }
 .auth-loading-tagline {
   color: hsl(var(--muted-foreground));

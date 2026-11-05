@@ -502,7 +502,7 @@ export function AuthLoadingPage() {
     <main className="auth-page" aria-labelledby="session-loading-title">
       <section className="panel auth-notice" aria-busy="true" data-testid="status-restoring-session">
         <div className="auth-loading-brand" aria-label="Sổ Công">
-          <BookOpen className="auth-loading-book" size={44} strokeWidth={2.2} aria-hidden="true" />
+          <BookOpen className="auth-loading-book" size={52} strokeWidth={2.2} aria-hidden="true" />
           <span className="auth-loading-brand-name">Sổ Công</span>
         </div>
         <p className="auth-loading-tagline">Hãy đăng nhập để sử dụng dịch vụ</p>
