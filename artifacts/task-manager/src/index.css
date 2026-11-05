@@ -2867,3 +2867,92 @@ body:has(.modal-backdrop) .screen-nav {
   flex-wrap: wrap;
   width: 100%;
 }
+
+.personal .p-hero > .month-nav {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: start;
+  gap: 10px;
+  padding: 14px 14px 8px;
+}
+.personal .p-hero > .month-nav .personal-month-summary {
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+  gap: 4px;
+}
+.personal .personal-month-summary h1 {
+  font-size: clamp(18px, 3.5vw, 24px);
+}
+.personal .personal-month-summary .personal-month-period {
+  font-size: 13px;
+}
+.personal .personal-month-summary .p-big {
+  margin: 2px 0;
+  font-size: clamp(30px, 5vw, 46px);
+}
+.personal .personal-month-summary .service-duration-list {
+  max-width: 820px;
+}
+.personal .p-hero > .month-nav .icon-btn:first-child {
+  grid-column: 1;
+  grid-row: 1;
+}
+.personal .p-hero > .month-nav .icon-btn:last-child {
+  grid-column: 3;
+  grid-row: 1;
+}
+.personal .p-totals {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  margin: 0;
+  padding: 8px 14px 14px;
+}
+.personal .p-row {
+  border-color: #fff !important;
+}
+.personal .service-duration-list > li + li {
+  border-top-color: hsl(0 0% 100% / .72);
+}
+
+@media (min-width: 1200px) {
+  .personal .p-hero {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto;
+  }
+  .personal .p-hero > .month-nav {
+    grid-column: 1;
+    grid-row: 1;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    min-height: 0;
+    padding: 24px 30px 18px;
+    border-right: 0;
+    border-bottom: 1px solid hsl(0 0% 100% / .55);
+  }
+  .personal .p-hero > .month-nav .icon-btn:first-child {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .personal .p-hero > .month-nav .icon-btn:last-child {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .personal .p-hero > .p-totals {
+    grid-column: 1;
+    grid-row: 2;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    margin: 0;
+    padding: 16px 30px 18px;
+  }
+  .personal .p-hero > .p-actions {
+    grid-column: 1;
+    grid-row: 3;
+    padding: 0 30px 26px;
+  }
+  .personal .p-hero > .hint {
+    grid-column: 1;
+    grid-row: 4;
+    padding: 0 30px 20px;
+  }
+}

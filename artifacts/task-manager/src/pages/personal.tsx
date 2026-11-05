@@ -203,7 +203,7 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
   }, [pendingHistorySpeech]);
   const monthServiceDetails = useMemo(() => summarizeServiceAttendance(sessions.map((s) => ({ serviceType: s.serviceName, minutes: s.minutes, visits: 1 }))), [sessions]);
   const dayServiceDetails = useMemo(() => summarizeServiceAttendance(daySessions.map((s) => ({ serviceType: s.serviceName, minutes: s.minutes, visits: 1 }))), [daySessions]);
-  const monthTotalLabel = month === currentMonth ? 'Tổng lương tháng này' : `Tổng lương ${formatMonth(month).toLocaleLowerCase('vi')}`;
+  const monthTotalLabel = month === currentMonth ? 'Tổng lương tháng hiện tại' : `Tổng lương ${formatMonth(month).toLocaleLowerCase('vi')}`;
   const dayTotalLabel = date === today ? 'Tổng lương hôm nay' : `Tổng lương ngày ${formatShortDayMonth(date)}`;
   const services = data?.services ?? [];
   const useFacility = data?.useFacilityRates === true;
@@ -236,22 +236,25 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
       <section className="p-hero" aria-labelledby="p-title" data-testid="section-personal-hero">
         <div className="month-nav">
           <button type="button" className="icon-btn" onClick={() => goPeriod(shiftMonth(month, -1))} aria-label="Tháng trước" data-testid="button-personal-prev-month"><ChevronLeft size={16} /></button>
-          <div className="personal-period">
-            <h1 id="p-title">{formatShortDayMonth(date)}</h1>
-            <span>{formatMonth(month)}</span>
+          <div className="personal-period personal-month-summary" data-testid="card-personal-month-total">
+            <h1 id="p-title">{monthTotalLabel}</h1>
+            <span className="personal-month-period">{formatMonth(month)}</span>
+            {nb.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải tổng lương tháng" /> : !data ? (
+              <span className="muted small" role="status" data-testid="status-personal-totals-unavailable">Chưa xem được tổng thu nhập — sổ chưa tải được.</span>
+            ) : (
+              <>
+                <p className="p-big mono" data-testid="text-personal-month-total">{formatVnd(data.totalMonth)}</p>
+                <ul className="service-duration-list" aria-label="Chi tiết ca dịch vụ trong tháng" data-testid="list-personal-month-service-durations">
+                  {monthServiceDetails.length ? monthServiceDetails.map((item) => <li key={item.serviceType}>{serviceAttendanceLabel(item, formatMinutes)}</li>) : <li>Chưa có ca dịch vụ</li>}
+                </ul>
+              </>
+            )}
           </div>
           <button type="button" className="icon-btn" disabled={month >= currentMonth} onClick={() => goPeriod(shiftMonth(month, 1))} aria-label="Tháng sau" data-testid="button-personal-next-month"><ChevronRight size={16} /></button>
         </div>
-        {nb.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải sổ" /> : !data ? (
-          <p className="muted" data-testid="status-personal-totals-unavailable">Chưa xem được tổng thu nhập — sổ chưa tải được.</p>
-        ) : (
+        {data && (
           <div className="p-totals">
-            <div className="p-total-card" data-testid="card-personal-month-total"><span className="rev-label">{monthTotalLabel}</span><p className="p-big mono" data-testid="text-personal-month-total">{formatVnd(data?.totalMonth ?? 0)}</p>
-              <ul className="service-duration-list" aria-label="Chi tiết ca dịch vụ trong tháng" data-testid="list-personal-month-service-durations">
-                {monthServiceDetails.length ? monthServiceDetails.map((item) => <li key={item.serviceType}>{serviceAttendanceLabel(item, formatMinutes)}</li>) : <li>Chưa có ca dịch vụ</li>}
-              </ul>
-            </div>
-            <div className="p-total-card" data-testid="card-personal-day-total"><span className="rev-label">{dayTotalLabel}</span><p className="p-mid mono" data-testid="text-personal-day-total">{formatVnd(data?.totalDay ?? 0)}</p>
+            <div className="p-total-card" data-testid="card-personal-day-total"><span className="rev-label">{dayTotalLabel}</span><p className="p-mid mono" data-testid="text-personal-day-total">{formatVnd(data.totalDay)}</p>
               <ul className="service-duration-list" aria-label={`Chi tiết ca dịch vụ ngày ${formatShortDayMonth(date)}`} data-testid="list-personal-day-service-durations">
                 {dayServiceDetails.length ? dayServiceDetails.map((item) => <li key={item.serviceType}>{serviceAttendanceLabel(item, formatMinutes)}</li>) : <li>Chưa có ca dịch vụ</li>}
               </ul>
@@ -276,8 +279,8 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
             <section className="p-card" aria-label="Ca của tôi" data-testid="section-personal-shifts">
               <h2 className="day-title"><CalendarDays size={16} aria-hidden="true" />{mode === 'day' ? 'Ca trong ngày' : `Tất cả ca ${formatMonth(month).toLowerCase()}`}</h2>
               <div className="seg" role="tablist" aria-label="Chế độ xem ca">
-                <button type="button" role="tab" aria-selected={mode === 'day'} className={mode === 'day' ? 'active' : ''} onClick={() => setMode('day')} data-testid="tab-personal-day">Ngày · {daySessions.length}</button>
-                <button type="button" role="tab" aria-selected={mode === 'month'} className={mode === 'month' ? 'active' : ''} onClick={() => setMode('month')} data-testid="tab-personal-month">Tháng · {sessions.length}</button>
+                <button type="button" role="tab" aria-selected={mode === 'day'} className={mode === 'day' ? 'active' : ''} onClick={() => setMode('day')} data-testid="tab-personal-day">Ngày</button>
+                <button type="button" role="tab" aria-selected={mode === 'month'} className={mode === 'month' ? 'active' : ''} onClick={() => setMode('month')} data-testid="tab-personal-month">Tháng</button>
               </div>
               {mode === 'day'
                 ? <ShiftList sessions={daySessions} busy={deleteShift.isPending} emptyText="Chưa có ca nào trong ngày này." testId="day-shifts"

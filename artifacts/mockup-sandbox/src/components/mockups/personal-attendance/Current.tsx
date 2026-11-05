@@ -19,24 +19,39 @@ export function Current() {
       </header>
       <main className="p-main">
         <section className="p-hero">
-          <div className="month-nav">
+          <div className="month-nav personal-month-nav">
             <button aria-label="Tháng trước"><ChevronLeft size={16} /></button>
-            <div className="personal-period"><h1>06/11/2026</h1><span>Tháng 11/2026</span></div>
+            <div className="personal-period personal-month-summary">
+              <h1>Tổng lương tháng hiện tại</h1>
+              <p className="p-big">8.450.000 ₫</p>
+              <span className="personal-month-period">Tháng 11/2026</span>
+              <ul className="personal-month-services">
+                <li>Massage đá nóng · 24 ca · 28 giờ</li>
+                <li>Trị liệu · 18 ca · 22 giờ</li>
+              </ul>
+            </div>
             <button aria-label="Tháng sau"><ChevronRight size={16} /></button>
           </div>
           <div className="p-totals">
-            <div><span className="rev-label">Tổng doanh thu tháng</span><p className="p-big">8.450.000 ₫</p><span className="muted">62 ca · 74 giờ 30 phút</span><p>Massage đá nóng · 24 ca · 28 giờ</p><p>Trị liệu · 18 ca · 22 giờ</p></div>
-            <div><span className="rev-label">Ngày 06/11/2026</span><p className="p-mid">395.000 ₫</p><span className="muted">3 ca</span><p>Massage · 2 ca · 3 giờ 30 phút</p><p>Trị liệu · 1 ca · 1 giờ</p></div>
+            <div className="p-total-card">
+              <span className="rev-label">Tổng lương hôm nay</span>
+              <p className="p-mid">395.000 ₫</p>
+              <ul className="personal-month-services">
+                <li>Massage · 2 ca · 3 giờ 30 phút</li>
+                <li>Trị liệu · 1 ca · 1 giờ</li>
+              </ul>
+            </div>
           </div>
           <div className="p-actions"><button>＋ Ghi ca</button><button><CalendarDays size={14} /> 06/11/2026</button><button>Đối chiếu</button></div>
         </section>
         <div className="p-grid">
           <section className="p-card">
             <h2>Ca của tôi</h2>
-            <div className="seg"><button className="active">Ngày · 3</button><button>Tháng · 62</button></div>
+            <div className="seg"><button className="active">Ngày</button><button>Tháng</button></div>
             <ul className="p-list">
-              {shifts.map((shift) => <li className="p-row" key={shift.service}>
-                <span className="grow"><strong>{shift.service}</strong><span>{shift.date} · {shift.customer}</span><span className="muted">{shift.duration}</span></span>
+              {shifts.map((shift) => <li className="p-row personal-shift-row" key={shift.service}>
+                <time className="p-date mono">{shift.date.slice(0, 5)}</time>
+                <span className="personal-shift-details"><strong>{shift.service}</strong><span>{shift.customer}</span><span className="muted">{shift.duration}</span></span>
                 <strong className="p-earn">{shift.pay}</strong><span className="head-actions"><button>Sửa</button><button>Xóa</button></span>
               </li>)}
             </ul>
