@@ -2095,3 +2095,13 @@ body:has(.modal-backdrop) .screen-nav {
 .employee-session-row .shift-actions {
   justify-content: center;
 }
+.detail .employee-period-stats,
+.detail .employee-period-stats > span,
+.detail .employee-day-stats,
+.detail .type-counts li {
+  text-align: center;
+}
+.detail .employee-period-stats,
+.detail .type-counts {
+  justify-items: center;
+}

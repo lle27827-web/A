@@ -16,7 +16,11 @@ import { SessionRows } from '@/components/session-rows';
 import { formatDate, formatShortDate } from '@/lib/attendance';
 import { MemberTags } from '@/pages/employees';
 import { SESSION_FRESHNESS, errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth, useRefreshMassage } from '@/lib/massage';
-import { serviceHoursLabel, summarizeServiceHours } from '@/lib/service-duration-summary';
+import {
+  serviceAttendanceLabel,
+  summarizeServiceAttendance,
+  summarizeServiceDurations,
+} from '@/lib/service-duration-summary';
 import { printServiceSession, reservePrintWindow } from '@/lib/printing';
 
 export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null; readOnly: boolean }) {
@@ -52,8 +56,14 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
 
   const sessions = useMemo(() => sessionsQuery.data ?? [], [sessionsQuery.data]);
   const daySessions = useMemo(() => sessions.filter((s) => s.workDate === day), [sessions, day]);
-  const monthTypes = useMemo(() => summarizeServiceHours(sessions), [sessions]);
-  const dayTypes = useMemo(() => summarizeServiceHours(daySessions), [daySessions]);
+  const monthTypes = useMemo(
+    () => summarizeServiceAttendance(summarizeServiceDurations(sessions)),
+    [sessions],
+  );
+  const dayTypes = useMemo(
+    () => summarizeServiceAttendance(summarizeServiceDurations(daySessions)),
+    [daySessions],
+  );
   const dayEarnings = daySessions.reduce((a, s) => a + s.earnings, 0);
   const monthMinutes = sessions.reduce((total, session) => total + session.minutes, 0);
   const dayMinutes = daySessions.reduce((total, session) => total + session.minutes, 0);
@@ -180,7 +190,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
         {sessionsQuery.isLoading ? <span className="muted" role="status">Đang tải số liệu tháng…</span> : !sessionsQuery.isError && (
           <div className="employee-period-stats" data-testid="employee-month-stats">
             <span>{sessions.length} ca · {formatMinutes(monthMinutes)}</span>
-            {monthTypes.map((item) => <span key={item.serviceType}>{serviceHoursLabel(item, formatMinutes)}</span>)}
+            {monthTypes.map((item) => <span key={item.serviceType}>{serviceAttendanceLabel(item, formatMinutes)}</span>)}
           </div>
         )}
       </section>
@@ -196,7 +206,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
             <p className="day-salary-value mono" data-testid="text-day-salary">{formatVnd(dayEarnings)}</p>
             <p className="employee-day-stats" data-testid="employee-day-stats">{daySessions.length} ca · {formatMinutes(dayMinutes)}</p>
             {dayTypes.length > 0 ? (
-              <ul className="type-counts" aria-label="Tổng giờ theo dịch vụ">{dayTypes.map((item) => <li key={item.serviceType}>{serviceHoursLabel(item, formatMinutes)}</li>)}</ul>
+              <ul className="type-counts" aria-label="Số ca và tổng giờ theo dịch vụ">{dayTypes.map((item) => <li key={item.serviceType}>{serviceAttendanceLabel(item, formatMinutes)}</li>)}</ul>
             ) : <p className="muted small">Chưa có dịch vụ trong ngày.</p>}
           </>
         )}
