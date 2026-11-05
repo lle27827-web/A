@@ -2105,3 +2105,18 @@ body:has(.modal-backdrop) .screen-nav {
 .detail .type-counts {
   justify-items: center;
 }
+.detail,
+.detail :not(input):not(textarea):not(select) {
+  text-align: center !important;
+}
+.detail :is(.day-title, .day-salary-heading, .panel-head) {
+  justify-content: center;
+}
+.detail .panel-head > div {
+  width: 100%;
+}
+.detail .day-actions .btn,
+.detail .employee-management-actions,
+.detail .back {
+  justify-content: center;
+}
