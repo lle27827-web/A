@@ -2760,3 +2760,41 @@ body:has(.modal-backdrop) .screen-nav {
   }
   .appointment-row { grid-template-columns: minmax(140px, .65fr) minmax(170px, .85fr) minmax(250px, 1.5fr) auto; gap: 12px; }
 }
+
+/* Keep repeated data rows easy to scan on every screen and in both built-in themes. */
+.data-table th,
+.data-table td {
+  border-bottom-color: hsl(var(--foreground) / .34);
+}
+
+.appointment-row {
+  border-top: 2px solid hsl(var(--foreground) / .34);
+}
+.appointment-row:last-child {
+  border-bottom: 2px solid hsl(var(--foreground) / .34);
+}
+
+.service-duration-list > li + li {
+  margin-top: 2px;
+  padding-top: 5px;
+  border-top: 1px solid hsl(var(--frame-border) / .58);
+}
+.revenue-summary .service-duration-list > li + li {
+  border-top-color: hsl(var(--revenue-foreground) / .38);
+}
+
+.payment-report-row {
+  padding-block: 6px;
+  border-bottom: 1px solid hsl(var(--foreground) / .3);
+}
+.revenue-summary .payment-report-row {
+  border-bottom-color: hsl(var(--revenue-foreground) / .38);
+}
+
+.cmp-shift {
+  border: 1px solid hsl(var(--frame-border) / .58);
+}
+.grant-permission-list > li + li {
+  padding-top: 6px;
+  border-top: 1px solid hsl(var(--frame-border) / .58);
+}
