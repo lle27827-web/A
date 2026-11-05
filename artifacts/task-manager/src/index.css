@@ -575,7 +575,8 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .employee-session-customer, .employee-session-duration { font-size: 16px; line-height: 1.45; overflow-wrap: anywhere; }
 .employee-session-customer strong, .employee-session-duration strong { color: hsl(var(--foreground)); font-size: 17px; font-weight: 800; }
 .employee-session-duration { margin: 0; }
-.employee-session-row .shift-actions { width: 100%; justify-content: space-between; }
+.employee-session-row .shift-actions { width: 100%; flex-direction: row; justify-content: space-between; gap: 8px; }
+.employee-session-row .shift-actions .btn { flex: 1 1 0; justify-content: center; }
 .detail [data-testid="section-day-sessions"] .panel-head .sub { text-align: right; font-size: 16px; font-weight: 700; }
 @media (max-width: 480px) {
   .employee-summary { max-width: 54%; font-size: 12px; }
@@ -740,6 +741,9 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .date-picker-trigger { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; }
 .day-salary-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .day-salary-heading .rev-label { margin: 0; }
+.day-salary-navigation { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-width: 0; }
+.day-salary-navigation .rev-label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; text-align: center; }
+.day-salary-navigation .icon-btn { flex: 0 0 40px; width: 40px; height: 40px; }
 .date-picker-controls { display: grid; grid-template-columns: minmax(120px, 180px) minmax(0, 1fr); align-items: end; gap: 12px; margin-bottom: 12px; }
 .date-picker-controls .field { margin: 0; }
 .selected-date-preview { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0; color: hsl(var(--muted-foreground)); font-size: 13px; }
@@ -1232,7 +1236,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .access-grants-dialog .grant-permission-list { font-size: 15px; line-height: 1.5; }
 .access-grants-dialog .dialog-actions .btn { font-size: 15px; }
 
-/* Brown surfaces for employee details and attendance panels. */
+/* Dark surfaces for employee details and facility attendance panels. */
 .detail > .salary-hero,
 .detail > .day-salary,
 .detail > [data-testid="section-day-sessions"],
@@ -1249,6 +1253,20 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   color: hsl(var(--detail-foreground));
   border-color: hsl(var(--detail-border));
   background: hsl(var(--detail-background));
+}
+.detail > .salary-hero,
+.detail > .day-salary,
+.detail > [data-testid="section-day-sessions"] {
+  --detail-background: var(--gray-panel);
+  --detail-border: var(--frame-border);
+  --card: var(--gray-panel);
+  --muted: var(--gray-row);
+  --border: var(--frame-border);
+  background: hsl(var(--gray-panel));
+}
+.detail > [data-testid="section-day-sessions"] .shift-row,
+.detail > .salary-hero .type-counts li {
+  background: hsl(var(--gray-panel));
 }
 .grant-details .row-actions { margin-top: 4px; }
 
@@ -2119,7 +2137,13 @@ body:has(.modal-backdrop) .screen-nav {
 }
 .employee-session-row .shift-actions {
   width: 100%;
+  flex-direction: row;
   justify-content: space-between;
+  gap: 8px;
+}
+.employee-session-row .shift-actions .btn {
+  flex: 1 1 0;
+  justify-content: center;
 }
 .detail .employee-period-stats,
 .detail .employee-period-stats > span,
@@ -2192,4 +2216,17 @@ body:has(.modal-backdrop) .screen-nav {
   padding: 0 11px;
   border-radius: 8px;
   text-decoration: none;
+}
+
+/* Keep personal and employee-detail neutral surfaces on the shared #777 gray. */
+.personal .p-hero,
+.personal .p-card,
+.personal .p-row,
+.personal .cmp-shift,
+.personal .seg {
+  background: #777777;
+}
+.personal .cmp-shift,
+.personal .cmp-shift * {
+  color: #fff;
 }

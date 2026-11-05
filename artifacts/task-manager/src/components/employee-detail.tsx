@@ -16,6 +16,7 @@ import { SessionRows } from '@/components/session-rows';
 import { formatDate, formatShortDate } from '@/lib/attendance';
 import { MemberTags } from '@/pages/employees';
 import { SESSION_FRESHNESS, errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth, useRefreshMassage } from '@/lib/massage';
+import { shiftRevenueDate } from '@/lib/revenue-period';
 import {
   serviceAttendanceLabel,
   summarizeServiceAttendance,
@@ -200,7 +201,14 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
       </section>
       <section className="day-salary" aria-labelledby="day-salary-title" data-testid="section-day-salary">
         <div className="day-salary-heading">
-          <h2 id="day-salary-title" className="rev-label">Tổng lương ngày · {formatShortDate(day)}</h2>
+          <div className="day-salary-navigation">
+            <button type="button" className="icon-btn" onClick={() => chooseDay(shiftRevenueDate(day, -1, today))}
+              aria-label="Ngày trước" data-testid="button-previous-detail-day"><ChevronLeft size={16} aria-hidden="true" /></button>
+            <h2 id="day-salary-title" className="rev-label">Tổng lương ngày · {formatShortDate(day)}</h2>
+            <button type="button" className="icon-btn" disabled={day >= today}
+              onClick={() => chooseDay(shiftRevenueDate(day, 1, today))}
+              aria-label="Ngày sau" data-testid="button-next-detail-day"><ChevronRight size={16} aria-hidden="true" /></button>
+          </div>
           <button type="button" className="btn small date-picker-trigger" onClick={() => setDatePickerOpen(true)} aria-label={`Chọn ngày xem chi tiết, hiện tại ${formatShortDate(day)}`} data-testid="button-open-detail-date-picker">
             <CalendarDays size={14} aria-hidden="true" />{formatShortDate(day)}
           </button>
