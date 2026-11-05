@@ -547,12 +547,16 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .employee-detail-name { margin: 4px 0 0; font-size: 19px; line-height: 1.25; font-weight: 800; color: hsl(var(--foreground)); text-align: left; overflow-wrap: anywhere; }
 .salary-hero.compact .rev-value { text-align: right; font-size: clamp(30px, 7vw, 44px); }
 .employee-period-stats { display: grid; justify-items: end; gap: 6px; margin-top: 12px; text-align: right; font-size: 16px; font-weight: 700; }
-.employee-period-stats > span:not(:first-child) { padding: 5px 10px; border: 1px solid hsl(var(--border)); border-radius: 10px; }
-.employee-day-stats { margin: -2px 0 12px; font-size: 16px; font-weight: 700; }
 .type-counts { display: grid; justify-items: end; gap: 7px; list-style: none; margin: 0; padding: 0; }
 .type-counts li { padding: 7px 12px; border: 1px solid hsl(var(--border)); border-radius: 10px; font-size: 16px; font-weight: 700; color: hsl(var(--muted-foreground)); }
 .employee-session-row { text-align: right; }
 .employee-session-row .shift-main { justify-content: flex-end; }
+.employee-session-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 3px 6px; min-width: 0; }
+.employee-session-line .shift-date,
+.employee-session-line .employee-session-separator,
+.employee-session-line .shift-service,
+.employee-session-line .employee-session-duration { white-space: nowrap; }
+.employee-session-line .employee-session-customer { min-width: 0; }
 .employee-session-customer, .employee-session-duration { font-size: 16px; line-height: 1.45; overflow-wrap: anywhere; }
 .employee-session-customer strong, .employee-session-duration strong { color: hsl(var(--foreground)); font-size: 17px; font-weight: 800; }
 .employee-session-duration { margin: 0; }
@@ -2097,7 +2101,6 @@ body:has(.modal-backdrop) .screen-nav {
 }
 .detail .employee-period-stats,
 .detail .employee-period-stats > span,
-.detail .employee-day-stats,
 .detail .type-counts li {
   text-align: center;
 }

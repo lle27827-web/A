@@ -19,14 +19,19 @@ export function SessionRows({ sessions, title, canEditRow, linkCards, busy, onEd
           : (s.customerName || 'Khách lẻ');
         return (
           <li key={s.id} className="shift-row employee-session-row" data-testid={`row-session-${s.id}`}>
-            <div className="shift-main">
-              <span className="shift-date mono"><time dateTime={s.workDate}>{formatShortDate(s.workDate)}</time></span>
-              <span className="employee-session-customer">{isCardVisit ? 'Khách thẻ' : 'Khách lẻ'}: <strong>{customer}</strong>
+            <div className="shift-main employee-session-line">
+              <time className="shift-date mono" dateTime={s.workDate}>{formatShortDate(s.workDate)}</time>
+              <span className="employee-session-separator" aria-hidden="true">·</span>
+              <span className="employee-session-customer">
+                <span className="sr-only">{isCardVisit ? 'Khách thẻ: ' : 'Khách lẻ: '}</span>
+                <strong>{customer}</strong>
                 {isCardVisit && linkCards && <> · <Link href={`/cards/${s.cardId}`} className="link-strong" data-testid={`link-session-card-${s.id}`}>Xem thẻ</Link></>}
               </span>
+              <span className="employee-session-separator" aria-hidden="true">·</span>
               <strong className="shift-service">{s.serviceType || 'Không tên'}</strong>
+              <span className="employee-session-separator" aria-hidden="true">·</span>
+              <span className="employee-session-duration"><span className="sr-only">Thời lượng: </span><strong className="mono">{formatMinutes(s.minutes)}</strong></span>
             </div>
-            <p className="employee-session-duration">Thời lượng: <strong className="mono">{formatMinutes(s.minutes)}</strong></p>
             {editable && (
               <div className="row-actions text-actions shift-actions">
                 {s.memberId !== null && <button type="button" className="btn small" disabled={busy} onClick={() => onEdit(s)} aria-label={`Sửa ca ${customer}, ${s.serviceType}, ${formatMinutes(s.minutes)}`} data-testid={`button-edit-session-${s.id}`}><Pencil size={14} aria-hidden="true" />Sửa</button>}

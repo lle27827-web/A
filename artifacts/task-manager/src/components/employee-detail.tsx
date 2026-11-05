@@ -65,8 +65,6 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
     [daySessions],
   );
   const dayEarnings = daySessions.reduce((a, s) => a + s.earnings, 0);
-  const monthMinutes = sessions.reduce((total, session) => total + session.minutes, 0);
-  const dayMinutes = daySessions.reduce((total, session) => total + session.minutes, 0);
 
   // Month/day live in the URL so history survives reload, back and direct links.
   function goPeriod(nextMonth: string, nextDay?: string) {
@@ -154,7 +152,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
     <section className="panel" aria-labelledby="day-title" data-testid="section-day-sessions">
       <div className="panel-head wrap">
         <div><h2 id="day-title" className="day-title"><CalendarDays size={16} aria-hidden="true" />{formatDate(day)}</h2>
-          <p className="sub">{daySessions.length} ca · {formatMinutes(dayMinutes)} · {formatVnd(dayEarnings)}</p></div>
+        </div>
       </div>
       {sessionsQuery.isLoading ? <Skeleton rows={3} label="Đang tải lịch sử chấm công" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được lịch sử chấm công." onRetry={() => void sessionsQuery.refetch()} /> : daySessions.length === 0 ? (
         <div className="empty small"><CalendarDays size={18} /><p>Chưa có dịch vụ trong ngày này.</p></div>
@@ -189,7 +187,6 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
         )}
         {sessionsQuery.isLoading ? <span className="muted" role="status">Đang tải số liệu tháng…</span> : !sessionsQuery.isError && (
           <div className="employee-period-stats" data-testid="employee-month-stats">
-            <span>{sessions.length} ca · {formatMinutes(monthMinutes)}</span>
             <div className="employee-service-summary" data-testid="employee-month-service-breakdown">
               <strong>Ca dịch vụ trong tháng</strong>
               <ul className="service-duration-list" aria-label={`Ca và tổng giờ theo dịch vụ trong ${formatMonth(month).toLowerCase()}`}>
@@ -211,7 +208,6 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
       {sessionsQuery.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải lương ngày" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được giờ dịch vụ." onRetry={() => void sessionsQuery.refetch()} /> : (
           <>
             <p className="day-salary-value mono" data-testid="text-day-salary">{formatVnd(dayEarnings)}</p>
-            <p className="employee-day-stats" data-testid="employee-day-stats">{daySessions.length} ca · {formatMinutes(dayMinutes)}</p>
             {dayTypes.length > 0 ? (
               <ul className="type-counts" aria-label="Số ca và tổng giờ theo dịch vụ">{dayTypes.map((item) => <li key={item.serviceType}>{serviceAttendanceLabel(item, formatMinutes)}</li>)}</ul>
             ) : <p className="muted small">Chưa có dịch vụ trong ngày.</p>}
