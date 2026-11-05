@@ -12,9 +12,10 @@ type ColorThemeContextValue = {
 };
 
 const STORAGE_KEY = 'cung-lam:color-theme';
-const PALETTE_STORAGE_KEY = 'cung-lam:color-palettes-v3';
-const PREVIOUS_PALETTE_STORAGE_KEY = 'cung-lam:color-palettes-v2';
-const LEGACY_PALETTE_STORAGE_KEY = 'cung-lam:color-palettes-v1';
+const PALETTE_STORAGE_KEY = 'cung-lam:color-palettes-v4';
+const PREVIOUS_PALETTE_STORAGE_KEY = 'cung-lam:color-palettes-v3';
+const LEGACY_PALETTE_STORAGE_KEY = 'cung-lam:color-palettes-v2';
+const OLDEST_PALETTE_STORAGE_KEY = 'cung-lam:color-palettes-v1';
 const ColorThemeContext = createContext<ColorThemeContextValue | null>(null);
 
 type StoredPalettes = Partial<Record<AppColorTheme, Partial<PaletteColors>>>;
@@ -24,8 +25,8 @@ const DEFAULT_PALETTE: Record<PaletteToken, string> = {
     foreground: '30 42% 14%',
     card: '48 88% 84%',
     'card-foreground': '30 42% 14%',
-    border: '39 44% 48%',
-    'frame-border': '27 52% 31%',
+    border: '0 0% 0%',
+    'frame-border': '0 0% 0%',
     primary: '38 78% 34%',
     'primary-foreground': '0 0% 100%',
     secondary: '43 55% 84%',
@@ -43,12 +44,12 @@ const DEFAULT_PALETTE: Record<PaletteToken, string> = {
     info: '199 70% 32%',
     'tile-background': '42 40% 97%',
     'tile-foreground': '27 52% 24%',
-    'tile-border': '27 52% 31%',
+    'tile-border': '0 0% 0%',
     'tile-accent': '27 52% 31%',
     'detail-background': '0 0% 46.67%',
     'detail-foreground': '35 65% 93%',
     'detail-muted': '35 38% 80%',
-    'detail-border': '27 52% 31%',
+    'detail-border': '0 0% 0%',
     'personal-accent': '162 62% 28%',
     'search-background': '25 55% 22%',
     'search-foreground': '40 85% 94%',
@@ -69,8 +70,8 @@ const DARK_PALETTE: Record<PaletteToken, string> = {
     foreground: '35 45% 88%',
     card: '0 0% 46.67%',
     'card-foreground': '35 45% 88%',
-    border: '0 0% 38%',
-    'frame-border': '27 52% 31%',
+    border: '0 0% 0%',
+    'frame-border': '0 0% 0%',
     primary: '30 52% 62%',
     'primary-foreground': '27 50% 12%',
     secondary: '0 0% 46.67%',
@@ -88,12 +89,12 @@ const DARK_PALETTE: Record<PaletteToken, string> = {
     info: '199 70% 62%',
     'tile-background': '42 40% 97%',
     'tile-foreground': '27 52% 24%',
-    'tile-border': '27 52% 31%',
+    'tile-border': '0 0% 0%',
     'tile-accent': '27 52% 31%',
     'detail-background': '0 0% 46.67%',
     'detail-foreground': '35 65% 93%',
     'detail-muted': '35 38% 80%',
-    'detail-border': '27 52% 31%',
+    'detail-border': '0 0% 0%',
     'personal-accent': '29 45% 58%',
     'search-background': '25 56% 16%',
     'search-foreground': '40 80% 90%',
@@ -137,6 +138,12 @@ const LEGACY_GRAY_SURFACE_VALUES = new Set([
   '#333333', '#3D3D3D', '#424242', '#454545', '#525252', '#595959', '#5A5A5A', '#5C5C5C',
 ]);
 
+const FRAME_BORDER_TOKENS: PaletteToken[] = ['border', 'frame-border', 'tile-border', 'detail-border'];
+
+function migrateFrameBordersToBlack(colors: Partial<PaletteColors>) {
+  for (const token of FRAME_BORDER_TOKENS) colors[token] = '#000000';
+}
+
 function migrateLegacyGraySurfaces(colors: Partial<PaletteColors>) {
   const tokens: PaletteToken[] = ['card', 'secondary', 'muted', 'input', 'detail-background', 'revenue-background'];
   for (const token of tokens) {
@@ -172,11 +179,12 @@ function readStoredPalettes(): StoredPalettes {
     const currentRaw = window.localStorage.getItem(PALETTE_STORAGE_KEY);
     const previousRaw = window.localStorage.getItem(PREVIOUS_PALETTE_STORAGE_KEY);
     const legacyRaw = window.localStorage.getItem(LEGACY_PALETTE_STORAGE_KEY);
-    const raw: unknown = JSON.parse(currentRaw ?? previousRaw ?? legacyRaw ?? 'null');
+    const oldestRaw = window.localStorage.getItem(OLDEST_PALETTE_STORAGE_KEY);
+    const raw: unknown = JSON.parse(currentRaw ?? previousRaw ?? legacyRaw ?? oldestRaw ?? 'null');
     if (!raw || typeof raw !== 'object') return {};
     const stored = raw as Record<string, unknown>;
     const result: StoredPalettes = {};
-    if (currentRaw === null && previousRaw === null) {
+    if (currentRaw === null && previousRaw === null && legacyRaw === null) {
       const legacyTheme = window.localStorage.getItem(STORAGE_KEY) === 'dark' ? 'dark' : 'default';
       const candidate = stored[legacyTheme];
       if (!candidate || typeof candidate !== 'object') return {};
@@ -191,6 +199,7 @@ function readStoredPalettes(): StoredPalettes {
       ])) as PaletteColors;
       migrateLegacyGraySurfaces(result.custom);
       migrateBrownSurfacesToGray('custom', result.custom);
+      migrateFrameBordersToBlack(result.custom);
       return result;
     }
     for (const theme of ['default', 'dark', 'custom'] as const) {
@@ -201,7 +210,10 @@ function readStoredPalettes(): StoredPalettes {
         const color = (candidate as Record<string, unknown>)[token];
         if (isHexColor(color)) valid[token] = normalizeStoredPaletteColor(token, color);
       }
-      if (currentRaw === null) migrateLegacyGraySurfaces(valid);
+      if (currentRaw === null) {
+        migrateLegacyGraySurfaces(valid);
+        migrateFrameBordersToBlack(valid);
+      }
       migrateBrownSurfacesToGray(theme, valid);
       if (Object.keys(valid).length > 0) result[theme] = valid;
     }
@@ -312,6 +324,7 @@ export function ColorThemeProvider({ children }: { children: ReactNode }) {
       window.localStorage.setItem(PALETTE_STORAGE_KEY, JSON.stringify(palettes));
       window.localStorage.removeItem(PREVIOUS_PALETTE_STORAGE_KEY);
       window.localStorage.removeItem(LEGACY_PALETTE_STORAGE_KEY);
+      window.localStorage.removeItem(OLDEST_PALETTE_STORAGE_KEY);
     } catch {
       // Keep the selected theme for this session when browser storage is unavailable.
     }

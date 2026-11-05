@@ -46,8 +46,8 @@ html.app-long-press-save-pending * {
   --gray-panel: 0 0% 46.67%;
   --gray-row: 0 0% 46.67%;
   --brand-red: 0 72% 34%;
-  --border: 39 44% 48%;
-  --frame-border: 27 52% 31%;
+  --border: 0 0% 0%;
+  --frame-border: 0 0% 0%;
   --input: 39 44% 48%;
   --card: 48 88% 84%;
   --card-foreground: 30 42% 14%;
@@ -71,12 +71,12 @@ html.app-long-press-save-pending * {
   --info: 199 70% 32%;
   --tile-background: 42 40% 97%;
   --tile-foreground: 27 52% 24%;
-  --tile-border: 27 52% 31%;
+  --tile-border: 0 0% 0%;
   --tile-accent: 27 52% 31%;
   --detail-background: 0 0% 35%;
   --detail-foreground: 35 65% 93%;
   --detail-muted: 35 38% 80%;
-  --detail-border: 27 52% 31%;
+  --detail-border: 0 0% 0%;
   --personal-accent: 162 62% 28%;
   --search-background: 25 55% 22%;
   --search-foreground: 40 85% 94%;
@@ -98,8 +98,8 @@ html.app-long-press-save-pending * {
   --background: 0 0% 12%;
   --foreground: 35 45% 88%;
   --brand-red: 0 78% 68%;
-  --border: 0 0% 38%;
-  --frame-border: 27 52% 31%;
+  --border: 0 0% 0%;
+  --frame-border: 0 0% 0%;
   --input: 0 0% 36%;
   --card: 0 0% 20%;
   --card-foreground: 35 45% 88%;
@@ -119,12 +119,12 @@ html.app-long-press-save-pending * {
   --info: 199 70% 62%;
   --tile-background: 42 40% 97%;
   --tile-foreground: 27 52% 24%;
-  --tile-border: 27 52% 31%;
+  --tile-border: 0 0% 0%;
   --tile-accent: 27 52% 31%;
   --detail-background: 0 0% 35%;
   --detail-foreground: 35 65% 93%;
   --detail-muted: 35 38% 80%;
-  --detail-border: 27 52% 31%;
+  --detail-border: 0 0% 0%;
   --personal-accent: 29 45% 58%;
   --search-background: 25 56% 16%;
   --search-foreground: 40 80% 90%;
@@ -424,7 +424,7 @@ body { background: hsl(var(--background)); color: hsl(var(--foreground)); }
   color: hsl(var(--tile-accent));
 }
 .tile-employees:hover, .tile-cards:hover, .tile-appointments:hover, .tile-services:hover {
-  border-color: hsl(var(--tile-accent));
+  border-color: hsl(var(--tile-border));
 }
 .tile-employees:hover::after, .tile-cards:hover::after,
 .tile-appointments:hover::after, .tile-services:hover::after {
@@ -801,7 +801,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .revenue-period-card {
   min-width: 0;
   padding: 12px;
-  border: 3px solid hsl(27 52% 31%);
+  border: 3px solid hsl(var(--frame-border));
   border-radius: 14px;
   background: #777777;
   color: hsl(0 0% 100%);
@@ -833,7 +833,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   flex: 0 0 40px;
   place-items: center;
   padding: 0;
-  border: 3px solid hsl(27 52% 31%);
+  border: 3px solid hsl(var(--frame-border));
   border-radius: 10px;
   background: #777777;
   color: hsl(0 0% 100%);
@@ -870,7 +870,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   justify-content: center;
   gap: 12px;
   padding: 10px 12px;
-  border: 3px solid hsl(27 52% 31%);
+  border: 3px solid hsl(var(--frame-border));
   border-radius: 10px;
   background: #777777;
   color: hsl(0 0% 100%);
@@ -905,7 +905,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  border: 3px solid hsl(27 52% 31%);
+  border: 3px solid hsl(var(--frame-border));
   border-radius: 10px;
   background: #777777;
   color: hsl(0 0% 100%);
@@ -961,7 +961,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 }
 .revenue-summary .rev-breakdown > div {
   padding: 10px 12px;
-  border: 3px solid hsl(27 52% 31%);
+  border: 3px solid hsl(var(--frame-border));
   border-radius: 10px;
   background: #777777;
 }
@@ -1264,14 +1264,14 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   color-scheme: light;
 }
 
-/* Warm brown outlines for colored cards, panels, and callout frames. */
+/* Black outlines keep card and content frames consistent across themes. */
 .panel, .tile, .revenue, .salary-hero, .dialog, .settings-dialog,
 .card-hint, .hit, .emp-row, .card-row, .card-list-item,
 .choice-row, .settings-link, .mode-option, .theme-option,
 .merge-confirm, .day-salary, .net-revenue-row, .p-hero, .p-card, .p-row,
 .p-welcome, .banner, .shift-row, .grant-details {
   border-width: 2px;
-  border-color: hsl(var(--frame-border) / .82);
+  border-color: hsl(var(--frame-border));
 }
 
 /* Use the same high-contrast red surface for action buttons in facility and personal attendance. */
@@ -1523,7 +1523,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   background: hsl(145 50% 19%);
 }
 
-/* Gray list surfaces with the same brown frame as revenue cards. */
+/* Gray list surfaces use the same black frame as revenue cards. */
 .emp-list .emp-row,
 .card-list-item {
   border-color: hsl(var(--frame-border));
@@ -1910,7 +1910,7 @@ body:has(.modal-backdrop) .screen-nav {
   background: hsl(var(--gray-panel));
 }
 
-/* Larger, heavier brown typography and stronger frames in the four main management sections. */
+/* Larger, heavier typography and strong black frames in the four main management sections. */
 .main .panel.page[aria-labelledby="emp-title"],
 .main .panel.page[aria-labelledby="cards-title"],
 .main .panel.page[data-testid="section-services"],
@@ -1958,7 +1958,7 @@ body:has(.modal-backdrop) .screen-nav {
   border-radius: 12px;
 }
 
-/* Keep the four home shortcuts white as functional controls, with a thicker brown frame. */
+/* Keep the four home shortcuts white as functional controls, with a thicker black frame. */
 .home .tile-employees,
 .home .tile-cards,
 .home .tile-appointments,
@@ -1967,7 +1967,7 @@ body:has(.modal-backdrop) .screen-nav {
 .home .tile-cards:hover,
 .home .tile-appointments:hover,
 .home .tile-services:hover {
-  border: 3px solid hsl(27 52% 31%);
+  border: 3px solid hsl(var(--frame-border));
   background: hsl(0 0% 100%);
 }
 
@@ -1991,7 +1991,7 @@ body:has(.modal-backdrop) .screen-nav {
 }
 .main .revenue .revenue-summary > .revenue-period-card {
   background-color: #777777 !important;
-  border-color: hsl(27 52% 31%) !important;
+  border-color: hsl(var(--frame-border)) !important;
   border-width: 3px !important;
 }
 .main .revenue .revenue-summary > .revenue-period-card .revenue-period-primary-row,
@@ -1999,7 +1999,7 @@ body:has(.modal-backdrop) .screen-nav {
 .main .revenue .revenue-summary > .revenue-period-card .revenue-service-summary,
 .main .revenue .revenue-summary > .revenue-period-card .revenue-details .rev-breakdown > div {
   background-color: #777777 !important;
-  border-color: hsl(27 52% 31%) !important;
+  border-color: hsl(var(--frame-border)) !important;
   border-width: 3px !important;
 }
 .revenue-service-summary {
