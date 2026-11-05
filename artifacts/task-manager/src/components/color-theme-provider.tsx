@@ -12,7 +12,8 @@ type ColorThemeContextValue = {
 };
 
 const STORAGE_KEY = 'cung-lam:color-theme';
-const PALETTE_STORAGE_KEY = 'cung-lam:color-palettes-v2';
+const PALETTE_STORAGE_KEY = 'cung-lam:color-palettes-v3';
+const PREVIOUS_PALETTE_STORAGE_KEY = 'cung-lam:color-palettes-v2';
 const LEGACY_PALETTE_STORAGE_KEY = 'cung-lam:color-palettes-v1';
 const ColorThemeContext = createContext<ColorThemeContextValue | null>(null);
 
@@ -44,7 +45,7 @@ const DEFAULT_PALETTE: Record<PaletteToken, string> = {
     'tile-foreground': '27 52% 24%',
     'tile-border': '27 52% 31%',
     'tile-accent': '27 52% 31%',
-    'detail-background': '0 0% 35%',
+    'detail-background': '0 0% 46.67%',
     'detail-foreground': '35 65% 93%',
     'detail-muted': '35 38% 80%',
     'detail-border': '27 52% 31%',
@@ -59,28 +60,28 @@ const DEFAULT_PALETTE: Record<PaletteToken, string> = {
     'auth-button-foreground': '210 7% 24%',
     'auth-button-border': '220 13% 87%',
     'auth-button-hover': '210 17% 98%',
-    'revenue-background': '0 0% 35%',
+    'revenue-background': '0 0% 46.67%',
     'revenue-foreground': '35 65% 93%',
 };
 
 const DARK_PALETTE: Record<PaletteToken, string> = {
     background: '0 0% 12%',
     foreground: '35 45% 88%',
-    card: '0 0% 20%',
+    card: '0 0% 46.67%',
     'card-foreground': '35 45% 88%',
     border: '0 0% 38%',
     'frame-border': '27 52% 31%',
     primary: '30 52% 62%',
     'primary-foreground': '27 50% 12%',
-    secondary: '0 0% 26%',
+    secondary: '0 0% 46.67%',
     'secondary-foreground': '35 45% 88%',
-    muted: '0 0% 24%',
+    muted: '0 0% 46.67%',
     'muted-foreground': '35 25% 70%',
     accent: '28 45% 48%',
     'accent-foreground': '35 65% 94%',
     destructive: '4 72% 58%',
     'destructive-foreground': '0 0% 100%',
-    input: '0 0% 36%',
+    input: '0 0% 46.67%',
     ring: '43 80% 62%',
     ok: '150 58% 48%',
     warn: '30 86% 56%',
@@ -89,7 +90,7 @@ const DARK_PALETTE: Record<PaletteToken, string> = {
     'tile-foreground': '27 52% 24%',
     'tile-border': '27 52% 31%',
     'tile-accent': '27 52% 31%',
-    'detail-background': '0 0% 35%',
+    'detail-background': '0 0% 46.67%',
     'detail-foreground': '35 65% 93%',
     'detail-muted': '35 38% 80%',
     'detail-border': '27 52% 31%',
@@ -104,7 +105,7 @@ const DARK_PALETTE: Record<PaletteToken, string> = {
     'auth-button-foreground': '210 7% 24%',
     'auth-button-border': '220 13% 87%',
     'auth-button-hover': '210 17% 98%',
-    'revenue-background': '0 0% 35%',
+    'revenue-background': '0 0% 46.67%',
     'revenue-foreground': '36 80% 92%',
 };
 
@@ -124,13 +125,25 @@ function normalizeStoredPaletteColor(token: PaletteToken, color: string): string
 
 const GRAY_SURFACE_COLORS: Partial<Record<PaletteToken, string>> = {
   background: '#1F1F1F',
-  card: '#5A5A5A',
-  secondary: '#454545',
-  muted: '#454545',
-  input: '#454545',
-  'detail-background': '#5A5A5A',
-  'revenue-background': '#5A5A5A',
+  card: '#777777',
+  secondary: '#777777',
+  muted: '#777777',
+  input: '#777777',
+  'detail-background': '#777777',
+  'revenue-background': '#777777',
 };
+
+const LEGACY_GRAY_SURFACE_VALUES = new Set([
+  '#333333', '#3D3D3D', '#424242', '#454545', '#525252', '#595959', '#5A5A5A', '#5C5C5C',
+]);
+
+function migrateLegacyGraySurfaces(colors: Partial<PaletteColors>) {
+  const tokens: PaletteToken[] = ['card', 'secondary', 'muted', 'input', 'detail-background', 'revenue-background'];
+  for (const token of tokens) {
+    const current = colors[token]?.toUpperCase();
+    if (current && LEGACY_GRAY_SURFACE_VALUES.has(current)) colors[token] = '#777777';
+  }
+}
 
 function isBrownSurfaceColor(hex: string): boolean {
   const [hue, saturation] = hexToHsl(hex).split(' ').map((part) => Number.parseFloat(part));
@@ -141,7 +154,7 @@ function migrateBrownSurfacesToGray(theme: AppColorTheme, colors: Partial<Palett
   for (const token of Object.keys(GRAY_SURFACE_COLORS) as PaletteToken[]) {
     const current = colors[token];
     const gray = token === 'background' && theme === 'dark' ? '#1F1F1F'
-      : token === 'background' ? '#5A5A5A' : GRAY_SURFACE_COLORS[token];
+      : token === 'background' ? '#777777' : GRAY_SURFACE_COLORS[token];
     if (current && gray && isBrownSurfaceColor(current)) colors[token] = gray;
   }
 }
@@ -157,11 +170,13 @@ function isDarkHex(hex: string): boolean {
 function readStoredPalettes(): StoredPalettes {
   try {
     const currentRaw = window.localStorage.getItem(PALETTE_STORAGE_KEY);
-    const raw: unknown = JSON.parse(currentRaw ?? window.localStorage.getItem(LEGACY_PALETTE_STORAGE_KEY) ?? 'null');
+    const previousRaw = window.localStorage.getItem(PREVIOUS_PALETTE_STORAGE_KEY);
+    const legacyRaw = window.localStorage.getItem(LEGACY_PALETTE_STORAGE_KEY);
+    const raw: unknown = JSON.parse(currentRaw ?? previousRaw ?? legacyRaw ?? 'null');
     if (!raw || typeof raw !== 'object') return {};
     const stored = raw as Record<string, unknown>;
     const result: StoredPalettes = {};
-    if (currentRaw === null) {
+    if (currentRaw === null && previousRaw === null) {
       const legacyTheme = window.localStorage.getItem(STORAGE_KEY) === 'dark' ? 'dark' : 'default';
       const candidate = stored[legacyTheme];
       if (!candidate || typeof candidate !== 'object') return {};
@@ -174,6 +189,7 @@ function readStoredPalettes(): StoredPalettes {
           ? normalizeStoredPaletteColor(token, overrides[token])
           : hslToHex(BASE_PALETTES[legacyTheme][token]),
       ])) as PaletteColors;
+      migrateLegacyGraySurfaces(result.custom);
       migrateBrownSurfacesToGray('custom', result.custom);
       return result;
     }
@@ -185,6 +201,7 @@ function readStoredPalettes(): StoredPalettes {
         const color = (candidate as Record<string, unknown>)[token];
         if (isHexColor(color)) valid[token] = normalizeStoredPaletteColor(token, color);
       }
+      if (currentRaw === null) migrateLegacyGraySurfaces(valid);
       migrateBrownSurfacesToGray(theme, valid);
       if (Object.keys(valid).length > 0) result[theme] = valid;
     }
@@ -293,6 +310,7 @@ export function ColorThemeProvider({ children }: { children: ReactNode }) {
     try {
       window.localStorage.setItem(STORAGE_KEY, theme);
       window.localStorage.setItem(PALETTE_STORAGE_KEY, JSON.stringify(palettes));
+      window.localStorage.removeItem(PREVIOUS_PALETTE_STORAGE_KEY);
       window.localStorage.removeItem(LEGACY_PALETTE_STORAGE_KEY);
     } catch {
       // Keep the selected theme for this session when browser storage is unavailable.

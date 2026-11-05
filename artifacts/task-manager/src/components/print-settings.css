@@ -299,12 +299,6 @@
   font-weight: 850;
 }
 
-.payroll-report-total {
-  font-size: 12px;
-  font-weight: 800;
-  text-align: center;
-}
-
 .payroll-report-actions,
 .payroll-report-error {
   display: flex;

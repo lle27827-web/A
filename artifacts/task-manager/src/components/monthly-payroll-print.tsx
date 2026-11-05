@@ -51,7 +51,7 @@ function buildPrintHtml(report: MonthlyPayrollReport, month: string): string {
     }), { sessions: 0, earnings: 0 });
     return `<td class="service-cell"><span>${total.sessions} ca</span><strong>${formatVnd(total.earnings)}</strong></td>`;
   }).join('');
-  const title = `Tổng công nhân viên · ${formatMonth(month)}`;
+  const title = `Tổng công nhân viên ${formatMonth(month).toLowerCase()}`;
 
   return `<!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -61,7 +61,6 @@ function buildPrintHtml(report: MonthlyPayrollReport, month: string): string {
   * { box-sizing: border-box; }
   body { margin: 0; color: #2b2116; font: 10pt/1.35 Arial, sans-serif; }
   h1 { margin: 0 0 4mm; text-align: center; font-size: 22pt; font-weight: 800; }
-  .month { margin: 0 0 5mm; text-align: center; }
   table { width: 100%; border-collapse: collapse; table-layout: auto; }
   th, td { padding: 2.2mm 1.5mm; border: 1px solid #6f5438; vertical-align: middle; text-align: center; }
   thead th { background: #eee8dc; font-weight: 700; }
@@ -74,7 +73,7 @@ function buildPrintHtml(report: MonthlyPayrollReport, month: string): string {
   tr { break-inside: avoid; }
   @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
 </style></head><body>
-<h1>Tổng công nhân viên</h1><p class="month">${escapeHtml(formatMonth(month))}</p>
+<h1>${escapeHtml(title)}</h1>
 <table><thead><tr><th scope="col">Nhân viên</th>${serviceHeaders}<th scope="col">Tổng tiền công</th></tr></thead>
 <tbody>${rows || `<tr><td colspan="${report.services.length + 2}">Tháng này chưa có dữ liệu chấm công.</td></tr>`}</tbody>
 <tfoot><tr><th scope="row">Tổng cộng</th>${totalCells}<td class="total-money">${formatVnd(report.total.earnings)}</td></tr></tfoot>
@@ -147,7 +146,7 @@ export function MonthlyPayrollPrint({ enabled }: { enabled: boolean }) {
       const columnCount = report.services.length + 2;
       worksheet.mergeCells(1, 1, 1, columnCount);
       const titleCell = worksheet.getCell(1, 1);
-      titleCell.value = `Tổng công nhân viên · ${formatMonth(month)}`;
+      titleCell.value = `Tổng công nhân viên ${formatMonth(month).toLowerCase()}`;
       titleCell.font = { bold: true, size: 20, color: { argb: 'FF3C2B18' } };
       titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
       worksheet.getRow(1).height = 34;
@@ -241,8 +240,7 @@ export function MonthlyPayrollPrint({ enabled }: { enabled: boolean }) {
     <section className="payroll-print-report" aria-labelledby="monthly-payroll-print-title">
       <div className="payroll-print-heading">
         <div>
-          <h4 id="monthly-payroll-print-title">Tổng công nhân viên</h4>
-          <p className="muted">Theo tháng, nhân viên và từng loại dịch vụ</p>
+          <h4 id="monthly-payroll-print-title">Tổng công nhân viên {formatMonth(month).toLowerCase()}</h4>
         </div>
         <label className="field payroll-month-field" htmlFor="monthly-payroll-month">
           Tháng
@@ -301,9 +299,6 @@ export function MonthlyPayrollPrint({ enabled }: { enabled: boolean }) {
                 </tr>
               </tfoot>
             </table>
-          </div>
-          <div className="payroll-report-total" aria-label="Tổng toàn bộ nhân viên">
-            {report.rows.length} nhân viên · Tổng tiền công {formatVnd(report.total.earnings)}
           </div>
         </>
       )}

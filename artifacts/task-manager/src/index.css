@@ -43,8 +43,8 @@ html.app-long-press-save-pending * {
   color-scheme: light;
   --background: 44 78% 63%;
   --foreground: 30 42% 14%;
-  --gray-panel: 0 0% 35%;
-  --gray-row: 0 0% 27%;
+  --gray-panel: 0 0% 46.67%;
+  --gray-row: 0 0% 46.67%;
   --brand-red: 0 72% 34%;
   --border: 39 44% 48%;
   --frame-border: 27 52% 31%;
@@ -358,8 +358,8 @@ option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
 .theme-option input { flex: 0 0 auto; width: 17px; height: 17px; accent-color: hsl(var(--primary)); }
 .theme-swatch { flex: 0 0 auto; width: 34px; height: 30px; border: 1px solid hsl(var(--border)); border-radius: 7px; }
 .theme-swatch-default { background: linear-gradient(135deg, #e6c35d 0 50%, #ffffff 50%); }
-.theme-swatch-dark { background: linear-gradient(135deg, #1f1f1f 0 50%, #5a5a5a 50%); }
-.theme-swatch-custom { background: linear-gradient(135deg, #e6c35d 0 33%, #5a5a5a 33% 66%, #a61d24 66%); }
+.theme-swatch-dark { background: linear-gradient(135deg, #1f1f1f 0 50%, #777777 50%); }
+.theme-swatch-custom { background: linear-gradient(135deg, #e6c35d 0 33%, #777777 33% 66%, #a61d24 66%); }
 .theme-option-copy { min-width: 0; display: grid; gap: 2px; }
 .theme-option-copy strong { font-size: 13px; }
 .theme-option-copy > span { color: hsl(var(--muted-foreground)); font-size: 12px; }
@@ -803,7 +803,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   padding: 12px;
   border: 3px solid hsl(27 52% 31%);
   border-radius: 14px;
-  background: #5a5a5a;
+  background: #777777;
   color: hsl(0 0% 100%);
 }
 .revenue-period-card .rev-label-key {
@@ -835,7 +835,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   padding: 0;
   border: 3px solid hsl(27 52% 31%);
   border-radius: 10px;
-  background: #454545;
+  background: #777777;
   color: hsl(0 0% 100%);
   cursor: pointer;
 }
@@ -872,7 +872,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   padding: 10px 12px;
   border: 3px solid hsl(27 52% 31%);
   border-radius: 10px;
-  background: #454545;
+  background: #777777;
   color: hsl(0 0% 100%);
   text-align: center;
 }
@@ -907,7 +907,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   padding: 10px 12px;
   border: 3px solid hsl(27 52% 31%);
   border-radius: 10px;
-  background: #454545;
+  background: #777777;
   color: hsl(0 0% 100%);
   font-weight: 800;
 }
@@ -963,7 +963,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   padding: 10px 12px;
   border: 3px solid hsl(27 52% 31%);
   border-radius: 10px;
-  background: #454545;
+  background: #777777;
 }
 .window-nav.bottom { margin: 18px 0 0; }
 .history-pick { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; margin-top: 12px; }
@@ -1548,7 +1548,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   color: hsl(40 70% 96%);
 }
 .card-list-item .meter {
-  background: hsl(0 0% 46%);
+  background: #777777;
 }
 .card-list-item .meter > span {
   background: hsl(40 60% 82%);
@@ -1990,7 +1990,7 @@ body:has(.modal-backdrop) .screen-nav {
   color: hsl(0 0% 100%) !important;
 }
 .main .revenue .revenue-summary > .revenue-period-card {
-  background-color: #5a5a5a !important;
+  background-color: #777777 !important;
   border-color: hsl(27 52% 31%) !important;
   border-width: 3px !important;
 }
@@ -1998,7 +1998,7 @@ body:has(.modal-backdrop) .screen-nav {
 .main .revenue .revenue-summary > .revenue-period-card .revenue-period-key-metrics > div,
 .main .revenue .revenue-summary > .revenue-period-card .revenue-service-summary,
 .main .revenue .revenue-summary > .revenue-period-card .revenue-details .rev-breakdown > div {
-  background-color: #454545 !important;
+  background-color: #777777 !important;
   border-color: hsl(27 52% 31%) !important;
   border-width: 3px !important;
 }
@@ -2071,8 +2071,8 @@ body:has(.modal-backdrop) .screen-nav {
 }
 .main .panel[data-testid="section-services"] [data-testid="button-add-service"]:hover:not(:disabled),
 .main .panel[data-testid="section-services"] [data-testid="button-delete-all-services"]:hover:not(:disabled) {
-  border-color: #666 !important;
-  background: #666 !important;
+  border-color: #777 !important;
+  background: #777 !important;
 }
 .main .panel[data-testid="section-services"] [data-testid="button-add-service"] *,
 .main .panel[data-testid="section-services"] [data-testid="button-delete-all-services"] * {
