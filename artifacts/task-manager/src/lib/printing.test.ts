@@ -5,6 +5,8 @@ import type { CardTopUp, ServiceSession, TreatmentCard } from '@workspace/api-cl
 import {
   CARD_CHECKBOX_COUNT,
   buildPrintDocumentHtml,
+  DEFAULT_PRINT_PREFERENCES,
+  readPrintPreferences,
   cardSalePrintRows,
   getPrintPageLayout,
   PRINT_PAPER_OPTIONS,
@@ -103,10 +105,10 @@ test('purchase slip contains only the requested customer, card, duration and pur
 
 test('each top-up slip uses the exact top-up hours and date, not the card balance', () => {
   const rows = cardTopUpPrintRows(card, topUp);
-  assert.deepEqual(rows.slice(3), [
-    { label: 'Số giờ nạp', value: '1 giờ 30 phút' },
-    { label: 'Ngày nạp', value: '02/11/2026' },
-  ]);
+  assert.equal(rows.find((row) => row.label === 'Số giờ nạp')?.value, '1 giờ 30 phút');
+  assert.equal(rows.find((row) => row.label === 'Số tiền nạp')?.value, '150.000 ₫');
+  assert.equal(rows.find((row) => row.label === 'Phương thức thanh toán')?.value, 'Chưa ghi nhận');
+  assert.equal(rows.find((row) => row.label === 'Ngày nạp')?.value, '02/11/2026');
   const cardWithTopUp = { ...card, totalMinutes: 690, topUps: [topUp] };
   assert.equal(cardPurchaseMinutes(cardWithTopUp), 600);
   assert.equal(treatmentCardPrintRows(cardWithTopUp)[3]?.value, '10 giờ');
@@ -138,11 +140,20 @@ test('top-up receipt uses the same card slip layout as a purchase', () => {
   assert.equal([...topUpHtml.matchAll(/class="check-square"/gu)].length, CARD_CHECKBOX_COUNT);
 });
 
-test('automatic sale receipt uses only the newly purchased hours and date, including merged sales', () => {
-  assert.deepEqual(cardSalePrintRows(card, 120, '2026-11-02').slice(3), [
-    { label: 'Số giờ mua', value: '2 giờ' },
-    { label: 'Ngày bán thẻ', value: '02/11/2026' },
-  ]);
+test('sale receipt prints transaction-specific amount, method, seller and reference', () => {
+  const rows = cardSalePrintRows(card, 120, '2026-11-02', {
+    amount: 350_000,
+    paymentMethod: 'transfer',
+    sellerName: 'Hà',
+    receiptCode: 'BH-000007',
+    createdAt: '2026-11-02T12:00:00.000Z',
+  });
+  assert.equal(rows.find((row) => row.label === 'Mã giao dịch')?.value, 'BH-000007');
+  assert.equal(rows.find((row) => row.label === 'Số giờ mua')?.value, '2 giờ');
+  assert.equal(rows.find((row) => row.label === 'Số tiền thanh toán')?.value, '350.000 ₫');
+  assert.equal(rows.find((row) => row.label === 'Phương thức thanh toán')?.value, 'Chuyển khoản');
+  assert.equal(rows.find((row) => row.label === 'Người bán thẻ')?.value, 'Hà');
+  assert.equal(rows.find((row) => row.label === 'Ngày bán thẻ')?.value, '02/11/2026');
 });
 
 test('card template always prints exactly ten empty usage boxes and the footer in order', () => {
@@ -159,16 +170,25 @@ test('card template always prints exactly ten empty usage boxes and the footer i
 
 test('attendance slip contains employee, service, hours and date without unrelated fields', () => {
   assert.deepEqual(serviceSessionPrintRows(session).map((row) => row.label), [
+    'Mã ca',
     'Tên nhân viên',
+    'Tên khách hàng',
     'Tên loại hình dịch vụ',
     'Số giờ',
     'Ngày chấm công',
+    'Phương thức thanh toán',
+    'Thanh toán tại ca',
+    'Tiền công nhân viên',
   ]);
-  assert.equal(serviceSessionPrintRows(session).some((row) => /khách|tiền|ghi chú/iu.test(row.label)), false);
+  const cardSession = serviceSessionPrintRows({ ...session, cardId: 8 });
+  assert.equal(cardSession.find((row) => row.label === 'Phương thức thanh toán')?.value, 'Thẻ khách hàng');
+  assert.equal(cardSession.find((row) => row.label === 'Thanh toán tại ca')?.value, 'Đã thanh toán trước bằng thẻ');
+  assert.equal(serviceSessionPrintRows(session).find((row) => row.label === 'Tiền công nhân viên')?.value, '0 ₫');
 });
 
-test('settings previews show the same fields as purchase and attendance slips', () => {
-  const cardRows = printPreviewRows('sale');
+test('settings previews show separate card, sale, top-up and attendance templates', () => {
+  const cardRows = printPreviewRows('card');
+  const saleRows = printPreviewRows('sale');
   const topUpRows = printPreviewRows('topup');
   const sessionRows = printPreviewRows('session');
   assert.deepEqual(cardRows.map((row) => row.label), [
@@ -178,9 +198,46 @@ test('settings previews show the same fields as purchase and attendance slips', 
     'Số giờ mua',
     'Ngày bán thẻ',
   ]);
-  assert.deepEqual(topUpRows.slice(3).map((row) => row.label), ['Số giờ nạp', 'Ngày nạp']);
+  assert.equal(saleRows.find((row) => row.label === 'Số tiền thanh toán')?.value, '500.000 ₫');
+  assert.equal(topUpRows.find((row) => row.label === 'Số tiền nạp')?.value, '150.000 ₫');
+  assert.equal(topUpRows.find((row) => row.label === 'Người nạp thẻ')?.value, 'Nhân viên nạp thẻ');
   assert.equal(sessionRows.find((row) => row.label === 'Tên nhân viên')?.value, 'Nhân viên mẫu');
+  assert.equal(sessionRows.find((row) => row.label === 'Thanh toán tại ca')?.value, '450.000 ₫');
   assert.equal(sessionRows.find((row) => row.label === 'Số giờ')?.value, '1 giờ 30 phút');
+});
+
+test('automatic printing is on by default and enabled during one-time migration', () => {
+  assert.equal(DEFAULT_PRINT_PREFERENCES.autoPrintCardSales, true);
+  assert.equal(DEFAULT_PRINT_PREFERENCES.autoPrintCardTopUps, true);
+  assert.equal(DEFAULT_PRINT_PREFERENCES.autoPrintServiceSessions, true);
+
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const values = new Map<string, string>([['so-cong:print-settings:owner-1', JSON.stringify({
+    autoPrintCardSales: false,
+    autoPrintCardTopUps: false,
+    autoPrintServiceSessions: false,
+    paperSize: 'a4',
+    facilityPhone: '028 1234 5678',
+  })]]);
+  const localStorage = {
+    getItem(key: string) { return values.get(key) ?? null; },
+    setItem(key: string, value: string) { values.set(key, value); },
+    removeItem(key: string) { values.delete(key); },
+  };
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage } });
+  try {
+    const preferences = readPrintPreferences('owner-1');
+    assert.equal(preferences.autoPrintCardSales, true);
+    assert.equal(preferences.autoPrintCardTopUps, true);
+    assert.equal(preferences.autoPrintServiceSessions, true);
+    assert.equal(preferences.paperSize, 'a4');
+    assert.equal(preferences.facilityPhone, '028 1234 5678');
+    assert.equal(values.has('so-cong:print-settings:owner-1'), false);
+    assert.equal(JSON.parse(values.get('so-cong:print-settings:v2:owner-1') ?? '{}').autoPrintCardTopUps, true);
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else delete (globalThis as typeof globalThis & { window?: unknown }).window;
+  }
 });
 
 test('paper list covers common printer formats and a custom size', () => {
@@ -207,6 +264,20 @@ test('print document escapes customer text, applies paper size and omits the bra
   assert.match(html, /Lan &lt;script&gt;alert\(1\)&lt;\/script&gt;/u);
   assert.doesNotMatch(html, /SỔ CÔNG/u);
   assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/u);
+});
+
+test('invoice print document includes configured business identity without injecting markup', () => {
+  const html = buildPrintDocumentHtml('Phiếu bán thẻ', cardSalePrintRows(card, 60, '2026-11-02'), 'a4', {
+    facilityName: 'Cơ sở <script>',
+    facilityAddress: 'Đường mẫu, Thành phố',
+    facilityTaxCode: '0123456789',
+    facilityPhone: '028 1234 5678',
+    cardFooter: true,
+  });
+  assert.match(html, /Cơ sở &lt;script&gt;/u);
+  assert.match(html, /Đường mẫu, Thành phố/u);
+  assert.match(html, /Mã số thuế: 0123456789/u);
+  assert.doesNotMatch(html, /<script>/u);
 });
 
 test('custom print document applies selected custom dimensions', () => {

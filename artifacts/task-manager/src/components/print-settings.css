@@ -143,6 +143,17 @@
 
 .print-preview-sheet-header span { font-weight: 700; }
 
+.print-preview-facility {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  width: 100%;
+  overflow-wrap: anywhere;
+  font-size: .75em;
+}
+
+.print-preview-facility strong { font-size: 1.05em; }
+
 .print-preview-row {
   display: grid;
   gap: 2px;

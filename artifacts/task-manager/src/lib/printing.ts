@@ -13,11 +13,14 @@ export type PrintPreferences = {
   paperSize: PrintPaperSize;
   customWidthMm: number;
   customHeightMm: number;
+  facilityName: string;
+  facilityAddress: string;
+  facilityTaxCode: string;
   facilityPhone: string;
 };
 
 export type PrintRow = { label: string; value: string };
-export type PrintPreviewKind = 'sale' | 'topup' | 'session';
+export type PrintPreviewKind = 'card' | 'sale' | 'topup' | 'session';
 export type PrintPageLayout = {
   page: string;
   width: string;
@@ -31,12 +34,15 @@ export type PrintPageLayout = {
 export const CARD_CHECKBOX_COUNT = 10;
 
 export const DEFAULT_PRINT_PREFERENCES: PrintPreferences = {
-  autoPrintServiceSessions: false,
-  autoPrintCardSales: false,
-  autoPrintCardTopUps: false,
+  autoPrintServiceSessions: true,
+  autoPrintCardSales: true,
+  autoPrintCardTopUps: true,
   paperSize: 'thermal-80',
   customWidthMm: 100,
   customHeightMm: 150,
+  facilityName: '',
+  facilityAddress: '',
+  facilityTaxCode: '',
   facilityPhone: '',
 };
 
@@ -66,7 +72,8 @@ const PAPER_SPECS: readonly PrintPaperSpec[] = [
 
 export const PRINT_PAPER_OPTIONS = PAPER_SPECS.map(({ value, label }) => ({ value, label }));
 
-const STORAGE_PREFIX = 'so-cong:print-settings:';
+const STORAGE_PREFIX = 'so-cong:print-settings:v2:';
+const LEGACY_STORAGE_PREFIX = 'so-cong:print-settings:';
 const CUSTOM_DIMENSION_MIN_MM = 20;
 const CUSTOM_DIMENSION_MAX_MM = 1200;
 
@@ -105,13 +112,18 @@ function formatPrintMinutes(minutes: number): string {
   return remainingMinutes ? `${hours} giờ ${remainingMinutes} phút` : `${hours} giờ`;
 }
 
-function storageKey(userId?: string | null): string {
-  return `${STORAGE_PREFIX}${userId || 'device'}`;
+function storageKey(userId?: string | null, prefix = STORAGE_PREFIX): string {
+  return `${prefix}${userId || 'device'}`;
 }
 
 export function readPrintPreferences(userId?: string | null): PrintPreferences {
   try {
-    const raw = window.localStorage.getItem(storageKey(userId));
+    const currentKey = storageKey(userId);
+    const legacyKey = storageKey(userId, LEGACY_STORAGE_PREFIX);
+    const currentRaw = window.localStorage.getItem(currentKey);
+    const legacyRaw = currentRaw === null ? window.localStorage.getItem(legacyKey) : null;
+    const isLegacy = currentRaw === null && legacyRaw !== null;
+    const raw = currentRaw ?? legacyRaw;
     if (!raw) return { ...DEFAULT_PRINT_PREFERENCES };
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_PRINT_PREFERENCES };
@@ -119,15 +131,26 @@ export function readPrintPreferences(userId?: string | null): PrintPreferences {
     const paperSize = PRINT_PAPER_OPTIONS.some((option) => option.value === stored.paperSize)
       ? stored.paperSize as PrintPaperSize
       : DEFAULT_PRINT_PREFERENCES.paperSize;
-    return {
-      autoPrintServiceSessions: stored.autoPrintServiceSessions === true,
-      autoPrintCardSales: stored.autoPrintCardSales === true,
-      autoPrintCardTopUps: stored.autoPrintCardTopUps === true,
+    const preferences: PrintPreferences = {
+      autoPrintServiceSessions: isLegacy || stored.autoPrintServiceSessions === undefined
+        ? true : stored.autoPrintServiceSessions === true,
+      autoPrintCardSales: isLegacy || stored.autoPrintCardSales === undefined
+        ? true : stored.autoPrintCardSales === true,
+      autoPrintCardTopUps: isLegacy || stored.autoPrintCardTopUps === undefined
+        ? true : stored.autoPrintCardTopUps === true,
       paperSize,
       customWidthMm: normalizeCustomPaperDimension(stored.customWidthMm, DEFAULT_PRINT_PREFERENCES.customWidthMm),
       customHeightMm: normalizeCustomPaperDimension(stored.customHeightMm, DEFAULT_PRINT_PREFERENCES.customHeightMm),
+      facilityName: typeof stored.facilityName === 'string' ? stored.facilityName.slice(0, 120) : '',
+      facilityAddress: typeof stored.facilityAddress === 'string' ? stored.facilityAddress.slice(0, 240) : '',
+      facilityTaxCode: typeof stored.facilityTaxCode === 'string' ? stored.facilityTaxCode.slice(0, 40) : '',
       facilityPhone: typeof stored.facilityPhone === 'string' ? stored.facilityPhone.slice(0, 40) : '',
     };
+    if (isLegacy) {
+      window.localStorage.setItem(currentKey, JSON.stringify(preferences));
+      window.localStorage.removeItem(legacyKey);
+    }
+    return preferences;
   } catch {
     return { ...DEFAULT_PRINT_PREFERENCES };
   }
@@ -163,6 +186,33 @@ function displayDate(date: string): string {
     }).format(parsed);
 }
 
+function displayDateTime(dateTime: string): string {
+  const parsed = new Date(dateTime);
+  return Number.isNaN(parsed.getTime())
+    ? displayDate(dateTime)
+    : new Intl.DateTimeFormat('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Asia/Ho_Chi_Minh',
+    }).format(parsed);
+}
+
+const printCurrency = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
+function formatPrintMoney(amount: number): string {
+  return `${printCurrency.format(Math.round(amount))} ₫`;
+}
+
+function formatPrintPaymentMethod(method: string | null | undefined): string {
+  return method === 'cash' ? 'Tiền mặt' : method === 'transfer' ? 'Chuyển khoản' : 'Chưa ghi nhận';
+}
+
+function formatReceiptCode(prefix: string, id: number): string {
+  return `${prefix}-${String(id).padStart(6, '0')}`;
+}
+
 function cardTransactionRows(
   card: TreatmentCard,
   minutes: number,
@@ -188,20 +238,60 @@ export function treatmentCardPrintRows(card: TreatmentCard): PrintRow[] {
   return cardTransactionRows(card, cardPurchaseMinutes(card), card.purchaseDate, 'Số giờ mua', 'Ngày bán thẻ');
 }
 
-export function cardSalePrintRows(card: TreatmentCard, minutes: number, purchaseDate: string): PrintRow[] {
-  return cardTransactionRows(card, minutes, purchaseDate, 'Số giờ mua', 'Ngày bán thẻ');
+export type CardSalePrintDetails = {
+  amount?: number;
+  paymentMethod?: string | null;
+  sellerName?: string | null;
+  receiptCode?: string;
+  createdAt?: string;
+};
+
+export function cardSalePrintRows(
+  card: TreatmentCard,
+  minutes: number,
+  purchaseDate: string,
+  details: CardSalePrintDetails = {},
+): PrintRow[] {
+  return [
+    { label: 'Mã giao dịch', value: details.receiptCode || formatReceiptCode('THE', card.id) },
+    ...cardTransactionRows(card, minutes, purchaseDate, 'Số giờ mua', 'Ngày bán thẻ').slice(0, 4),
+    { label: 'Số tiền thanh toán', value: formatPrintMoney(details.amount ?? card.purchaseAmount) },
+    { label: 'Phương thức thanh toán', value: formatPrintPaymentMethod(details.paymentMethod ?? card.purchasePaymentMethod) },
+    { label: 'Người bán thẻ', value: details.sellerName?.trim() || card.sellerName?.trim() || 'Chưa ghi nhận' },
+    { label: 'Ngày bán thẻ', value: displayDate(purchaseDate) },
+    { label: 'Thời điểm lập phiếu', value: displayDateTime(details.createdAt || card.createdAt) },
+  ];
 }
 
 export function cardTopUpPrintRows(card: TreatmentCard, payment: CardTopUp): PrintRow[] {
-  return cardTransactionRows(card, payment.minutes, payment.paymentDate, 'Số giờ nạp', 'Ngày nạp');
+  return [
+    { label: 'Mã giao dịch', value: formatReceiptCode('NT', payment.id) },
+    { label: 'Tên khách hàng', value: card.customerName },
+    { label: 'Số điện thoại', value: card.phone },
+    { label: 'Tên dịch vụ', value: card.serviceType },
+    { label: 'Số giờ nạp', value: formatPrintMinutes(payment.minutes) },
+    { label: 'Số tiền nạp', value: formatPrintMoney(payment.amount) },
+    { label: 'Phương thức thanh toán', value: formatPrintPaymentMethod(payment.paymentMethod) },
+    { label: 'Người nạp thẻ', value: payment.sellerName?.trim() || 'Chưa ghi nhận' },
+    { label: 'Ngày nạp', value: displayDate(payment.paymentDate) },
+    { label: 'Thời điểm lập phiếu', value: displayDateTime(payment.createdAt) },
+  ];
 }
 
 export function serviceSessionPrintRows(session: ServiceSession): PrintRow[] {
   return [
+    { label: 'Mã ca', value: formatReceiptCode('CC', session.id) },
     { label: 'Tên nhân viên', value: session.employeeName },
+    { label: 'Tên khách hàng', value: session.customerName || 'Khách lẻ' },
     { label: 'Tên loại hình dịch vụ', value: session.serviceType },
     { label: 'Số giờ', value: formatPrintMinutes(session.minutes) },
     { label: 'Ngày chấm công', value: displayDate(session.workDate) },
+    { label: 'Phương thức thanh toán', value: session.cardId !== null ? 'Thẻ khách hàng' : formatPrintPaymentMethod(session.paymentMethod) },
+    {
+      label: 'Thanh toán tại ca',
+      value: session.cardId !== null ? 'Đã thanh toán trước bằng thẻ' : formatPrintMoney(session.customerCharge),
+    },
+    { label: 'Tiền công nhân viên', value: formatPrintMoney(session.earnings) },
   ];
 }
 
@@ -214,10 +304,10 @@ function sampleTreatmentCard(): TreatmentCard {
     totalMinutes: 300,
     usedMinutes: 60,
     remainingMinutes: 240,
-    purchaseAmount: 0,
-    purchasePaymentMethod: null,
-    sellerName: null,
-    totalPaidAmount: 0,
+    purchaseAmount: 500_000,
+    purchasePaymentMethod: 'cash',
+    sellerName: 'Nhân viên bán thẻ',
+    totalPaidAmount: 500_000,
     topUps: [],
     purchaseDate: '2026-11-02',
     note: '',
@@ -227,15 +317,16 @@ function sampleTreatmentCard(): TreatmentCard {
 
 export function printPreviewRows(type: PrintPreviewKind): PrintRow[] {
   const sampleCard = sampleTreatmentCard();
-  if (type === 'sale') return treatmentCardPrintRows(sampleCard);
+  if (type === 'card') return treatmentCardPrintRows(sampleCard);
+  if (type === 'sale') return cardSalePrintRows(sampleCard, cardPurchaseMinutes(sampleCard), sampleCard.purchaseDate);
   if (type === 'topup') {
     const sampleTopUp: CardTopUp = {
       id: 1,
       minutes: 120,
-      amount: 0,
+      amount: 150_000,
       paymentDate: '2026-11-02',
-      paymentMethod: null,
-      sellerName: null,
+      paymentMethod: 'transfer',
+      sellerName: 'Nhân viên nạp thẻ',
       source: 'topup',
       note: '',
       createdAt: '2026-11-02T00:00:00.000Z',
@@ -252,11 +343,11 @@ export function printPreviewRows(type: PrintPreviewKind): PrintRow[] {
     serviceType: 'Trị liệu',
     workDate: '2026-11-02',
     minutes: 90,
-    customerHourlyRate: 0,
-    customerCharge: 0,
-    paymentMethod: null,
-    hourlyRate: 0,
-    earnings: 0,
+      customerHourlyRate: 300_000,
+      customerCharge: 450_000,
+      paymentMethod: 'cash',
+      hourlyRate: 100_000,
+      earnings: 150_000,
     note: '',
     createdAt: '2026-11-02T00:00:00.000Z',
     archived: false,
@@ -270,6 +361,9 @@ export function buildPrintDocumentHtml(
   paperSize: PrintPaperSize,
   options: {
     checkboxCount?: number;
+    facilityName?: string;
+    facilityAddress?: string;
+    facilityTaxCode?: string;
     facilityPhone?: string;
     cardFooter?: boolean;
     footerText?: string;
@@ -296,6 +390,14 @@ export function buildPrintDocumentHtml(
       ? `<p class="footer">${escapePrintText(options.footerText.trim())}</p>`
       : '';
   const safeTitle = escapePrintText(title);
+  const facilityDetails = [
+    options.facilityName?.trim(),
+    options.facilityAddress?.trim(),
+    options.facilityTaxCode?.trim() ? `Mã số thuế: ${options.facilityTaxCode.trim()}` : '',
+  ].filter(Boolean);
+  const renderedFacilityDetails = facilityDetails.length
+    ? `<div class="facility-details">${facilityDetails.map((line) => `<p>${escapePrintText(line!)}</p>`).join('')}</div>`
+    : '';
   return `<!doctype html>
 <html lang="vi">
 <head>
@@ -312,6 +414,8 @@ export function buildPrintDocumentHtml(
     .row { display: grid; gap: 1mm; padding: 2.5mm 0; border-bottom: 1px solid #e5ded2; overflow-wrap: anywhere; }
     .label { color: #675b4b; font-size: .82em; }
     .row strong { font-size: 1em; }
+    .facility-details { margin-top: 2mm; font-size: .76em; line-height: 1.3; overflow-wrap: anywhere; }
+    .facility-details p { margin: 1mm 0; }
     .checklist { margin-top: 4mm; padding-top: 3mm; }
     .checklist-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2mm; }
     .check-square { display: block; width: 7mm; height: 7mm; border: .35mm solid #21190f; break-inside: avoid; }
@@ -324,7 +428,7 @@ export function buildPrintDocumentHtml(
 </head>
 <body>
   <main class="ticket paper-${paperSize}">
-    <header><h1>${safeTitle}</h1></header>
+    <header>${renderedFacilityDetails}<h1>${safeTitle}</h1></header>
     ${renderedRows}
     ${renderedChecklist}
     ${renderedCardFooter}
@@ -355,6 +459,9 @@ export function printRowsInWindow(
   paperSize: PrintPaperSize,
   options: {
     checkboxCount?: number;
+    facilityName?: string;
+    facilityAddress?: string;
+    facilityTaxCode?: string;
     facilityPhone?: string;
     cardFooter?: boolean;
     footerText?: string;
@@ -397,15 +504,26 @@ export function printHtmlInWindow(
   }
 }
 
-function printCardTransaction(printWindow: Window | null, rows: PrintRow[], preferences: PrintPreferences): boolean {
+function printCardTransaction(
+  printWindow: Window | null,
+  title: string,
+  rows: PrintRow[],
+  preferences: PrintPreferences,
+  includeFacilityDetails = false,
+): boolean {
   return printRowsInWindow(
     printWindow,
-    'Thẻ khách hàng',
+    title,
     rows,
     preferences.paperSize,
     {
       checkboxCount: CARD_CHECKBOX_COUNT,
       facilityPhone: preferences.facilityPhone,
+      ...(includeFacilityDetails ? {
+        facilityName: preferences.facilityName,
+        facilityAddress: preferences.facilityAddress,
+        facilityTaxCode: preferences.facilityTaxCode,
+      } : {}),
       cardFooter: true,
       customWidthMm: preferences.customWidthMm,
       customHeightMm: preferences.customHeightMm,
@@ -414,7 +532,7 @@ function printCardTransaction(printWindow: Window | null, rows: PrintRow[], pref
 }
 
 export function printTreatmentCard(printWindow: Window | null, card: TreatmentCard, preferences: PrintPreferences): boolean {
-  return printCardTransaction(printWindow, treatmentCardPrintRows(card), preferences);
+  return printCardTransaction(printWindow, 'Thẻ khách hàng', treatmentCardPrintRows(card), preferences);
 }
 
 export function printCardSale(
@@ -423,8 +541,15 @@ export function printCardSale(
   minutes: number,
   purchaseDate: string,
   preferences: PrintPreferences,
+  details: CardSalePrintDetails = {},
 ): boolean {
-  return printCardTransaction(printWindow, cardSalePrintRows(card, minutes, purchaseDate), preferences);
+  return printCardTransaction(
+    printWindow,
+    'Phiếu bán thẻ',
+    cardSalePrintRows(card, minutes, purchaseDate, details),
+    preferences,
+    true,
+  );
 }
 
 export function printCardTopUp(
@@ -433,7 +558,7 @@ export function printCardTopUp(
   payment: CardTopUp,
   preferences: PrintPreferences,
 ): boolean {
-  return printCardTransaction(printWindow, cardTopUpPrintRows(card, payment), preferences);
+  return printCardTransaction(printWindow, 'Phiếu nạp thẻ', cardTopUpPrintRows(card, payment), preferences, true);
 }
 
 export function printServiceSession(printWindow: Window | null, session: ServiceSession, preferences: PrintPreferences): boolean {
@@ -442,6 +567,14 @@ export function printServiceSession(printWindow: Window | null, session: Service
     'Phiếu chấm công',
     serviceSessionPrintRows(session),
     preferences.paperSize,
-    { customWidthMm: preferences.customWidthMm, customHeightMm: preferences.customHeightMm },
+    {
+      facilityName: preferences.facilityName,
+      facilityAddress: preferences.facilityAddress,
+      facilityTaxCode: preferences.facilityTaxCode,
+      facilityPhone: preferences.facilityPhone,
+      cardFooter: true,
+      customWidthMm: preferences.customWidthMm,
+      customHeightMm: preferences.customHeightMm,
+    },
   );
 }

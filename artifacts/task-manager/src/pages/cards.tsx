@@ -114,7 +114,20 @@ export default function CardsPage() {
                 ? `Đã cộng giờ và tiền vào thẻ hiện có của ${card.customerName}; lịch sử đã được lưu.`
                 : `Đã bán thẻ cho ${card.customerName}.`;
               if (printPreferences.autoPrintCardSales) {
-                const printed = printCardSale(printWindow, card, data.totalMinutes, data.purchaseDate, printPreferences);
+                const salePayment = card.topUps
+                  .filter((item) => item.source === 'merged_sale'
+                    && item.minutes === data.totalMinutes
+                    && item.amount === data.purchaseAmount
+                    && item.paymentDate === data.purchaseDate
+                    && item.sellerName === data.sellerName)
+                  .sort((a, b) => b.id - a.id)[0];
+                const printed = printCardSale(printWindow, card, data.totalMinutes, data.purchaseDate, printPreferences, {
+                  amount: data.purchaseAmount,
+                  paymentMethod: data.purchasePaymentMethod,
+                  sellerName: data.sellerName,
+                  receiptCode: salePayment ? `BH-${String(salePayment.id).padStart(6, '0')}` : `THE-${String(card.id).padStart(6, '0')}`,
+                  createdAt: salePayment?.createdAt ?? card.createdAt,
+                });
                 notify(printed ? `${baseMessage} Đã mở phiếu in.` : `${baseMessage} Không mở được phiếu in; hãy cho phép cửa sổ bật lên.`);
               } else {
                 notify(baseMessage);

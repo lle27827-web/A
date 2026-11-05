@@ -8,24 +8,37 @@ import {
   printPreviewRows,
   reservePrintWindow,
   type PrintPaperSize,
+  type PrintPreviewKind,
 } from '@/lib/printing';
 
-export function PrintPreview({ paperSize, customWidthMm, customHeightMm, facilityPhone }: {
+export function PrintPreview({
+  paperSize,
+  customWidthMm,
+  customHeightMm,
+  facilityName,
+  facilityAddress,
+  facilityTaxCode,
+  facilityPhone,
+}: {
   paperSize: PrintPaperSize;
   customWidthMm: number;
   customHeightMm: number;
+  facilityName: string;
+  facilityAddress: string;
+  facilityTaxCode: string;
   facilityPhone: string;
 }) {
   const [printFeedback, setPrintFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
-  const [cardPreviewKind, setCardPreviewKind] = useState<'sale' | 'topup'>('sale');
   const paperLabel = PRINT_PAPER_OPTIONS.find((option) => option.value === paperSize)?.label ?? 'Khổ giấy';
   const layout = getPrintPageLayout(paperSize, customWidthMm, customHeightMm);
   const previews = [
     { kind: 'card' as const, title: 'Thẻ khách hàng', caption: 'Mẫu thẻ khách hàng' },
+    { kind: 'sale' as const, title: 'Phiếu bán thẻ', caption: 'Phiếu bán thẻ' },
+    { kind: 'topup' as const, title: 'Phiếu nạp thẻ', caption: 'Phiếu nạp thẻ' },
     { kind: 'session' as const, title: 'Phiếu chấm công', caption: 'Phiếu chấm công' },
   ];
 
-  function printSample(kind: 'sale' | 'topup' | 'session', title: string, caption: string) {
+  function printSample(kind: PrintPreviewKind, title: string, caption: string) {
     setPrintFeedback(null);
     const printWindow = reservePrintWindow();
     if (!printWindow) {
@@ -40,8 +53,9 @@ export function PrintPreview({ paperSize, customWidthMm, customHeightMm, facilit
       paperSize,
       {
         checkboxCount: isCard ? CARD_CHECKBOX_COUNT : 0,
+        ...(kind !== 'card' ? { facilityName, facilityAddress, facilityTaxCode } : {}),
         facilityPhone,
-        cardFooter: isCard,
+        cardFooter: true,
         customWidthMm,
         customHeightMm,
       },
@@ -61,35 +75,13 @@ export function PrintPreview({ paperSize, customWidthMm, customHeightMm, facilit
         <span>{paperLabel}</span>
       </div>
       <div className="print-preview-grid">
-        {previews.map((preview) => {
-          const sampleKind = preview.kind === 'card' ? cardPreviewKind : 'session';
-          const sampleCaption = preview.kind === 'card'
-            ? (cardPreviewKind === 'sale' ? 'Mua thẻ' : 'Nạp thẻ')
-            : 'Phiếu chấm công';
-          const isCard = preview.kind === 'card';
-          const figureCaption = isCard ? `Mẫu thẻ khách hàng · ${sampleCaption}` : sampleCaption;
+      {previews.map((preview) => {
+          const sampleKind = preview.kind;
+          const sampleCaption = preview.caption;
+          const isCard = sampleKind !== 'session';
+          const figureCaption = preview.caption;
           return (
             <figure className="print-preview-figure" key={preview.kind}>
-              {isCard && (
-                <div className="print-preview-modes" role="group" aria-label="Loại giao dịch trên mẫu thẻ khách hàng">
-                  <button
-                    type="button"
-                    className={`btn ghost small print-preview-mode${cardPreviewKind === 'sale' ? ' is-active' : ''}`}
-                    aria-pressed={cardPreviewKind === 'sale'}
-                    onClick={() => setCardPreviewKind('sale')}
-                  >
-                    Mua thẻ
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn ghost small print-preview-mode${cardPreviewKind === 'topup' ? ' is-active' : ''}`}
-                    aria-pressed={cardPreviewKind === 'topup'}
-                    onClick={() => setCardPreviewKind('topup')}
-                  >
-                    Nạp thẻ
-                  </button>
-                </div>
-              )}
             <article
               className={`print-preview-sheet print-preview-sheet--${paperSize}`}
               style={{
@@ -101,6 +93,13 @@ export function PrintPreview({ paperSize, customWidthMm, customHeightMm, facilit
               data-testid={`print-preview-${sampleKind}`}
             >
               <header className="print-preview-sheet-header">
+                {(facilityName || facilityAddress || (sampleKind !== 'card' && facilityTaxCode)) && (
+                  <div className="print-preview-facility">
+                    {facilityName && <strong>{facilityName}</strong>}
+                    {facilityAddress && <span>{facilityAddress}</span>}
+                    {sampleKind !== 'card' && facilityTaxCode && <span>Mã số thuế: {facilityTaxCode}</span>}
+                  </div>
+                )}
                 <span>{preview.title}</span>
               </header>
               <div className="print-preview-rows">
@@ -120,14 +119,10 @@ export function PrintPreview({ paperSize, customWidthMm, customHeightMm, facilit
                   </div>
                 </section>
               )}
-              {isCard && (
-                <>
-                  <p className="print-preview-facility-phone">
-                    Số điện thoại cơ sở: {facilityPhone.trim() || '________________'}
-                  </p>
-                  <footer>Cảm ơn quý khách đã sử dụng dịch vụ</footer>
-                </>
-              )}
+              <p className="print-preview-facility-phone">
+                Số điện thoại cơ sở: {facilityPhone.trim() || '________________'}
+              </p>
+              <footer>Cảm ơn quý khách đã sử dụng dịch vụ</footer>
             </article>
             <figcaption>{figureCaption}</figcaption>
             <button
