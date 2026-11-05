@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   getListMembersQueryKey,
   getListServiceSessionsQueryKey,
@@ -11,10 +11,17 @@ import { Download, Printer } from 'lucide-react';
 import { formatMonth, formatVnd, SESSION_FRESHNESS } from '@/lib/massage';
 import { vietnamToday } from '@/lib/revenue-period';
 import { printHtmlInWindow, reservePrintWindow } from '@/lib/printing';
-import { buildMonthlyPayrollReport, type MonthlyPayrollReport } from '@/lib/monthly-payroll-report';
+import { buildMonthlyPayrollReport, type MonthlyPayrollReport, type PayrollCell, type PayrollServiceColumn } from '@/lib/monthly-payroll-report';
 
-function formatHours(minutes: number): string {
-  return (minutes / 60).toLocaleString('vi-VN', { maximumFractionDigits: 2 });
+function formatServicePayRate(service: PayrollServiceColumn): string {
+  const rates = [...new Set(service.hourlyRates)].sort((a, b) => a - b);
+  if (rates.length === 0) return 'Chưa có mức công';
+  const label = rates.length === 1 ? 'Tiền công/giờ' : 'Các mức công/giờ';
+  return `${label}: ${rates.map(formatVnd).join(' · ')}`;
+}
+
+function serviceCellText(cell: Pick<PayrollCell, 'sessions' | 'earnings'>): string {
+  return `${cell.sessions} ca · ${formatVnd(cell.earnings)}`;
 }
 
 function escapeHtml(value: string): string {
@@ -29,24 +36,20 @@ function escapeHtml(value: string): string {
 
 function buildPrintHtml(report: MonthlyPayrollReport, month: string): string {
   const serviceHeaders = report.services.map((service) =>
-    `<th colspan="3">${escapeHtml(service.name)}</th>`,
-  ).join('');
-  const subHeaders = report.services.map(() =>
-    '<th>Số ca</th><th>Tổng giờ</th><th>Tiền công</th>',
+    `<th scope="col"><strong>${escapeHtml(service.name)}</strong><small class="service-rate">${escapeHtml(formatServicePayRate(service))}</small></th>`,
   ).join('');
   const rows = report.rows.map((row) => {
     const serviceCells = row.services.map((cell) =>
-      `<td class="number">${cell.sessions}</td><td class="number">${formatHours(cell.minutes)}</td><td class="money">${formatVnd(cell.earnings)}</td>`,
+      `<td class="service-cell"><span>${cell.sessions} ca</span><strong>${formatVnd(cell.earnings)}</strong></td>`,
     ).join('');
-    return `<tr><th scope="row">${escapeHtml(row.employeeName)}</th>${serviceCells}<td class="number">${row.total.sessions}</td><td class="number">${formatHours(row.total.minutes)}</td><td class="money">${formatVnd(row.total.earnings)}</td></tr>`;
+    return `<tr><th scope="row">${escapeHtml(row.employeeName)}</th>${serviceCells}<td class="total-money">${formatVnd(row.total.earnings)}</td></tr>`;
   }).join('');
   const totalCells = report.services.map((_, index) => {
     const total = report.rows.reduce((acc, row) => ({
       sessions: acc.sessions + row.services[index]!.sessions,
-      minutes: acc.minutes + row.services[index]!.minutes,
       earnings: acc.earnings + row.services[index]!.earnings,
-    }), { sessions: 0, minutes: 0, earnings: 0 });
-    return `<td class="number">${total.sessions}</td><td class="number">${formatHours(total.minutes)}</td><td class="money">${formatVnd(total.earnings)}</td>`;
+    }), { sessions: 0, earnings: 0 });
+    return `<td class="service-cell"><span>${total.sessions} ca</span><strong>${formatVnd(total.earnings)}</strong></td>`;
   }).join('');
   const title = `Tổng công nhân viên · ${formatMonth(month)}`;
 
@@ -57,22 +60,24 @@ function buildPrintHtml(report: MonthlyPayrollReport, month: string): string {
   @page { size: A4 landscape; margin: 10mm; }
   * { box-sizing: border-box; }
   body { margin: 0; color: #2b2116; font: 10pt/1.35 Arial, sans-serif; }
-  h1 { margin: 0 0 4mm; text-align: center; font-size: 16pt; }
+  h1 { margin: 0 0 4mm; text-align: center; font-size: 22pt; font-weight: 800; }
   .month { margin: 0 0 5mm; text-align: center; }
   table { width: 100%; border-collapse: collapse; table-layout: auto; }
-  th, td { padding: 2.2mm 1.5mm; border: 1px solid #6f5438; vertical-align: middle; }
-  thead th { background: #eee8dc; text-align: center; font-weight: 700; }
-  tbody th { text-align: left; min-width: 30mm; }
-  .number, .money { text-align: right; white-space: nowrap; }
+  th, td { padding: 2.2mm 1.5mm; border: 1px solid #6f5438; vertical-align: middle; text-align: center; }
+  thead th { background: #eee8dc; font-weight: 700; }
+  tbody th { min-width: 30mm; }
+  .service-rate { display: block; margin-top: 1mm; font-size: 7.5pt; font-weight: 400; }
+  .service-cell span, .service-cell strong { display: block; }
+  .service-cell strong, .total-money { font-weight: 700; white-space: nowrap; }
   tfoot th, tfoot td { background: #e7e2d8; font-weight: 700; }
+  thead { display: table-header-group; }
   tr { break-inside: avoid; }
   @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
 </style></head><body>
 <h1>Tổng công nhân viên</h1><p class="month">${escapeHtml(formatMonth(month))}</p>
-<table><thead><tr><th rowspan="2">Nhân viên</th>${serviceHeaders}<th colspan="3">Tổng cộng</th></tr>
-<tr>${subHeaders}<th>Số ca</th><th>Tổng giờ</th><th>Tiền công</th></tr></thead>
-<tbody>${rows || `<tr><td colspan="${1 + report.services.length * 3 + 3}">Tháng này chưa có dữ liệu chấm công.</td></tr>`}</tbody>
-<tfoot><tr><th>Tổng cộng</th>${totalCells}<td class="number">${report.total.sessions}</td><td class="number">${formatHours(report.total.minutes)}</td><td class="money">${formatVnd(report.total.earnings)}</td></tr></tfoot>
+<table><thead><tr><th scope="col">Nhân viên</th>${serviceHeaders}<th scope="col">Tổng tiền công</th></tr></thead>
+<tbody>${rows || `<tr><td colspan="${report.services.length + 2}">Tháng này chưa có dữ liệu chấm công.</td></tr>`}</tbody>
+<tfoot><tr><th scope="row">Tổng cộng</th>${totalCells}<td class="total-money">${formatVnd(report.total.earnings)}</td></tr></tfoot>
 </table></body></html>`;
 }
 
@@ -137,90 +142,69 @@ export function MonthlyPayrollPrint({ enabled }: { enabled: boolean }) {
       workbook.subject = `Bảng tổng công nhân viên ${month}`;
       workbook.created = new Date();
       const worksheet = workbook.addWorksheet('Tổng công', {
-        views: [{ state: 'frozen', xSplit: 1, ySplit: 3 }],
+        views: [{ state: 'frozen', xSplit: 1, ySplit: 2 }],
       });
-      const columnCount = report.services.length * 3 + 4;
+      const columnCount = report.services.length + 2;
       worksheet.mergeCells(1, 1, 1, columnCount);
       const titleCell = worksheet.getCell(1, 1);
       titleCell.value = `Tổng công nhân viên · ${formatMonth(month)}`;
-      titleCell.font = { bold: true, size: 16, color: { argb: 'FF3C2B18' } };
+      titleCell.font = { bold: true, size: 20, color: { argb: 'FF3C2B18' } };
       titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-      worksheet.getRow(1).height = 28;
-
-      const topHeader: (string | number)[] = ['Nhân viên'];
-      const secondHeader: (string | number)[] = [''];
-      for (const service of report.services) {
-        topHeader.push(service.name, '', '');
-        secondHeader.push('Số ca', 'Tổng giờ', 'Tiền công');
-      }
-      topHeader.push('Tổng cộng', '', '');
-      secondHeader.push('Số ca', 'Tổng giờ', 'Tiền công');
-      worksheet.addRow(topHeader);
-      worksheet.addRow(secondHeader);
-      worksheet.mergeCells(2, 1, 3, 1);
-      for (let index = 0; index < report.services.length; index += 1) {
-        const firstColumn = 2 + index * 3;
-        worksheet.mergeCells(2, firstColumn, 2, firstColumn + 2);
-      }
-      worksheet.mergeCells(2, 2 + report.services.length * 3, 2, columnCount);
+      worksheet.getRow(1).height = 34;
+      worksheet.addRow([
+        'Nhân viên',
+        ...report.services.map((service) => `${service.name}\n${formatServicePayRate(service)}`),
+        'Tổng tiền công',
+      ]);
 
       for (const row of report.rows) {
-        const values: (string | number)[] = [row.employeeName];
-        for (const cell of row.services) {
-          values.push(cell.sessions, cell.minutes / 60, cell.earnings);
-        }
-        values.push(row.total.sessions, row.total.minutes / 60, row.total.earnings);
+        const values: (string | number)[] = [
+          row.employeeName,
+          ...row.services.map(serviceCellText),
+          row.total.earnings,
+        ];
         worksheet.addRow(values);
       }
       const totalRow: (string | number)[] = ['Tổng cộng'];
       for (let index = 0; index < report.services.length; index += 1) {
         const cell = report.rows.reduce((sum, row) => ({
           sessions: sum.sessions + row.services[index]!.sessions,
-          minutes: sum.minutes + row.services[index]!.minutes,
           earnings: sum.earnings + row.services[index]!.earnings,
-        }), { sessions: 0, minutes: 0, earnings: 0 });
-        totalRow.push(cell.sessions, cell.minutes / 60, cell.earnings);
+        }), { sessions: 0, earnings: 0 });
+        totalRow.push(serviceCellText(cell));
       }
-      totalRow.push(report.total.sessions, report.total.minutes / 60, report.total.earnings);
+      totalRow.push(report.total.earnings);
       const totalExcelRow = worksheet.addRow(totalRow);
 
       worksheet.getColumn(1).width = 26;
-      for (let index = 0; index < report.services.length; index += 1) {
-        const firstColumn = 2 + index * 3;
-        worksheet.getColumn(firstColumn).width = 10;
-        worksheet.getColumn(firstColumn + 1).width = 12;
-        worksheet.getColumn(firstColumn + 2).width = 19;
-      }
-      const totalStartColumn = 2 + report.services.length * 3;
-      worksheet.getColumn(totalStartColumn).width = 12;
-      worksheet.getColumn(totalStartColumn + 1).width = 12;
-      worksheet.getColumn(totalStartColumn + 2).width = 20;
+      report.services.forEach((_, index) => {
+        worksheet.getColumn(index + 2).width = 28;
+      });
+      worksheet.getColumn(columnCount).width = 22;
 
-      for (const rowIndex of [2, 3]) {
-        const row = worksheet.getRow(rowIndex);
-        row.height = rowIndex === 2 ? 24 : 22;
-        row.font = { bold: true, color: { argb: 'FF3C2B18' } };
-        row.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-        row.eachCell((cell) => {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECE7DC' } };
-          cell.border = {
-            top: { style: 'thin', color: { argb: 'FF80613B' } },
-            bottom: { style: 'thin', color: { argb: 'FF80613B' } },
-            left: { style: 'thin', color: { argb: 'FF80613B' } },
-            right: { style: 'thin', color: { argb: 'FF80613B' } },
-          };
-        });
-      }
-      for (let rowIndex = 4; rowIndex <= totalExcelRow.number; rowIndex += 1) {
+      const headerRow = worksheet.getRow(2);
+      headerRow.height = 40;
+      headerRow.font = { bold: true, color: { argb: 'FF3C2B18' } };
+      headerRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      headerRow.eachCell((cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECE7DC' } };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF80613B' } },
+          bottom: { style: 'thin', color: { argb: 'FF80613B' } },
+          left: { style: 'thin', color: { argb: 'FF80613B' } },
+          right: { style: 'thin', color: { argb: 'FF80613B' } },
+        };
+      });
+      for (let rowIndex = 3; rowIndex <= totalExcelRow.number; rowIndex += 1) {
         const row = worksheet.getRow(rowIndex);
         row.eachCell((cell, columnIndex) => {
+          cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
           cell.border = {
             bottom: { style: 'hair', color: { argb: 'FFD0C6B5' } },
             left: { style: 'hair', color: { argb: 'FFD0C6B5' } },
             right: { style: 'hair', color: { argb: 'FFD0C6B5' } },
           };
-          if (columnIndex > 1 && (columnIndex - 2) % 3 === 1) cell.numFmt = '0.##';
-          if (columnIndex > 1 && (columnIndex - 2) % 3 === 2) cell.numFmt = '#,##0" ₫"';
+          if (columnIndex === columnCount) cell.numFmt = '#,##0" ₫"';
         });
       }
       totalExcelRow.font = { bold: true, color: { argb: 'FF3C2B18' } };
@@ -232,8 +216,8 @@ export function MonthlyPayrollPrint({ enabled }: { enabled: boolean }) {
         };
       });
       worksheet.autoFilter = {
-        from: { row: 3, column: 1 },
-        to: { row: Math.max(3, totalExcelRow.number - 1), column: columnCount },
+        from: { row: 2, column: 1 },
+        to: { row: Math.max(2, totalExcelRow.number - 1), column: columnCount },
       };
       const buffer = await workbook.xlsx.writeBuffer();
       const file = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -257,7 +241,7 @@ export function MonthlyPayrollPrint({ enabled }: { enabled: boolean }) {
     <section className="payroll-print-report" aria-labelledby="monthly-payroll-print-title">
       <div className="payroll-print-heading">
         <div>
-          <h4 id="monthly-payroll-print-title">Bảng tổng công nhân viên</h4>
+          <h4 id="monthly-payroll-print-title">Tổng công nhân viên</h4>
           <p className="muted">Theo tháng, nhân viên và từng loại dịch vụ</p>
         </div>
         <label className="field payroll-month-field" htmlFor="monthly-payroll-month">
@@ -282,17 +266,14 @@ export function MonthlyPayrollPrint({ enabled }: { enabled: boolean }) {
             <table className="payroll-report-table">
               <thead>
                 <tr>
-                  <th rowSpan={2} scope="col">Nhân viên</th>
-                  {report.services.map((service) => <th key={service.key} colSpan={3} scope="colgroup">{service.name}</th>)}
-                  <th colSpan={3} scope="colgroup">Tổng cộng</th>
-                </tr>
-                <tr>
+                  <th scope="col">Nhân viên</th>
                   {report.services.map((service) => (
-                    <Fragment key={`subhead-${service.key}`}>
-                      <th scope="col">Số ca</th><th scope="col">Tổng giờ</th><th scope="col">Tiền công</th>
-                    </Fragment>
+                    <th key={service.key} scope="col">
+                      <strong>{service.name}</strong>
+                      <span className="payroll-service-rate">{formatServicePayRate(service)}</span>
+                    </th>
                   ))}
-                  <th scope="col">Số ca</th><th scope="col">Tổng giờ</th><th scope="col">Tiền công</th>
+                  <th scope="col">Tổng tiền công</th>
                 </tr>
               </thead>
               <tbody>
@@ -300,29 +281,29 @@ export function MonthlyPayrollPrint({ enabled }: { enabled: boolean }) {
                   <tr key={row.memberId}>
                     <th scope="row">{row.employeeName}</th>
                     {row.services.map((cell, index) => (
-                      <PayrollCells key={`${row.memberId}-${report.services[index]!.key}`} cell={cell} />
+                      <PayrollServiceCell key={`${row.memberId}-${report.services[index]!.key}`} cell={cell} />
                     ))}
-                    <PayrollCells cell={row.total} />
+                    <td className="money">{formatVnd(row.total.earnings)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr>
                   <th scope="row">Tổng cộng</th>
-                  {report.services.map((service, index) => (
-                    <PayrollCells key={`total-${service.key}`} cell={report.rows.reduce((sum, row) => ({
+                  {report.services.map((service, index) => {
+                    const total = report.rows.reduce((sum, row) => ({
                       sessions: sum.sessions + row.services[index]!.sessions,
-                      minutes: sum.minutes + row.services[index]!.minutes,
                       earnings: sum.earnings + row.services[index]!.earnings,
-                    }), { sessions: 0, minutes: 0, earnings: 0 })} />
-                  ))}
-                  <PayrollCells cell={report.total} />
+                    }), { sessions: 0, earnings: 0 });
+                    return <PayrollServiceCell key={`total-${service.key}`} cell={total} />;
+                  })}
+                  <td className="money">{formatVnd(report.total.earnings)}</td>
                 </tr>
               </tfoot>
             </table>
           </div>
           <div className="payroll-report-total" aria-label="Tổng toàn bộ nhân viên">
-            {report.rows.length} nhân viên · {report.total.sessions} ca · {formatHours(report.total.minutes)} giờ · {formatVnd(report.total.earnings)}
+            {report.rows.length} nhân viên · Tổng tiền công {formatVnd(report.total.earnings)}
           </div>
         </>
       )}
@@ -340,12 +321,11 @@ export function MonthlyPayrollPrint({ enabled }: { enabled: boolean }) {
   );
 }
 
-function PayrollCells({ cell }: { cell: { sessions: number; minutes: number; earnings: number } }) {
+function PayrollServiceCell({ cell }: { cell: Pick<PayrollCell, 'sessions' | 'earnings'> }) {
   return (
-    <>
-      <td className="number">{cell.sessions}</td>
-      <td className="number">{formatHours(cell.minutes)}</td>
-      <td className="money">{formatVnd(cell.earnings)}</td>
-    </>
+    <td className="payroll-service-cell">
+      <span>{cell.sessions} ca</span>
+      <strong>{formatVnd(cell.earnings)}</strong>
+    </td>
   );
 }

@@ -31,13 +31,14 @@ function session(overrides: Partial<ServiceSession> & Pick<ServiceSession, 'id' 
 
 test('monthly payroll groups services and calculates shifts, hours, wages and totals', () => {
   const report = buildMonthlyPayrollReport(members, [
-    session({ id: 1, memberId: 1, serviceTypeId: 10, serviceType: 'Mát-xa', workDate: '2026-03-02', minutes: 90, earnings: 150_000 }),
-    session({ id: 2, memberId: 1, serviceTypeId: 10, serviceType: 'Mát-xa', workDate: '2026-03-08', minutes: 60, earnings: 100_000 }),
-    session({ id: 3, memberId: 2, serviceTypeId: 11, serviceType: 'Trị liệu', workDate: '2026-03-09', minutes: 120, earnings: 300_000 }),
+    session({ id: 1, memberId: 1, serviceTypeId: 10, serviceType: 'Mát-xa', workDate: '2026-03-02', minutes: 90, earnings: 150_000, hourlyRate: 100_000 }),
+    session({ id: 2, memberId: 1, serviceTypeId: 10, serviceType: 'Mát-xa', workDate: '2026-03-08', minutes: 60, earnings: 100_000, hourlyRate: 120_000 }),
+    session({ id: 3, memberId: 2, serviceTypeId: 11, serviceType: 'Trị liệu', workDate: '2026-03-09', minutes: 120, earnings: 300_000, hourlyRate: 150_000 }),
     session({ id: 4, memberId: 2, serviceTypeId: 11, serviceType: 'Trị liệu', workDate: '2026-04-01', minutes: 60, earnings: 150_000 }),
   ], services, '2026-03');
 
   assert.deepEqual(report.services.map((service) => service.name), ['Mát-xa', 'Trị liệu']);
+  assert.deepEqual(report.services.map((service) => service.hourlyRates), [[100_000, 120_000], [150_000]]);
   assert.equal(report.rows.length, 2);
   assert.deepEqual(report.rows[0]?.services[0], { sessions: 2, minutes: 150, earnings: 250_000 });
   assert.deepEqual(report.rows[0]?.total, { sessions: 2, minutes: 150, earnings: 250_000 });
@@ -52,4 +53,9 @@ test('deleted catalog services remain visible from the month snapshot, without m
 
   assert.deepEqual(report.services.map((service) => service.name), ['Dịch vụ cũ', 'Mát-xa', 'Trị liệu']);
   assert.deepEqual(report.rows[0]?.services[0], { sessions: 1, minutes: 60, earnings: 80_000 });
+});
+
+test('service columns without sessions show the current configured wage rate', () => {
+  const report = buildMonthlyPayrollReport(members, [], services, '2026-03');
+  assert.deepEqual(report.services.map((service) => service.hourlyRates), [[100_000], [150_000]]);
 });

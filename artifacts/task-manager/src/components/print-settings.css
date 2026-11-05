@@ -221,8 +221,9 @@
 
 .payroll-print-heading h4 {
   margin: 0;
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 850;
+  text-align: center;
 }
 
 .payroll-print-heading p {
@@ -256,7 +257,7 @@
 .payroll-report-table td {
   padding: 7px 8px;
   border: 1px solid hsl(var(--border));
-  white-space: nowrap;
+  text-align: center;
 }
 
 .payroll-report-table thead th {
@@ -267,21 +268,26 @@
   text-align: center;
 }
 
-.payroll-report-table thead tr:nth-child(2) th {
-  top: 31px;
-  font-size: 11px;
+.payroll-report-table thead th {
+  white-space: normal;
 }
 
-.payroll-report-table tbody th,
-.payroll-report-table tfoot th {
-  text-align: left;
+.payroll-service-rate {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 650;
+  white-space: normal;
 }
 
-.payroll-report-table tbody td.number,
-.payroll-report-table tbody td.money,
-.payroll-report-table tfoot td.number,
-.payroll-report-table tfoot td.money {
-  text-align: right;
+.payroll-service-cell span,
+.payroll-service-cell strong {
+  display: block;
+}
+
+.payroll-service-cell strong {
+  margin-top: 2px;
+  white-space: nowrap;
 }
 
 .payroll-report-table tfoot th,
@@ -296,7 +302,7 @@
 .payroll-report-total {
   font-size: 12px;
   font-weight: 800;
-  text-align: right;
+  text-align: center;
 }
 
 .payroll-report-actions,

@@ -3,6 +3,7 @@ import type { MemberRecord, ServiceSession, ServiceTypeRecord } from '@workspace
 export type PayrollServiceColumn = {
   key: string;
   name: string;
+  hourlyRates: number[];
 };
 
 export type PayrollCell = {
@@ -46,7 +47,7 @@ export function buildMonthlyPayrollReport(
   const columns = new Map<string, PayrollServiceColumn>();
 
   for (const service of serviceTypes) {
-    columns.set(`id:${service.id}`, { key: `id:${service.id}`, name: service.name });
+    columns.set(`id:${service.id}`, { key: `id:${service.id}`, name: service.name, hourlyRates: [] });
   }
 
   const monthSessions = sessions.filter((session) =>
@@ -58,7 +59,18 @@ export function buildMonthlyPayrollReport(
       : `name:${serviceNameKey(session.serviceType)}`;
     if (!columns.has(key)) {
       const current = session.serviceTypeId === null ? undefined : catalogById.get(session.serviceTypeId);
-      columns.set(key, { key, name: current?.name ?? session.serviceType });
+      columns.set(key, { key, name: current?.name ?? session.serviceType, hourlyRates: [] });
+    }
+    const column = columns.get(key)!;
+    if (Number.isFinite(session.hourlyRate) && !column.hourlyRates.includes(session.hourlyRate)) {
+      column.hourlyRates.push(session.hourlyRate);
+    }
+  }
+
+  for (const service of serviceTypes) {
+    const column = columns.get(`id:${service.id}`);
+    if (column && column.hourlyRates.length === 0 && Number.isFinite(service.hourlyRate)) {
+      column.hourlyRates.push(service.hourlyRate);
     }
   }
 
