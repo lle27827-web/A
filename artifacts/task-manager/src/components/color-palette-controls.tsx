@@ -172,7 +172,7 @@ function toColorInputValue(value: string): string {
   if (/^#[0-9a-f]{3}$/i.test(hex)) {
     return `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
   }
-  return '#000000';
+  return '#6E4B24';
 }
 
 export function ColorPaletteControls({ colors, onChange, onReset }: ColorPaletteControlsProps) {

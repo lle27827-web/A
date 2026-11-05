@@ -418,7 +418,7 @@ export function buildPrintDocumentHtml(
     .facility-details p { margin: 1mm 0; }
     .checklist { margin-top: 4mm; padding-top: 3mm; }
     .checklist-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2mm; }
-    .check-square { display: block; width: 7mm; height: 7mm; border: .35mm solid #21190f; break-inside: avoid; }
+    .check-square { display: block; width: 7mm; height: 7mm; border: .35mm solid #6e4b24; break-inside: avoid; }
     .facility-phone { margin: 4mm 0 0; color: #675b4b; text-align: center; font-size: .72em; overflow-wrap: anywhere; }
     .footer { margin-top: 5mm; text-align: center; color: #675b4b; font-size: .8em; }
     .print-actions { margin-top: 6mm; text-align: center; }
