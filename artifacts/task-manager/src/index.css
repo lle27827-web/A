@@ -1992,10 +1992,28 @@ body:has(.modal-backdrop) .screen-nav {
 }
 .main .revenue .revenue-summary > .revenue-period-card .revenue-period-primary-row,
 .main .revenue .revenue-summary > .revenue-period-card .revenue-period-key-metrics > div,
+.main .revenue .revenue-summary > .revenue-period-card .revenue-service-summary,
 .main .revenue .revenue-summary > .revenue-period-card .revenue-details .rev-breakdown > div {
   background-color: #454545 !important;
   border-color: hsl(27 52% 31%) !important;
   border-width: 3px !important;
+}
+.revenue-service-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border-style: solid;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 800;
+}
+.revenue-service-summary > span {
+  flex: 0 0 auto;
+}
+.revenue-service-summary .service-duration-list {
+  margin: 0;
 }
 .main .panel.page[aria-labelledby="emp-title"] .emp-list .emp-row,
 .main .panel.page[aria-labelledby="emp-title"] .emp-list .emp-row * {
@@ -2035,4 +2053,45 @@ body:has(.modal-backdrop) .screen-nav {
 .detail > .day-salary :is(button.btn.danger, button.icon-btn.danger, .danger-text) *,
 .detail > [data-testid="section-day-sessions"] :is(button.btn.danger, button.icon-btn.danger, .danger-text) * {
   color: inherit !important;
+}
+
+/* Make service prices and service actions clear on the current dark service-list surface. */
+.main .panel[data-testid="section-services"] .emp-list .emp-row .muted {
+  color: hsl(0 0% 100%) !important;
+}
+.main .panel[data-testid="section-services"] [data-testid="button-add-service"],
+.main .panel[data-testid="section-services"] [data-testid="button-delete-all-services"] {
+  border-color: #777 !important;
+  color: #fff !important;
+  background: #777 !important;
+}
+.main .panel[data-testid="section-services"] [data-testid="button-add-service"]:hover:not(:disabled),
+.main .panel[data-testid="section-services"] [data-testid="button-delete-all-services"]:hover:not(:disabled) {
+  border-color: #666 !important;
+  background: #666 !important;
+}
+.main .panel[data-testid="section-services"] [data-testid="button-add-service"] *,
+.main .panel[data-testid="section-services"] [data-testid="button-delete-all-services"] * {
+  color: inherit !important;
+}
+
+/* Center attendance text while leaving all existing edit/delete controls intact. */
+.attendance-app .data-table th,
+.attendance-app .data-table td {
+  text-align: center;
+}
+.attendance-app .person-cell,
+.attendance-app .row-actions {
+  justify-content: center;
+}
+.employee-session-row,
+.employee-session-row .shift-main,
+.employee-session-row .employee-session-customer,
+.employee-session-row .shift-service,
+.employee-session-row .employee-session-duration {
+  text-align: center;
+}
+.employee-session-row .shift-main,
+.employee-session-row .shift-actions {
+  justify-content: center;
 }

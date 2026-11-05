@@ -8,7 +8,11 @@ import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { ErrorBanner } from '@/components/modal';
 import { formatShortDate, statusCode } from '@/lib/attendance';
 import { formatMinutes, formatMonth, formatVnd } from '@/lib/massage';
-import { serviceDurationLabel, type ServiceDurationDetail } from '@/lib/service-duration-summary';
+import {
+  serviceAttendanceLabel,
+  summarizeServiceAttendance,
+  type ServiceDurationDetail,
+} from '@/lib/service-duration-summary';
 import { resolveRevenuePeriod, shiftRevenueDate, shiftRevenueDateMonth } from '@/lib/revenue-period';
 import { useVietnamToday } from '@/lib/use-vietnam-today';
 import { PaymentDetailsDialog } from '@/components/payment-details-dialog';
@@ -42,10 +46,11 @@ function ServiceBreakdownList({ items, label, testId }: {
   label: string;
   testId: string;
 }) {
+  const totals = summarizeServiceAttendance(items);
   return (
     <ul className="service-duration-list" aria-label={label} data-testid={testId}>
-      {items.length
-        ? items.map((item) => <li key={`${item.serviceType}-${item.minutes}`}>{serviceDurationLabel(item, formatMinutes)}</li>)
+      {totals.length
+        ? totals.map((item) => <li key={item.serviceType}>{serviceAttendanceLabel(item, formatMinutes)}</li>)
         : <li>Chưa có ca dịch vụ</li>}
     </ul>
   );
@@ -112,7 +117,7 @@ export default function HomePage() {
                         <ChevronLeft size={19} aria-hidden="true" />
                       </button>
                       <h2 id="rev-title" className="rev-label rev-label-key">
-                        Tổng doanh thu cơ sở tháng ·{' '}
+                        Tổng doanh thu cơ sở ·{' '}
                         <button type="button" className="revenue-date-trigger" onClick={() => setMonthPickerOpen(true)}
                           aria-label={`Chọn tháng doanh thu, hiện tại ${formatMonth(month)}`} data-testid="button-open-revenue-month-picker">
                           {formatMonth(month)}
@@ -128,7 +133,7 @@ export default function HomePage() {
                       className="rev-value mono"
                       data-testid="text-revenue"
                       tabIndex={0}
-                      aria-label={`Tổng doanh thu cơ sở tháng: ${formatVnd(summary.data.revenue)}`}
+                      aria-label={`Tổng doanh thu cơ sở tháng ${formatMonth(month)}: ${formatVnd(summary.data.revenue)}`}
                     >
                       {formatVnd(summary.data.revenue)}
                     </p>
@@ -143,16 +148,16 @@ export default function HomePage() {
                       <strong className="mono" data-testid="text-card-revenue">{formatVnd(summary.data.cardRevenue)}</strong>
                     </div>
                   </div>
+                  <div className="revenue-service-summary">
+                    <span>Ca dịch vụ trong tháng</span>
+                    <ServiceBreakdownList items={summary.data.serviceBreakdown ?? []} label="Ca dịch vụ theo loại hình trong tháng" testId="list-facility-month-service-durations" />
+                  </div>
                   <details className="revenue-details">
                     <summary>
                       <span className="revenue-details-closed">Xem chi tiết</span>
                       <span className="revenue-details-open">Ẩn chi tiết</span>
                     </summary>
                     <dl className="rev-breakdown">
-                      <div className="service-duration-row" tabIndex={0}>
-                        <dt>Ca dịch vụ trong tháng</dt>
-                        <dd><ServiceBreakdownList items={summary.data.serviceBreakdown ?? []} label="Chi tiết ca dịch vụ trong tháng" testId="list-facility-month-service-durations" /></dd>
-                      </div>
                       <div tabIndex={0}><dt>Doanh thu khách lẻ tháng</dt><dd className="mono" data-testid="text-service-revenue">{formatVnd(summary.data.serviceRevenue)}</dd></div>
                       <PaymentReportRow label="Tiền mặt tháng" amount={summary.data.paymentBreakdown.cash.total} method="cash" testId="button-payment-cash-month" onSelect={(method) => setPaymentDetails({ method })} />
                       <PaymentReportRow label="Chuyển khoản tháng" amount={summary.data.paymentBreakdown.transfer.total} method="transfer" testId="button-payment-transfer-month" onSelect={(method) => setPaymentDetails({ method })} />
@@ -226,16 +231,16 @@ export default function HomePage() {
                       <strong className="mono" data-testid="text-today-card-revenue">{formatVnd(summary.data.today.cardRevenue)}</strong>
                     </div>
                   </div>
+                  <div className="revenue-service-summary">
+                    <span>Ca dịch vụ {dayLabel}</span>
+                    <ServiceBreakdownList items={summary.data.today.serviceBreakdown ?? []} label={`Ca dịch vụ theo loại hình ${dayLabel}`} testId="list-facility-day-service-durations" />
+                  </div>
                   <details className="revenue-details">
                     <summary>
                       <span className="revenue-details-closed">Xem chi tiết</span>
                       <span className="revenue-details-open">Ẩn chi tiết</span>
                     </summary>
                     <dl className="rev-breakdown">
-                      <div className="service-duration-row" tabIndex={0}>
-                        <dt>Ca dịch vụ {dayLabel}</dt>
-                        <dd><ServiceBreakdownList items={summary.data.today.serviceBreakdown ?? []} label={`Chi tiết ca dịch vụ ${dayLabel}`} testId="list-facility-day-service-durations" /></dd>
-                      </div>
                       <div tabIndex={0}><dt>Doanh thu khách lẻ {dayLabel}</dt><dd className="mono" data-testid="text-today-service-revenue">{formatVnd(summary.data.today.serviceRevenue)}</dd></div>
                       <PaymentReportRow label={`Tiền mặt ${dayLabel}`} amount={summary.data.today.paymentBreakdown.cash.total} method="cash" testId="button-payment-cash-day" onSelect={(method) => setPaymentDetails({ method, date })} />
                       <PaymentReportRow label={`Chuyển khoản ${dayLabel}`} amount={summary.data.today.paymentBreakdown.transfer.total} method="transfer" testId="button-payment-transfer-day" onSelect={(method) => setPaymentDetails({ method, date })} />

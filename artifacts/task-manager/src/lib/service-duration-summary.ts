@@ -9,6 +9,34 @@ export type ServiceHoursDetail = {
   minutes: number;
 };
 
+export type ServiceAttendanceTotal = {
+  serviceType: string;
+  visits: number;
+  minutes: number;
+};
+
+export function summarizeServiceAttendance(
+  details: readonly ServiceDurationDetail[],
+): ServiceAttendanceTotal[] {
+  const totals = new Map<string, ServiceAttendanceTotal>();
+  for (const detail of details) {
+    const serviceType = detail.serviceType.trim() || 'Không tên';
+    const key = serviceType.toLocaleLowerCase('vi');
+    const total = totals.get(key);
+    if (total) {
+      total.visits += detail.visits;
+      total.minutes += detail.minutes * detail.visits;
+    } else {
+      totals.set(key, {
+        serviceType,
+        visits: detail.visits,
+        minutes: detail.minutes * detail.visits,
+      });
+    }
+  }
+  return [...totals.values()].sort((a, b) => a.serviceType.localeCompare(b.serviceType, 'vi'));
+}
+
 export function summarizeServiceHours(
   sessions: readonly { serviceType: string; minutes: number }[],
 ): ServiceHoursDetail[] {
@@ -44,4 +72,11 @@ export function serviceDurationLabel(detail: ServiceDurationDetail, formatMinute
 
 export function serviceHoursLabel(detail: ServiceHoursDetail, formatMinutes: (minutes: number) => string) {
   return `${detail.serviceType} · ${formatMinutes(detail.minutes)}`;
+}
+
+export function serviceAttendanceLabel(
+  detail: ServiceAttendanceTotal,
+  formatMinutes: (minutes: number) => string,
+) {
+  return `${detail.serviceType} · ${detail.visits} ca · ${formatMinutes(detail.minutes)}`;
 }
