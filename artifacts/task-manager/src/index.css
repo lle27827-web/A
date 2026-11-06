@@ -2592,6 +2592,13 @@ body:has(.modal-backdrop) .screen-nav {
     text-align: left;
   }
   .main .panel.page[aria-labelledby="emp-title"] .employee-summary > span { justify-items: start; }
+
+/* The stacked employee name and pay details should not have an outline around the text. */
+.main .panel.page[aria-labelledby="emp-title"] .emp-list .emp-row.as-row,
+.main .panel.page[aria-labelledby="emp-title"] .emp-list .emp-row.as-row:hover {
+  border: 0;
+  border-radius: 0;
+}
   .main .panel.page[aria-labelledby="emp-title"] .employee-summary > span > span { font-size: 11px; }
   .main .panel.page[aria-labelledby="emp-title"] .employee-summary strong { font-size: 16px; }
   .main .panel.page[aria-labelledby="emp-title"] .emp-item > .icon-btn { width: 42px; }
