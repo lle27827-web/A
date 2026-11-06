@@ -979,10 +979,11 @@ components:
       allOf:
         - { $ref: "#/components/schemas/PersonalServiceInput" }
         - type: object
-          required: [id]
+          required: [id, nightHourlyRate]
           properties:
             id: { type: integer }
             facilityServiceId: { type: ["integer", "null"] }
+            nightHourlyRate: { type: ["integer", "null"] }
     PersonalSessionInput:
       type: object
       required: [serviceId, workDate, minutes, note]
@@ -997,13 +998,14 @@ components:
       allOf:
         - { $ref: "#/components/schemas/PersonalSessionInput" }
         - type: object
-          required: [id, serviceName, hourlyRate, earnings, createdAt]
+          required: [id, serviceName, hourlyRate, earnings, createdAt, isNightShift]
           properties:
             id: { type: integer }
             serviceName: { type: string }
             hourlyRate: { type: integer }
             earnings: { type: integer }
             createdAt: { type: string }
+            isNightShift: { type: boolean }
     PersonalNotebook:
       type: object
       required: [month, date, services, sessions, totalDay, totalMonth, months, useFacilityRates]

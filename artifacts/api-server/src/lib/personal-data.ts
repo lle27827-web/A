@@ -11,12 +11,20 @@ export async function personalSettings(tx: PersonalTx, userId: string) {
 }
 /** Mirror only service names and employee pay rates, never customer prices. */
 export async function refreshFacilityServices(tx: PersonalTx, userId: string) {
-  const catalog = await tx.select({ id: serviceTypesTable.id, name: serviceTypesTable.name, hourlyRate: serviceTypesTable.hourlyRate })
+  const catalog = await tx.select({
+    id: serviceTypesTable.id,
+    name: serviceTypesTable.name,
+    hourlyRate: serviceTypesTable.hourlyRate,
+    nightHourlyRate: serviceTypesTable.nightHourlyRate,
+  })
     .from(serviceTypesTable);
   for (const item of catalog) {
-    await tx.insert(services).values({ userId, facilityServiceId: item.id, name: item.name, hourlyRate: item.hourlyRate })
+    await tx.insert(services).values({
+      userId, facilityServiceId: item.id, name: item.name,
+      hourlyRate: item.hourlyRate, nightHourlyRate: item.nightHourlyRate,
+    })
       .onConflictDoUpdate({ target: [services.userId, services.facilityServiceId],
-        set: { name: item.name, hourlyRate: item.hourlyRate, deletedAt: null } });
+        set: { name: item.name, hourlyRate: item.hourlyRate, nightHourlyRate: item.nightHourlyRate, deletedAt: null } });
   }
   await tx.update(services).set({ deletedAt: new Date() }).where(and(eq(services.userId, userId),
     isNotNull(services.facilityServiceId), catalog.length ? notInArray(services.facilityServiceId, catalog.map((s) => s.id)) : undefined));

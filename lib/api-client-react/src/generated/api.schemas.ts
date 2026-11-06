@@ -71,6 +71,8 @@ export type PersonalService = PersonalServiceInput & ({
   id: number;
   /** @nullable */
   facilityServiceId?: number | null;
+  /** @nullable */
+  nightHourlyRate: number | null;
 });
 
 export interface PersonalSessionInput {
@@ -100,6 +102,7 @@ export type PersonalSession = PersonalSessionInput & {
   hourlyRate: number;
   earnings: number;
   createdAt: string;
+  isNightShift: boolean;
 };
 
 export interface PersonalNotebook {

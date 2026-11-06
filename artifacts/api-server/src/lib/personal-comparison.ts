@@ -153,7 +153,7 @@ export async function syncPersonalNotebook(userId: string, input: PersonalSyncIn
           mutations.push(upsertMutation("personal_sessions", id, {
             id, userId, serviceId, sourceSessionId: row.id, serviceName: row.serviceType,
             customerName: row.customerName, workDate: row.workDate, minutes: row.minutes,
-            hourlyRate: row.hourlyRate, earnings: row.earnings, note: row.note,
+            hourlyRate: row.hourlyRate, earnings: row.earnings, isNightShift: row.isNightShift === true, note: row.note,
             requestId: null, createdAt: new Date(),
           }));
         });
@@ -184,7 +184,8 @@ export async function syncPersonalNotebook(userId: string, input: PersonalSyncIn
       if (!service) [service] = await tx.insert(services).values({ userId, name: row.serviceType, hourlyRate: row.hourlyRate }).returning();
       await tx.insert(sessions).values({ userId, serviceId: service.id, sourceSessionId: row.id,
         serviceName: row.serviceType, customerName: row.customerName, workDate: row.workDate,
-        minutes: row.minutes, hourlyRate: row.hourlyRate, earnings: row.earnings, note: row.note });
+        minutes: row.minutes, hourlyRate: row.hourlyRate, earnings: row.earnings,
+        isNightShift: row.isNightShift === true, note: row.note });
     }
     return { removed: removed.length, imported: source.length };
   }, { isolationLevel: "repeatable read" });

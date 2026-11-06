@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto";
 import { and, asc, desc, eq, gte, isNull, isNotNull, lt, sql } from "drizzle-orm";
 import { db, isPartitionedStorageEnabled, personalServicesTable as services, personalSessionsTable as sessions,
-  personalSettingsTable, readPartitionedTable } from "@workspace/db";
+  personalSettingsTable, facilityNightSettingsTable, readPartitionedTable } from "@workspace/db";
 import { withPartitionWriteMutex } from "@workspace/db";
 import type { PersonalServiceInput, PersonalSessionInput } from "@workspace/api-zod";
 import { MassageError, retainedDate, retainedMonthBounds } from "./massage";
 import { lockPersonal, personalSettings, refreshFacilityServices } from "./personal-data";
 import { retentionCutoffDate } from "./retention-window";
+import { resolvePersonalShiftPricing } from "./personal-night-pricing";
 import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "./partitioned-mutations";
 export { getPersonalComparison } from "./personal-comparison";
 
@@ -14,8 +15,15 @@ const owned = (userId: string) => {
   if (!userId) throw new MassageError(401, "Vui lòng đăng nhập.");
   return userId;
 };
-const serviceResult = (row: typeof services.$inferSelect) => ({ id: row.id, name: row.name, hourlyRate: row.hourlyRate, facilityServiceId: row.facilityServiceId });
-const sessionResult = ({ userId: _userId, requestId: _requestId, ...row }: typeof sessions.$inferSelect) => ({ ...row, createdAt: row.createdAt.toISOString() });
+const serviceResult = (row: typeof services.$inferSelect) => ({
+  id: row.id, name: row.name, hourlyRate: row.hourlyRate,
+  nightHourlyRate: row.nightHourlyRate ?? null, facilityServiceId: row.facilityServiceId,
+});
+const sessionResult = ({ userId: _userId, requestId: _requestId, ...row }: typeof sessions.$inferSelect) => ({
+  ...row,
+  isNightShift: row.isNightShift === true,
+  createdAt: row.createdAt.toISOString(),
+});
 const missing = () => new MassageError(404, "Không tìm thấy dữ liệu trong sổ cá nhân.");
 const personalLock = (userId: string) =>
   `personal:${createHash("sha256").update(userId).digest("hex").slice(0, 48)}`;
@@ -23,15 +31,17 @@ const operation = (id?: string, label?: string) => operationIdFromRequest(id, la
 const withPersonalPartitionWrite = <T>(userId: string, callback: () => Promise<T>) =>
   withPartitionWriteMutex(personalLock(userId), callback);
 async function partitionedPersonalSnapshot(userId: string) {
-  const [servicesRaw, sessionsRaw, settingsRaw] = await Promise.all([
+  const [servicesRaw, sessionsRaw, settingsRaw, nightSettingsRaw] = await Promise.all([
     readPartitionedTable("personal_services", { userId }),
     readPartitionedTable("personal_sessions", { userId }),
     readPartitionedTable("personal_settings", { userId }),
+    readPartitionedTable("facility_night_settings"),
   ]);
   return {
     services: servicesRaw as unknown as (typeof services.$inferSelect)[],
     sessions: sessionsRaw as unknown as (typeof sessions.$inferSelect)[],
     settings: settingsRaw as unknown as (typeof personalSettingsTable.$inferSelect)[],
+    nightSettings: nightSettingsRaw as unknown as (typeof facilityNightSettingsTable.$inferSelect)[],
   };
 }
 
@@ -75,7 +85,7 @@ export async function savePersonalService(userId: string, input: PersonalService
         if (!serviceId) throw new MassageError(503, "Không cấp được mã dịch vụ cá nhân.");
         return [upsertMutation("personal_services", serviceId, {
           id: serviceId, userId, ...values, createdAt: old?.createdAt ?? now,
-          deletedAt: null, facilityServiceId: null,
+          nightHourlyRate: null, deletedAt: null, facilityServiceId: null,
         })];
       },
     });
@@ -132,7 +142,7 @@ export async function savePersonalSession(userId: string, input: PersonalSession
   if (isPartitionedStorageEnabled()) {
     return withPersonalPartitionWrite(userId, async () => {
     if ((input.customerName?.trim().length ?? 0) > 160) throw new MassageError(400, "Tên khách quá dài.");
-    const { services: serviceRows, sessions: sessionRows, settings } = await partitionedPersonalSnapshot(userId);
+    const { services: serviceRows, sessions: sessionRows, settings, nightSettings } = await partitionedPersonalSnapshot(userId);
     const previous = id ? sessionRows.find((row) => row.id === id && row.userId === userId) : undefined;
     if (id && !previous) throw missing();
     if (!id && input.requestId) {
@@ -147,6 +157,16 @@ export async function savePersonalSession(userId: string, input: PersonalSession
       throw new MassageError(409, "Hãy chọn dịch vụ đang có của cơ sở.");
     }
     const now = new Date();
+    const nightConfig = nightSettings.find((row) => row.id === 1);
+    const pricing = resolvePersonalShiftPricing({
+      now, previous, serviceId: service.id, serviceHourlyRate: service.hourlyRate,
+      serviceNightHourlyRate: service.nightHourlyRate, facilityServiceId: service.facilityServiceId,
+      useFacilityRates, nightConfig,
+    });
+    if (pricing.useNightRate && !pricing.sameService && !service.nightHourlyRate) {
+      throw new MassageError(400, `Hãy cài tiền công ca đêm cho dịch vụ ${service.name} trong Cài đặt.`);
+    }
+    const hourlyRate = pricing.hourlyRate;
     const values = {
       id: id ?? 0,
       userId,
@@ -154,8 +174,9 @@ export async function savePersonalSession(userId: string, input: PersonalSession
       serviceName: sameService ? previous.serviceName : service.name,
       workDate: input.workDate,
       minutes: input.minutes,
-      hourlyRate: sameService ? previous.hourlyRate : service.hourlyRate,
-      earnings: Math.round(input.minutes * (sameService ? previous.hourlyRate : service.hourlyRate) / 60),
+      hourlyRate,
+      earnings: Math.round(input.minutes * hourlyRate / 60),
+      isNightShift: pricing.isNightShift,
       note: input.note.trim(),
       customerName: input.customerName?.trim() ?? "",
       requestId: previous?.requestId ?? input.requestId ?? null,
@@ -200,11 +221,22 @@ export async function savePersonalSession(userId: string, input: PersonalSession
     if (!service || (service.deletedAt && previous?.serviceId !== service.id)) throw missing();
     const sameService = previous?.serviceId === service.id;
     if (!sameService && useFacilityRates && !service.facilityServiceId) throw new MassageError(409, "Hãy chọn dịch vụ đang có của cơ sở.");
-    const hourlyRate = sameService ? previous.hourlyRate : service.hourlyRate;
+    const [nightConfig] = await tx.select().from(facilityNightSettingsTable)
+      .where(eq(facilityNightSettingsTable.id, 1)).limit(1);
+    const createdAt = previous?.createdAt ?? new Date();
+    const pricing = resolvePersonalShiftPricing({
+      now: createdAt, previous, serviceId: service.id, serviceHourlyRate: service.hourlyRate,
+      serviceNightHourlyRate: service.nightHourlyRate, facilityServiceId: service.facilityServiceId,
+      useFacilityRates, nightConfig,
+    });
+    if (pricing.useNightRate && !pricing.sameService && !service.nightHourlyRate) {
+      throw new MassageError(400, `Hãy cài tiền công ca đêm cho dịch vụ ${service.name} trong Cài đặt.`);
+    }
+    const hourlyRate = pricing.hourlyRate;
     const values = {
       userId, serviceId: service.id, serviceName: sameService ? previous.serviceName : service.name,
       workDate: input.workDate, minutes: input.minutes, hourlyRate,
-      earnings: Math.round(input.minutes * hourlyRate / 60), note: input.note.trim(),
+      earnings: Math.round(input.minutes * hourlyRate / 60), isNightShift: pricing.isNightShift, note: input.note.trim(),
       customerName: input.customerName?.trim() ?? "",
       ...(!previous ? { requestId: input.requestId ?? null } : {}),
     };
@@ -288,7 +320,7 @@ export async function updatePersonalSettings(userId: string, useFacilityRates: b
       readPartitionedTable("service_types"),
     ]);
     const catalog = (facilityRaw as unknown as (typeof import("@workspace/db").serviceTypesTable.$inferSelect)[])
-      .map(({ id, name, hourlyRate }) => ({ id, name, hourlyRate }))
+      .map(({ id, name, hourlyRate, nightHourlyRate }) => ({ id, name, hourlyRate, nightHourlyRate }))
       .sort((a, b) => a.id - b.id);
     const ownServices = snapshot.services.filter((row) => row.userId === userId);
     const existingByFacility = new Map(ownServices.filter((row) => row.facilityServiceId !== null)
@@ -298,7 +330,8 @@ export async function updatePersonalSettings(userId: string, useFacilityRates: b
     const mutationsCount = 1 + missingCatalog.length +
       (useFacilityRates ? catalog.filter((item) => {
         const row = existingByFacility.get(item.id);
-        return row && (row.name !== item.name || row.hourlyRate !== item.hourlyRate || row.deletedAt !== null);
+        return row && (row.name !== item.name || row.hourlyRate !== item.hourlyRate ||
+          row.nightHourlyRate !== item.nightHourlyRate || row.deletedAt !== null);
       }).length : 0) +
       (useFacilityRates ? ownServices.filter((row) => row.facilityServiceId !== null &&
         !catalog.some((item) => item.id === row.facilityServiceId) && row.deletedAt === null).length : 0);
@@ -317,9 +350,11 @@ export async function updatePersonalSettings(userId: string, useFacilityRates: b
         for (const item of catalog) {
           const current = existingByFacility.get(item.id);
           if (current) {
-            if (current.name !== item.name || current.hourlyRate !== item.hourlyRate || current.deletedAt !== null) {
+            if (current.name !== item.name || current.hourlyRate !== item.hourlyRate ||
+              current.nightHourlyRate !== item.nightHourlyRate || current.deletedAt !== null) {
               result.push(upsertMutation("personal_services", current.id, {
-                ...current, name: item.name, hourlyRate: item.hourlyRate, deletedAt: null,
+                ...current, name: item.name, hourlyRate: item.hourlyRate,
+                nightHourlyRate: item.nightHourlyRate, deletedAt: null,
               }));
             }
           } else if (useFacilityRates) {
@@ -327,7 +362,7 @@ export async function updatePersonalSettings(userId: string, useFacilityRates: b
             if (!serviceId) throw new MassageError(503, "Không cấp được mã dịch vụ cá nhân đồng bộ.");
             result.push(upsertMutation("personal_services", serviceId, {
               id: serviceId, userId, name: item.name, hourlyRate: item.hourlyRate,
-              createdAt: now, deletedAt: null, facilityServiceId: item.id,
+              nightHourlyRate: item.nightHourlyRate, createdAt: now, deletedAt: null, facilityServiceId: item.id,
             }));
           }
         }

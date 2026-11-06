@@ -13,4 +13,5 @@ export type PersonalSession = PersonalSessionInput & {
   hourlyRate: number;
   earnings: number;
   createdAt: string;
+  isNightShift: boolean;
 };

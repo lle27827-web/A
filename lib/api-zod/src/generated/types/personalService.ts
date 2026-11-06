@@ -11,4 +11,6 @@ export type PersonalService = PersonalServiceInput & ({
   id: number;
   /** @nullable */
   facilityServiceId?: number | null;
+  /** @nullable */
+  nightHourlyRate: number | null;
 });

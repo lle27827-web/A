@@ -245,7 +245,8 @@ export const GetPersonalNotebookResponse = zod.object({
   "hourlyRate": zod.number().int().min(getPersonalNotebookResponseServicesItemOneHourlyRateMin).max(getPersonalNotebookResponseServicesItemOneHourlyRateMax)
 }).and(zod.object({
   "id": zod.number().int(),
-  "facilityServiceId": zod.number().int().nullish()
+  "facilityServiceId": zod.number().int().nullish(),
+  "nightHourlyRate": zod.number().int().nullable()
 }))),
   "sessions": zod.array(zod.object({
   "serviceId": zod.number().int().min(1),
@@ -259,7 +260,8 @@ export const GetPersonalNotebookResponse = zod.object({
   "serviceName": zod.string(),
   "hourlyRate": zod.number().int(),
   "earnings": zod.number().int(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "isNightShift": zod.boolean()
 }))),
   "totalDay": zod.number().int(),
   "totalMonth": zod.number().int(),
@@ -291,7 +293,8 @@ export const CreatePersonalServiceResponse = zod.object({
   "hourlyRate": zod.number().int().min(createPersonalServiceResponseOneHourlyRateMin).max(createPersonalServiceResponseOneHourlyRateMax)
 }).and(zod.object({
   "id": zod.number().int(),
-  "facilityServiceId": zod.number().int().nullish()
+  "facilityServiceId": zod.number().int().nullish(),
+  "nightHourlyRate": zod.number().int().nullable()
 }))
 
 
@@ -326,7 +329,8 @@ export const UpdatePersonalServiceResponse = zod.object({
   "hourlyRate": zod.number().int().min(updatePersonalServiceResponseOneHourlyRateMin).max(updatePersonalServiceResponseOneHourlyRateMax)
 }).and(zod.object({
   "id": zod.number().int(),
-  "facilityServiceId": zod.number().int().nullish()
+  "facilityServiceId": zod.number().int().nullish(),
+  "nightHourlyRate": zod.number().int().nullable()
 }))
 
 
@@ -389,7 +393,8 @@ export const CreatePersonalSessionResponse = zod.object({
   "serviceName": zod.string(),
   "hourlyRate": zod.number().int(),
   "earnings": zod.number().int(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "isNightShift": zod.boolean()
 }))
 
 
@@ -449,7 +454,8 @@ export const UpdatePersonalSessionResponse = zod.object({
   "serviceName": zod.string(),
   "hourlyRate": zod.number().int(),
   "earnings": zod.number().int(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "isNightShift": zod.boolean()
 }))
 
 

@@ -27,7 +27,11 @@ export function ServiceList({ services, busy, useFacility, settingBusy, settingE
         <ul className="p-list">
           {services.map((s) => (
             <li key={s.id} className="p-row" data-testid={`row-personal-service-${s.id}`}>
-              <span className="grow"><strong>{s.name}</strong><span className="muted mono">{formatVnd(s.hourlyRate)} / giờ</span></span>
+              <span className="grow">
+                <strong>{s.name}</strong>
+                <span className="muted mono">{formatVnd(s.hourlyRate)} / giờ</span>
+                {s.nightHourlyRate !== null && <span className="muted mono">Ca đêm: {formatVnd(s.nightHourlyRate)} / giờ</span>}
+              </span>
               {useFacility ? <span className="p-pill" data-testid={`text-facility-service-${s.id}`}>Cơ sở</span> : (
               <span className="head-actions">
                 <button type="button" className="btn small" onClick={() => onEdit(s)} data-testid={`button-edit-personal-service-${s.id}`}><Pencil size={13} />Sửa</button>
@@ -67,7 +71,7 @@ export function ShiftList({ title, sessions, busy, emptyText, onEdit, onDelete, 
                 </button>
               ) : <time className="p-date mono" dateTime={s.workDate}>{formatShortDayMonth(s.workDate)}</time>}
               <span className="personal-shift-details">
-                <strong>{s.serviceName}</strong>
+                <strong>{s.serviceName}{s.isNightShift && <span className="night-shift-badge">Ca đêm muộn</span>}</strong>
                 {s.customerName && <span className="small" data-testid={`text-personal-shift-customer-${s.id}`}>Khách: {s.customerName}</span>}
                 <span className="muted mono">{formatMinutes(s.minutes)} · {formatVnd(s.hourlyRate)}/giờ</span>
               </span>

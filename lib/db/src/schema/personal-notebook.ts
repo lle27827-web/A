@@ -6,6 +6,7 @@ export const personalServicesTable = pgTable("personal_services", {
   userId: text("user_id").notNull(),
   name: text("name").notNull(),
   hourlyRate: integer("hourly_rate").notNull(),
+  nightHourlyRate: integer("night_hourly_rate"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   facilityServiceId: integer("facility_service_id"),
@@ -14,6 +15,7 @@ export const personalServicesTable = pgTable("personal_services", {
   unique("personal_services_facility_user_unique").on(table.userId, table.facilityServiceId),
   index("personal_services_user_idx").on(table.userId),
   check("personal_services_rate_bounds", sql`${table.hourlyRate} between 0 and 100000000`),
+  check("personal_services_night_rate_bounds", sql`${table.nightHourlyRate} is null or ${table.nightHourlyRate} between 1 and 100000000`),
 ]);
 
 export const personalSessionsTable = pgTable("personal_sessions", {
@@ -25,6 +27,7 @@ export const personalSessionsTable = pgTable("personal_sessions", {
   minutes: integer("minutes").notNull(),
   hourlyRate: integer("hourly_rate").notNull(),
   earnings: bigint("earnings", { mode: "number" }).notNull(),
+  isNightShift: boolean("is_night_shift").notNull().default(false),
   note: text("note").default("").notNull(),
   customerName: text("customer_name").default("").notNull(),
   requestId: text("request_id"),

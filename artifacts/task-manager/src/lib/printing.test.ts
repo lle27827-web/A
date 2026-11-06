@@ -174,6 +174,7 @@ test('attendance slip contains employee, service, hours and date without unrelat
     'Tên nhân viên',
     'Tên khách hàng',
     'Tên loại hình dịch vụ',
+    'Loại ca',
     'Số giờ',
     'Ngày chấm công',
     'Phương thức thanh toán',
@@ -184,6 +185,8 @@ test('attendance slip contains employee, service, hours and date without unrelat
   assert.equal(cardSession.find((row) => row.label === 'Phương thức thanh toán')?.value, 'Thẻ khách hàng');
   assert.equal(cardSession.find((row) => row.label === 'Thanh toán tại ca')?.value, 'Đã thanh toán trước bằng thẻ');
   assert.equal(serviceSessionPrintRows(session).find((row) => row.label === 'Tiền công nhân viên')?.value, '0 ₫');
+  assert.equal(serviceSessionPrintRows({ ...session, isNightShift: true }).find((row) => row.label === 'Loại ca')?.value, 'Ca đêm muộn');
+  assert.equal(printPreviewRows('session').find((row) => row.label === 'Loại ca')?.value, 'Ca đêm muộn');
 });
 
 test('settings previews show separate card, sale, top-up and attendance templates', () => {

@@ -15,6 +15,12 @@ Facility-library mode uses facility service names and EMPLOYEE pay rates, not cu
 
 **How to apply:** keep the choice account-specific, do not synchronize private data back into the facility, and compare detailed occurrences rather than collapsing legitimate same-day visits.
 
+When facility-library mode is enabled, also sync each service's configured night employee-pay rate. A new personal shift uses that rate only when facility night pricing is enabled, the shift is recorded within the configured Vietnam-time window, and the service is linked to the facility catalog. Save the night flag and wage snapshot on the personal shift; custom personal services stay on their own regular rate, and later price changes never reprice saved shifts.
+
+**Why:** the user wants personal attendance to use the same night-shift wage rules as facility attendance when facility service syncing is active.
+
+**How to apply:** copy night employee-pay rates when refreshing the facility catalog, apply the shared night window when recording a personal shift, and preserve recorded night status and earnings on edits to the same service.
+
 Compare total recorded minutes by normalized service name and calendar date. In month view, keep each date separate so opposing daily differences cannot cancel each other. Hide groups whose totals match; show only unequal service/date totals side by side. Pay, rate, customer text and notes do not affect hour totals.
 
 **Why:** the user selected date-and-service comparison for the month view, specifically to prevent one day's excess from cancelling another day's shortfall. This replaces earlier per-occurrence and full-month-per-service rules.

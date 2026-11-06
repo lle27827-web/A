@@ -48,7 +48,10 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
   onClose: () => void; onSubmit: (input: PersonalSessionInput) => void;
 }) {
   const archived = session && !services.some((s) => s.id === session.serviceId)
-    ? { id: session.serviceId, name: session.serviceName, hourlyRate: session.hourlyRate } : null;
+    ? {
+      id: session.serviceId, name: session.serviceName, hourlyRate: session.hourlyRate,
+      nightHourlyRate: session.isNightShift ? session.hourlyRate : null,
+    } : null;
   const options = archived ? [archived, ...services] : services;
   const [serviceId, setServiceId] = useState(String(session?.serviceId ?? services[0]?.id ?? ''));
   const [date, setDate] = useState(session?.workDate ?? defaultDate);
@@ -83,7 +86,10 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
       <form className="form-grid" data-app-gesture-save="attendance" onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <label className="field">Dịch vụ
           <select className="service-select" value={serviceId} onChange={(e) => setServiceId(e.target.value)} data-testid="select-personal-service">
-            {options.map((o) => <option key={o.id} value={o.id}>{o.name}{archived && o.id === archived.id ? ' (đã lưu trữ)' : ''} · {formatVnd(o.hourlyRate)}/giờ</option>)}
+            {options.map((o) => <option key={o.id} value={o.id}>
+              {o.name}{archived && o.id === archived.id ? ' (đã lưu trữ)' : ''} · {formatVnd(o.hourlyRate)}/giờ
+              {o.nightHourlyRate !== null ? ` · Ca đêm ${formatVnd(o.nightHourlyRate)}/giờ` : ''}
+            </option>)}
           </select>
         </label>
         <div className="field">
