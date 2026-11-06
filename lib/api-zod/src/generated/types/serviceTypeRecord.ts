@@ -11,5 +11,9 @@ export interface ServiceTypeRecord {
   name: string;
   customerHourlyRate: number;
   hourlyRate: number;
+  /** @nullable */
+  nightCustomerHourlyRate: number | null;
+  /** @nullable */
+  nightHourlyRate: number | null;
   createdAt: Date;
 }

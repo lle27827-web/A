@@ -47,6 +47,7 @@ test("partitioned revenue counts card funding and walk-ins, but not card redempt
         earnings: 50_000,
         minutes: 60,
         paymentMethod: "cash",
+        isNightShift: true,
       },
       {
         id: 2,
@@ -60,6 +61,7 @@ test("partitioned revenue counts card funding and walk-ins, but not card redempt
         earnings: 30_000,
         minutes: 60,
         paymentMethod: null,
+        isNightShift: false,
       },
       {
         id: 3,
@@ -73,6 +75,7 @@ test("partitioned revenue counts card funding and walk-ins, but not card redempt
         earnings: 30_000,
         minutes: 90,
         paymentMethod: null,
+        isNightShift: true,
       },
     ] as never,
   );
@@ -85,6 +88,8 @@ test("partitioned revenue counts card funding and walk-ins, but not card redempt
   assert.equal(result.mostUsedService?.visits, 2);
   assert.equal(result.mostUsedService?.minutes, 120);
   assert.deepEqual(result.serviceBreakdown, [{ serviceType: "Massage", minutes: 60, visits: 2 }]);
+  assert.deepEqual(result.nightShiftBreakdown, [{ serviceType: "Massage", minutes: 60, visits: 1 }],
+    "night summary excludes a night-marked use of a deleted card and does not change revenue");
   assert.deepEqual(result.paymentBreakdown, {
     cash: { total: 250_000, walkInServices: 200_000, cardSales: 0, cardTopUps: 50_000 },
     transfer: { total: 100_000, walkInServices: 0, cardSales: 100_000, cardTopUps: 0 },
@@ -94,6 +99,7 @@ test("partitioned revenue counts card funding and walk-ins, but not card redempt
   assert.equal(result.today.netRevenue, 300_000);
   assert.equal(result.today.cardVisits, 1);
   assert.deepEqual(result.today.serviceBreakdown, [{ serviceType: "Massage", minutes: 60, visits: 2 }]);
+  assert.deepEqual(result.today.nightShiftBreakdown, [{ serviceType: "Massage", minutes: 60, visits: 1 }]);
   assert.deepEqual(result.today.paymentBreakdown, result.paymentBreakdown);
 });
 

@@ -787,6 +787,10 @@ export interface ServiceTypeRecord {
   name: string;
   customerHourlyRate: number;
   hourlyRate: number;
+  /** @nullable */
+  nightCustomerHourlyRate: number | null;
+  /** @nullable */
+  nightHourlyRate: number | null;
   createdAt: string;
 }
 
@@ -842,6 +846,8 @@ export interface ServiceSession {
   paymentMethod: ServiceSessionPaymentMethod;
   hourlyRate: number;
   earnings: number;
+  /** Ca được ghi trong khung giờ đêm đã cài; nhãn và đơn giá được lưu theo từng ca. */
+  isNightShift: boolean;
   note: string;
   createdAt: string;
   archived: boolean;
@@ -958,6 +964,7 @@ export interface DailyRevenue {
   walkInVisits: number;
   cardVisits: number;
   serviceBreakdown: ServiceDurationBreakdown[];
+  nightShiftBreakdown: ServiceDurationBreakdown[];
   paymentBreakdown: PaymentBreakdown;
 }
 
@@ -993,6 +1000,8 @@ export interface MassageSummary {
   /** @nullable */
   mostUsedService: MassageSummaryMostUsedService;
   serviceBreakdown: ServiceDurationBreakdown[];
+  /** Số ca và tổng thời lượng ca đêm theo dịch vụ, gồm ca thẻ nhưng không cộng lại doanh thu ca thẻ. */
+  nightShiftBreakdown: ServiceDurationBreakdown[];
   paymentBreakdown: PaymentBreakdown;
   today: DailyRevenue;
 }
@@ -1049,6 +1058,52 @@ export interface PaymentDetails {
   date: string | null;
   method: PaymentDetailsMethod;
   transactions: PaymentDetail[];
+}
+
+export interface NightServiceRate {
+  serviceTypeId: number;
+  serviceName: string;
+  standardCustomerHourlyRate: number;
+  standardEmployeeHourlyRate: number;
+  /** @nullable */
+  customerHourlyRate: number | null;
+  /** @nullable */
+  employeeHourlyRate: number | null;
+}
+
+export interface NightServicePricing {
+  enabled: boolean;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]$ */
+  startTime: string;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]$ */
+  endTime: string;
+  rates: NightServiceRate[];
+}
+
+export interface NightServiceRateInput {
+  /** @minimum 1 */
+  serviceTypeId: number;
+  /**
+     * @minimum 1
+     * @maximum 10000000
+     * @nullable
+     */
+  customerHourlyRate: number | null;
+  /**
+     * @minimum 1
+     * @maximum 10000000
+     * @nullable
+     */
+  employeeHourlyRate: number | null;
+}
+
+export interface NightServicePricingUpdate {
+  enabled: boolean;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]$ */
+  startTime: string;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]$ */
+  endTime: string;
+  rates: NightServiceRateInput[];
 }
 
 export interface MemberPayroll {

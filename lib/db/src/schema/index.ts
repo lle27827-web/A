@@ -32,4 +32,5 @@ export * from "./personal-notebook";
 export * from "./appointments";
 export * from "./employee-availability";
 export * from "./employee-bonus-pay";
+export * from "./facility-night-shift";
 export * from "./storage-partitioning";

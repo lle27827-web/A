@@ -6,7 +6,7 @@ import { Link, useLocation } from 'wouter';
 import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
 import { AccessGrantsDialog } from '@/components/access-grants';
-import { EmployeeBonusSettings } from '@/components/employee-bonus-settings';
+import { NightServicePricingSettings } from '@/components/night-service-pricing-settings';
 import { useColorTheme, type AppColorTheme } from '@/components/color-theme-provider';
 import { ColorPaletteControls } from '@/components/color-palette-controls';
 import { MonthlyPayrollPrint } from '@/components/monthly-payroll-print';
@@ -185,7 +185,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
             </button>
           )}
 
-          {isOwner && <EmployeeBonusSettings open={open && !paletteOpen} isOwner={isOwner} />}
+          {isOwner && <NightServicePricingSettings open={open && !paletteOpen} isOwner={isOwner} />}
 
           {onPrintPreferencesChange && (
             <section className="print-settings" aria-labelledby="print-settings-title">

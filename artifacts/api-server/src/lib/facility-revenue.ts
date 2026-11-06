@@ -66,7 +66,7 @@ type PartitionRevenueTopUp = Pick<
 type PartitionRevenueSession = Pick<
   typeof serviceSessionsTable.$inferSelect,
   "id" | "workDate" | "cardId" | "memberId" | "serviceType" | "customerName" | "employeeName" |
-  "customerCharge" | "earnings" | "minutes" | "paymentMethod"
+  "customerCharge" | "earnings" | "minutes" | "paymentMethod" | "isNightShift"
 >;
 
 export type PaymentMethodFilter = "cash" | "transfer" | "unrecorded";
@@ -145,6 +145,8 @@ export function aggregatePartitionedFacilityRevenue(
   const activeDaySessions = [...dayWalkIns, ...daySessions.filter(
     (session) => session.cardId !== null && activeCardIds.has(session.cardId),
   )];
+  const monthNightSessions = activeMonthSessions.filter((session) => session.isNightShift);
+  const dayNightSessions = activeDaySessions.filter((session) => session.isNightShift);
   const sum = <T,>(rows: T[], select: (row: T) => unknown) =>
     rows.reduce((total, row) => total + amount(select(row)), 0);
   const monthCardSales = activeCards.filter((card) => inMonth(card.purchaseDate));
@@ -195,6 +197,7 @@ export function aggregatePartitionedFacilityRevenue(
         }
       : null,
     serviceBreakdown: serviceBreakdown(activeMonthSessions),
+    nightShiftBreakdown: serviceBreakdown(monthNightSessions),
     paymentBreakdown: monthlyPaymentBreakdown,
     today: {
       date,
@@ -209,6 +212,7 @@ export function aggregatePartitionedFacilityRevenue(
       walkInVisits: dayWalkIns.length,
       cardVisits: daySessions.filter((row) => row.cardId !== null && activeCardIds.has(row.cardId)).length,
       serviceBreakdown: serviceBreakdown(activeDaySessions),
+      nightShiftBreakdown: serviceBreakdown(dayNightSessions),
       paymentBreakdown: dailyPaymentBreakdown,
     },
   };
@@ -259,7 +263,7 @@ async function getPaymentBreakdowns(start: string, end: string, date: string) {
   return { monthBreakdown, dayBreakdown };
 }
 
-async function getServiceBreakdown(start: string, end: string, date?: string) {
+async function getServiceBreakdown(start: string, end: string, date?: string, nightOnly = false) {
   const period = date
     ? sql`${serviceSessionsTable.workDate} = ${date}`
     : sql`${serviceSessionsTable.workDate} >= ${start} and ${serviceSessionsTable.workDate} < ${end}`;
@@ -269,6 +273,7 @@ async function getServiceBreakdown(start: string, end: string, date?: string) {
     visits: sql<number>`count(*)`,
   }).from(serviceSessionsTable).where(sql`
     ${period}
+    and (${nightOnly ? sql`${serviceSessionsTable.isNightShift} = true` : sql`true`})
     and (
       ${serviceSessionsTable.cardId} is null
       or exists (
@@ -512,9 +517,17 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
     visits: Number(row.mostUsedServiceVisits),
     minutes: Number(row.mostUsedServiceMinutes),
   } : null;
-  const [monthlyServiceBreakdown, dailyServiceBreakdown, paymentBreakdowns] = await Promise.all([
+  const [
+    monthlyServiceBreakdown,
+    dailyServiceBreakdown,
+    monthlyNightShiftBreakdown,
+    dailyNightShiftBreakdown,
+    paymentBreakdowns,
+  ] = await Promise.all([
     getServiceBreakdown(start, end),
     getServiceBreakdown(start, end, date),
+    getServiceBreakdown(start, end, undefined, true),
+    getServiceBreakdown(start, end, date, true),
     getPaymentBreakdowns(start, end, date),
   ]);
   return {
@@ -524,6 +537,7 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
     walkInVisits: Number(row.walkInVisits), cardVisits: Number(row.cardVisits),
     topSoldCardService, mostUsedCardService, mostUsedWalkInService, mostUsedService,
     serviceBreakdown: monthlyServiceBreakdown,
+    nightShiftBreakdown: monthlyNightShiftBreakdown,
     paymentBreakdown: paymentBreakdowns.monthBreakdown,
     today: {
       date, ...revenueTotals(dayWalkInServiceRevenue, dayCardRevenue, dayWalkInPayroll),
@@ -535,6 +549,7 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
       cardRevenue: dayCardRevenue, cardsSold: Number(row.dayCardsSold),
       walkInVisits: Number(row.dayWalkInVisits), cardVisits: Number(row.dayCardVisits),
       serviceBreakdown: dailyServiceBreakdown,
+      nightShiftBreakdown: dailyNightShiftBreakdown,
       paymentBreakdown: paymentBreakdowns.dayBreakdown,
     },
   };

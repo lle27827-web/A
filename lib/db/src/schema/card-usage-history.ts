@@ -1,4 +1,4 @@
-import { date, index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, date, index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { treatmentCardsTable } from "./treatment-cards";
 
 /**
@@ -19,6 +19,7 @@ export const cardUsageHistoryTable = pgTable("card_usage_history", {
   customerCharge: integer("customer_charge").notNull().default(0),
   hourlyRate: integer("hourly_rate").notNull(),
   earnings: integer("earnings").notNull(),
+  isNightShift: boolean("is_night_shift").notNull().default(false),
   note: text("note").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 }, (table) => [

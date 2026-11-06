@@ -29,6 +29,8 @@ export interface ServiceSession {
   paymentMethod: ServiceSessionPaymentMethod;
   hourlyRate: number;
   earnings: number;
+  /** Ca được ghi trong khung giờ đêm đã cài; nhãn và đơn giá được lưu theo từng ca. */
+  isNightShift: boolean;
   note: string;
   createdAt: Date;
   archived: boolean;

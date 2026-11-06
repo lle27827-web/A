@@ -212,6 +212,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
           </button>
           <input type="hidden" name="workDate" value={date} required />
         </div>
+        {session?.isNightShift && <p className="night-shift-badge session-night-shift-label" role="status">Ca đêm muộn · giữ nguyên mức giá đã lưu</p>}
         {!(fixedMemberId && !session) && (
           <label className="field" htmlFor="s-member">Kỹ thuật viên
             <select id="s-member" value={memberId} onChange={(e) => setMemberId(e.target.value)} required data-testid="select-session-member">

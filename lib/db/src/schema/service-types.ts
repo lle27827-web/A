@@ -7,6 +7,8 @@ export const serviceTypesTable = pgTable("service_types", {
   name: text("name").notNull(),
   customerHourlyRate: integer("customer_hourly_rate").notNull().default(0),
   hourlyRate: integer("hourly_rate").notNull(),
+  nightCustomerHourlyRate: integer("night_customer_hourly_rate"),
+  nightHourlyRate: integer("night_hourly_rate"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 export const insertServiceTypeSchema = createInsertSchema(serviceTypesTable).omit({ id: true, createdAt: true });

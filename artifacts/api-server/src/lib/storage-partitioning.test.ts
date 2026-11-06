@@ -39,6 +39,7 @@ test("partition domains assign each application table to the requested store gro
   assert.equal(getPartitionDataDomain("employee_availability"), "shared");
   assert.equal(getPartitionDataDomain("facility_bonus_settings"), "shared");
   assert.equal(getPartitionDataDomain("employee_service_bonus_rates"), "shared");
+  assert.equal(getPartitionDataDomain("facility_night_settings"), "shared");
   assert.equal(getPartitionDataDomain("unlisted_table"), undefined);
   for (const table of [
     "members",

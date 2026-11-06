@@ -86,6 +86,7 @@ router.get("/service-sessions", massageHandler(async (req, res) => {
       paymentMethod: null,
       hourlyRate: row.hourlyRate,
       earnings: row.earnings,
+      isNightShift: row.isNightShift,
       note: row.note,
       createdAt: new Date(row.createdAt).toISOString(),
       archived: true,

@@ -42,7 +42,7 @@ export function SessionTable({ sessions, caption, canEdit, showDate, showTime, s
                 {!cardHistory && <td>
                   <div className="cell-stack">
                     <strong>{s.customerName || 'Khách lẻ'}</strong>
-                    <span className="muted">{s.serviceType}{s.cardId !== null && (linkCards ? <> · <Link href={`/cards/${s.cardId}`} className="link-strong">Thẻ #{s.cardId}</Link></> : <> · Thẻ #{s.cardId}</>)}</span>
+                    <span className="muted">{s.serviceType}{s.isNightShift && <span className="night-shift-badge">Ca đêm muộn</span>}{s.cardId !== null && (linkCards ? <> · <Link href={`/cards/${s.cardId}`} className="link-strong">Thẻ #{s.cardId}</Link></> : <> · Thẻ #{s.cardId}</>)}</span>
                   </div>
                 </td>}
                 <td className="mono nowrap">{formatMinutes(s.minutes)}</td>

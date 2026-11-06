@@ -7,8 +7,7 @@ import {
   cardTopUpsTable,
   cardUsageHistoryTable,
   db,
-  employeeServiceBonusRatesTable,
-  facilityBonusSettingsTable,
+  facilityNightSettingsTable,
   getReservedPartitionOperation,
   hashPartitionRequest,
   isPartitionedStorageEnabled,
@@ -28,11 +27,8 @@ import {
 } from "@workspace/db";
 import type { FacilityPermissions, ServiceSessionInput, TreatmentCardInput, TreatmentCardUpdate } from "@workspace/api-zod";
 import { canEditEmployee } from "./facility-permissions";
-import {
-  chooseEmployeeHourlyRate,
-  monthDateBounds,
-  shouldKeepRecordedHourlyRate,
-} from "./employee-bonus-pay";
+import { shouldKeepRecordedHourlyRate } from "./employee-bonus-pay";
+import { isWithinNightWindow } from "./night-service-pricing";
 import { isWithinRetention, retentionCutoffDate } from "./retention-window";
 import {
   commitPartitionedMutations,
@@ -930,40 +926,24 @@ export async function saveSession(
     if (!old && !service) throw new MassageError(400, "Hãy chọn loại hình dịch vụ để tính lương.");
     const sameService = old && old.serviceTypeId === serviceTypeId;
     const keepsRecordedRate = shouldKeepRecordedHourlyRate(old, member.id, serviceTypeId);
-    let rate = keepsRecordedRate ? old!.hourlyRate : service?.hourlyRate ?? old?.hourlyRate ?? 0;
-    if (!keepsRecordedRate && serviceTypeId !== null) {
-      const [{ enabled = false, thresholdMinutes = 0 } = {}] = await tx.select({
-        enabled: facilityBonusSettingsTable.enabled,
-        thresholdMinutes: facilityBonusSettingsTable.thresholdMinutes,
-      }).from(facilityBonusSettingsTable).where(eq(facilityBonusSettingsTable.id, 1)).limit(1);
-      if (enabled && thresholdMinutes > 0) {
-        const bounds = monthDateBounds(workDate);
-        const [worked] = await tx.select({
-          minutes: sql<number>`coalesce(sum(${serviceSessionsTable.minutes}), 0)::int`,
-        }).from(serviceSessionsTable).where(and(
-          eq(serviceSessionsTable.memberId, member.id),
-          gte(serviceSessionsTable.workDate, bounds.start),
-          lt(serviceSessionsTable.workDate, bounds.end),
-          id === undefined ? undefined : ne(serviceSessionsTable.id, id),
-        ));
-        const [bonusRate] = await tx.select({ hourlyRate: employeeServiceBonusRatesTable.hourlyRate })
-          .from(employeeServiceBonusRatesTable)
-          .where(and(
-            eq(employeeServiceBonusRatesTable.memberId, member.id),
-            eq(employeeServiceBonusRatesTable.serviceTypeId, serviceTypeId),
-          )).limit(1);
-        rate = chooseEmployeeHourlyRate({
-          enabled,
-          thresholdMinutes,
-          minutesWorkedEarlierThisMonth: Number(worked?.minutes ?? 0),
-          standardHourlyRate: service.hourlyRate,
-          bonusHourlyRate: bonusRate?.hourlyRate,
-        });
-      }
+    const keepsCustomerRate = Boolean(sameService && old && old.customerHourlyRate > 0);
+    const [nightSettings] = await tx.select().from(facilityNightSettingsTable)
+      .where(eq(facilityNightSettingsTable.id, 1)).limit(1);
+    const createdAt = old?.createdAt ?? new Date();
+    const isNightShift = old
+      ? old.isNightShift
+      : Boolean(nightSettings?.enabled && isWithinNightWindow(createdAt, nightSettings.startTime, nightSettings.endTime));
+    const useNightRates = isNightShift && Boolean(nightSettings?.enabled);
+    if (useNightRates && service && ((!keepsRecordedRate && !service.nightHourlyRate) ||
+      (!keepsCustomerRate && !service.nightCustomerHourlyRate))) {
+      throw new MassageError(400, `Hãy cài đủ giá khách trả và tiền công ca đêm cho dịch vụ ${service.name} trong Cài đặt.`);
     }
+    const rate = keepsRecordedRate
+      ? old!.hourlyRate
+      : useNightRates ? service?.nightHourlyRate ?? 0 : service?.hourlyRate ?? old?.hourlyRate ?? 0;
     const customerRate = resolveSessionCustomerHourlyRate(
       old?.customerHourlyRate,
-      service?.customerHourlyRate,
+      useNightRates ? service?.nightCustomerHourlyRate ?? undefined : service?.customerHourlyRate,
       Boolean(sameService),
     );
     if (!rate || rate <= 0) throw new MassageError(400, "Hãy chọn dịch vụ có mức lương mỗi giờ hợp lệ.");
@@ -985,6 +965,8 @@ export async function saveSession(
       paymentMethod,
       hourlyRate: rate,
       earnings: Math.round(input.minutes * rate / 60), note: input.note?.trim() ?? "",
+      isNightShift,
+      createdAt,
     };
     const [row] = id
       ? await tx.update(serviceSessionsTable).set(values).where(eq(serviceSessionsTable.id, id)).returning()
@@ -1032,7 +1014,7 @@ async function savePartitionedSession(
         return sessionResponse(priorRow);
       }
     }
-    const [sessionRowsRaw, cardRowsRaw, archivedRowsRaw, memberRowsRaw, serviceRowsRaw, appointmentRowsRaw, bonusSettingsRaw, bonusRatesRaw] =
+    const [sessionRowsRaw, cardRowsRaw, archivedRowsRaw, memberRowsRaw, serviceRowsRaw, appointmentRowsRaw, nightSettingsRaw] =
       await Promise.all([
         readPartitionedTable("service_sessions"),
         readPartitionedTable("treatment_cards"),
@@ -1040,8 +1022,7 @@ async function savePartitionedSession(
         readPartitionedTable("members"),
         readPartitionedTable("service_types"),
         readPartitionedTable("appointments"),
-        readPartitionedTable("facility_bonus_settings"),
-        readPartitionedTable("employee_service_bonus_rates"),
+        readPartitionedTable("facility_night_settings"),
       ]);
     const sessionRows = sessionRowsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[];
     const cardRows = cardRowsRaw as unknown as (typeof treatmentCardsTable.$inferSelect)[];
@@ -1049,8 +1030,7 @@ async function savePartitionedSession(
     const memberRows = memberRowsRaw as unknown as (typeof membersTable.$inferSelect)[];
     const serviceRows = serviceRowsRaw as unknown as (typeof serviceTypesTable.$inferSelect)[];
     const appointmentRows = appointmentRowsRaw as unknown as (typeof appointmentsTable.$inferSelect)[];
-    const bonusSettingsRows = bonusSettingsRaw as unknown as (typeof facilityBonusSettingsTable.$inferSelect)[];
-    const bonusRateRows = bonusRatesRaw as unknown as (typeof employeeServiceBonusRatesTable.$inferSelect)[];
+    const nightSettingsRows = nightSettingsRaw as unknown as (typeof facilityNightSettingsTable.$inferSelect)[];
 
     const old = id === undefined ? undefined : sessionRows.find((row) => row.id === id);
     if (id !== undefined && !old) throw new MassageError(404, "Không tìm thấy lượt phục vụ.");
@@ -1080,28 +1060,23 @@ async function savePartitionedSession(
     const sameEmployee = old?.memberId === member.id;
     const sameService = old?.serviceTypeId === serviceTypeId;
     const keepsRecordedRate = shouldKeepRecordedHourlyRate(old, member.id, serviceTypeId);
-    let rate = keepsRecordedRate ? old!.hourlyRate : service?.hourlyRate ?? old?.hourlyRate ?? 0;
-    const bonusSettings = bonusSettingsRows.find((row) => row.id === 1);
-    if (!keepsRecordedRate && service && serviceTypeId !== null && bonusSettings?.enabled && bonusSettings.thresholdMinutes > 0) {
-      const bounds = monthDateBounds(input.workDate);
-      const minutesWorkedEarlierThisMonth = sessionRows
-        .filter((row) => row.memberId === member.id && row.id !== id &&
-          row.workDate >= bounds.start && row.workDate < bounds.end)
-        .reduce((sum, row) => sum + Number(row.minutes), 0);
-      const bonusRate = bonusRateRows.find((row) =>
-        row.memberId === member.id && row.serviceTypeId === serviceTypeId,
-      )?.hourlyRate;
-      rate = chooseEmployeeHourlyRate({
-        enabled: bonusSettings.enabled,
-        thresholdMinutes: bonusSettings.thresholdMinutes,
-        minutesWorkedEarlierThisMonth,
-        standardHourlyRate: service.hourlyRate,
-        bonusHourlyRate: bonusRate,
-      });
+    const keepsCustomerRate = Boolean(sameService && old && old.customerHourlyRate > 0);
+    const nightSettings = nightSettingsRows.find((row) => row.id === 1);
+    const createdAt = old?.createdAt ? new Date(old.createdAt) : new Date();
+    const isNightShift = old
+      ? old.isNightShift
+      : Boolean(nightSettings?.enabled && isWithinNightWindow(createdAt, nightSettings.startTime, nightSettings.endTime));
+    const useNightRates = isNightShift && Boolean(nightSettings?.enabled);
+    if (useNightRates && service && ((!keepsRecordedRate && !service.nightHourlyRate) ||
+      (!keepsCustomerRate && !service.nightCustomerHourlyRate))) {
+      throw new MassageError(400, `Hãy cài đủ giá khách trả và tiền công ca đêm cho dịch vụ ${service.name} trong Cài đặt.`);
     }
+    const rate = keepsRecordedRate
+      ? old!.hourlyRate
+      : useNightRates ? service?.nightHourlyRate ?? 0 : service?.hourlyRate ?? old?.hourlyRate ?? 0;
     const customerRate = resolveSessionCustomerHourlyRate(
       old?.customerHourlyRate,
-      service?.customerHourlyRate,
+      useNightRates ? service?.nightCustomerHourlyRate ?? undefined : service?.customerHourlyRate,
       Boolean(sameService),
     );
     if (!rate || rate <= 0) throw new MassageError(400, "Hãy chọn dịch vụ có mức lương mỗi giờ hợp lệ.");
@@ -1135,8 +1110,9 @@ async function savePartitionedSession(
       paymentMethod,
       hourlyRate: rate,
       earnings: Math.round(input.minutes * rate / 60),
+      isNightShift,
+      createdAt,
       note: input.note?.trim() ?? "",
-      createdAt: old?.createdAt ?? now,
     };
     const localDate = (value: Date | string) => new Intl.DateTimeFormat("en-CA", {
       timeZone: "Asia/Ho_Chi_Minh",

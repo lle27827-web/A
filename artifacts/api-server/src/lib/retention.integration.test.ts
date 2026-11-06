@@ -56,6 +56,7 @@ test("retention archives card use atomically and never refunds used minutes", {
         customer_charge integer NOT NULL DEFAULT 0,
         hourly_rate integer NOT NULL,
         earnings integer NOT NULL,
+        is_night_shift boolean NOT NULL DEFAULT false,
         note text NOT NULL DEFAULT '',
         created_at timestamptz NOT NULL DEFAULT now()
       );
@@ -74,6 +75,7 @@ test("retention archives card use atomically and never refunds used minutes", {
     for (const statement of migration.split("--> statement-breakpoint").filter((part) => part.trim())) {
       await setupPool.query(statement);
     }
+    await setupPool.query("ALTER TABLE public.card_usage_history ADD COLUMN IF NOT EXISTS is_night_shift boolean NOT NULL DEFAULT false");
 
     const cutoff = retentionCutoffDate();
     const cutoffYear = Number(cutoff.slice(0, 4));

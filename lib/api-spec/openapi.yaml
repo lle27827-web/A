@@ -374,6 +374,35 @@ paths:
               schema: { $ref: "#/components/schemas/EmployeeBonusConfig" }
         "400": { description: Cấu hình hoặc đơn giá không hợp lệ }
         "403": { description: Chỉ chủ sở hữu được thay đổi cấu hình }
+  /night-service-pricing:
+    get:
+      operationId: getNightServicePricing
+      tags: [massage]
+      summary: Xem cấu hình giá dịch vụ ca đêm muộn
+      responses:
+        "200":
+          description: Khung giờ và mức giá ca đêm theo dịch vụ
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NightServicePricing" }
+        "403": { description: Chỉ chủ sở hữu được xem cấu hình }
+    patch:
+      operationId: updateNightServicePricing
+      tags: [massage]
+      summary: Cập nhật giá dịch vụ ca đêm muộn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NightServicePricingUpdate" }
+      responses:
+        "200":
+          description: Cấu hình giá ca đêm đã lưu
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NightServicePricing" }
+        "400": { description: Giờ hoặc mức giá không hợp lệ }
+        "403": { description: Chỉ chủ sở hữu được thay đổi cấu hình }
   /healthz:
     get:
       operationId: healthCheck
@@ -1464,12 +1493,14 @@ components:
         note: { type: string, maxLength: 2000 }
     ServiceTypeRecord:
       type: object
-      required: [id, name, hourlyRate, customerHourlyRate, createdAt]
+      required: [id, name, hourlyRate, customerHourlyRate, nightHourlyRate, nightCustomerHourlyRate, createdAt]
       properties:
         id: { type: integer }
         name: { type: string }
         customerHourlyRate: { type: integer }
         hourlyRate: { type: integer }
+        nightCustomerHourlyRate: { type: ["integer", "null"] }
+        nightHourlyRate: { type: ["integer", "null"] }
         createdAt: { type: string, format: date-time }
     ServiceTypeInput:
       type: object
@@ -1480,7 +1511,7 @@ components:
         hourlyRate: { type: integer, minimum: 1, maximum: 10000000 }
     ServiceSession:
       type: object
-      required: [id, cardId, memberId, employeeName, customerName, serviceType, serviceTypeId, workDate, minutes, customerHourlyRate, customerCharge, paymentMethod, hourlyRate, earnings, note, createdAt, archived]
+      required: [id, cardId, memberId, employeeName, customerName, serviceType, serviceTypeId, workDate, minutes, customerHourlyRate, customerCharge, paymentMethod, hourlyRate, earnings, isNightShift, note, createdAt, archived]
       properties:
         id: { type: integer }
         cardId: { type: ["integer", "null"] }
@@ -1496,6 +1527,7 @@ components:
         paymentMethod: { type: ["string", "null"], enum: [cash, transfer, null], description: "Ca dùng thẻ luôn hiển thị theo nguồn Thẻ; dữ liệu cũ chưa ghi phương thức là null." }
         hourlyRate: { type: integer }
         earnings: { type: integer }
+        isNightShift: { type: boolean, description: "Ca được ghi trong khung giờ đêm đã cài; nhãn và đơn giá được lưu theo từng ca." }
         note: { type: string }
         createdAt: { type: string, format: date-time }
         archived: { type: boolean }
@@ -1514,7 +1546,7 @@ components:
         note: { type: string, maxLength: 2000 }
     MassageSummary:
       type: object
-      required: [month, revenue, netRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits, topSoldCardService, mostUsedCardService, mostUsedWalkInService, mostUsedService, serviceBreakdown, paymentBreakdown, today]
+      required: [month, revenue, netRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits, topSoldCardService, mostUsedCardService, mostUsedWalkInService, mostUsedService, serviceBreakdown, nightShiftBreakdown, paymentBreakdown, today]
       properties:
         month: { type: string }
         revenue: { type: number, description: "Tổng doanh thu gộp: tiền dịch vụ khách lẻ cộng tiền bán thẻ trong tháng; không cộng lại khi dùng thẻ." }
@@ -1556,6 +1588,10 @@ components:
             minutes: { type: integer }
         serviceBreakdown:
           type: array
+          items: { $ref: "#/components/schemas/ServiceDurationBreakdown" }
+        nightShiftBreakdown:
+          type: array
+          description: Số ca và tổng thời lượng ca đêm theo dịch vụ, gồm ca thẻ nhưng không cộng lại doanh thu ca thẻ.
           items: { $ref: "#/components/schemas/ServiceDurationBreakdown" }
         paymentBreakdown: { $ref: "#/components/schemas/PaymentBreakdown" }
         today: { $ref: "#/components/schemas/DailyRevenue" }
@@ -1607,7 +1643,7 @@ components:
         visits: { type: integer, description: "Số ca có cùng loại dịch vụ và thời lượng." }
     DailyRevenue:
       type: object
-      required: [date, revenue, netRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits, serviceBreakdown, paymentBreakdown]
+      required: [date, revenue, netRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits, serviceBreakdown, nightShiftBreakdown, paymentBreakdown]
       properties:
         date: { type: string, format: date }
         revenue: { type: number }
@@ -1624,7 +1660,47 @@ components:
         serviceBreakdown:
           type: array
           items: { $ref: "#/components/schemas/ServiceDurationBreakdown" }
+        nightShiftBreakdown:
+          type: array
+          items: { $ref: "#/components/schemas/ServiceDurationBreakdown" }
         paymentBreakdown: { $ref: "#/components/schemas/PaymentBreakdown" }
+    NightServicePricing:
+      type: object
+      required: [enabled, startTime, endTime, rates]
+      properties:
+        enabled: { type: boolean }
+        startTime: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+        endTime: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+        rates:
+          type: array
+          items: { $ref: "#/components/schemas/NightServiceRate" }
+    NightServiceRate:
+      type: object
+      required: [serviceTypeId, serviceName, standardCustomerHourlyRate, standardEmployeeHourlyRate, customerHourlyRate, employeeHourlyRate]
+      properties:
+        serviceTypeId: { type: integer }
+        serviceName: { type: string }
+        standardCustomerHourlyRate: { type: integer }
+        standardEmployeeHourlyRate: { type: integer }
+        customerHourlyRate: { type: ["integer", "null"] }
+        employeeHourlyRate: { type: ["integer", "null"] }
+    NightServicePricingUpdate:
+      type: object
+      required: [enabled, startTime, endTime, rates]
+      properties:
+        enabled: { type: boolean }
+        startTime: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+        endTime: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+        rates:
+          type: array
+          items: { $ref: "#/components/schemas/NightServiceRateInput" }
+    NightServiceRateInput:
+      type: object
+      required: [serviceTypeId, customerHourlyRate, employeeHourlyRate]
+      properties:
+        serviceTypeId: { type: integer, minimum: 1 }
+        customerHourlyRate: { type: ["integer", "null"], minimum: 1, maximum: 10000000 }
+        employeeHourlyRate: { type: ["integer", "null"], minimum: 1, maximum: 10000000 }
     MemberPayroll:
       type: object
       required: [member, month, totalMinutes, totalSalary]

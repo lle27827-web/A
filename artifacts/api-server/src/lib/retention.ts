@@ -105,12 +105,12 @@ export async function deleteFacilityHistoryYear(year: number, operationId?: stri
         INSERT INTO public.card_usage_history (
           source_session_id, card_id, member_id, employee_name, customer_name,
           service_type, service_type_id, work_date, minutes, customer_hourly_rate,
-          customer_charge, hourly_rate, earnings, note, created_at
+          customer_charge, hourly_rate, earnings, is_night_shift, note, created_at
         )
         SELECT
           id, card_id, member_id, employee_name, customer_name,
           service_type, service_type_id, work_date, minutes, customer_hourly_rate,
-          customer_charge, hourly_rate, earnings, note, created_at
+          customer_charge, hourly_rate, earnings, is_night_shift, note, created_at
         FROM public.service_sessions
         WHERE card_id IS NOT NULL
           AND work_date >= ${startDate}::date
@@ -189,6 +189,7 @@ type ServiceHistoryRow = Pick<
   | "customerCharge"
   | "hourlyRate"
   | "earnings"
+  | "isNightShift"
   | "note"
   | "createdAt"
 >;
@@ -221,6 +222,7 @@ export function buildPartitionedHistoryDeleteMutations(
       customerCharge: row.customerCharge,
       hourlyRate: row.hourlyRate,
       earnings: row.earnings,
+      isNightShift: row.isNightShift,
       note: row.note,
       createdAt: row.createdAt,
     })),
@@ -331,12 +333,12 @@ export async function deleteFacilityHistoryDateRange(input: RetentionDateRange, 
         INSERT INTO public.card_usage_history (
           source_session_id, card_id, member_id, employee_name, customer_name,
           service_type, service_type_id, work_date, minutes, customer_hourly_rate,
-          customer_charge, hourly_rate, earnings, note, created_at
+          customer_charge, hourly_rate, earnings, is_night_shift, note, created_at
         )
         SELECT
           id, card_id, member_id, employee_name, customer_name,
           service_type, service_type_id, work_date, minutes, customer_hourly_rate,
-          customer_charge, hourly_rate, earnings, note, created_at
+          customer_charge, hourly_rate, earnings, is_night_shift, note, created_at
         FROM public.service_sessions
         WHERE card_id IS NOT NULL
           AND work_date >= ${fromDate}::date
@@ -413,6 +415,7 @@ export async function cleanupExpiredHistory() {
         customerCharge: row.customerCharge,
         hourlyRate: row.hourlyRate,
         earnings: row.earnings,
+        isNightShift: row.isNightShift,
         note: row.note,
         createdAt: row.createdAt,
       })),
@@ -443,12 +446,12 @@ export async function cleanupExpiredHistory() {
       INSERT INTO public.card_usage_history (
         source_session_id, card_id, member_id, employee_name, customer_name,
         service_type, service_type_id, work_date, minutes, customer_hourly_rate,
-        customer_charge, hourly_rate, earnings, note, created_at
+        customer_charge, hourly_rate, earnings, is_night_shift, note, created_at
       )
       SELECT
         id, card_id, member_id, employee_name, customer_name,
         service_type, service_type_id, work_date, minutes, customer_hourly_rate,
-        customer_charge, hourly_rate, earnings, note, created_at
+        customer_charge, hourly_rate, earnings, is_night_shift, note, created_at
       FROM public.service_sessions
       WHERE card_id IS NOT NULL AND work_date < ${cutoff}::date
       ON CONFLICT (source_session_id) DO NOTHING

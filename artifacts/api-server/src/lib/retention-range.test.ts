@@ -40,6 +40,7 @@ test("partitioned history deletion archives card use before tombstoning selected
     customerCharge: 40000,
     hourlyRate: 30000,
     earnings: 15000,
+    isNightShift: false,
     note: "keep snapshot",
     createdAt: new Date("2026-10-12T03:00:00.000Z"),
   };

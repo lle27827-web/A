@@ -23,5 +23,6 @@ export interface DailyRevenue {
   walkInVisits: number;
   cardVisits: number;
   serviceBreakdown: ServiceDurationBreakdown[];
+  nightShiftBreakdown: ServiceDurationBreakdown[];
   paymentBreakdown: PaymentBreakdown;
 }

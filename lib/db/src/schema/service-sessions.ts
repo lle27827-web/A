@@ -1,4 +1,4 @@
-import { date, index, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, date, index, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { membersTable } from "./members";
@@ -21,6 +21,7 @@ export const serviceSessionsTable = pgTable("service_sessions", {
   paymentMethod: text("payment_method"),
   hourlyRate: integer("hourly_rate").notNull(),
   earnings: integer("earnings").notNull(),
+  isNightShift: boolean("is_night_shift").notNull().default(false),
   note: text("note").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [

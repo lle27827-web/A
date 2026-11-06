@@ -3255,3 +3255,103 @@ body:has(.modal-backdrop) .screen-nav {
 .main .appointment-panel .appointment-row {
   border: 0 !important;
 }
+
+.night-service-settings {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 14px;
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+}
+.night-service-settings h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+}
+.night-service-settings > .sub {
+  margin: -6px 0 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+  line-height: 1.5;
+}
+.night-service-settings .night-service-toggle {
+  margin: 0;
+}
+.night-service-window,
+.night-service-rate-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+.night-service-rate-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  padding: 12px;
+  border: 1px solid hsl(var(--border) / .7);
+  border-radius: 12px;
+}
+.night-service-rate-row legend {
+  padding: 0 5px;
+  font-size: 15px;
+  font-weight: 800;
+}
+.night-service-base-rates {
+  grid-column: 1 / -1;
+  margin: -6px 0 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+}
+.night-service-settings .field {
+  min-width: 0;
+}
+.night-service-settings .field input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.night-service-save {
+  justify-self: start;
+}
+.night-shift-summary {
+  flex-wrap: wrap;
+}
+.night-shift-summary > span {
+  font-weight: 800;
+}
+.night-shift-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-start: 7px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.5;
+  vertical-align: middle;
+}
+.session-night-shift-label {
+  justify-self: start;
+  margin: 0;
+}
+@media (max-width: 540px) {
+  .night-service-settings {
+    padding: 12px;
+  }
+  .night-service-window,
+  .night-service-rate-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .night-service-base-rates {
+    grid-column: 1;
+  }
+}

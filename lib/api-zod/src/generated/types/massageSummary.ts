@@ -45,6 +45,8 @@ export interface MassageSummary {
   /** @nullable */
   mostUsedService: MassageSummaryMostUsedService;
   serviceBreakdown: ServiceDurationBreakdown[];
+  /** Số ca và tổng thời lượng ca đêm theo dịch vụ, gồm ca thẻ nhưng không cộng lại doanh thu ca thẻ. */
+  nightShiftBreakdown: ServiceDurationBreakdown[];
   paymentBreakdown: PaymentBreakdown;
   today: DailyRevenue;
 }

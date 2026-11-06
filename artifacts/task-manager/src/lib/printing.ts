@@ -348,6 +348,7 @@ export function printPreviewRows(type: PrintPreviewKind): PrintRow[] {
       paymentMethod: 'cash',
       hourlyRate: 100_000,
       earnings: 150_000,
+      isNightShift: false,
     note: '',
     createdAt: '2026-11-02T00:00:00.000Z',
     archived: false,

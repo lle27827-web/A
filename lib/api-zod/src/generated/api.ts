@@ -535,6 +535,8 @@ export const ListServiceTypesResponseItem = zod.object({
   "name": zod.string(),
   "customerHourlyRate": zod.number().int(),
   "hourlyRate": zod.number().int(),
+  "nightCustomerHourlyRate": zod.number().int().nullable(),
+  "nightHourlyRate": zod.number().int().nullable(),
   "createdAt": zod.coerce.date()
 })
 export const ListServiceTypesResponse = zod.array(ListServiceTypesResponseItem)
@@ -559,6 +561,8 @@ export const CreateServiceTypeResponse = zod.object({
   "name": zod.string(),
   "customerHourlyRate": zod.number().int(),
   "hourlyRate": zod.number().int(),
+  "nightCustomerHourlyRate": zod.number().int().nullable(),
+  "nightHourlyRate": zod.number().int().nullable(),
   "createdAt": zod.coerce.date()
 })
 
@@ -589,6 +593,8 @@ export const UpdateServiceTypeResponse = zod.object({
   "name": zod.string(),
   "customerHourlyRate": zod.number().int(),
   "hourlyRate": zod.number().int(),
+  "nightCustomerHourlyRate": zod.number().int().nullable(),
+  "nightHourlyRate": zod.number().int().nullable(),
   "createdAt": zod.coerce.date()
 })
 
@@ -692,6 +698,70 @@ export const UpdateEmployeeBonusConfigResponse = zod.object({
   "memberId": zod.number().int().min(1),
   "serviceTypeId": zod.number().int().min(1),
   "hourlyRate": zod.number().int().min(1).max(updateEmployeeBonusConfigResponseRatesItemHourlyRateMax)
+}))
+})
+
+
+/**
+ * @summary Xem cấu hình giá dịch vụ ca đêm muộn
+ */
+export const getNightServicePricingResponseStartTimeRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+export const getNightServicePricingResponseEndTimeRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+
+
+export const GetNightServicePricingResponse = zod.object({
+  "enabled": zod.boolean(),
+  "startTime": zod.string().regex(getNightServicePricingResponseStartTimeRegExp),
+  "endTime": zod.string().regex(getNightServicePricingResponseEndTimeRegExp),
+  "rates": zod.array(zod.object({
+  "serviceTypeId": zod.number().int(),
+  "serviceName": zod.string(),
+  "standardCustomerHourlyRate": zod.number().int(),
+  "standardEmployeeHourlyRate": zod.number().int(),
+  "customerHourlyRate": zod.number().int().nullable(),
+  "employeeHourlyRate": zod.number().int().nullable()
+}))
+})
+
+
+/**
+ * @summary Cập nhật giá dịch vụ ca đêm muộn
+ */
+export const updateNightServicePricingBodyStartTimeRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+export const updateNightServicePricingBodyEndTimeRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+
+export const updateNightServicePricingBodyRatesItemCustomerHourlyRateMax = 10000000;
+
+export const updateNightServicePricingBodyRatesItemEmployeeHourlyRateMax = 10000000;
+
+
+
+export const UpdateNightServicePricingBody = zod.object({
+  "enabled": zod.boolean(),
+  "startTime": zod.string().regex(updateNightServicePricingBodyStartTimeRegExp),
+  "endTime": zod.string().regex(updateNightServicePricingBodyEndTimeRegExp),
+  "rates": zod.array(zod.object({
+  "serviceTypeId": zod.number().int().min(1),
+  "customerHourlyRate": zod.number().int().min(1).max(updateNightServicePricingBodyRatesItemCustomerHourlyRateMax).nullable(),
+  "employeeHourlyRate": zod.number().int().min(1).max(updateNightServicePricingBodyRatesItemEmployeeHourlyRateMax).nullable()
+}))
+})
+
+export const updateNightServicePricingResponseStartTimeRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+export const updateNightServicePricingResponseEndTimeRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+
+
+export const UpdateNightServicePricingResponse = zod.object({
+  "enabled": zod.boolean(),
+  "startTime": zod.string().regex(updateNightServicePricingResponseStartTimeRegExp),
+  "endTime": zod.string().regex(updateNightServicePricingResponseEndTimeRegExp),
+  "rates": zod.array(zod.object({
+  "serviceTypeId": zod.number().int(),
+  "serviceName": zod.string(),
+  "standardCustomerHourlyRate": zod.number().int(),
+  "standardEmployeeHourlyRate": zod.number().int(),
+  "customerHourlyRate": zod.number().int().nullable(),
+  "employeeHourlyRate": zod.number().int().nullable()
 }))
 })
 
@@ -1531,6 +1601,7 @@ export const ListServiceSessionsResponseItem = zod.object({
   "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable().describe('Ca dùng thẻ luôn hiển thị theo nguồn Thẻ; dữ liệu cũ chưa ghi phương thức là null.'),
   "hourlyRate": zod.number().int(),
   "earnings": zod.number().int(),
+  "isNightShift": zod.boolean().describe('Ca được ghi trong khung giờ đêm đã cài; nhãn và đơn giá được lưu theo từng ca.'),
   "note": zod.string(),
   "createdAt": zod.coerce.date(),
   "archived": zod.boolean()
@@ -1579,6 +1650,7 @@ export const CreateServiceSessionResponse = zod.object({
   "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable().describe('Ca dùng thẻ luôn hiển thị theo nguồn Thẻ; dữ liệu cũ chưa ghi phương thức là null.'),
   "hourlyRate": zod.number().int(),
   "earnings": zod.number().int(),
+  "isNightShift": zod.boolean().describe('Ca được ghi trong khung giờ đêm đã cài; nhãn và đơn giá được lưu theo từng ca.'),
   "note": zod.string(),
   "createdAt": zod.coerce.date(),
   "archived": zod.boolean()
@@ -1633,6 +1705,7 @@ export const UpdateServiceSessionResponse = zod.object({
   "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable().describe('Ca dùng thẻ luôn hiển thị theo nguồn Thẻ; dữ liệu cũ chưa ghi phương thức là null.'),
   "hourlyRate": zod.number().int(),
   "earnings": zod.number().int(),
+  "isNightShift": zod.boolean().describe('Ca được ghi trong khung giờ đêm đã cài; nhãn và đơn giá được lưu theo từng ca.'),
   "note": zod.string(),
   "createdAt": zod.coerce.date(),
   "archived": zod.boolean()
@@ -1694,6 +1767,11 @@ export const GetMassageSummaryResponse = zod.object({
   "minutes": zod.number().int().describe('Thời lượng của từng ca trong nhóm.'),
   "visits": zod.number().int().describe('Số ca có cùng loại dịch vụ và thời lượng.')
 })),
+  "nightShiftBreakdown": zod.array(zod.object({
+  "serviceType": zod.string(),
+  "minutes": zod.number().int().describe('Thời lượng của từng ca trong nhóm.'),
+  "visits": zod.number().int().describe('Số ca có cùng loại dịch vụ và thời lượng.')
+})).describe('Số ca và tổng thời lượng ca đêm theo dịch vụ, gồm ca thẻ nhưng không cộng lại doanh thu ca thẻ.'),
   "paymentBreakdown": zod.object({
   "cash": zod.object({
   "total": zod.number(),
@@ -1728,6 +1806,11 @@ export const GetMassageSummaryResponse = zod.object({
   "walkInVisits": zod.number().int(),
   "cardVisits": zod.number().int(),
   "serviceBreakdown": zod.array(zod.object({
+  "serviceType": zod.string(),
+  "minutes": zod.number().int().describe('Thời lượng của từng ca trong nhóm.'),
+  "visits": zod.number().int().describe('Số ca có cùng loại dịch vụ và thời lượng.')
+})),
+  "nightShiftBreakdown": zod.array(zod.object({
   "serviceType": zod.string(),
   "minutes": zod.number().int().describe('Thời lượng của từng ca trong nhóm.'),
   "visits": zod.number().int().describe('Số ca có cùng loại dịch vụ và thời lượng.')
