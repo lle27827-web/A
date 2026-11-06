@@ -1,17 +1,31 @@
 import { Router, type IRouter, type Response } from "express";
-import { asc, eq } from "drizzle-orm";
-import { db, appointmentsTable, isPartitionedStorageEnabled, readPartitionedTable } from "@workspace/db";
+import { and, asc, eq } from "drizzle-orm";
+import {
+  db,
+  appointmentsTable,
+  employeeAvailabilityTable,
+  isPartitionedStorageEnabled,
+  membersTable,
+  readPartitionedTable,
+  serviceSessionsTable,
+} from "@workspace/db";
 import {
   CreateAppointmentBody,
   CreateAppointmentResponse,
   DeleteAppointmentParams,
+  ListAppointmentStaffActivityResponse,
   ListAppointmentsResponse,
   UpdateAppointmentBody,
+  UpdateAppointmentStaffActivityBody,
+  UpdateAppointmentStaffActivityParams,
+  UpdateAppointmentStaffActivityResponse,
   UpdateAppointmentParams,
   UpdateAppointmentResponse,
   type AppointmentInput,
 } from "@workspace/api-zod";
 import { idempotentTransaction, MassageError } from "../lib/massage";
+import { listMembersForPeriod } from "../lib/employee-history";
+import { deriveStaffActivity, hoChiMinhDate } from "../lib/employee-availability";
 import { massageHandler, parseInput } from "./massage-errors";
 import { commitPartitionedMutations, operationIdFromRequest, upsertMutation, deleteMutation } from "../lib/partitioned-mutations";
 import type { OwnerAuthStatus } from "../lib/owner-auth";
@@ -52,6 +66,100 @@ router.get("/appointments", massageHandler(async (_req, res) => {
       .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime())
     : await db.select().from(appointmentsTable).orderBy(asc(appointmentsTable.scheduledAt));
   res.json(ListAppointmentsResponse.parse(rows.map((row) => output(row, isOwnerView(res)))));
+}));
+
+async function staffActivityRows() {
+  const today = hoChiMinhDate();
+  const membersPromise = listMembersForPeriod();
+  const [members, sessions, manualStatuses] = isPartitionedStorageEnabled()
+    ? await Promise.all([
+        membersPromise,
+        readPartitionedTable("service_sessions"),
+        readPartitionedTable("employee_availability"),
+      ])
+    : await Promise.all([
+        membersPromise,
+        db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.workDate, today)),
+        db.select().from(employeeAvailabilityTable),
+      ]);
+  return deriveStaffActivity(
+    (members as unknown as (typeof membersTable.$inferSelect)[]).map(({ id, name }) => ({ id, name })),
+    (sessions as unknown as (typeof serviceSessionsTable.$inferSelect)[]),
+    (manualStatuses as unknown as (typeof employeeAvailabilityTable.$inferSelect)[]),
+  );
+}
+
+router.get("/appointments/staff-activity", massageHandler(async (_req, res) => {
+  res.set("Cache-Control", "private, no-store");
+  res.json(ListAppointmentStaffActivityResponse.parse(await staffActivityRows()));
+}));
+
+router.patch("/appointments/staff-activity/:memberId", massageHandler(async (req, res) => {
+  const { memberId } = parseInput(UpdateAppointmentStaffActivityParams, req.params);
+  const { state } = parseInput(UpdateAppointmentStaffActivityBody, req.body);
+  const members = await listMembersForPeriod();
+  const member = members.find((row) => row.id === memberId);
+  if (!member) throw new MassageError(404, "Không tìm thấy nhân viên đang hoạt động.");
+
+  const existing = isPartitionedStorageEnabled()
+    ? (await readPartitionedTable("employee_availability") as unknown as (typeof employeeAvailabilityTable.$inferSelect)[])
+      .find((row) => row.memberId === memberId)
+    : (await db.select().from(employeeAvailabilityTable).where(eq(employeeAvailabilityTable.memberId, memberId)).limit(1))[0];
+  if (state === "off") {
+    const current = (await staffActivityRows()).find((row) => row.memberId === memberId);
+    if (current?.state === "working") {
+      throw new MassageError(409, "Nhân viên đang có ca làm. Có thể đánh dấu nghỉ sau khi ca kết thúc.");
+    }
+  }
+
+  const operationId = operationIdFromRequest(req.get("Idempotency-Key"), "cập nhật tình trạng nhân viên");
+  if (isPartitionedStorageEnabled()) {
+    if (state === "off") {
+      await commitPartitionedMutations({
+        operationId,
+        lockName: `employee-availability:${memberId}`,
+        action: "employee-availability.update",
+        request: { memberId, state, statusDate: hoChiMinhDate() },
+        expectedEventCount: 1,
+        build: () => [upsertMutation("employee_availability", memberId, {
+          memberId,
+          employeeName: member.name,
+          statusDate: hoChiMinhDate(),
+          state: "off",
+          updatedAt: new Date(),
+        })],
+      });
+    } else if (existing) {
+      await commitPartitionedMutations({
+        operationId,
+        lockName: `employee-availability:${memberId}`,
+        action: "employee-availability.update",
+        request: { memberId, state, statusDate: hoChiMinhDate() },
+        expectedEventCount: 1,
+        build: () => [deleteMutation("employee_availability", memberId)],
+      });
+    }
+  } else if (state === "off") {
+    await db.insert(employeeAvailabilityTable).values({
+      memberId,
+      employeeName: member.name,
+      statusDate: hoChiMinhDate(),
+      state: "off",
+      updatedAt: new Date(),
+    }).onConflictDoUpdate({
+      target: employeeAvailabilityTable.memberId,
+      set: { employeeName: member.name, statusDate: hoChiMinhDate(), state: "off", updatedAt: new Date() },
+    });
+  } else {
+    await db.delete(employeeAvailabilityTable).where(and(
+      eq(employeeAvailabilityTable.memberId, memberId),
+      eq(employeeAvailabilityTable.statusDate, hoChiMinhDate()),
+    ));
+  }
+
+  const updated = (await staffActivityRows()).find((row) => row.memberId === memberId);
+  if (!updated) throw new MassageError(404, "Không tìm thấy nhân viên đang hoạt động.");
+  res.json(UpdateAppointmentStaffActivityResponse.parse(updated));
 }));
 
 router.post("/appointments", massageHandler(async (req, res) => {

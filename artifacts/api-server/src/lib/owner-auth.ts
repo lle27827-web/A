@@ -187,6 +187,7 @@ export async function managerRequestAllowed(req: Request, p: FacilityPermissions
   const path = req.path;
   if (read) {
     if (path === "/appointments") return p.viewAppointments;
+    if (path === "/appointments/staff-activity") return p.viewAppointments;
     if (path === "/access-grants") return hasGrantManagementAccess(p);
     if (path === "/members" || path === "/history-months" || path === "/attendance" || path === "/attendance/summary") return true; // rows filtered at source
     if (path === "/massage-summary" || path === "/payment-details") return p.viewRevenue;
@@ -203,6 +204,9 @@ export async function managerRequestAllowed(req: Request, p: FacilityPermissions
   if (path === "/access-grants" && req.method === "POST") return hasGrantManagementAccess(p);
   if (/^\/access-grants\/[1-9]\d*$/.test(path) && req.method === "DELETE") return hasGrantManagementAccess(p);
   if (path === "/appointments" && req.method === "POST") return p.editAppointments && p.viewAppointments;
+  if (/^\/appointments\/staff-activity\/[1-9]\d*$/.test(path) && req.method === "PATCH") {
+    return p.editAppointments && p.viewAppointments;
+  }
   if (/^\/appointments\/[1-9]\d*$/.test(path) && ["PATCH", "DELETE"].includes(req.method)) {
     return p.editAppointments && p.viewAppointments;
   }

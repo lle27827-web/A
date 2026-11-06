@@ -441,6 +441,41 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Appointment" }
+  /appointments/staff-activity:
+    get:
+      operationId: listAppointmentStaffActivity
+      tags: [appointments]
+      summary: Xem tình trạng làm việc của nhân viên hôm nay
+      responses:
+        "200":
+          description: Nhân viên đang làm, rảnh hoặc nghỉ
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AppointmentStaffActivity" }
+  /appointments/staff-activity/{memberId}:
+    patch:
+      operationId: updateAppointmentStaffActivity
+      tags: [appointments]
+      summary: Đánh dấu nhân viên nghỉ hoặc trở lại làm
+      parameters:
+        - in: path
+          name: memberId
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AppointmentStaffActivityInput" }
+      responses:
+        "200":
+          description: Đã cập nhật tình trạng nhân viên
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AppointmentStaffActivity" }
+        "404": { description: Không tìm thấy nhân viên đang hoạt động }
   /appointments/{id}:
     patch:
       operationId: updateAppointment
@@ -1015,6 +1050,20 @@ components:
         scheduledAt: { type: string, format: date-time }
         request: { type: string, maxLength: 2000 }
         note: { type: string, maxLength: 2000 }
+    AppointmentStaffActivity:
+      type: object
+      required: [memberId, employeeName, state, endsAt, serviceType]
+      properties:
+        memberId: { type: integer, minimum: 1 }
+        employeeName: { type: string }
+        state: { type: string, enum: [working, available, off] }
+        endsAt: { type: ["string", "null"], format: date-time }
+        serviceType: { type: ["string", "null"] }
+    AppointmentStaffActivityInput:
+      type: object
+      required: [state]
+      properties:
+        state: { type: string, enum: [available, off] }
     AttendanceStatus:
       type: string
       enum: [present, late, absent, leave]

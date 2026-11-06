@@ -23,6 +23,7 @@
     "migrate:personal-sync": "node ./scripts/apply-personal-sync.mjs",
     "migrate:facility-permissions": "node ./scripts/apply-facility-permissions.mjs",
     "migrate:appointments": "node ./scripts/apply-appointments.mjs",
+    "migrate:employee-availability": "node ./scripts/apply-employee-availability.mjs",
     "migrate:card-usage-history": "node ./scripts/apply-card-usage-history.mjs",
     "migrate:api-write-operations": "node ./scripts/apply-api-write-operations.mjs",
     "migrate:database-failover-state": "node ./scripts/apply-database-failover-state.mjs",

@@ -65,6 +65,11 @@ test("permission policy denies by default; employee, card, revenue and edit righ
   assert.equal(await managerRequestAllowed(req("GET", "/massage-summary"), { ...none, viewRevenue: true }), true);
   assert.equal(await managerRequestAllowed(req("GET", "/appointments"), none), false);
   assert.equal(await managerRequestAllowed(req("GET", "/appointments"), { ...none, viewAppointments: true }), true);
+  assert.equal(await managerRequestAllowed(req("GET", "/appointments/staff-activity"), none), false);
+  assert.equal(await managerRequestAllowed(req("GET", "/appointments/staff-activity"), { ...none, viewAppointments: true }), true);
+  assert.equal(await managerRequestAllowed(req("PATCH", "/appointments/staff-activity/7"), { ...none, viewAppointments: true }), false);
+  assert.equal(await managerRequestAllowed(req("PATCH", "/appointments/staff-activity/7"), { ...none, viewAppointments: true, editAppointments: true }), true);
+  assert.equal(await managerRequestAllowed(req("PATCH", "/appointments/staff-activity/invalid"), ownerPermissions()), false);
   assert.equal(await managerRequestAllowed(req("POST", "/appointments"), { ...none, viewAppointments: true }), false);
   assert.equal(await managerRequestAllowed(req("PATCH", "/appointments/1"), { ...none, viewAppointments: true }), false);
   assert.equal(await managerRequestAllowed(req("DELETE", "/appointments/1"), { ...none, viewAppointments: true }), false);

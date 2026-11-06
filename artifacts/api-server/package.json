@@ -29,6 +29,7 @@
     "test:personal-sync": "esbuild src/lib/personal-sync.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-personal-sync-tests.cjs && node --test /tmp/so-cong-personal-sync-tests.cjs",
     "test:card-merge": "esbuild src/lib/card-merge.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-card-merge-tests.cjs && node --test /tmp/so-cong-card-merge-tests.cjs",
     "test:appointments": "esbuild src/routes/appointments.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-appointments-tests.cjs && node --test /tmp/so-cong-appointments-tests.cjs",
+    "test:employee-availability": "esbuild src/lib/employee-availability.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-employee-availability-tests.cjs && node --test /tmp/so-cong-employee-availability-tests.cjs",
     "test:database-failover": "esbuild src/lib/database-failover.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-database-failover-tests.cjs && node --test /tmp/so-cong-database-failover-tests.cjs",
     "test:failover-capacity-cache": "esbuild ../../lib/db/src/failover-capacity-cache.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-failover-capacity-cache-tests.cjs && node --test /tmp/so-cong-failover-capacity-cache-tests.cjs",
     "test:failover-recovery": "esbuild ../../lib/db/src/failover-recovery.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-failover-recovery-tests.cjs && node --test /tmp/so-cong-failover-recovery-tests.cjs",

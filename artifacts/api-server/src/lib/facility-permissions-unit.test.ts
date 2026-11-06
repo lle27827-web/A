@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { Request } from "express";
 import {
   canDeleteEmployee,
   canManageGrant,
@@ -8,6 +9,11 @@ import {
   ownerPermissions,
   safePermissions,
 } from "./facility-permissions";
+import { managerRequestAllowed } from "./owner-auth";
+
+function request(method: string, path: string): Request {
+  return { method, path } as Request;
+}
 
 test("legacy grants cannot delete employees or be changed by managers", () => {
   const old = { allEmployees: true, employeeIds: [], viewCards: true, viewRevenue: true, editEmployees: true };
@@ -44,4 +50,15 @@ test("manager access grants cannot assign deleted employees", () => {
   assert.equal(hasOnlyActiveGrantEmployees([4], [{ id: 4, deletedAt: null }]), true);
   assert.equal(hasOnlyActiveGrantEmployees([4], [{ id: 4, deletedAt: new Date() }]), false);
   assert.equal(hasOnlyActiveGrantEmployees([4], []), false);
+});
+
+test("employee activity in appointments follows dedicated view and edit grants", async () => {
+  const none = noPermissions();
+  const appointmentsViewer = { ...none, viewAppointments: true };
+  const appointmentsEditor = { ...appointmentsViewer, editAppointments: true };
+  assert.equal(await managerRequestAllowed(request("GET", "/appointments/staff-activity"), none), false);
+  assert.equal(await managerRequestAllowed(request("GET", "/appointments/staff-activity"), appointmentsViewer), true);
+  assert.equal(await managerRequestAllowed(request("PATCH", "/appointments/staff-activity/7"), appointmentsViewer), false);
+  assert.equal(await managerRequestAllowed(request("PATCH", "/appointments/staff-activity/7"), appointmentsEditor), true);
+  assert.equal(await managerRequestAllowed(request("PATCH", "/appointments/staff-activity/not-an-id"), ownerPermissions()), false);
 });

@@ -71,6 +71,7 @@ const BASE_TABLES = new Set([
   "personal_sessions",
   "personal_settings",
   "appointments",
+  "employee_availability",
   "tasks",
 ]);
 const SERIAL_ENTITY_TYPES = new Set([
@@ -101,12 +102,14 @@ const TABLE_KEY_COLUMN: Record<string, string> = {
   personal_sessions: "id",
   personal_settings: "userId",
   appointments: "id",
+  employee_availability: "memberId",
   tasks: "id",
 };
 const TABLE_DB_KEY_COLUMN: Record<string, string> = {
   ...TABLE_KEY_COLUMN,
   card_usage_history: "source_session_id",
   personal_settings: "user_id",
+  employee_availability: "member_id",
 };
 const EVENT_TABLE = "public.storage_partition_events";
 const STATE_TABLE = "public.storage_partition_state";
@@ -1737,7 +1740,7 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
       !["personal_services", "personal_sessions", "personal_settings"].includes(tableName)) {
     throw new PartitionStorageError("User filters are supported only for personal notebook tables.", "partition_entity_invalid", 400);
   }
-  if (filter?.ids && !["members", "service_sessions", "attendance", "manager_grants", "card_usage_history"].includes(tableName)) {
+  if (filter?.ids && !["members", "service_sessions", "attendance", "manager_grants", "card_usage_history", "employee_availability"].includes(tableName)) {
     throw new PartitionStorageError("ID filters are not supported for this table.", "partition_entity_invalid", 400);
   }
   const filterKey = stableJson(filter ?? {});

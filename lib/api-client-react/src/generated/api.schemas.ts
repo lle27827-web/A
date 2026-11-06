@@ -215,6 +215,38 @@ export interface AppointmentInput {
   note?: string;
 }
 
+export type AppointmentStaffActivityState = typeof AppointmentStaffActivityState[keyof typeof AppointmentStaffActivityState];
+
+
+export const AppointmentStaffActivityState = {
+  working: 'working',
+  available: 'available',
+  off: 'off',
+} as const;
+
+export interface AppointmentStaffActivity {
+  /** @minimum 1 */
+  memberId: number;
+  employeeName: string;
+  state: AppointmentStaffActivityState;
+  /** @nullable */
+  endsAt: string | null;
+  /** @nullable */
+  serviceType: string | null;
+}
+
+export type AppointmentStaffActivityInputState = typeof AppointmentStaffActivityInputState[keyof typeof AppointmentStaffActivityInputState];
+
+
+export const AppointmentStaffActivityInputState = {
+  available: 'available',
+  off: 'off',
+} as const;
+
+export interface AppointmentStaffActivityInput {
+  state: AppointmentStaffActivityInputState;
+}
+
 export type AttendanceStatus = typeof AttendanceStatus[keyof typeof AttendanceStatus];
 
 

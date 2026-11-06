@@ -1,11 +1,13 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  getListAppointmentStaffActivityQueryKey,
   getListAppointmentsQueryKey, useCreateAppointment, useDeleteAppointment,
-  useListAppointments, useUpdateAppointment,
+  useListAppointmentStaffActivity, useListAppointments, useUpdateAppointment,
+  useUpdateAppointmentStaffActivity,
 } from '@workspace/api-client-react';
-import type { Appointment, AppointmentInput } from '@workspace/api-client-react';
-import { CalendarDays, LoaderCircle, Pencil, Phone, Plus, Trash2, UserRound } from 'lucide-react';
+import type { Appointment, AppointmentInput, AppointmentStaffActivity } from '@workspace/api-client-react';
+import { BriefcaseBusiness, CalendarDays, CheckCircle2, Clock3, Coffee, LoaderCircle, Pencil, Phone, Plus, Trash2, UserRound } from 'lucide-react';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
 import { useShell } from '@/components/app-shell';
 import { phoneCallHref } from '@/lib/phone';
@@ -36,6 +38,20 @@ function formatAppointmentDate(value: string) {
   return new Intl.DateTimeFormat('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value));
 }
 
+function formatActivityEnd(value: string | null) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function activityLabel(activity: AppointmentStaffActivity) {
+  if (activity.state === 'working') {
+    return `Đang làm${activity.serviceType ? ` · ${activity.serviceType}` : ''}${activity.endsAt ? ` · xong lúc ${formatActivityEnd(activity.endsAt)}` : ''}`;
+  }
+  return activity.state === 'off' ? 'Đang nghỉ' : 'Rảnh';
+}
+
 export default function AppointmentsPage() {
   const { permissions } = useShell();
   const canEdit = permissions.editAppointments;
@@ -47,8 +63,17 @@ export default function AppointmentsPage() {
       refetchOnWindowFocus: true,
     },
   });
+  const staffActivity = useListAppointmentStaffActivity({
+    query: {
+      queryKey: getListAppointmentStaffActivityQueryKey(),
+      refetchInterval: 30_000,
+      refetchOnMount: 'always',
+      refetchOnWindowFocus: true,
+    },
+  });
   const create = useCreateAppointment();
   const update = useUpdateAppointment();
+  const updateActivity = useUpdateAppointmentStaffActivity();
   const remove = useDeleteAppointment();
   const [editing, setEditing] = useState<Appointment | null>(null);
   const [draft, setDraft] = useState<AppointmentDraft | null>(null);
@@ -80,6 +105,20 @@ export default function AppointmentsPage() {
     setFormError('');
     setEditing(appointment);
     setDraft(fromAppointment(appointment));
+  }
+
+  function setEmployeeOff(activity: AppointmentStaffActivity) {
+    const state = activity.state === 'off' ? 'available' : 'off';
+    updateActivity.mutate({ memberId: activity.memberId, data: { state } }, {
+      onSuccess: (updated) => {
+        void cache.invalidateQueries({ queryKey: getListAppointmentStaffActivityQueryKey() });
+        setFormError('');
+        setNotice(updated.state === 'off'
+          ? `Đã đánh dấu ${updated.employeeName} nghỉ hôm nay.`
+          : `${updated.employeeName} đã trở lại trạng thái sẵn sàng.`);
+      },
+      onError: (error) => setFormError(errorText(error)),
+    });
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -152,6 +191,56 @@ export default function AppointmentsPage() {
 
       {notice && <div className="banner success" role="status" data-testid="status-appointment-notice">{notice}</div>}
       {formError && !draft && <ErrorBanner text={formError} />}
+      <section className="panel appointment-panel staff-activity-panel" aria-labelledby="staff-activity-title">
+        <div className="panel-head wrap">
+          <div>
+            <h2 id="staff-activity-title">Trạng thái nhân viên hôm nay</h2>
+            <p className="sub">Tự cập nhật theo thời lượng ca đã ghi; trạng thái làm việc được làm mới mỗi 30 giây.</p>
+          </div>
+          <span className="staff-activity-count">{staffActivity.data?.length ?? 0} nhân viên</span>
+        </div>
+        {staffActivity.isLoading ? <Skeleton rows={3} label="Đang tải trạng thái nhân viên" /> : staffActivity.isError ? (
+          <ErrorBanner text="Không tải được trạng thái nhân viên." onRetry={() => void staffActivity.refetch()} />
+        ) : !staffActivity.data?.length ? (
+          <div className="staff-activity-empty">Chưa có nhân viên đang hoạt động.</div>
+        ) : (
+          <ul className="staff-activity-list" data-testid="list-staff-activity">
+            {staffActivity.data.map((activity) => (
+              <li className={`staff-activity-row is-${activity.state}`} key={activity.memberId} data-testid={`staff-activity-${activity.memberId}`}>
+                <div className="staff-activity-person">
+                  <span className="staff-activity-icon" aria-hidden="true">
+                    {activity.state === 'working'
+                      ? <BriefcaseBusiness size={17} />
+                      : activity.state === 'off' ? <Coffee size={17} /> : <CheckCircle2 size={18} />}
+                  </span>
+                  <strong>{activity.employeeName}</strong>
+                </div>
+                <span className={`staff-activity-state is-${activity.state}`} role="status">
+                  {activity.state === 'working' && <Clock3 size={14} aria-hidden="true" />}
+                  {activity.state === 'available' && <CheckCircle2 size={14} aria-hidden="true" />}
+                  {activity.state === 'off' && <Coffee size={14} aria-hidden="true" />}
+                  {activityLabel(activity)}
+                </span>
+                {canEdit && (
+                  <button
+                    type="button"
+                    className="btn small staff-activity-toggle"
+                    disabled={updateActivity.isPending || activity.state === 'working'}
+                    onClick={() => setEmployeeOff(activity)}
+                    aria-label={activity.state === 'off' ? `Cho ${activity.employeeName} trở lại làm` : `Đánh dấu ${activity.employeeName} nghỉ`}
+                    data-testid={`button-staff-activity-${activity.memberId}`}
+                  >
+                    {updateActivity.isPending && updateActivity.variables?.memberId === activity.memberId
+                      ? <LoaderCircle size={14} className="spin" aria-hidden="true" />
+                      : null}
+                    {activity.state === 'off' ? 'Trở lại làm' : activity.state === 'working' ? 'Đang làm' : 'Đánh dấu nghỉ'}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
       <section className="panel appointment-panel" aria-labelledby="appointment-list-title">
         <div className="panel-head wrap">
           <div>

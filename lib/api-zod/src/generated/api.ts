@@ -808,6 +808,48 @@ export const CreateAppointmentResponse = zod.object({
 
 
 /**
+ * @summary Xem tình trạng làm việc của nhân viên hôm nay
+ */
+
+
+
+export const ListAppointmentStaffActivityResponseItem = zod.object({
+  "memberId": zod.number().int().min(1),
+  "employeeName": zod.string(),
+  "state": zod.enum(['working', 'available', 'off']),
+  "endsAt": zod.coerce.date().nullable(),
+  "serviceType": zod.string().nullable()
+})
+export const ListAppointmentStaffActivityResponse = zod.array(ListAppointmentStaffActivityResponseItem)
+
+
+/**
+ * @summary Đánh dấu nhân viên nghỉ hoặc trở lại làm
+ */
+
+
+
+export const UpdateAppointmentStaffActivityParams = zod.object({
+  "memberId": zod.coerce.number().int().min(1)
+})
+
+export const UpdateAppointmentStaffActivityBody = zod.object({
+  "state": zod.enum(['available', 'off'])
+})
+
+
+
+
+export const UpdateAppointmentStaffActivityResponse = zod.object({
+  "memberId": zod.number().int().min(1),
+  "employeeName": zod.string(),
+  "state": zod.enum(['working', 'available', 'off']),
+  "endsAt": zod.coerce.date().nullable(),
+  "serviceType": zod.string().nullable()
+})
+
+
+/**
  * @summary Sửa lịch hẹn
  */
 

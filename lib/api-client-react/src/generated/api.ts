@@ -24,6 +24,8 @@ import type {
   AccessGrantInput,
   Appointment,
   AppointmentInput,
+  AppointmentStaffActivity,
+  AppointmentStaffActivityInput,
   AttendanceInput,
   AttendanceRecord,
   AttendanceSummary,
@@ -2473,6 +2475,172 @@ export const useCreateAppointment = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCreateAppointmentMutationOptions(options));
+    }
+
+export const getListAppointmentStaffActivityUrl = () => {
+
+
+
+
+  return `/api/appointments/staff-activity`
+}
+
+/**
+ * @summary Xem tình trạng làm việc của nhân viên hôm nay
+ */
+export const listAppointmentStaffActivity = async ( options?: Parameters<typeof customFetch>[1]): Promise<AppointmentStaffActivity[]> => {
+
+  return customFetch<AppointmentStaffActivity[]>(getListAppointmentStaffActivityUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAppointmentStaffActivityQueryKey = () => {
+    return [
+    `/api/appointments/staff-activity`
+    ] as const;
+    }
+
+
+export const getListAppointmentStaffActivityQueryOptions = <TData = Awaited<ReturnType<typeof listAppointmentStaffActivity>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAppointmentStaffActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAppointmentStaffActivityQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAppointmentStaffActivity>>> = ({ signal }) => listAppointmentStaffActivity({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAppointmentStaffActivity>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAppointmentStaffActivityQueryResult = NonNullable<Awaited<ReturnType<typeof listAppointmentStaffActivity>>>
+export type ListAppointmentStaffActivityQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Xem tình trạng làm việc của nhân viên hôm nay
+ */
+
+export function useListAppointmentStaffActivity<TData = Awaited<ReturnType<typeof listAppointmentStaffActivity>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAppointmentStaffActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAppointmentStaffActivityQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateAppointmentStaffActivityUrl = (memberId: number,) => {
+
+
+
+
+  return `/api/appointments/staff-activity/${memberId}`
+}
+
+/**
+ * @summary Đánh dấu nhân viên nghỉ hoặc trở lại làm
+ */
+export const updateAppointmentStaffActivity = async (memberId: number,
+    appointmentStaffActivityInput: AppointmentStaffActivityInput, options?: Parameters<typeof customFetch>[1]): Promise<AppointmentStaffActivity> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AppointmentStaffActivity>(getUpdateAppointmentStaffActivityUrl(memberId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(appointmentStaffActivityInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateAppointmentStaffActivityMutationKey = () => ['updateAppointmentStaffActivity'] as const;
+
+export const getUpdateAppointmentStaffActivityMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAppointmentStaffActivity>>, TError,UpdateAppointmentStaffActivityMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAppointmentStaffActivity>>, TError,UpdateAppointmentStaffActivityMutationVariables, TContext> => {
+
+const mutationKey = getUpdateAppointmentStaffActivityMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAppointmentStaffActivity>>, UpdateAppointmentStaffActivityMutationVariables> = (props) => {
+          const {memberId,data} = props ?? {};
+
+          return  updateAppointmentStaffActivity(memberId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAppointmentStaffActivityMutationResult = NonNullable<Awaited<ReturnType<typeof updateAppointmentStaffActivity>>>
+    export type UpdateAppointmentStaffActivityMutationBody = BodyType<AppointmentStaffActivityInput>
+    export type UpdateAppointmentStaffActivityMutationError = ErrorType<void>
+    export type UpdateAppointmentStaffActivityMutationVariables = {memberId: number;data: BodyType<AppointmentStaffActivityInput>}
+
+    /**
+ * @summary Đánh dấu nhân viên nghỉ hoặc trở lại làm
+ */
+export const useUpdateAppointmentStaffActivity = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAppointmentStaffActivity>>, TError,UpdateAppointmentStaffActivityMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAppointmentStaffActivity>>,
+        TError,
+        UpdateAppointmentStaffActivityMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateAppointmentStaffActivityMutationOptions(options));
     }
 
 export const getUpdateAppointmentUrl = (id: number,) => {

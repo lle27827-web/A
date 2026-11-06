@@ -1221,6 +1221,23 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .appointment-form .field textarea { min-height: 68px; }
 .appointment-form .hint { margin-left: 4px; font-weight: 500; }
 .appointment-form .dialog-actions { margin-top: 3px; }
+.staff-activity-panel .panel-head { align-items: center; }
+.staff-activity-count { color: hsl(var(--muted-foreground)); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.staff-activity-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.staff-activity-row { display: grid; grid-template-columns: minmax(150px, .8fr) minmax(210px, 1fr) auto; align-items: center; gap: 12px; min-width: 0; padding: 11px 8px; border-top: 1px solid hsl(var(--border) / .7); }
+.staff-activity-person { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.staff-activity-person strong { overflow-wrap: anywhere; font-size: 14px; }
+.staff-activity-icon { display: grid; place-items: center; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; color: hsl(var(--muted-foreground)); background: hsl(var(--muted) / .7); }
+.staff-activity-row.is-working .staff-activity-icon { color: hsl(32 85% 35%); background: hsl(38 92% 50% / .16); }
+.staff-activity-row.is-available .staff-activity-icon { color: hsl(var(--ok)); background: hsl(var(--ok) / .13); }
+.staff-activity-row.is-off .staff-activity-icon { color: hsl(var(--muted-foreground)); }
+.staff-activity-state { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: hsl(var(--muted-foreground)); font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+.staff-activity-state.is-working { color: hsl(32 85% 35%); }
+.staff-activity-state.is-available { color: hsl(var(--ok)); }
+.staff-activity-state.is-off { color: hsl(var(--muted-foreground)); }
+.staff-activity-toggle { min-width: 106px; }
+.staff-activity-toggle:disabled { opacity: .65; cursor: not-allowed; }
+.staff-activity-empty { padding: 14px 4px 3px; color: hsl(var(--muted-foreground)); font-size: 13px; }
 
 @media (max-width: 700px) {
   .appointments-heading { align-items: flex-start; }
@@ -1230,6 +1247,10 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   .appointment-customer { grid-column: 1; grid-row: 2; }
   .appointment-detail-lines { grid-column: 1 / -1; grid-row: 3; padding-left: 22px; }
   .appointment-actions { grid-column: 2; grid-row: 1 / span 2; }
+  .staff-activity-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; padding: 12px 4px; }
+  .staff-activity-person { grid-column: 1; grid-row: 1; }
+  .staff-activity-state { grid-column: 1; grid-row: 2; padding-left: 39px; font-size: 12px; }
+  .staff-activity-toggle { grid-column: 2; grid-row: 1 / span 2; min-width: 94px; }
 }
 @media (max-width: 420px) {
   .appointments-heading { flex-direction: column; align-items: stretch; }

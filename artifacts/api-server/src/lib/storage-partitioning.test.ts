@@ -36,6 +36,7 @@ test("partition domains assign each application table to the requested store gro
   assert.equal(getPartitionDataDomain("personal_sessions"), "personal");
   assert.equal(getPartitionDataDomain("members"), "shared");
   assert.equal(getPartitionDataDomain("appointments"), "shared");
+  assert.equal(getPartitionDataDomain("employee_availability"), "shared");
   assert.equal(getPartitionDataDomain("unlisted_table"), undefined);
   for (const table of [
     "members",
@@ -51,6 +52,7 @@ test("partition domains assign each application table to the requested store gro
     "personal_sessions",
     "personal_settings",
     "appointments",
+    "employee_availability",
     "tasks",
   ]) {
     assert.ok(getPartitionDataDomain(table), `Missing data-domain assignment for ${table}`);
@@ -59,6 +61,7 @@ test("partition domains assign each application table to the requested store gro
 
 test("partition actions declare all data groups they can update", () => {
   assert.deepEqual(getPartitionActionEntityTypes("attendance.create"), ["attendance"]);
+  assert.deepEqual(getPartitionActionEntityTypes("employee-availability.update"), ["employee_availability"]);
   assert.deepEqual(getPartitionActionEntityTypes("card.topup"), ["treatment_cards", "card_top_ups"]);
   assert.deepEqual(getPartitionActionEntityTypes("service-session.save"), [
     "service_sessions", "treatment_cards", "appointments",
@@ -70,6 +73,7 @@ test("partition actions declare all data groups they can update", () => {
   for (const action of [
     "attendance.create", "attendance.update", "attendance.delete",
     "appointment.create", "appointment.update", "appointment.delete",
+    "employee-availability.update",
     "access-grant.create", "access-grant.update", "access-grant.delete",
     "card.create", "card.update", "card.merge", "card.delete", "card.topup",
     "member.create", "member.update", "member.delete",

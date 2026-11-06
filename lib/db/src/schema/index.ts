@@ -30,4 +30,5 @@ export * from "./manager-grants";
 export * from "./api-write-operations";
 export * from "./personal-notebook";
 export * from "./appointments";
+export * from "./employee-availability";
 export * from "./storage-partitioning";
