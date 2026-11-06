@@ -2736,6 +2736,37 @@ body:has(.modal-backdrop) .screen-nav {
   .attendance-app .dialog-actions .btn { flex: 0 0 auto; }
 }
 
+/* Wide laptop and landscape layouts use the same revenue-left, shortcuts-right home arrangement. */
+@media (min-width: 900px) and (max-width: 1099px) {
+  .home {
+    max-width: 980px;
+    grid-template-columns: minmax(0, 1.15fr) minmax(250px, .85fr);
+    align-items: start;
+    gap: 18px;
+    margin-inline: auto;
+  }
+  .home > .revenue {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+  }
+  .home > .tiles {
+    grid-column: 2;
+    grid-row: 1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    gap: 10px;
+    padding: 12px;
+    border: 2px solid hsl(var(--frame-border));
+    border-radius: 18px;
+    background: hsl(var(--card));
+  }
+  .home .revenue-summary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+}
+
 @media (min-width: 1100px) and (max-width: 1350px) {
   .app:not(.attendance-app) { grid-template-columns: 218px minmax(0, 1fr); }
   .app:not(.attendance-app) > .main { padding-inline: 26px; }

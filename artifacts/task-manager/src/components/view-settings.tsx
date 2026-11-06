@@ -48,7 +48,7 @@ export function useViewPrefs() {
   return [prefs, update] as const;
 }
 
-export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOwner, permissions, canManageGrants, printPreferences, onPrintPreferencesChange }: {
+export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOwner, permissions, canManageGrants, homeHref, printPreferences, onPrintPreferencesChange }: {
   prefs: ViewPrefs;
   members: MemberRecord[];
   open: boolean;
@@ -57,6 +57,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   isOwner: boolean;
   permissions: FacilityPermissions;
   canManageGrants: boolean;
+  homeHref: string;
   printPreferences?: PrintPreferences;
   onPrintPreferencesChange?: (next: PrintPreferences) => void;
 }) {
@@ -277,7 +278,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
           )}
 
           <nav className="window-nav bottom" aria-label="Điều hướng cửa sổ">
-            <Link href="/" onClick={() => onOpenChange(false)} className="btn ghost nav-home-action" data-testid="link-settings-home"><Home size={14} aria-hidden="true" />Trang chính</Link>
+            <Link href={homeHref} onClick={() => onOpenChange(false)} className="btn ghost nav-home-action" data-testid="link-settings-home"><Home size={14} aria-hidden="true" />Trang chính</Link>
             <button type="button" className="btn ghost nav-return-action" onClick={() => onOpenChange(false)} data-testid="button-settings-back"><ArrowLeft size={14} aria-hidden="true" />Trở về</button>
           </nav>
           </>

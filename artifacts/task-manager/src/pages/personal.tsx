@@ -19,9 +19,10 @@ import { formatShortDate, formatShortDayMonth } from '@/lib/attendance';
 import { errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth } from '@/lib/massage';
 import { resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
 
-function PersonalFrame({ children, onSignOut, onTouchStart, onTouchEnd, onTouchCancel }: {
+function PersonalFrame({ children, onSignOut, homeHref, onTouchStart, onTouchEnd, onTouchCancel }: {
   children: ReactNode;
   onSignOut?: () => void;
+  homeHref: string | null;
   onTouchStart?: (event: ReactTouchEvent<HTMLElement>) => void;
   onTouchEnd?: (event: ReactTouchEvent<HTMLElement>) => void;
   onTouchCancel?: () => void;
@@ -40,7 +41,7 @@ function PersonalFrame({ children, onSignOut, onTouchStart, onTouchEnd, onTouchC
       <a className="skip-link" href="#main" data-testid="link-personal-skip-main">Bỏ qua đến nội dung chính</a>
       <header className="p-top">
         <div className="p-top-inner">
-          <Link href="/" className="brand" data-testid="link-personal-brand"><span className="brand-mark p-mark"><BookHeart size={15} strokeWidth={2.4} aria-hidden="true" /></span><span>SỔ CỦA TÔI</span></Link>
+          <Link href="/personal" className="brand" data-testid="link-personal-brand"><span className="brand-mark p-mark"><BookHeart size={15} strokeWidth={2.4} aria-hidden="true" /></span><span>SỔ CỦA TÔI</span></Link>
           <span className="p-pill" data-testid="status-personal">Riêng tư · chỉ bạn thấy</span>
           {onSignOut && <button type="button" className="link-soft as-button p-logout" onClick={onSignOut} data-testid="button-personal-sign-out">Đăng xuất</button>}
         </div>
@@ -48,7 +49,7 @@ function PersonalFrame({ children, onSignOut, onTouchStart, onTouchEnd, onTouchC
       <main className="p-main" id="main" tabIndex={-1} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} onTouchCancel={onTouchCancel}>
         {children}
         <nav className="screen-nav" aria-label="Điều hướng trang">
-          <Link href="/" className="btn ghost nav-home-action" data-testid="link-personal-home"><Home size={15} aria-hidden="true" />Về sổ cơ sở</Link>
+          {homeHref && <Link href={homeHref} className="btn ghost nav-home-action" data-testid="link-personal-home"><Home size={15} aria-hidden="true" />Về sổ cơ sở</Link>}
           <button type="button" className="btn ghost nav-return-action" onClick={() => window.history.back()} data-testid="button-personal-back"><ArrowLeft size={15} aria-hidden="true" />Trở về</button>
         </nav>
       </main>
@@ -58,7 +59,7 @@ function PersonalFrame({ children, onSignOut, onTouchStart, onTouchEnd, onTouchC
 
 export function PersonalSignInRequired({ authConfigured }: { authConfigured: boolean }) {
   return (
-    <PersonalFrame>
+    <PersonalFrame homeHref={null}>
       <section className="p-welcome" data-testid="section-personal-sign-in">
         <BookHeart size={30} aria-hidden="true" />
         <h1>Sổ chấm công của riêng bạn</h1>
@@ -79,7 +80,7 @@ function shiftDay(date: string, delta: number) {
   return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
 }
 
-export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) {
+export default function PersonalPage({ onSignOut, homeHref = '/' }: { onSignOut?: () => void; homeHref?: string | null }) {
   const [, navigate] = useLocation();
   const search = useSearch();
   const today = useMemo(() => vietnamToday(), []);
@@ -232,7 +233,7 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
   });
 
   return (
-    <PersonalFrame onSignOut={onSignOut} onTouchStart={startDaySwipe} onTouchEnd={finishDaySwipe} onTouchCancel={() => { swipeStart.current = null; }}>
+    <PersonalFrame onSignOut={onSignOut} homeHref={homeHref} onTouchStart={startDaySwipe} onTouchEnd={finishDaySwipe} onTouchCancel={() => { swipeStart.current = null; }}>
       <section className="p-hero" aria-labelledby="p-title" data-testid="section-personal-hero">
         <div className="month-nav">
           <button type="button" className="icon-btn" onClick={() => goPeriod(shiftMonth(month, -1))} aria-label="Tháng trước" data-testid="button-personal-prev-month"><ChevronLeft size={16} /></button>

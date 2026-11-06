@@ -102,6 +102,7 @@ export function AppShell({
   const historyMonth = resolved.month < resolved.currentMonth ? resolved.month : null;
   const selectedHistoryDate = historyMonth ? resolved.date : null;
   const withHistory = (path: string) => periodHref(path, historyMonth, selectedHistoryDate);
+  const homeHref = isOwner ? withHistory('/') : withHistory('/attendance');
   const memberParams = useMemo(() => (historyMonth ? { month: historyMonth } : undefined), [historyMonth]);
   const canViewEmployees = permissions.allEmployees || permissions.employeeIds.length > 0;
   const membersQuery = useListMembers(memberParams, { query: { queryKey: getListMembersQueryKey(memberParams), enabled: canViewEmployees, ...SESSION_FRESHNESS } });
@@ -150,7 +151,7 @@ export function AppShell({
     if (routeHistory.current.length > 1) {
       routeHistory.current.pop();
       navigate(routeHistory.current[routeHistory.current.length - 1], { replace: true });
-    } else navigate(withHistory('/'), { replace: true });
+    } else navigate(homeHref, { replace: true });
   }
   function applyView(next: ViewPrefs) {
     setNotice('');
@@ -200,7 +201,7 @@ export function AppShell({
         <a className="skip-link" href="#main" data-testid="link-skip-main">Bỏ qua đến nội dung chính</a>
         <header className="topbar">
           <div className="topbar-inner">
-            <Link href={withHistory('/')} onClick={() => setQuery('')} className="brand" data-testid="link-home">
+            <Link href={homeHref} onClick={() => setQuery('')} className="brand" data-testid="link-home">
               <span className="brand-mark"><Hand size={15} strokeWidth={2.4} aria-hidden="true" /></span><span>SỔ CÔNG</span>
             </Link>
             <form role="search" className="search" onSubmit={(event) => event.preventDefault()}>
@@ -221,6 +222,7 @@ export function AppShell({
                 open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView}
                 isOwner={isOwner} permissions={permissions}
                 canManageGrants={isOwner || hasFacilityAccess(permissions)}
+                homeHref={homeHref}
                 printPreferences={printPreferences}
                 onPrintPreferencesChange={updatePrintPreferences} />
             </div>
@@ -228,7 +230,7 @@ export function AppShell({
         </header>
         <aside className="desktop-rail" aria-label="Điều hướng chính">
           <nav className="desktop-rail-nav">
-            <Link href={withHistory('/')} onClick={() => setQuery('')} className="desktop-nav-link" aria-current={location === '/' || location === '/attendance' ? 'page' : undefined} data-testid="desktop-link-home">
+            <Link href={homeHref} onClick={() => setQuery('')} className="desktop-nav-link" aria-current={location === '/' || location === '/attendance' ? 'page' : undefined} data-testid="desktop-link-home">
               <Home size={17} aria-hidden="true" /><span>Trang chính</span>
             </Link>
             {canViewEmployees && <Link href={withHistory('/employees')} className="desktop-nav-link" aria-current={employeeRoute ? 'page' : undefined} data-testid="desktop-link-employees">
@@ -276,7 +278,7 @@ export function AppShell({
           {employeeMode ? employeeView : children}
           {(showResults || (location !== '/' && location !== '/attendance')) && (
             <nav className="screen-nav" aria-label="Điều hướng trang">
-              <Link href={withHistory('/')} onClick={() => setQuery('')} className="btn ghost nav-home-action" data-testid="link-return-home">
+              <Link href={homeHref} onClick={() => setQuery('')} className="btn ghost nav-home-action" data-testid="link-return-home">
                 <Home size={15} aria-hidden="true" />Trang chính
               </Link>
               <button type="button" className="btn ghost nav-return-action" onClick={goBack} data-testid="button-return-previous">

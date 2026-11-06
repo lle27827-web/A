@@ -56,7 +56,7 @@ function ServiceBreakdownList({ items, label, testId }: {
 }
 
 export default function HomePage() {
-  const { query, withHistory, permissions, canViewEmployees, canEditServices, period } = useShell();
+  const { query, withHistory, permissions, canViewEmployees, canEditServices, period, isOwner } = useShell();
   const today = period.today;
   const search = useSearch();
   const [, navigate] = useLocation();
@@ -64,13 +64,14 @@ export default function HomePage() {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const { month, date, currentMonth } = resolveRevenuePeriod(search, today);
+  const homePath = isOwner ? '/' : '/attendance';
   const dayLabel = date === today ? 'hôm nay' : `ngày ${formatShortDate(date)}`;
   const summaryParams = useMemo(() => ({ month, date }), [month, date]);
   const summary = useGetMassageSummary(summaryParams, { query: { queryKey: getGetMassageSummaryQueryKey(summaryParams), enabled: permissions.viewRevenue, refetchOnWindowFocus: true, staleTime: 20_000, refetchInterval: 60_000 } });
   const navigateToRevenueDate = (nextDate: string) => {
     setDatePickerOpen(false);
     setMonthPickerOpen(false);
-    navigate(nextDate === today ? '/' : `/?month=${nextDate.slice(0, 7)}&date=${nextDate}`);
+    navigate(nextDate === today ? homePath : `${homePath}?month=${nextDate.slice(0, 7)}&date=${nextDate}`);
   };
 
   // While searching, the shared SearchResults (mounted in AppShell) replaces the home tiles and report.

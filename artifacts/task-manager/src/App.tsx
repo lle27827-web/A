@@ -127,8 +127,10 @@ function SignedInApplication({
       <Switch>
         <Route path="/sign-in/*?"><Redirect to={signedInDestination} replace /></Route>
         <Route path="/sign-up/*?"><Redirect to={signedInDestination} replace /></Route>
+        {/* Non-owner accounts open their private notebook first; granted facility pages remain available by their own routes. */}
+        {!isOwner && <Route path="/"><Redirect to="/personal" replace /></Route>}
         {/* Personal notebook: every signed-in account, independent of facility permissions. */}
-        <Route path="/personal"><PersonalPage onSignOut={onSignOut} /></Route>
+        <Route path="/personal"><PersonalPage onSignOut={onSignOut} homeHref={isOwner ? '/' : facility ? '/attendance' : null} /></Route>
         <Route>
           {facility ? (
             <AppShell
