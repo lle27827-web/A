@@ -1055,12 +1055,13 @@ components:
             id: { type: integer }
     Appointment:
       type: object
-      required: [id, customerName, phone, scheduledAt, status, request, note, createdAt, updatedAt]
+      required: [id, customerName, phone, scheduledAt, memberId, status, request, note, createdAt, updatedAt]
       properties:
         id: { type: integer, minimum: 1 }
-        customerName: { type: string, minLength: 1, maxLength: 160 }
-        phone: { type: string, minLength: 1, maxLength: 40 }
+        customerName: { type: string, maxLength: 160 }
+        phone: { type: string, maxLength: 40 }
         scheduledAt: { type: string, format: date-time }
+        memberId: { type: ["integer", "null"], minimum: 1 }
         status: { $ref: "#/components/schemas/AppointmentStatus" }
         request: { type: string, maxLength: 2000 }
         note: { type: string, maxLength: 2000 }
@@ -1071,22 +1072,24 @@ components:
       enum: [scheduled, completed]
     AppointmentInput:
       type: object
-      required: [customerName, phone, scheduledAt]
+      required: [scheduledAt]
       properties:
-        customerName: { type: string, minLength: 1, maxLength: 160 }
-        phone: { type: string, minLength: 1, maxLength: 40 }
+        customerName: { type: string, maxLength: 160 }
+        phone: { type: string, maxLength: 40 }
         scheduledAt: { type: string, format: date-time }
+        memberId: { type: ["integer", "null"], minimum: 1 }
         request: { type: string, maxLength: 2000 }
         note: { type: string, maxLength: 2000 }
     AppointmentStaffActivity:
       type: object
-      required: [memberId, employeeName, state, endsAt, serviceType]
+      required: [memberId, employeeName, state, endsAt, serviceType, nextAppointmentAt]
       properties:
         memberId: { type: integer, minimum: 1 }
         employeeName: { type: string }
         state: { type: string, enum: [working, available, off] }
         endsAt: { type: ["string", "null"], format: date-time }
         serviceType: { type: ["string", "null"] }
+        nextAppointmentAt: { type: ["string", "null"], format: date-time }
     AppointmentStaffActivityInput:
       type: object
       required: [state]

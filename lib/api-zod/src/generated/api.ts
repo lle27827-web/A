@@ -835,6 +835,7 @@ export const listAppointmentsResponseCustomerNameMax = 160;
 
 export const listAppointmentsResponsePhoneMax = 40;
 
+
 export const listAppointmentsResponseRequestMax = 2000;
 
 export const listAppointmentsResponseNoteMax = 2000;
@@ -843,9 +844,10 @@ export const listAppointmentsResponseNoteMax = 2000;
 
 export const ListAppointmentsResponseItem = zod.object({
   "id": zod.number().int().min(1),
-  "customerName": zod.string().min(1).max(listAppointmentsResponseCustomerNameMax),
-  "phone": zod.string().min(1).max(listAppointmentsResponsePhoneMax),
+  "customerName": zod.string().max(listAppointmentsResponseCustomerNameMax),
+  "phone": zod.string().max(listAppointmentsResponsePhoneMax),
   "scheduledAt": zod.coerce.date(),
+  "memberId": zod.number().int().min(1).nullable(),
   "status": zod.enum(['scheduled', 'completed']),
   "request": zod.string().max(listAppointmentsResponseRequestMax),
   "note": zod.string().max(listAppointmentsResponseNoteMax),
@@ -862,6 +864,7 @@ export const createAppointmentBodyCustomerNameMax = 160;
 
 export const createAppointmentBodyPhoneMax = 40;
 
+
 export const createAppointmentBodyRequestMax = 2000;
 
 export const createAppointmentBodyNoteMax = 2000;
@@ -869,9 +872,10 @@ export const createAppointmentBodyNoteMax = 2000;
 
 
 export const CreateAppointmentBody = zod.object({
-  "customerName": zod.string().min(1).max(createAppointmentBodyCustomerNameMax),
-  "phone": zod.string().min(1).max(createAppointmentBodyPhoneMax),
+  "customerName": zod.string().max(createAppointmentBodyCustomerNameMax).optional(),
+  "phone": zod.string().max(createAppointmentBodyPhoneMax).optional(),
   "scheduledAt": zod.coerce.date(),
+  "memberId": zod.number().int().min(1).nullish(),
   "request": zod.string().max(createAppointmentBodyRequestMax).optional(),
   "note": zod.string().max(createAppointmentBodyNoteMax).optional()
 })
@@ -881,6 +885,7 @@ export const createAppointmentResponseCustomerNameMax = 160;
 
 export const createAppointmentResponsePhoneMax = 40;
 
+
 export const createAppointmentResponseRequestMax = 2000;
 
 export const createAppointmentResponseNoteMax = 2000;
@@ -889,9 +894,10 @@ export const createAppointmentResponseNoteMax = 2000;
 
 export const CreateAppointmentResponse = zod.object({
   "id": zod.number().int().min(1),
-  "customerName": zod.string().min(1).max(createAppointmentResponseCustomerNameMax),
-  "phone": zod.string().min(1).max(createAppointmentResponsePhoneMax),
+  "customerName": zod.string().max(createAppointmentResponseCustomerNameMax),
+  "phone": zod.string().max(createAppointmentResponsePhoneMax),
   "scheduledAt": zod.coerce.date(),
+  "memberId": zod.number().int().min(1).nullable(),
   "status": zod.enum(['scheduled', 'completed']),
   "request": zod.string().max(createAppointmentResponseRequestMax),
   "note": zod.string().max(createAppointmentResponseNoteMax),
@@ -911,7 +917,8 @@ export const ListAppointmentStaffActivityResponseItem = zod.object({
   "employeeName": zod.string(),
   "state": zod.enum(['working', 'available', 'off']),
   "endsAt": zod.coerce.date().nullable(),
-  "serviceType": zod.string().nullable()
+  "serviceType": zod.string().nullable(),
+  "nextAppointmentAt": zod.coerce.date().nullable()
 })
 export const ListAppointmentStaffActivityResponse = zod.array(ListAppointmentStaffActivityResponseItem)
 
@@ -938,7 +945,8 @@ export const UpdateAppointmentStaffActivityResponse = zod.object({
   "employeeName": zod.string(),
   "state": zod.enum(['working', 'available', 'off']),
   "endsAt": zod.coerce.date().nullable(),
-  "serviceType": zod.string().nullable()
+  "serviceType": zod.string().nullable(),
+  "nextAppointmentAt": zod.coerce.date().nullable()
 })
 
 
@@ -956,6 +964,7 @@ export const updateAppointmentBodyCustomerNameMax = 160;
 
 export const updateAppointmentBodyPhoneMax = 40;
 
+
 export const updateAppointmentBodyRequestMax = 2000;
 
 export const updateAppointmentBodyNoteMax = 2000;
@@ -963,9 +972,10 @@ export const updateAppointmentBodyNoteMax = 2000;
 
 
 export const UpdateAppointmentBody = zod.object({
-  "customerName": zod.string().min(1).max(updateAppointmentBodyCustomerNameMax),
-  "phone": zod.string().min(1).max(updateAppointmentBodyPhoneMax),
+  "customerName": zod.string().max(updateAppointmentBodyCustomerNameMax).optional(),
+  "phone": zod.string().max(updateAppointmentBodyPhoneMax).optional(),
   "scheduledAt": zod.coerce.date(),
+  "memberId": zod.number().int().min(1).nullish(),
   "request": zod.string().max(updateAppointmentBodyRequestMax).optional(),
   "note": zod.string().max(updateAppointmentBodyNoteMax).optional()
 })
@@ -975,6 +985,7 @@ export const updateAppointmentResponseCustomerNameMax = 160;
 
 export const updateAppointmentResponsePhoneMax = 40;
 
+
 export const updateAppointmentResponseRequestMax = 2000;
 
 export const updateAppointmentResponseNoteMax = 2000;
@@ -983,9 +994,10 @@ export const updateAppointmentResponseNoteMax = 2000;
 
 export const UpdateAppointmentResponse = zod.object({
   "id": zod.number().int().min(1),
-  "customerName": zod.string().min(1).max(updateAppointmentResponseCustomerNameMax),
-  "phone": zod.string().min(1).max(updateAppointmentResponsePhoneMax),
+  "customerName": zod.string().max(updateAppointmentResponseCustomerNameMax),
+  "phone": zod.string().max(updateAppointmentResponsePhoneMax),
   "scheduledAt": zod.coerce.date(),
+  "memberId": zod.number().int().min(1).nullable(),
   "status": zod.enum(['scheduled', 'completed']),
   "request": zod.string().max(updateAppointmentResponseRequestMax),
   "note": zod.string().max(updateAppointmentResponseNoteMax),

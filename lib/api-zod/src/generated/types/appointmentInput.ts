@@ -7,17 +7,16 @@
  */
 
 export interface AppointmentInput {
-  /**
-     * @minLength 1
-     * @maxLength 160
-     */
-  customerName: string;
-  /**
-     * @minLength 1
-     * @maxLength 40
-     */
-  phone: string;
+  /** @maxLength 160 */
+  customerName?: string;
+  /** @maxLength 40 */
+  phone?: string;
   scheduledAt: Date;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  memberId?: number | null;
   /** @maxLength 2000 */
   request?: string;
   /** @maxLength 2000 */

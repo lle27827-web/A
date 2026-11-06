@@ -178,13 +178,13 @@ export function sameAppointmentCustomer(
   appointment: Pick<typeof appointmentsTable.$inferSelect, "customerName" | "phone">,
   card: Pick<typeof treatmentCardsTable.$inferSelect, "customerName" | "phone">,
 ) {
+  const appointmentName = identityText(appointment.customerName);
+  const cardName = identityText(card.customerName);
   const appointmentPhone = validIdentityPhone(appointment.phone);
   const cardPhone = validIdentityPhone(card.phone);
-  if (appointmentPhone && cardPhone) return appointmentPhone === cardPhone;
-  if (!appointmentPhone && !cardPhone) {
-    return identityText(appointment.customerName) === identityText(card.customerName);
-  }
-  return false;
+  const nameMatches = Boolean(appointmentName && cardName && appointmentName === cardName);
+  const phoneMatches = Boolean(appointmentPhone && cardPhone && appointmentPhone === cardPhone);
+  return nameMatches || phoneMatches;
 }
 
 export function escapeLikePattern(value: string): string {

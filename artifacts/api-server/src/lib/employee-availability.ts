@@ -7,12 +7,18 @@ export type ActivitySession = {
   createdAt: Date | string;
 };
 export type ManualAvailability = { memberId: number; statusDate: string; state: "off" };
+export type ActivityAppointment = {
+  memberId: number | null;
+  scheduledAt: Date | string;
+  status: string;
+};
 export type StaffActivity = {
   memberId: number;
   employeeName: string;
   state: "working" | "available" | "off";
   endsAt: string | null;
   serviceType: string | null;
+  nextAppointmentAt: string | null;
 };
 
 export function hoChiMinhDate(now = new Date()): string {
@@ -31,14 +37,31 @@ export function deriveStaffActivity(
   sessions: readonly ActivitySession[],
   manualStatuses: readonly ManualAvailability[],
   now = new Date(),
+  appointments: readonly ActivityAppointment[] = [],
 ): StaffActivity[] {
   const today = hoChiMinhDate(now);
   const statuses = new Map(manualStatuses.filter((row) => row.statusDate === today).map((row) => [row.memberId, row.state]));
   const activeSessions = new Map<number, { endsAt: number; serviceType: string }>();
+  const nextAppointments = new Map<number, number>();
+  const dailySessionCounts = new Map<string, Map<number, number>>();
+  const todayCounts = new Map<number, number>();
+  const lastWorkedDate = new Map<number, string>();
   const nowMs = now.getTime();
 
   for (const session of sessions) {
-    if (!session.memberId || session.workDate !== today || !Number.isFinite(session.minutes) || session.minutes <= 0) continue;
+    if (!session.memberId || !Number.isFinite(session.minutes) || session.minutes <= 0) continue;
+    if (session.workDate < today) {
+      let counts = dailySessionCounts.get(session.workDate);
+      if (!counts) dailySessionCounts.set(session.workDate, counts = new Map());
+      counts.set(session.memberId, (counts.get(session.memberId) ?? 0) + 1);
+      const previousLastWork = lastWorkedDate.get(session.memberId);
+      if (!previousLastWork || session.workDate > previousLastWork) {
+        lastWorkedDate.set(session.memberId, session.workDate);
+      }
+      continue;
+    }
+    if (session.workDate !== today) continue;
+    todayCounts.set(session.memberId, (todayCounts.get(session.memberId) ?? 0) + 1);
     const startsAt = new Date(session.createdAt).getTime();
     const endsAt = startsAt + session.minutes * 60_000;
     if (!Number.isFinite(startsAt) || startsAt > nowMs || endsAt <= nowMs) continue;
@@ -46,17 +69,44 @@ export function deriveStaffActivity(
     if (!previous || endsAt > previous.endsAt) activeSessions.set(session.memberId, { endsAt, serviceType: session.serviceType });
   }
 
+  for (const appointment of appointments) {
+    if (appointment.memberId === null || appointment.status !== "scheduled") continue;
+    const scheduledAt = new Date(appointment.scheduledAt).getTime();
+    if (!Number.isFinite(scheduledAt) || scheduledAt < nowMs) continue;
+    const previous = nextAppointments.get(appointment.memberId);
+    if (previous === undefined || scheduledAt < previous) nextAppointments.set(appointment.memberId, scheduledAt);
+  }
+
+  const historyDates = [...dailySessionCounts.keys()].sort((a, b) => b.localeCompare(a));
   return [...members]
-    .sort((a, b) => a.name.localeCompare(b.name, "vi"))
     .map((member) => {
       const current = activeSessions.get(member.id);
       const off = statuses.get(member.id) === "off";
+      const state: StaffActivity["state"] = current ? "working" : off ? "off" : "available";
       return {
         memberId: member.id,
         employeeName: member.name,
-        state: current ? "working" : off ? "off" : "available",
+        state,
         endsAt: current ? new Date(current.endsAt).toISOString() : null,
         serviceType: current?.serviceType ?? null,
+        nextAppointmentAt: nextAppointments.has(member.id)
+          ? new Date(nextAppointments.get(member.id)!).toISOString()
+          : null,
       };
+    })
+    .sort((a, b) => {
+      if (a.state === "working" && b.state !== "working") return 1;
+      if (b.state === "working" && a.state !== "working") return -1;
+      for (const date of historyDates) {
+        const difference = (dailySessionCounts.get(date)?.get(a.memberId) ?? 0) -
+          (dailySessionCounts.get(date)?.get(b.memberId) ?? 0);
+        if (difference !== 0) return difference;
+      }
+      const todayDifference = (todayCounts.get(a.memberId) ?? 0) - (todayCounts.get(b.memberId) ?? 0);
+      if (todayDifference !== 0) return todayDifference;
+      const aLastWork = lastWorkedDate.get(a.memberId) ?? "";
+      const bLastWork = lastWorkedDate.get(b.memberId) ?? "";
+      if (aLastWork !== bLastWork) return aLastWork.localeCompare(bLastWork);
+      return a.employeeName.localeCompare(b.employeeName, "vi");
     });
 }

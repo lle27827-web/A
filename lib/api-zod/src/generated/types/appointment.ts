@@ -10,17 +10,16 @@ import type { AppointmentStatus } from './appointmentStatus';
 export interface Appointment {
   /** @minimum 1 */
   id: number;
-  /**
-     * @minLength 1
-     * @maxLength 160
-     */
+  /** @maxLength 160 */
   customerName: string;
-  /**
-     * @minLength 1
-     * @maxLength 40
-     */
+  /** @maxLength 40 */
   phone: string;
   scheduledAt: Date;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  memberId: number | null;
   status: AppointmentStatus;
   /** @maxLength 2000 */
   request: string;

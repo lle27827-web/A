@@ -14,12 +14,13 @@ test("staff activity derives work end time, idle, and daily leave in Ho Chi Minh
     ],
     [{ memberId: 3, statusDate: today, state: "off" }],
     now,
+    [{ memberId: 2, scheduledAt: "2026-11-07T07:30:00.000Z", status: "scheduled" }],
   );
 
   assert.deepEqual(result, [
-    { memberId: 3, employeeName: "An", state: "off", endsAt: null, serviceType: null },
-    { memberId: 1, employeeName: "Lan", state: "working", endsAt: "2026-11-07T05:00:00.000Z", serviceType: "Mát xa" },
-    { memberId: 2, employeeName: "Mai", state: "available", endsAt: null, serviceType: null },
+    { memberId: 2, employeeName: "Mai", state: "available", endsAt: null, serviceType: null, nextAppointmentAt: "2026-11-07T07:30:00.000Z" },
+    { memberId: 3, employeeName: "An", state: "off", endsAt: null, serviceType: null, nextAppointmentAt: null },
+    { memberId: 1, employeeName: "Lan", state: "working", endsAt: "2026-11-07T05:00:00.000Z", serviceType: "Mát xa", nextAppointmentAt: null },
   ]);
 });
 
@@ -34,4 +35,19 @@ test("a completed session stops marking an employee as busy", () => {
   );
   assert.equal(result.state, "available");
   assert.equal(result.endsAt, null);
+});
+
+test("staff roster sorts by yesterday's shift count then compares earlier days", () => {
+  const result = deriveStaffActivity(
+    [{ id: 1, name: "An" }, { id: 2, name: "Bình" }, { id: 3, name: "Chi" }],
+    [
+      { memberId: 3, serviceType: "A", minutes: 30, workDate: "2026-11-06", createdAt: "2026-11-06T03:00:00Z" },
+      { memberId: 1, serviceType: "A", minutes: 30, workDate: "2026-11-05", createdAt: "2026-11-05T03:00:00Z" },
+      { memberId: 1, serviceType: "A", minutes: 30, workDate: "2026-11-05", createdAt: "2026-11-05T04:00:00Z" },
+      { memberId: 2, serviceType: "A", minutes: 30, workDate: "2026-11-05", createdAt: "2026-11-05T03:00:00Z" },
+    ],
+    [],
+    new Date("2026-11-07T04:30:00.000Z"),
+  );
+  assert.deepEqual(result.map((row) => row.memberId), [2, 1, 3]);
 });

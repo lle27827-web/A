@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Response } from "express";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, gte } from "drizzle-orm";
 import {
   db,
   appointmentsTable,
@@ -26,6 +26,7 @@ import {
 import { idempotentTransaction, MassageError } from "../lib/massage";
 import { listMembersForPeriod } from "../lib/employee-history";
 import { deriveStaffActivity, hoChiMinhDate } from "../lib/employee-availability";
+import { retentionCutoffDate } from "../lib/retention-window";
 import { massageHandler, parseInput } from "./massage-errors";
 import { commitPartitionedMutations, operationIdFromRequest, upsertMutation, deleteMutation } from "../lib/partitioned-mutations";
 import type { OwnerAuthStatus } from "../lib/owner-auth";
@@ -36,7 +37,7 @@ const router: IRouter = Router();
 function output(row: typeof appointmentsTable.$inferSelect, isOwner: boolean) {
   return {
     ...row,
-    phone: isOwner ? row.phone : maskCustomerPhone(row.phone),
+    phone: row.phone ? isOwner ? row.phone : maskCustomerPhone(row.phone) : "",
     scheduledAt: row.scheduledAt.toISOString(),
     request: row.request ?? "",
     note: row.note ?? "",
@@ -49,14 +50,32 @@ function isOwnerView(res: Response): boolean {
   return (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.isOwner === true;
 }
 
-function normalizedInput(input: AppointmentInput) {
-  const customerName = input.customerName.trim();
-  const phone = input.phone.trim();
-  if (!customerName) throw new MassageError(400, "Cần nhập tên khách hàng.");
-  if (!phone) throw new MassageError(400, "Cần nhập số điện thoại.");
+function normalizedInput(
+  input: AppointmentInput,
+  previous?: typeof appointmentsTable.$inferSelect,
+) {
+  const customerName = input.customerName?.trim() ?? previous?.customerName ?? "";
+  const phone = input.phone?.trim() ?? previous?.phone ?? "";
   const scheduledAt = new Date(input.scheduledAt);
   if (!Number.isFinite(scheduledAt.getTime())) throw new MassageError(400, "Ngày giờ hẹn không hợp lệ.");
-  return { customerName, phone, scheduledAt, request: input.request?.trim() ?? "", note: input.note ?? "" };
+  if (customerName.length > 160) throw new MassageError(400, "Tên khách không được dài quá 160 ký tự.");
+  if (phone.length > 40) throw new MassageError(400, "Số điện thoại không được dài quá 40 ký tự.");
+  return {
+    customerName,
+    phone,
+    scheduledAt,
+    memberId: input.memberId === undefined ? previous?.memberId ?? null : input.memberId,
+    request: input.request?.trim() ?? previous?.request ?? "",
+    note: input.note?.trim() ?? previous?.note ?? "",
+  };
+}
+
+async function requireActiveMember(memberId: number | null) {
+  if (memberId === null) return;
+  const members = await listMembersForPeriod();
+  if (!members.some((member) => member.id === memberId)) {
+    throw new MassageError(404, "Không tìm thấy nhân viên đang hoạt động.");
+  }
 }
 
 router.get("/appointments", massageHandler(async (_req, res) => {
@@ -69,23 +88,26 @@ router.get("/appointments", massageHandler(async (_req, res) => {
 }));
 
 async function staffActivityRows() {
-  const today = hoChiMinhDate();
   const membersPromise = listMembersForPeriod();
-  const [members, sessions, manualStatuses] = isPartitionedStorageEnabled()
+  const [members, sessions, manualStatuses, appointments] = isPartitionedStorageEnabled()
     ? await Promise.all([
         membersPromise,
         readPartitionedTable("service_sessions"),
         readPartitionedTable("employee_availability"),
+        readPartitionedTable("appointments"),
       ])
     : await Promise.all([
         membersPromise,
-        db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.workDate, today)),
+        db.select().from(serviceSessionsTable).where(gte(serviceSessionsTable.workDate, retentionCutoffDate())),
         db.select().from(employeeAvailabilityTable),
+        db.select().from(appointmentsTable).where(eq(appointmentsTable.status, "scheduled")),
       ]);
   return deriveStaffActivity(
     (members as unknown as (typeof membersTable.$inferSelect)[]).map(({ id, name }) => ({ id, name })),
     (sessions as unknown as (typeof serviceSessionsTable.$inferSelect)[]),
     (manualStatuses as unknown as (typeof employeeAvailabilityTable.$inferSelect)[]),
+    new Date(),
+    (appointments as unknown as (typeof appointmentsTable.$inferSelect)[]),
   );
 }
 
@@ -164,6 +186,7 @@ router.patch("/appointments/staff-activity/:memberId", massageHandler(async (req
 
 router.post("/appointments", massageHandler(async (req, res) => {
   const input = normalizedInput(parseInput(CreateAppointmentBody, req.body));
+  await requireActiveMember(input.memberId);
   if (isPartitionedStorageEnabled()) {
     const operationId = operationIdFromRequest(req.get("Idempotency-Key"), "lịch hẹn");
     const operation = await commitPartitionedMutations({
@@ -201,15 +224,19 @@ router.post("/appointments", massageHandler(async (req, res) => {
 
 router.patch("/appointments/:id", massageHandler(async (req, res) => {
   const { id } = parseInput(UpdateAppointmentParams, req.params);
-  const normalized = normalizedInput(parseInput(UpdateAppointmentBody, req.body));
+  const body = parseInput(UpdateAppointmentBody, req.body);
+  const previous = isPartitionedStorageEnabled()
+    ? (await readPartitionedTable("appointments") as unknown as (typeof appointmentsTable.$inferSelect)[])
+      .find((item) => item.id === id)
+    : (await db.select().from(appointmentsTable).where(eq(appointmentsTable.id, id)).limit(1))[0];
+  if (!previous) throw new MassageError(404, "Không tìm thấy lịch hẹn.");
+  const normalized = normalizedInput(body, previous);
+  if (normalized.memberId !== previous.memberId) await requireActiveMember(normalized.memberId);
   const input = !isOwnerView(res) && isMaskedCustomerPhone(normalized.phone)
     ? (({ phone: _masked, ...fields }) => fields)(normalized)
     : normalized;
   if (!Object.keys(input).length) throw new MassageError(400, "Chưa có thông tin cần cập nhật.");
   if (isPartitionedStorageEnabled()) {
-    const rows = await readPartitionedTable("appointments") as unknown as (typeof appointmentsTable.$inferSelect)[];
-    const old = rows.find((item) => item.id === id);
-    if (!old) throw new MassageError(404, "Không tìm thấy lịch hẹn.");
     await commitPartitionedMutations({
       operationId: operationIdFromRequest(req.get("Idempotency-Key"), "lịch hẹn"),
       lockName: `appointment:${id}`,
@@ -217,7 +244,7 @@ router.patch("/appointments/:id", massageHandler(async (req, res) => {
       request: { id, input },
       expectedEventCount: 1,
       build: () => [upsertMutation("appointments", id, {
-        ...old, ...input, updatedAt: new Date(),
+        ...previous, ...input, updatedAt: new Date(),
       })],
     });
     const row = (await readPartitionedTable("appointments") as unknown as (typeof appointmentsTable.$inferSelect)[])

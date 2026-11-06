@@ -13,11 +13,30 @@ import { useShell } from '@/components/app-shell';
 import { phoneCallHref } from '@/lib/phone';
 import { errorText } from '@/lib/massage';
 
-type AppointmentDraft = { customerName: string; phone: string; scheduledAt: string; request: string; note: string };
+type AppointmentDraft = {
+  customerName: string;
+  phone: string;
+  date: string;
+  hour: string;
+  minute: string;
+  memberId: string;
+  legacyRequest: string;
+  note: string;
+};
 
-const blankDraft = (): AppointmentDraft => ({
-  customerName: '', phone: '', scheduledAt: toLocalInput(new Date(Date.now() + 60 * 60 * 1000)), request: '', note: '',
-});
+const blankDraft = (): AppointmentDraft => {
+  const scheduledAt = toLocalInput(new Date(Date.now() + 60 * 60 * 1000));
+  return {
+    customerName: '',
+    phone: '',
+    date: scheduledAt.slice(0, 10),
+    hour: scheduledAt.slice(11, 13),
+    minute: scheduledAt.slice(14, 16),
+    memberId: '',
+    legacyRequest: '',
+    note: '',
+  };
+};
 
 function toLocalInput(date: Date): string {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
@@ -25,11 +44,15 @@ function toLocalInput(date: Date): string {
 }
 
 function fromAppointment(appointment: Appointment): AppointmentDraft {
+  const scheduledAt = toLocalInput(new Date(appointment.scheduledAt));
   return {
     customerName: appointment.customerName,
     phone: appointment.phone,
-    scheduledAt: toLocalInput(new Date(appointment.scheduledAt)),
-    request: appointment.request ?? '',
+    date: scheduledAt.slice(0, 10),
+    hour: scheduledAt.slice(11, 13),
+    minute: scheduledAt.slice(14, 16),
+    memberId: appointment.memberId === null ? '' : String(appointment.memberId),
+    legacyRequest: appointment.request ?? '',
     note: appointment.note ?? '',
   };
 }
@@ -45,11 +68,26 @@ function formatActivityEnd(value: string | null) {
   }).format(new Date(value));
 }
 
+function formatAppointmentTime(value: string) {
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function formatNextAppointment(value: string) {
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+  }).format(new Date(value));
+}
+
 function activityLabel(activity: AppointmentStaffActivity) {
+  const nextAppointment = activity.nextAppointmentAt
+    ? ` · Lịch hẹn ${formatNextAppointment(activity.nextAppointmentAt)}`
+    : '';
   if (activity.state === 'working') {
-    return `Đang làm${activity.serviceType ? ` · ${activity.serviceType}` : ''}${activity.endsAt ? ` · xong lúc ${formatActivityEnd(activity.endsAt)}` : ''}`;
+    return `Đang làm${activity.serviceType ? ` · ${activity.serviceType}` : ''}${activity.endsAt ? ` · xong lúc ${formatActivityEnd(activity.endsAt)}` : ''}${nextAppointment}`;
   }
-  return activity.state === 'off' ? 'Đang nghỉ' : 'Rảnh';
+  return `${activity.state === 'off' ? 'Đang nghỉ' : 'Rảnh'}${nextAppointment}`;
 }
 
 export default function AppointmentsPage() {
@@ -126,19 +164,23 @@ export default function AppointmentsPage() {
     if (!draft || busy) return;
     const customerName = draft.customerName.trim();
     const phone = draft.phone.trim();
-    if (!customerName) return setFormError('Nhập tên khách.');
     if (customerName.length > 160) return setFormError('Tên khách không được dài quá 160 ký tự.');
-    if (!phone) return setFormError('Nhập số điện thoại.');
     if (phone.length > 40) return setFormError('Số điện thoại không được dài quá 40 ký tự.');
-    if (draft.request.trim().length > 2000) return setFormError('Yêu cầu không được dài quá 2.000 ký tự.');
-    const scheduled = new Date(draft.scheduledAt);
-    if (!draft.scheduledAt || Number.isNaN(scheduled.getTime())) return setFormError('Chọn ngày và giờ hẹn hợp lệ.');
+    const hour = Number(draft.hour);
+    const minute = Number(draft.minute);
+    if (!draft.date || !Number.isInteger(hour) || hour < 0 || hour > 23 ||
+      !Number.isInteger(minute) || minute < 0 || minute > 59) {
+      return setFormError('Chọn ngày, giờ và phút hẹn hợp lệ.');
+    }
+    const scheduled = new Date(`${draft.date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`);
+    if (Number.isNaN(scheduled.getTime())) return setFormError('Chọn ngày và giờ hẹn hợp lệ.');
     if (draft.note.trim().length > 2000) return setFormError('Ghi chú không được dài quá 2.000 ký tự.');
     const data: AppointmentInput = {
       customerName,
       phone,
       scheduledAt: scheduled.toISOString(),
-      request: draft.request.trim(),
+      memberId: draft.memberId === '' ? null : Number(draft.memberId),
+      request: draft.legacyRequest,
       note: draft.note.trim(),
     };
     setFormError('');
@@ -158,14 +200,14 @@ export default function AppointmentsPage() {
   function askDelete(appointment: Appointment) {
     setNotice('');
     setConfirm({
-      title: `Xóa lịch hẹn của ${appointment.customerName}?`,
+      title: `Xóa lịch hẹn của ${appointment.customerName || 'khách chưa nhập tên'}?`,
       body: <p>Lịch hẹn này sẽ bị xóa khỏi sổ chung của cơ sở. Thao tác không thể hoàn tác.</p>,
       confirmLabel: 'Xóa lịch hẹn',
       onConfirm: () => remove.mutate({ id: appointment.id }, {
         onSuccess: () => {
           void cache.invalidateQueries({ queryKey: getListAppointmentsQueryKey() });
           setConfirm(null);
-          setNotice(`Đã xóa lịch hẹn của ${appointment.customerName}.`);
+          setNotice(`Đã xóa lịch hẹn của ${appointment.customerName || 'khách'}.`);
         },
         onError: (error) => {
           setConfirm(null);
@@ -267,24 +309,27 @@ export default function AppointmentsPage() {
                 <article className="appointment-row" key={appointment.id} data-testid={`row-appointment-${appointment.id}`}>
                   <div className="appointment-when">
                     <span className="appointment-date">{appointmentDate}</span>
+                    <span className="appointment-time">{formatAppointmentTime(appointment.scheduledAt)}</span>
                     <span className={`appointment-status ${appointment.status === 'completed' ? 'is-completed' : 'is-scheduled'}`}
                       data-testid={`status-appointment-${appointment.id}`}>
                       {appointment.status === 'completed' ? 'Đã hoàn tất' : 'Chưa hoàn tất'}
                     </span>
                   </div>
                   <div className="appointment-customer">
-                    <strong><UserRound size={15} aria-hidden="true" />{appointment.customerName}</strong>
-                    {phoneCallHref(appointment.phone) ? (
+                    <strong><UserRound size={15} aria-hidden="true" />{appointment.customerName || 'Khách chưa nhập tên'}</strong>
+                    {appointment.phone && phoneCallHref(appointment.phone) ? (
                       <a href={phoneCallHref(appointment.phone)!} className="appointment-phone" data-testid={`link-appointment-phone-${appointment.id}`}>
                         <Phone size={13} aria-hidden="true" />{appointment.phone}
                       </a>
-                    ) : (
+                    ) : appointment.phone ? (
                       <span className="appointment-phone" aria-label="Số điện thoại đã được che">{appointment.phone}</span>
-                    )}
+                    ) : <span className="appointment-phone is-empty">Chưa nhập số điện thoại</span>}
                   </div>
                   <div className="appointment-detail-lines">
-                    <p className={`appointment-note${appointment.request ? '' : ' is-empty'}`}>
-                      {appointment.request ? <><strong>Yêu cầu:</strong> {appointment.request}</> : 'Chưa có yêu cầu'}
+                    <p className="appointment-note">
+                      {appointment.memberId === null
+                        ? 'Chưa chọn nhân viên'
+                        : `Nhân viên: ${staffActivity.data?.find((row) => row.memberId === appointment.memberId)?.employeeName ?? `#${appointment.memberId}`}`}
                     </p>
                     <p className={`appointment-note${appointment.note ? '' : ' is-empty'}`}>
                       {appointment.note ? <><strong>Ghi chú:</strong> {appointment.note}</> : 'Chưa có ghi chú'}
@@ -310,26 +355,43 @@ export default function AppointmentsPage() {
       {draft && (
         <Modal title={editing ? 'Sửa lịch hẹn' : 'Thêm lịch hẹn'} onClose={closeForm} testId="dialog-appointment">
           <form className="appointment-form" onSubmit={submit} noValidate data-testid="form-appointment">
-            <label className="field" htmlFor="appointment-customer">Tên khách
+            <label className="field" htmlFor="appointment-customer">Tên khách <span className="hint">Không bắt buộc</span>
               <input id="appointment-customer" value={draft.customerName} maxLength={160} autoComplete="name"
                 onChange={(event) => { setFormError(''); setDraft({ ...draft, customerName: event.target.value }); }}
-                required aria-required="true" data-testid="input-appointment-customer" />
+                data-testid="input-appointment-customer" />
             </label>
-            <label className="field" htmlFor="appointment-phone">Số điện thoại
+            <label className="field" htmlFor="appointment-phone">Số điện thoại <span className="hint">Không bắt buộc</span>
               <input id="appointment-phone" type="tel" inputMode="tel" value={draft.phone} maxLength={40} autoComplete="tel"
                 onChange={(event) => { setFormError(''); setDraft({ ...draft, phone: event.target.value }); }}
-                required aria-required="true" data-testid="input-appointment-phone" />
+                data-testid="input-appointment-phone" />
             </label>
             <label className="field" htmlFor="appointment-date">Ngày hẹn
-              <input id="appointment-date" type="date" value={draft.scheduledAt.slice(0, 10)}
-                onChange={(event) => { setFormError(''); setDraft({ ...draft, scheduledAt: event.target.value ? `${event.target.value}T${draft.scheduledAt.slice(11, 16) || '12:00'}` : draft.scheduledAt }); }}
+              <input id="appointment-date" type="date" value={draft.date}
+                onChange={(event) => { setFormError(''); setDraft({ ...draft, date: event.target.value }); }}
                 required aria-required="true" data-testid="input-appointment-date" />
             </label>
-            <label className="field" htmlFor="appointment-request">Yêu cầu <span className="hint">Giờ hẹn, nhân viên khách muốn gặp · Không bắt buộc</span>
-              <textarea id="appointment-request" value={draft.request} maxLength={2000} rows={3}
-                placeholder="Ví dụ: 15:30, muốn gặp nhân viên Lan"
-                onChange={(event) => { setFormError(''); setDraft({ ...draft, request: event.target.value }); }}
-                data-testid="input-appointment-request" />
+            <div className="appointment-time-fields" role="group" aria-label="Thời gian hẹn">
+              <label className="field" htmlFor="appointment-hour">Giờ
+                <input id="appointment-hour" type="number" inputMode="numeric" min="0" max="23" step="1"
+                  value={draft.hour} onChange={(event) => { setFormError(''); setDraft({ ...draft, hour: event.target.value }); }}
+                  required aria-required="true" data-testid="input-appointment-hour" />
+              </label>
+              <label className="field" htmlFor="appointment-minute">Phút
+                <input id="appointment-minute" type="number" inputMode="numeric" min="0" max="59" step="1"
+                  value={draft.minute} onChange={(event) => { setFormError(''); setDraft({ ...draft, minute: event.target.value }); }}
+                  required aria-required="true" data-testid="input-appointment-minute" />
+              </label>
+            </div>
+            <label className="field" htmlFor="appointment-member">Nhân viên <span className="hint">Không bắt buộc</span>
+              <select id="appointment-member" value={draft.memberId}
+                onChange={(event) => { setFormError(''); setDraft({ ...draft, memberId: event.target.value }); }}
+                data-testid="select-appointment-member">
+                <option value="">Chưa chọn</option>
+                {draft.memberId && !staffActivity.data?.some((row) => String(row.memberId) === draft.memberId) &&
+                  <option value={draft.memberId}>Nhân viên cũ (#{draft.memberId})</option>}
+                {staffActivity.data?.map((member) =>
+                  <option value={member.memberId} key={member.memberId}>{member.employeeName}</option>)}
+              </select>
             </label>
             <label className="field" htmlFor="appointment-note">Ghi chú <span className="hint">Không bắt buộc</span>
               <textarea id="appointment-note" value={draft.note} maxLength={2000} rows={3}

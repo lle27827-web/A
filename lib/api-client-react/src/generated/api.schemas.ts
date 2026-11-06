@@ -177,17 +177,16 @@ export const AppointmentStatus = {
 export interface Appointment {
   /** @minimum 1 */
   id: number;
-  /**
-     * @minLength 1
-     * @maxLength 160
-     */
+  /** @maxLength 160 */
   customerName: string;
-  /**
-     * @minLength 1
-     * @maxLength 40
-     */
+  /** @maxLength 40 */
   phone: string;
   scheduledAt: string;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  memberId: number | null;
   status: AppointmentStatus;
   /** @maxLength 2000 */
   request: string;
@@ -198,17 +197,16 @@ export interface Appointment {
 }
 
 export interface AppointmentInput {
-  /**
-     * @minLength 1
-     * @maxLength 160
-     */
-  customerName: string;
-  /**
-     * @minLength 1
-     * @maxLength 40
-     */
-  phone: string;
+  /** @maxLength 160 */
+  customerName?: string;
+  /** @maxLength 40 */
+  phone?: string;
   scheduledAt: string;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  memberId?: number | null;
   /** @maxLength 2000 */
   request?: string;
   /** @maxLength 2000 */
@@ -233,6 +231,8 @@ export interface AppointmentStaffActivity {
   endsAt: string | null;
   /** @nullable */
   serviceType: string | null;
+  /** @nullable */
+  nextAppointmentAt: string | null;
 }
 
 export type AppointmentStaffActivityInputState = typeof AppointmentStaffActivityInputState[keyof typeof AppointmentStaffActivityInputState];

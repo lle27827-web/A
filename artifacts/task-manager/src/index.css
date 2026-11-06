@@ -1205,6 +1205,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .appointment-status { display: inline-flex; width: max-content; align-items: center; border-radius: 999px; padding: 3px 8px; font-size: 11px; font-weight: 700; }
 .appointment-status.is-scheduled { color: hsl(var(--muted-foreground)); background: hsl(var(--muted) / .7); }
 .appointment-status.is-completed { color: hsl(var(--ok)); background: hsl(var(--ok) / .13); }
+.appointment-time { color: hsl(var(--muted-foreground)); font-size: 12px; font-weight: 750; }
 .appointment-customer { display: grid; gap: 5px; min-width: 0; }
 .appointment-customer > strong, .appointment-phone { display: flex; align-items: center; gap: 7px; min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
 .appointment-phone { color: hsl(var(--muted-foreground)); text-decoration: none; }
@@ -1220,6 +1221,8 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .appointment-form { display: grid; gap: 13px; }
 .appointment-form .field textarea { min-height: 68px; }
 .appointment-form .hint { margin-left: 4px; font-weight: 500; }
+.appointment-time-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.appointment-time-fields input { width: 100%; }
 .appointment-form .dialog-actions { margin-top: 3px; }
 .staff-activity-panel .panel-head { align-items: center; }
 .staff-activity-count { color: hsl(var(--muted-foreground)); font-size: 12px; font-weight: 700; white-space: nowrap; }
