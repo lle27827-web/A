@@ -3134,6 +3134,46 @@ body:has(.modal-backdrop) .screen-nav {
   border-top-color: hsl(0 0% 100% / .72);
 }
 
+/* Remove decorative frames around content and text rows throughout the app.
+   Keep input/button borders and keyboard-focus outlines for accessibility. */
+.panel,
+.tile,
+.revenue,
+.salary-hero,
+.day-salary,
+.table-wrap,
+.card-hint,
+.hit,
+.emp-row,
+.card-row,
+.card-list-item,
+.choice-row,
+.settings-link,
+.mode-option,
+.theme-option,
+.merge-confirm,
+.net-revenue-row,
+.p-hero,
+.p-card,
+.p-row,
+.p-welcome,
+.shift-row,
+.grant-details,
+.revenue-period-card,
+.revenue-period-primary-row,
+.revenue-period-card .revenue-details > summary,
+.revenue-period-key-metrics > div,
+.revenue-service-summary,
+.appointment-panel .appointment-row,
+.type-counts li,
+.personal .p-total-card,
+.main .panel.page[aria-labelledby="emp-title"],
+.main .panel.page[aria-labelledby="cards-title"],
+.main .panel.page[data-testid="section-services"],
+.main .appointment-panel {
+  border-color: transparent !important;
+}
+
 @media (min-width: 1200px) {
   .personal .p-hero {
     grid-template-columns: minmax(0, 1fr);
