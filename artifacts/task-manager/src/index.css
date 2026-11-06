@@ -2538,28 +2538,58 @@ body:has(.modal-backdrop) .screen-nav {
   .main .page-title { font-size: clamp(30px, 2.7vw, 40px); }
 
   /* Desktop keeps the phone components intact and only places them in two panels. */
-  .home {
+  .home.home-with-revenue {
     max-width: 1500px;
-    grid-template-columns: minmax(0, 1.15fr) minmax(270px, .85fr);
-    align-items: start;
-    gap: 22px;
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+    align-items: stretch;
+    column-gap: 0;
     margin: 0 auto;
   }
-  .home > .revenue {
+  .home.home-with-revenue > .revenue {
     grid-column: 1;
     grid-row: 1;
     min-width: 0;
+    border-radius: 20px 0 0 20px;
   }
-  .home > .tiles {
+  .home.home-with-revenue > .tiles {
     grid-column: 2;
     grid-row: 1;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 12px;
+    min-width: 0;
+    padding: 10px 0 10px 22px;
+    border: 0;
+    border-left: 2px solid hsl(var(--frame-border));
+    border-radius: 0;
+    background: transparent;
+  }
+  .home.home-with-revenue > .tiles .tile {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    min-height: 78px;
+    padding: 14px 16px;
+    border-radius: 14px;
+  }
+  .home.home-with-revenue > .tiles .tile strong {
+    margin: 0;
+    font-size: clamp(17px, 1.25vw, 22px);
+    line-height: 1.25;
+  }
+  .home.home-actions-only {
+    max-width: 1500px;
+    grid-template-columns: minmax(0, 1fr);
+    margin: 0 auto;
+  }
+  .home.home-actions-only > .tiles {
+    grid-column: 1;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-content: start;
-    gap: 14px;
-    padding: 16px;
-    border: 2px solid hsl(var(--frame-border));
-    border-radius: 20px;
-    background: hsl(var(--card));
+  }
+  .home.home-actions-only > .tiles .tile {
+    min-height: 150px;
   }
   .home .revenue-summary {
     grid-template-columns: minmax(0, 1fr);
@@ -2782,28 +2812,42 @@ body:has(.modal-backdrop) .screen-nav {
   .main .panel { padding: 16px; }
   .main .layout { grid-template-columns: minmax(190px, .85fr) minmax(0, 1.15fr); gap: 14px; }
 
-  .home {
+  .home.home-with-revenue {
     max-width: 980px;
-    grid-template-columns: minmax(0, 1.15fr) minmax(250px, .85fr);
-    align-items: start;
-    gap: 18px;
+    grid-template-columns: minmax(0, 1.1fr) minmax(240px, .9fr);
+    align-items: stretch;
+    column-gap: 0;
     margin-inline: auto;
   }
-  .home > .revenue {
+  .home.home-with-revenue > .revenue {
     grid-column: 1;
     grid-row: 1;
     min-width: 0;
+    border-radius: 18px 0 0 18px;
   }
-  .home > .tiles {
+  .home.home-with-revenue > .tiles {
     grid-column: 2;
     grid-row: 1;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     align-content: start;
     gap: 10px;
-    padding: 12px;
-    border: 2px solid hsl(var(--frame-border));
-    border-radius: 18px;
-    background: hsl(var(--card));
+    padding: 8px 0 8px 16px;
+    border: 0;
+    border-left: 2px solid hsl(var(--frame-border));
+    border-radius: 0;
+    background: transparent;
+  }
+  .home.home-with-revenue > .tiles .tile {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 8px;
+    min-height: 70px;
+    padding: 12px 10px;
+  }
+  .home.home-with-revenue > .tiles .tile strong {
+    font-size: 16px;
+  }
+  .home.home-actions-only > .tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .home .revenue-summary {
     grid-template-columns: minmax(0, 1fr);

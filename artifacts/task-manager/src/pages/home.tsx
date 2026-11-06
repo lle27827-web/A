@@ -78,8 +78,8 @@ export default function HomePage() {
   if (query.trim()) return null;
 
   return (
-    <div className="home">
-      <div className="tiles">
+    <div className={permissions.viewRevenue ? 'home home-with-revenue' : 'home home-actions-only'}>
+      <nav className="tiles" aria-label="Chức năng cơ sở">
         {canViewEmployees && <Link href={withHistory('/employees')} className="tile tile-employees" aria-labelledby="employees-link-title" data-testid="link-employees">
           <Users size={28} aria-hidden="true" />
           <strong id="employees-link-title">Quản lý nhân viên</strong>
@@ -100,7 +100,7 @@ export default function HomePage() {
           <strong id="services-link-title">Dịch vụ &amp; giá</strong>
           <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>
         </Link>}
-      </div>
+      </nav>
       {permissions.viewRevenue && <section className="revenue" aria-labelledby="rev-title" data-testid="section-revenue">
         <div className="revenue-summary" data-testid="revenue-summary">
           {summary.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải doanh thu" /> : summary.isError
