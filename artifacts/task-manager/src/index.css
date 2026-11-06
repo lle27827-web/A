@@ -2425,9 +2425,8 @@ body:has(.modal-backdrop) .screen-nav {
 /* The added navigation is absent from the phone flow and only participates at desktop width. */
 .desktop-rail { display: none; }
 
-/* Desktop workspace: a persistent, permission-aware rail with roomy operational views.
-   Everything here begins above the phone/tablet layout, leaving its flow untouched. */
-@media (min-width: 1100px) {
+/* Desktop workspace: the 900px threshold also covers mobile browsers requesting desktop sites. */
+@media (min-width: 900px) {
   .app:not(.attendance-app) {
     display: grid;
     grid-template-columns: 244px minmax(0, 1fr);
@@ -2777,6 +2776,12 @@ body:has(.modal-backdrop) .screen-nav {
 
 /* Wide laptop and landscape layouts use the same revenue-left, shortcuts-right home arrangement. */
 @media (min-width: 900px) and (max-width: 1099px) {
+  .app:not(.attendance-app) { grid-template-columns: 210px minmax(0, 1fr); }
+  .app:not(.attendance-app) > .main { padding: 20px 18px 32px; }
+  .main .page { padding: 18px; }
+  .main .panel { padding: 16px; }
+  .main .layout { grid-template-columns: minmax(190px, .85fr) minmax(0, 1.15fr); gap: 14px; }
+
   .home {
     max-width: 980px;
     grid-template-columns: minmax(0, 1.15fr) minmax(250px, .85fr);
@@ -2803,6 +2808,55 @@ body:has(.modal-backdrop) .screen-nav {
   .home .revenue-summary {
     grid-template-columns: minmax(0, 1fr);
     gap: 10px;
+  }
+
+  .appointment-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 8px 10px;
+    padding: 12px 8px;
+  }
+  .appointment-when { grid-column: 1; grid-row: 1; }
+  .appointment-customer { grid-column: 2; grid-row: 1; }
+  .appointment-detail-lines { grid-column: 1 / -1; grid-row: 2; }
+  .appointment-actions { grid-column: 3; grid-row: 1; min-width: 60px; }
+
+  .detail:has(> [data-testid="section-salary"]) { grid-template-columns: minmax(0, 1fr); }
+  .detail:has(> [data-testid="section-salary"]) > .salary-hero,
+  .detail:has(> [data-testid="section-salary"]) > .day-salary,
+  .detail:has(> [data-testid="section-salary"]) > [data-testid="section-day-sessions"] {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .detail:has(> [data-testid="section-salary"]) .salary-hero.compact {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding: 18px;
+  }
+  .detail:has(> [data-testid="section-salary"]) .salary-hero.compact .month-nav,
+  .detail:has(> [data-testid="section-salary"]) .salary-hero.compact > .rev-value,
+  .detail:has(> [data-testid="section-salary"]) .employee-period-stats {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .detail:has(> [data-testid="section-salary"]) .employee-service-summary {
+    padding: 12px 0 0;
+    border-left: 0;
+    border-top: 1px solid hsl(var(--border));
+  }
+
+  .detail:has(> [data-testid="section-card"]) { grid-template-columns: minmax(0, 1fr); }
+  .detail:has(> [data-testid="section-card"]) > [data-testid="section-card"] {
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+    padding: 20px;
+  }
+  .detail:has(> [data-testid="section-card"]) .facts {
+    grid-column: 1;
+    grid-row: auto;
+    padding: 16px 0 0;
+    border-left: 0;
+    border-top: 1px solid hsl(var(--border));
   }
 }
 
@@ -2895,7 +2949,7 @@ body:has(.modal-backdrop) .screen-nav {
 .detail:has(> [data-testid="section-card"]) .facts {
   border-left-color: hsl(0 0% 100% / .82);
 }
-@media (min-width: 1100px) {
+@media (min-width: 900px) {
   .desktop-rail {
     border-right-color: hsl(0 0% 100% / .82);
   }
