@@ -549,6 +549,71 @@ export interface MemberUpdate {
   hourlyRate?: number;
 }
 
+export interface EmployeeBonusMember {
+  /** @minimum 1 */
+  id: number;
+  name: string;
+}
+
+export interface EmployeeBonusService {
+  /** @minimum 1 */
+  id: number;
+  name: string;
+  /**
+     * @minimum 1
+     * @maximum 10000000
+     */
+  hourlyRate: number;
+}
+
+export interface EmployeeServiceBonusRate {
+  /** @minimum 1 */
+  memberId: number;
+  /** @minimum 1 */
+  serviceTypeId: number;
+  /**
+     * @minimum 1
+     * @maximum 10000000
+     */
+  hourlyRate: number;
+}
+
+export interface EmployeeBonusConfig {
+  enabled: boolean;
+  /**
+     * @minimum 0
+     * @maximum 44640
+     */
+  thresholdMinutes: number;
+  members: EmployeeBonusMember[];
+  services: EmployeeBonusService[];
+  rates: EmployeeServiceBonusRate[];
+}
+
+export interface EmployeeServiceBonusRateUpdate {
+  /** @minimum 1 */
+  memberId: number;
+  /** @minimum 1 */
+  serviceTypeId: number;
+  /**
+     * @minimum 1
+     * @maximum 10000000
+     * @nullable
+     */
+  hourlyRate: number | null;
+}
+
+export interface EmployeeBonusConfigUpdate {
+  enabled: boolean;
+  /**
+     * @minimum 0
+     * @maximum 44640
+     */
+  thresholdMinutes: number;
+  /** @maxItems 1000 */
+  rates?: EmployeeServiceBonusRateUpdate[];
+}
+
 /**
  * @nullable
  */

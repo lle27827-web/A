@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
 import {
   appendReservedPartitionOperation,
   appointmentsTable,
@@ -7,6 +7,8 @@ import {
   cardTopUpsTable,
   cardUsageHistoryTable,
   db,
+  employeeServiceBonusRatesTable,
+  facilityBonusSettingsTable,
   getReservedPartitionOperation,
   hashPartitionRequest,
   isPartitionedStorageEnabled,
@@ -26,6 +28,11 @@ import {
 } from "@workspace/db";
 import type { FacilityPermissions, ServiceSessionInput, TreatmentCardInput, TreatmentCardUpdate } from "@workspace/api-zod";
 import { canEditEmployee } from "./facility-permissions";
+import {
+  chooseEmployeeHourlyRate,
+  monthDateBounds,
+  shouldKeepRecordedHourlyRate,
+} from "./employee-bonus-pay";
 import { isWithinRetention, retentionCutoffDate } from "./retention-window";
 import {
   commitPartitionedMutations,
@@ -905,7 +912,14 @@ export async function saveSession(
       if (lockId === cardId) card = row;
     }
     if (card?.deletedAt) throw new MassageError(404, "Thẻ đã bị xóa, không thể ghi thêm lượt sử dụng.");
-    const [member] = await tx.select().from(membersTable).where(eq(membersTable.id, input.memberId)).for("share");
+    const lockedMemberIds = [...new Set([input.memberId, old?.memberId]
+      .filter((memberId): memberId is number => memberId !== null && memberId !== undefined))]
+      .sort((a, b) => a - b);
+    const lockedMembers = await tx.select().from(membersTable)
+      .where(inArray(membersTable.id, lockedMemberIds))
+      .orderBy(asc(membersTable.id))
+      .for("update");
+    const member = lockedMembers.find((row) => row.id === input.memberId);
     if (!member || (member.deletedAt && old?.memberId !== member.id)) throw new MassageError(404, "Không tìm thấy kỹ thuật viên đang hoạt động.");
     const sameEmployee = old?.memberId === member.id;
     const serviceTypeId = input.serviceTypeId ?? null;
@@ -915,7 +929,38 @@ export async function saveSession(
     if (serviceTypeId !== null && !service) throw new MassageError(404, "Loại hình dịch vụ đã bị xóa. Hãy chọn dịch vụ khác.");
     if (!old && !service) throw new MassageError(400, "Hãy chọn loại hình dịch vụ để tính lương.");
     const sameService = old && old.serviceTypeId === serviceTypeId;
-    const rate = resolveSessionHourlyRate(old?.hourlyRate, service?.hourlyRate, Boolean(sameService));
+    const keepsRecordedRate = shouldKeepRecordedHourlyRate(old, member.id, serviceTypeId);
+    let rate = keepsRecordedRate ? old!.hourlyRate : service?.hourlyRate ?? old?.hourlyRate ?? 0;
+    if (!keepsRecordedRate && serviceTypeId !== null) {
+      const [{ enabled = false, thresholdMinutes = 0 } = {}] = await tx.select({
+        enabled: facilityBonusSettingsTable.enabled,
+        thresholdMinutes: facilityBonusSettingsTable.thresholdMinutes,
+      }).from(facilityBonusSettingsTable).where(eq(facilityBonusSettingsTable.id, 1)).limit(1);
+      if (enabled && thresholdMinutes > 0) {
+        const bounds = monthDateBounds(workDate);
+        const [worked] = await tx.select({
+          minutes: sql<number>`coalesce(sum(${serviceSessionsTable.minutes}), 0)::int`,
+        }).from(serviceSessionsTable).where(and(
+          eq(serviceSessionsTable.memberId, member.id),
+          gte(serviceSessionsTable.workDate, bounds.start),
+          lt(serviceSessionsTable.workDate, bounds.end),
+          id === undefined ? undefined : ne(serviceSessionsTable.id, id),
+        ));
+        const [bonusRate] = await tx.select({ hourlyRate: employeeServiceBonusRatesTable.hourlyRate })
+          .from(employeeServiceBonusRatesTable)
+          .where(and(
+            eq(employeeServiceBonusRatesTable.memberId, member.id),
+            eq(employeeServiceBonusRatesTable.serviceTypeId, serviceTypeId),
+          )).limit(1);
+        rate = chooseEmployeeHourlyRate({
+          enabled,
+          thresholdMinutes,
+          minutesWorkedEarlierThisMonth: Number(worked?.minutes ?? 0),
+          standardHourlyRate: service.hourlyRate,
+          bonusHourlyRate: bonusRate?.hourlyRate,
+        });
+      }
+    }
     const customerRate = resolveSessionCustomerHourlyRate(
       old?.customerHourlyRate,
       service?.customerHourlyRate,
@@ -987,7 +1032,7 @@ async function savePartitionedSession(
         return sessionResponse(priorRow);
       }
     }
-    const [sessionRowsRaw, cardRowsRaw, archivedRowsRaw, memberRowsRaw, serviceRowsRaw, appointmentRowsRaw] =
+    const [sessionRowsRaw, cardRowsRaw, archivedRowsRaw, memberRowsRaw, serviceRowsRaw, appointmentRowsRaw, bonusSettingsRaw, bonusRatesRaw] =
       await Promise.all([
         readPartitionedTable("service_sessions"),
         readPartitionedTable("treatment_cards"),
@@ -995,6 +1040,8 @@ async function savePartitionedSession(
         readPartitionedTable("members"),
         readPartitionedTable("service_types"),
         readPartitionedTable("appointments"),
+        readPartitionedTable("facility_bonus_settings"),
+        readPartitionedTable("employee_service_bonus_rates"),
       ]);
     const sessionRows = sessionRowsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[];
     const cardRows = cardRowsRaw as unknown as (typeof treatmentCardsTable.$inferSelect)[];
@@ -1002,6 +1049,8 @@ async function savePartitionedSession(
     const memberRows = memberRowsRaw as unknown as (typeof membersTable.$inferSelect)[];
     const serviceRows = serviceRowsRaw as unknown as (typeof serviceTypesTable.$inferSelect)[];
     const appointmentRows = appointmentRowsRaw as unknown as (typeof appointmentsTable.$inferSelect)[];
+    const bonusSettingsRows = bonusSettingsRaw as unknown as (typeof facilityBonusSettingsTable.$inferSelect)[];
+    const bonusRateRows = bonusRatesRaw as unknown as (typeof employeeServiceBonusRatesTable.$inferSelect)[];
 
     const old = id === undefined ? undefined : sessionRows.find((row) => row.id === id);
     if (id !== undefined && !old) throw new MassageError(404, "Không tìm thấy lượt phục vụ.");
@@ -1028,8 +1077,28 @@ async function savePartitionedSession(
       throw new MassageError(404, "Loại hình dịch vụ đã bị xóa. Hãy chọn dịch vụ khác.");
     }
     if (!old && !service) throw new MassageError(400, "Hãy chọn loại hình dịch vụ để tính lương.");
+    const sameEmployee = old?.memberId === member.id;
     const sameService = old?.serviceTypeId === serviceTypeId;
-    const rate = resolveSessionHourlyRate(old?.hourlyRate, service?.hourlyRate, Boolean(sameService));
+    const keepsRecordedRate = shouldKeepRecordedHourlyRate(old, member.id, serviceTypeId);
+    let rate = keepsRecordedRate ? old!.hourlyRate : service?.hourlyRate ?? old?.hourlyRate ?? 0;
+    const bonusSettings = bonusSettingsRows.find((row) => row.id === 1);
+    if (!keepsRecordedRate && service && serviceTypeId !== null && bonusSettings?.enabled && bonusSettings.thresholdMinutes > 0) {
+      const bounds = monthDateBounds(input.workDate);
+      const minutesWorkedEarlierThisMonth = sessionRows
+        .filter((row) => row.memberId === member.id && row.id !== id &&
+          row.workDate >= bounds.start && row.workDate < bounds.end)
+        .reduce((sum, row) => sum + Number(row.minutes), 0);
+      const bonusRate = bonusRateRows.find((row) =>
+        row.memberId === member.id && row.serviceTypeId === serviceTypeId,
+      )?.hourlyRate;
+      rate = chooseEmployeeHourlyRate({
+        enabled: bonusSettings.enabled,
+        thresholdMinutes: bonusSettings.thresholdMinutes,
+        minutesWorkedEarlierThisMonth,
+        standardHourlyRate: service.hourlyRate,
+        bonusHourlyRate: bonusRate,
+      });
+    }
     const customerRate = resolveSessionCustomerHourlyRate(
       old?.customerHourlyRate,
       service?.customerHourlyRate,
@@ -1047,7 +1116,6 @@ async function savePartitionedSession(
       throw new MassageError(409, "Thẻ không đủ số giờ còn lại cho lượt sử dụng này.");
     }
 
-    const sameEmployee = old?.memberId === member.id;
     const sameCard = old && old.cardId === cardId && cardId !== null;
     const serviceType = sameService ? old.serviceType : service?.name;
     if (!serviceType) throw new MassageError(400, "Hãy chọn loại hình dịch vụ.");

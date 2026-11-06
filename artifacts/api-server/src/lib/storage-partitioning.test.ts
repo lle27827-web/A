@@ -37,6 +37,8 @@ test("partition domains assign each application table to the requested store gro
   assert.equal(getPartitionDataDomain("members"), "shared");
   assert.equal(getPartitionDataDomain("appointments"), "shared");
   assert.equal(getPartitionDataDomain("employee_availability"), "shared");
+  assert.equal(getPartitionDataDomain("facility_bonus_settings"), "shared");
+  assert.equal(getPartitionDataDomain("employee_service_bonus_rates"), "shared");
   assert.equal(getPartitionDataDomain("unlisted_table"), undefined);
   for (const table of [
     "members",
@@ -53,6 +55,8 @@ test("partition domains assign each application table to the requested store gro
     "personal_settings",
     "appointments",
     "employee_availability",
+    "facility_bonus_settings",
+    "employee_service_bonus_rates",
     "tasks",
   ]) {
     assert.ok(getPartitionDataDomain(table), `Missing data-domain assignment for ${table}`);
@@ -62,6 +66,9 @@ test("partition domains assign each application table to the requested store gro
 test("partition actions declare all data groups they can update", () => {
   assert.deepEqual(getPartitionActionEntityTypes("attendance.create"), ["attendance"]);
   assert.deepEqual(getPartitionActionEntityTypes("employee-availability.update"), ["employee_availability"]);
+  assert.deepEqual(getPartitionActionEntityTypes("employee-bonus-config.update"), [
+    "facility_bonus_settings", "employee_service_bonus_rates",
+  ]);
   assert.deepEqual(getPartitionActionEntityTypes("card.topup"), ["treatment_cards", "card_top_ups"]);
   assert.deepEqual(getPartitionActionEntityTypes("service-session.save"), [
     "service_sessions", "treatment_cards", "appointments",
@@ -74,6 +81,7 @@ test("partition actions declare all data groups they can update", () => {
     "attendance.create", "attendance.update", "attendance.delete",
     "appointment.create", "appointment.update", "appointment.delete",
     "employee-availability.update",
+    "employee-bonus-config.update",
     "access-grant.create", "access-grant.update", "access-grant.delete",
     "card.create", "card.update", "card.merge", "card.delete", "card.topup",
     "member.create", "member.update", "member.delete",

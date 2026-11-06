@@ -346,6 +346,34 @@ paths:
       responses:
         "204": { description: Đã xóa dịch vụ và giữ nguyên các ca đã lưu }
         "409": { description: "Dịch vụ đã có ca ghi nhận, không thể xóa." }
+  /employee-bonus-config:
+    get:
+      operationId: getEmployeeBonusConfig
+      tags: [massage]
+      summary: Xem cấu hình thưởng tiền công theo giờ tháng
+      responses:
+        "200":
+          description: Cấu hình ngưỡng và mức tiền công thưởng theo từng nhân viên, dịch vụ
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EmployeeBonusConfig" }
+    patch:
+      operationId: updateEmployeeBonusConfig
+      tags: [massage]
+      summary: Cập nhật ngưỡng giờ và đơn giá thưởng tiền công
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmployeeBonusConfigUpdate" }
+      responses:
+        "200":
+          description: Cấu hình thưởng tiền công đã cập nhật
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EmployeeBonusConfig" }
+        "400": { description: Cấu hình hoặc đơn giá không hợp lệ }
+        "403": { description: Chỉ chủ sở hữu được thay đổi cấu hình }
   /healthz:
     get:
       operationId: healthCheck
@@ -1310,6 +1338,58 @@ components:
       properties:
         name: { type: string, minLength: 1, maxLength: 120 }
         hourlyRate: { type: integer, minimum: 0, maximum: 10000000 }
+    EmployeeBonusConfig:
+      type: object
+      required: [enabled, thresholdMinutes, members, services, rates]
+      properties:
+        enabled: { type: boolean }
+        thresholdMinutes: { type: integer, minimum: 0, maximum: 44640 }
+        members:
+          type: array
+          items: { $ref: "#/components/schemas/EmployeeBonusMember" }
+        services:
+          type: array
+          items: { $ref: "#/components/schemas/EmployeeBonusService" }
+        rates:
+          type: array
+          items: { $ref: "#/components/schemas/EmployeeServiceBonusRate" }
+    EmployeeBonusMember:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer, minimum: 1 }
+        name: { type: string }
+    EmployeeBonusService:
+      type: object
+      required: [id, name, hourlyRate]
+      properties:
+        id: { type: integer, minimum: 1 }
+        name: { type: string }
+        hourlyRate: { type: integer, minimum: 1, maximum: 10000000 }
+    EmployeeServiceBonusRate:
+      type: object
+      required: [memberId, serviceTypeId, hourlyRate]
+      properties:
+        memberId: { type: integer, minimum: 1 }
+        serviceTypeId: { type: integer, minimum: 1 }
+        hourlyRate: { type: integer, minimum: 1, maximum: 10000000 }
+    EmployeeServiceBonusRateUpdate:
+      type: object
+      required: [memberId, serviceTypeId, hourlyRate]
+      properties:
+        memberId: { type: integer, minimum: 1 }
+        serviceTypeId: { type: integer, minimum: 1 }
+        hourlyRate: { type: ["integer", "null"], minimum: 1, maximum: 10000000 }
+    EmployeeBonusConfigUpdate:
+      type: object
+      required: [enabled, thresholdMinutes]
+      properties:
+        enabled: { type: boolean }
+        thresholdMinutes: { type: integer, minimum: 0, maximum: 44640 }
+        rates:
+          type: array
+          maxItems: 1000
+          items: { $ref: "#/components/schemas/EmployeeServiceBonusRateUpdate" }
     TreatmentCard:
       type: object
       required: [id, customerName, phone, serviceType, totalMinutes, usedMinutes, remainingMinutes, purchaseAmount, purchasePaymentMethod, sellerName, totalPaidAmount, topUps, purchaseDate, note, createdAt]

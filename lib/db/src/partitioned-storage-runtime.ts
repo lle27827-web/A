@@ -72,6 +72,8 @@ const BASE_TABLES = new Set([
   "personal_settings",
   "appointments",
   "employee_availability",
+  "facility_bonus_settings",
+  "employee_service_bonus_rates",
   "tasks",
 ]);
 const SERIAL_ENTITY_TYPES = new Set([
@@ -103,6 +105,8 @@ const TABLE_KEY_COLUMN: Record<string, string> = {
   personal_settings: "userId",
   appointments: "id",
   employee_availability: "memberId",
+  facility_bonus_settings: "id",
+  employee_service_bonus_rates: "id",
   tasks: "id",
 };
 const TABLE_DB_KEY_COLUMN: Record<string, string> = {

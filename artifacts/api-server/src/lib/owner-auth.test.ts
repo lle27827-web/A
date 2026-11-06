@@ -100,6 +100,12 @@ test("database failover status and promotion are reserved for the owner", async 
   assert.equal(await managerRequestAllowed(request("POST", "/database/failover"), maximumManagerPermissions), false);
 });
 
+test("employee bonus pay configuration is reserved for the owner", async () => {
+  const maximumManagerPermissions = ownerPermissions();
+  assert.equal(await managerRequestAllowed(request("GET", "/employee-bonus-config"), maximumManagerPermissions), false);
+  assert.equal(await managerRequestAllowed(request("PATCH", "/employee-bonus-config"), maximumManagerPermissions), false);
+});
+
 test("Clerk identity cache coalesces fetches, bounds entries, and evicts failed lookups", async () => {
   const cache = createAsyncTtlCache<string>(60_000, 2);
   let loads = 0;

@@ -15,7 +15,7 @@ const DOMAIN_TABLES: Record<PartitionDataDomain, readonly string[]> = {
   facility: ["attendance", "service_sessions"],
   cards: ["treatment_cards", "card_top_ups", "card_usage_history"],
   personal: ["personal_services", "personal_sessions", "personal_settings"],
-  shared: ["members", "member_versions", "service_types", "manager_grants", "appointments", "employee_availability", "tasks"],
+  shared: ["members", "member_versions", "service_types", "manager_grants", "appointments", "employee_availability", "facility_bonus_settings", "employee_service_bonus_rates", "tasks"],
 };
 
 const DOMAIN_ORDER: Record<PartitionDataDomain, readonly DatabaseBackend[]> = {
@@ -33,6 +33,7 @@ const ACTION_ENTITY_TYPES: Record<string, readonly string[]> = {
   "appointment.update": ["appointments"],
   "appointment.delete": ["appointments"],
   "employee-availability.update": ["employee_availability"],
+  "employee-bonus-config.update": ["facility_bonus_settings", "employee_service_bonus_rates"],
   "access-grant.create": ["manager_grants"],
   "access-grant.update": ["manager_grants"],
   "access-grant.delete": ["manager_grants"],

@@ -11,6 +11,7 @@ import accessGrantsRouter from "./access-grants";
 import appointmentsRouter from "./appointments";
 import retentionRouter from "./retention";
 import databaseFailoverRouter from "./database-failover";
+import employeeBonusConfigRouter from "./employee-bonus-config";
 
 const router: IRouter = Router();
 router.use(authRouter);
@@ -25,5 +26,6 @@ router.use(accessGrantsRouter);
 router.use(appointmentsRouter);
 router.use(retentionRouter);
 router.use(databaseFailoverRouter);
+router.use(employeeBonusConfigRouter);
 
 export default router;

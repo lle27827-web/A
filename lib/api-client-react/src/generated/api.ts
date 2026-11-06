@@ -36,6 +36,8 @@ import type {
   DatabaseFailoverResult,
   DatabaseFailoverStatus,
   DatabaseStorageStatus,
+  EmployeeBonusConfig,
+  EmployeeBonusConfigUpdate,
   GetAttendanceSummaryParams,
   GetMassageSummaryParams,
   GetMemberPayrollParams,
@@ -1916,6 +1918,171 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getDeleteServiceTypeMutationOptions(options));
+    }
+
+export const getGetEmployeeBonusConfigUrl = () => {
+
+
+
+
+  return `/api/employee-bonus-config`
+}
+
+/**
+ * @summary Xem cấu hình thưởng tiền công theo giờ tháng
+ */
+export const getEmployeeBonusConfig = async ( options?: Parameters<typeof customFetch>[1]): Promise<EmployeeBonusConfig> => {
+
+  return customFetch<EmployeeBonusConfig>(getGetEmployeeBonusConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEmployeeBonusConfigQueryKey = () => {
+    return [
+    `/api/employee-bonus-config`
+    ] as const;
+    }
+
+
+export const getGetEmployeeBonusConfigQueryOptions = <TData = Awaited<ReturnType<typeof getEmployeeBonusConfig>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEmployeeBonusConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEmployeeBonusConfigQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEmployeeBonusConfig>>> = ({ signal }) => getEmployeeBonusConfig({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEmployeeBonusConfig>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEmployeeBonusConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getEmployeeBonusConfig>>>
+export type GetEmployeeBonusConfigQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Xem cấu hình thưởng tiền công theo giờ tháng
+ */
+
+export function useGetEmployeeBonusConfig<TData = Awaited<ReturnType<typeof getEmployeeBonusConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEmployeeBonusConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEmployeeBonusConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateEmployeeBonusConfigUrl = () => {
+
+
+
+
+  return `/api/employee-bonus-config`
+}
+
+/**
+ * @summary Cập nhật ngưỡng giờ và đơn giá thưởng tiền công
+ */
+export const updateEmployeeBonusConfig = async (employeeBonusConfigUpdate: EmployeeBonusConfigUpdate, options?: Parameters<typeof customFetch>[1]): Promise<EmployeeBonusConfig> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<EmployeeBonusConfig>(getUpdateEmployeeBonusConfigUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(employeeBonusConfigUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateEmployeeBonusConfigMutationKey = () => ['updateEmployeeBonusConfig'] as const;
+
+export const getUpdateEmployeeBonusConfigMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEmployeeBonusConfig>>, TError,UpdateEmployeeBonusConfigMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateEmployeeBonusConfig>>, TError,UpdateEmployeeBonusConfigMutationVariables, TContext> => {
+
+const mutationKey = getUpdateEmployeeBonusConfigMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateEmployeeBonusConfig>>, UpdateEmployeeBonusConfigMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateEmployeeBonusConfig(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateEmployeeBonusConfigMutationResult = NonNullable<Awaited<ReturnType<typeof updateEmployeeBonusConfig>>>
+    export type UpdateEmployeeBonusConfigMutationBody = BodyType<EmployeeBonusConfigUpdate>
+    export type UpdateEmployeeBonusConfigMutationError = ErrorType<void>
+    export type UpdateEmployeeBonusConfigMutationVariables = {data: BodyType<EmployeeBonusConfigUpdate>}
+
+    /**
+ * @summary Cập nhật ngưỡng giờ và đơn giá thưởng tiền công
+ */
+export const useUpdateEmployeeBonusConfig = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEmployeeBonusConfig>>, TError,UpdateEmployeeBonusConfigMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateEmployeeBonusConfig>>,
+        TError,
+        UpdateEmployeeBonusConfigMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateEmployeeBonusConfigMutationOptions(options));
     }
 
 export const getHealthCheckUrl = () => {

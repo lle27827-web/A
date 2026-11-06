@@ -53,6 +53,53 @@
   font-size: 12px;
 }
 
+.employee-bonus-settings {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 14px;
+  background: hsl(var(--muted) / .32);
+}
+.employee-bonus-settings h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+.employee-bonus-settings > .sub { margin: -6px 0 0; font-size: 12px; line-height: 1.5; }
+.employee-bonus-toggle { margin-top: 0; padding: 0; border: 0; background: transparent; }
+.employee-bonus-threshold { margin: 0; }
+.employee-bonus-threshold-input { display: flex; align-items: center; gap: 8px; }
+.employee-bonus-threshold-input input { width: 110px; }
+.employee-bonus-threshold-input > span { color: hsl(var(--muted-foreground)); font-size: 13px; font-weight: 700; }
+.employee-bonus-rates { display: grid; gap: 8px; }
+.employee-bonus-rate-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 220px);
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid hsl(var(--border) / .8);
+  border-radius: 10px;
+  background: hsl(var(--card));
+}
+.employee-bonus-service { display: grid; gap: 3px; min-width: 0; }
+.employee-bonus-service strong { overflow-wrap: anywhere; }
+.employee-bonus-service small,
+.employee-bonus-rate-input small { color: hsl(var(--muted-foreground)); font-size: 11px; }
+.employee-bonus-rate-input { display: grid; gap: 3px; min-width: 0; }
+.employee-bonus-rate-input input { width: 100%; min-width: 0; }
+.employee-bonus-empty { margin: 0; color: hsl(var(--muted-foreground)); font-size: 13px; }
+.employee-bonus-save { justify-self: start; }
+@media (max-width: 480px) {
+  .employee-bonus-settings { padding: 12px; }
+  .employee-bonus-rate-row { grid-template-columns: minmax(0, 1fr); gap: 7px; }
+}
+
 .print-preview-area {
   display: grid;
   gap: 8px;

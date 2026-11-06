@@ -604,6 +604,99 @@ export const DeleteServiceTypeResponse = zod.void()
 
 
 /**
+ * @summary Xem cấu hình thưởng tiền công theo giờ tháng
+ */
+export const getEmployeeBonusConfigResponseThresholdMinutesMin = 0;
+export const getEmployeeBonusConfigResponseThresholdMinutesMax = 44640;
+
+
+
+export const getEmployeeBonusConfigResponseServicesItemHourlyRateMax = 10000000;
+
+
+
+export const getEmployeeBonusConfigResponseRatesItemHourlyRateMax = 10000000;
+
+
+
+export const GetEmployeeBonusConfigResponse = zod.object({
+  "enabled": zod.boolean(),
+  "thresholdMinutes": zod.number().int().min(getEmployeeBonusConfigResponseThresholdMinutesMin).max(getEmployeeBonusConfigResponseThresholdMinutesMax),
+  "members": zod.array(zod.object({
+  "id": zod.number().int().min(1),
+  "name": zod.string()
+})),
+  "services": zod.array(zod.object({
+  "id": zod.number().int().min(1),
+  "name": zod.string(),
+  "hourlyRate": zod.number().int().min(1).max(getEmployeeBonusConfigResponseServicesItemHourlyRateMax)
+})),
+  "rates": zod.array(zod.object({
+  "memberId": zod.number().int().min(1),
+  "serviceTypeId": zod.number().int().min(1),
+  "hourlyRate": zod.number().int().min(1).max(getEmployeeBonusConfigResponseRatesItemHourlyRateMax)
+}))
+})
+
+
+/**
+ * @summary Cập nhật ngưỡng giờ và đơn giá thưởng tiền công
+ */
+export const updateEmployeeBonusConfigBodyThresholdMinutesMin = 0;
+export const updateEmployeeBonusConfigBodyThresholdMinutesMax = 44640;
+
+
+
+export const updateEmployeeBonusConfigBodyRatesItemHourlyRateMax = 10000000;
+
+export const updateEmployeeBonusConfigBodyRatesMax = 1000;
+
+
+
+export const UpdateEmployeeBonusConfigBody = zod.object({
+  "enabled": zod.boolean(),
+  "thresholdMinutes": zod.number().int().min(updateEmployeeBonusConfigBodyThresholdMinutesMin).max(updateEmployeeBonusConfigBodyThresholdMinutesMax),
+  "rates": zod.array(zod.object({
+  "memberId": zod.number().int().min(1),
+  "serviceTypeId": zod.number().int().min(1),
+  "hourlyRate": zod.number().int().min(1).max(updateEmployeeBonusConfigBodyRatesItemHourlyRateMax).nullable()
+})).max(updateEmployeeBonusConfigBodyRatesMax).optional()
+})
+
+export const updateEmployeeBonusConfigResponseThresholdMinutesMin = 0;
+export const updateEmployeeBonusConfigResponseThresholdMinutesMax = 44640;
+
+
+
+export const updateEmployeeBonusConfigResponseServicesItemHourlyRateMax = 10000000;
+
+
+
+export const updateEmployeeBonusConfigResponseRatesItemHourlyRateMax = 10000000;
+
+
+
+export const UpdateEmployeeBonusConfigResponse = zod.object({
+  "enabled": zod.boolean(),
+  "thresholdMinutes": zod.number().int().min(updateEmployeeBonusConfigResponseThresholdMinutesMin).max(updateEmployeeBonusConfigResponseThresholdMinutesMax),
+  "members": zod.array(zod.object({
+  "id": zod.number().int().min(1),
+  "name": zod.string()
+})),
+  "services": zod.array(zod.object({
+  "id": zod.number().int().min(1),
+  "name": zod.string(),
+  "hourlyRate": zod.number().int().min(1).max(updateEmployeeBonusConfigResponseServicesItemHourlyRateMax)
+})),
+  "rates": zod.array(zod.object({
+  "memberId": zod.number().int().min(1),
+  "serviceTypeId": zod.number().int().min(1),
+  "hourlyRate": zod.number().int().min(1).max(updateEmployeeBonusConfigResponseRatesItemHourlyRateMax)
+}))
+})
+
+
+/**
  * Returns server health status
  * @summary Health check
  */
