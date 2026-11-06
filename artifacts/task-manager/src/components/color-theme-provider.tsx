@@ -263,28 +263,9 @@ function hexToHsl(hex: string): string {
 }
 
 function readStoredTheme(): AppColorTheme {
-  try {
-    const savedTheme = window.localStorage.getItem(STORAGE_KEY);
-    if (savedTheme === 'custom') return 'custom';
-    const legacyPalettes = window.localStorage.getItem(PALETTE_STORAGE_KEY) === null
-      ? JSON.parse(
-        window.localStorage.getItem(PREVIOUS_PALETTE_STORAGE_KEY)
-          ?? window.localStorage.getItem(LEGACY_PALETTE_STORAGE_KEY)
-          ?? window.localStorage.getItem(OLDER_PALETTE_STORAGE_KEY)
-          ?? window.localStorage.getItem(OLDEST_PALETTE_STORAGE_KEY)
-          ?? 'null',
-      ) as Record<string, unknown> | null
-      : null;
-    const previousTheme = savedTheme === 'dark' ? 'dark' : 'default';
-    const previousColors = legacyPalettes?.[previousTheme];
-    if (previousColors && typeof previousColors === 'object'
-      && PALETTE_TOKENS.some((token) => isHexColor((previousColors as Record<string, unknown>)[token]))) {
-      return 'custom';
-    }
-    return previousTheme;
-  } catch {
-    return 'default';
-  }
+  // Theme selection has been removed; use the yellow default even if an older
+  // browser session had the dark or custom theme selected.
+  return 'default';
 }
 
 export function ColorThemeProvider({ children }: { children: ReactNode }) {

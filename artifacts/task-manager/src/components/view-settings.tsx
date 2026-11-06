@@ -1,14 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
-import { ArrowLeft, BookHeart, ChevronRight, History, Home, KeyRound, Menu, Palette, Printer, Trash2, X } from 'lucide-react';
+import { ArrowLeft, BookHeart, ChevronRight, History, Home, KeyRound, Menu, Printer, Trash2, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
 import { AccessGrantsDialog } from '@/components/access-grants';
 import { NightServicePricingSettings } from '@/components/night-service-pricing-settings';
-import { useColorTheme, type AppColorTheme } from '@/components/color-theme-provider';
-import { ColorPaletteControls } from '@/components/color-palette-controls';
 import { MonthlyPayrollPrint } from '@/components/monthly-payroll-print';
 import { PrintPreview } from '@/components/print-preview';
 import {
@@ -68,18 +66,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   const [, navigate] = useLocation();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [deleteHistoryOpen, setDeleteHistoryOpen] = useState(false);
-  const [paletteOpen, setPaletteOpen] = useState(false);
-  const { theme, setTheme, colors, setColor, resetColors } = useColorTheme();
   const printPrefs = printPreferences ?? DEFAULT_PRINT_PREFERENCES;
-  const editThemeColors = (nextTheme: AppColorTheme) => {
-    setTheme(nextTheme);
-    setPaletteOpen(true);
-  };
-  const themeName = theme === 'default' ? 'Vàng sa mạc' : theme === 'dark' ? 'Tối xám' : 'Tùy chỉnh';
-
-  useEffect(() => {
-    if (!open) setPaletteOpen(false);
-  }, [open]);
 
   function pickHistory(month: string, date: string) {
     setHistoryOpen(false);
@@ -96,72 +83,15 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
       </DialogPrimitive.Trigger>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="settings-overlay" />
-        <DialogPrimitive.Content className={`settings-dialog${paletteOpen ? ' palette-mode' : ''}`} data-testid={paletteOpen ? 'dialog-color-palette' : 'dialog-view-settings'}>
+        <DialogPrimitive.Content className="settings-dialog" data-testid="dialog-view-settings">
           <div className="dialog-head">
-            {paletteOpen && <button type="button" className="icon-btn nav-return-action" onClick={() => setPaletteOpen(false)} aria-label="Trở về cài đặt" data-testid="button-back-from-color-palette"><ArrowLeft size={18} /></button>}
-            <DialogPrimitive.Title asChild><h2>{paletteOpen ? `Bảng màu · ${themeName}` : 'Cài đặt'}</h2></DialogPrimitive.Title>
-            <DialogPrimitive.Close asChild><button type="button" className="icon-btn" aria-label={paletteOpen ? 'Đóng bảng màu' : 'Đóng cài đặt'}><X size={18} /></button></DialogPrimitive.Close>
+            <DialogPrimitive.Title asChild><h2>Cài đặt</h2></DialogPrimitive.Title>
+            <DialogPrimitive.Close asChild><button type="button" className="icon-btn" aria-label="Đóng cài đặt"><X size={18} /></button></DialogPrimitive.Close>
           </div>
-          {paletteOpen ? (
-            <>
-              <DialogPrimitive.Description className="sub">Chỉ chỉnh giao diện đang chọn; hai giao diện còn lại không bị thay đổi.</DialogPrimitive.Description>
-              <ColorPaletteControls colors={colors} onChange={setColor} onReset={resetColors} />
-            </>
-          ) : (
           <>
           <DialogPrimitive.Description className="sub">
             {isOwner ? 'Lịch sử, cấp quyền quản lý và sổ cá nhân.' : canManageGrants ? 'Lịch sử tháng, quyền quản lý trong phạm vi được cấp và sổ cá nhân.' : 'Lịch sử tháng và sổ cá nhân.'}
           </DialogPrimitive.Description>
-
-          <section className="theme-settings" aria-labelledby="theme-settings-title">
-            <h3 id="theme-settings-title">Giao diện</h3>
-            <fieldset className="theme-options">
-              <legend>Chọn màu nền</legend>
-              <div className="theme-option-row">
-                <label className={`theme-option${theme === 'default' ? ' selected' : ''}`}>
-                  <input type="radio" name="app-color-theme" value="default" checked={theme === 'default'}
-                    onChange={() => setTheme('default')} data-testid="radio-theme-default" />
-                  <span className="theme-swatch theme-swatch-default" aria-hidden="true" />
-                  <span className="theme-option-copy">
-                    <strong>Vàng sa mạc</strong>
-                    <span>Nền vàng, khung nội dung trắng</span>
-                  </span>
-                </label>
-                <button type="button" className="theme-edit-button" onClick={() => editThemeColors('default')}
-                  aria-label="Sửa màu giao diện Vàng sa mạc" data-testid="button-edit-theme-default">Sửa màu</button>
-              </div>
-              <div className="theme-option-row">
-                <label className={`theme-option${theme === 'dark' ? ' selected' : ''}`}>
-                  <input type="radio" name="app-color-theme" value="dark" checked={theme === 'dark'}
-                    onChange={() => setTheme('dark')} data-testid="radio-theme-dark" />
-                  <span className="theme-swatch theme-swatch-dark" aria-hidden="true" />
-                  <span className="theme-option-copy">
-                    <strong>Tối xám</strong>
-                    <span>Nền xám đậm và các khung màu xám</span>
-                  </span>
-                </label>
-                <button type="button" className="theme-edit-button" onClick={() => editThemeColors('dark')}
-                  aria-label="Sửa màu giao diện tối xám" data-testid="button-edit-theme-dark">Sửa màu</button>
-              </div>
-              <div className="theme-option-row">
-                <label className={`theme-option${theme === 'custom' ? ' selected' : ''}`}>
-                  <input type="radio" name="app-color-theme" value="custom" checked={theme === 'custom'}
-                    onChange={() => setTheme('custom')} data-testid="radio-theme-custom" />
-                  <span className="theme-swatch theme-swatch-custom" aria-hidden="true" />
-                  <span className="theme-option-copy">
-                    <strong>Tùy chỉnh</strong>
-                    <span>Giao diện riêng, không đổi hai giao diện mặc định</span>
-                  </span>
-                </label>
-                <button type="button" className="theme-edit-button" onClick={() => editThemeColors('custom')}
-                  aria-label="Sửa màu giao diện tùy chỉnh" data-testid="button-edit-theme-custom">Sửa màu</button>
-              </div>
-            </fieldset>
-          </section>
-
-          <button type="button" className="settings-link" onClick={() => editThemeColors('custom')} data-testid="button-open-color-palette">
-            <Palette size={16} aria-hidden="true" /><span className="grow"><strong>Chỉnh màu giao diện</strong><span className="muted">Tùy chỉnh màu nền, chữ, khung và trạng thái</span></span><ChevronRight size={16} aria-hidden="true" />
-          </button>
 
           <Link href="/personal" className="settings-link personal-entry" onClick={() => onOpenChange(false)} data-testid="link-personal-notebook">
             <BookHeart size={17} aria-hidden="true" /><span className="grow"><strong>Chấm công cá nhân</strong><span className="muted">Sổ riêng của tài khoản bạn</span></span><ChevronRight size={16} aria-hidden="true" />
@@ -185,7 +115,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
             </button>
           )}
 
-          {isOwner && <NightServicePricingSettings open={open && !paletteOpen} isOwner={isOwner} />}
+          {isOwner && <NightServicePricingSettings open={open} isOwner={isOwner} />}
 
           {onPrintPreferencesChange && (
             <section className="print-settings" aria-labelledby="print-settings-title">
@@ -285,7 +215,6 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
             <button type="button" className="btn ghost nav-return-action" onClick={() => onOpenChange(false)} data-testid="button-settings-back"><ArrowLeft size={14} aria-hidden="true" />Trở về</button>
           </nav>
           </>
-          )}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

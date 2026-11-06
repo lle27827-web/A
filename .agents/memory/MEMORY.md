@@ -20,7 +20,7 @@
 - [GitHub push verification](github-push-verification.md) — a local main commit is not deployed until push authentication succeeds; verify the remote before claiming Vercel changed.
 - [Touch save/back gestures](screen-reader-gestures.md) — allow 2-second holds to save active attendance forms; retain continuous save/back gestures and native screen readers.
 - [Service catalog deletion](service-catalog-deletion.md) — removing a service from choices must preserve recorded history; a same-name recreation is a new identity.
-- [Theme profiles](theme-profiles.md) — keep yellow, dark, and custom profiles independent; gray-filled surfaces use #777777.
+- [Theme profiles](theme-profiles.md) — use one yellow default; do not expose dark/custom theme options unless requested.
 - [Print paper sizes](print-paper-sizes.md) — use explicit valid page dimensions for thermal receipts; `width auto` may be ignored.
 - [Payroll print scope](payroll-print-scope.md) — employee payroll summaries belong only to the print report; preserve the rest of the app UI.
 - [Push to main](push-to-main.md) — push completed project changes to `main` without asking for confirmation again.
