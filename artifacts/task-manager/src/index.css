@@ -3343,6 +3343,14 @@ body:has(.modal-backdrop) .screen-nav {
   justify-self: start;
   margin: 0;
 }
+.main .appointment-panel {
+  --foreground: 0 0% 100%;
+  --card-foreground: 0 0% 100%;
+  --muted-foreground: 0 0% 92%;
+  --muted: var(--gray-row);
+  color: hsl(0 0% 100%);
+  background: hsl(var(--gray-panel));
+}
 @media (max-width: 540px) {
   .night-service-settings {
     padding: 12px;

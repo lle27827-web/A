@@ -240,7 +240,7 @@ export function AppShell({
               <CreditCard size={17} aria-hidden="true" /><span>Quản lý thẻ</span>
             </Link>}
             {(permissions.viewAppointments || permissions.editAppointments) && <Link href="/appointments" className="desktop-nav-link" aria-current={location === '/appointments' ? 'page' : undefined} data-testid="desktop-link-appointments">
-              <CalendarDays size={17} aria-hidden="true" /><span>Lịch hẹn</span>
+              <CalendarDays size={17} aria-hidden="true" /><span>Lịch hẹn và trạng thái</span>
             </Link>}
             {permissions.editServices && <Link href="/services" className="desktop-nav-link" aria-current={location === '/services' ? 'page' : undefined} data-testid="desktop-link-services">
               <Sparkles size={17} aria-hidden="true" /><span>Dịch vụ &amp; giá</span>

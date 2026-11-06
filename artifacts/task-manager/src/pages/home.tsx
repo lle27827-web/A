@@ -92,7 +92,7 @@ export default function HomePage() {
         </Link>}
         {(permissions.viewAppointments || permissions.editAppointments) && <Link href="/appointments" className="tile tile-appointments alt" aria-labelledby="appointments-link-title" data-testid="link-appointments">
           <CalendarDays size={28} aria-hidden="true" />
-          <strong id="appointments-link-title">Lịch hẹn</strong>
+          <strong id="appointments-link-title">Lịch hẹn và trạng thái</strong>
           <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>
         </Link>}
         {canEditServices && <Link href="/services" className="tile tile-services" aria-labelledby="services-link-title" data-testid="link-services-tile">
