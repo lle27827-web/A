@@ -3215,3 +3215,19 @@ body:has(.modal-backdrop) .screen-nav {
     padding: 0 30px 20px;
   }
 }
+
+/* Final override: remove later, high-specificity white frames around text rows. */
+.main .revenue .revenue-summary > .revenue-period-card,
+.main .revenue .revenue-summary > .revenue-period-card .revenue-period-primary-row,
+.main .revenue .revenue-summary > .revenue-period-card .revenue-period-key-metrics > div,
+.main .revenue .revenue-summary > .revenue-period-card .revenue-service-summary,
+.main .revenue .revenue-summary > .revenue-period-card .revenue-details > summary,
+.main .revenue .revenue-summary > .revenue-period-card .revenue-details .rev-breakdown > div,
+.personal .p-row,
+.personal .p-total-card,
+.main .panel.page[aria-labelledby="emp-title"] .emp-row,
+.main .panel.page[data-testid="section-services"] .emp-row,
+.main .panel.page[aria-labelledby="cards-title"] .card-list-item,
+.main .appointment-panel .appointment-row {
+  border: 0 !important;
+}
