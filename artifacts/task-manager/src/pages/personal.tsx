@@ -203,7 +203,7 @@ export default function PersonalPage({ onSignOut }: { onSignOut?: () => void }) 
   }, [pendingHistorySpeech]);
   const monthServiceDetails = useMemo(() => summarizeServiceAttendance(sessions.map((s) => ({ serviceType: s.serviceName, minutes: s.minutes, visits: 1 }))), [sessions]);
   const dayServiceDetails = useMemo(() => summarizeServiceAttendance(daySessions.map((s) => ({ serviceType: s.serviceName, minutes: s.minutes, visits: 1 }))), [daySessions]);
-  const monthTotalLabel = month === currentMonth ? 'Tổng lương tháng hiện tại' : `Tổng lương ${formatMonth(month).toLocaleLowerCase('vi')}`;
+  const monthTotalLabel = month === currentMonth ? 'Tổng lương tháng' : `Tổng lương ${formatMonth(month).toLocaleLowerCase('vi')}`;
   const dayTotalLabel = date === today ? 'Tổng lương hôm nay' : `Tổng lương ngày ${formatShortDayMonth(date)}`;
   const services = data?.services ?? [];
   const useFacility = data?.useFacilityRates === true;

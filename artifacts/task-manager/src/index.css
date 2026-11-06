@@ -2862,6 +2862,10 @@ body:has(.modal-backdrop) .screen-nav {
 .personal .p-total-card .service-duration-list li {
   text-align: center;
 }
+.personal .p-total-card[data-testid="card-personal-day-total"] .rev-label,
+.personal .p-total-card[data-testid="card-personal-day-total"] .p-mid {
+  font-weight: 900;
+}
 .personal .p-card[data-testid="section-personal-shifts"] .day-title {
   justify-content: center;
   text-align: center;
@@ -2875,6 +2879,21 @@ body:has(.modal-backdrop) .screen-nav {
   justify-items: center;
   gap: 8px;
   text-align: center;
+}
+
+/* Employee detail supports the same left/right day-history swipe as the personal notebook. */
+.employee-detail-swipe {
+  touch-action: pan-y;
+}
+
+/* Keep revenue content legible with white rounded outlines around each summary row. */
+.main .revenue .revenue-summary > .revenue-period-card .revenue-period-primary-row,
+.main .revenue .revenue-summary > .revenue-period-card .revenue-period-key-metrics > div,
+.main .revenue .revenue-summary > .revenue-period-card .revenue-service-summary,
+.main .revenue .revenue-summary > .revenue-period-card .revenue-details > summary,
+.main .revenue .revenue-summary > .revenue-period-card .revenue-details .rev-breakdown > div {
+  border: 2px solid hsl(0 0% 100%) !important;
+  border-radius: 12px !important;
 }
 .personal .personal-shift-row .p-date {
   justify-self: center;

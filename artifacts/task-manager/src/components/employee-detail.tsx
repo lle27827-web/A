@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type TouchEvent as ReactTouchEvent } from 'react';
 import {
   getGetMemberPayrollQueryKey, getListServiceSessionsQueryKey, getListTreatmentCardsQueryKey,
   useCreateServiceSession, useDeleteMember, useDeleteServiceSession, useGetMemberPayroll, useListServiceSessions,
@@ -39,6 +39,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
   const [memberDialog, setMemberDialog] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [dialogError, setDialogError] = useState('');
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
 
   const member = memberId !== null ? members.find((m) => m.id === memberId) ?? null : null;
   const id = member?.id ?? 0;
@@ -79,6 +80,28 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
   function chooseDay(next: string) {
     setDatePickerOpen(false);
     goPeriod(monthOf(next), next);
+  }
+  function startDaySwipe(event: ReactTouchEvent<HTMLDivElement>) {
+    const target = event.target;
+    if (!(target instanceof Element)
+      || target.closest('button, a, input, select, textarea, summary, [role="dialog"], .settings-overlay, [contenteditable="true"], .table-wrap')
+      || event.touches.length !== 1) {
+      swipeStart.current = null;
+      return;
+    }
+    const touch = event.touches[0];
+    swipeStart.current = { x: touch.clientX, y: touch.clientY };
+  }
+  function finishDaySwipe(event: ReactTouchEvent<HTMLDivElement>) {
+    const start = swipeStart.current;
+    swipeStart.current = null;
+    if (!start || event.changedTouches.length !== 1) return;
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < 55 || Math.abs(deltaX) < Math.abs(deltaY) * 1.25) return;
+    const nextDay = shiftRevenueDate(day, deltaX > 0 ? -1 : 1, today);
+    if (nextDay !== day) chooseDay(nextDay);
   }
 
   function submitSession(input: ServiceSessionInput) {
@@ -169,7 +192,7 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
     </section>
   );
   return (
-    <div className="detail">
+    <div className="detail employee-detail-swipe" onTouchStart={startDaySwipe} onTouchEnd={finishDaySwipe} onTouchCancel={() => { swipeStart.current = null; }}>
       <section className="salary-hero compact" aria-labelledby="salary-title" data-testid="section-salary">
         <div className="month-nav">
           <button type="button" className="icon-btn" onClick={() => changeMonth(shiftMonth(month, -1))} aria-label="Tháng trước" data-testid="button-prev-month"><ChevronLeft size={16} /></button>
