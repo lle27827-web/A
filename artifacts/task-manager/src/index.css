@@ -515,11 +515,39 @@ a.hit:hover, .emp-row:hover, .card-row:hover { border-color: hsl(var(--primary) 
 @media (max-width: 380px) { .tiles { grid-template-columns: minmax(0, 1fr); } }
 
 /* ---- SỔ CÔNG: service catalog + employee choice ---- */
-.emp-row.as-row { width: 100%; font: inherit; text-align: left; cursor: pointer; }
+.emp-row.as-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 20px;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 3px 12px;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
 .emp-row .grow, .choice-row .grow, .settings-link .grow { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.employee-name { flex: 1 1 auto; text-align: left; }
-.employee-summary { display: flex; flex: 0 1 auto; flex-direction: column; align-items: flex-end; gap: 5px; color: hsl(var(--muted-foreground)); font-size: 14px; line-height: 1.35; text-align: right; overflow-wrap: anywhere; }
-.employee-summary > span { display: grid; justify-items: end; gap: 1px; }
+.emp-row.as-row > .initials { grid-column: 1; grid-row: 1 / span 2; }
+.employee-name { grid-column: 2; grid-row: 1; min-width: 0; text-align: left; }
+.emp-row.as-row > svg:last-child { grid-column: 3; grid-row: 1 / span 2; justify-self: end; }
+.employee-summary {
+  display: flex;
+  grid-column: 2;
+  grid-row: 2;
+  flex: 0 1 auto;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 14px;
+  width: 100%;
+  max-width: 100%;
+  color: hsl(var(--muted-foreground));
+  font-size: 14px;
+  line-height: 1.35;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.employee-summary > span { display: grid; min-width: 0; justify-items: start; gap: 1px; }
 .employee-summary strong { color: hsl(var(--foreground)); font-size: 16px; font-weight: 800; }
 .choice-list { display: grid; gap: 10px; margin-top: 12px; }
 .choice-row, .settings-link { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--muted) / .35); color: hsl(var(--foreground)); font: inherit; font-size: 14px; text-align: left; text-decoration: none; cursor: pointer; transition: border-color .15s, background .15s; }
@@ -580,7 +608,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .employee-session-row .shift-actions .btn { flex: 1 1 0; justify-content: center; }
 .detail [data-testid="section-day-sessions"] .panel-head .sub { text-align: right; font-size: 16px; font-weight: 700; }
 @media (max-width: 480px) {
-  .employee-summary { max-width: 54%; font-size: 12px; }
+  .employee-summary { gap: 10px; font-size: 12px; }
   .employee-summary strong { font-size: 14px; }
   .employee-name { overflow-wrap: anywhere; }
   .employee-session-customer, .employee-session-duration { font-size: 15px; }
@@ -2547,16 +2575,20 @@ body:has(.modal-backdrop) .screen-nav {
   .main .panel.page[aria-labelledby="emp-title"] .emp-row.as-row {
     min-height: 76px;
     display: grid;
-    grid-template-columns: 46px minmax(170px, .8fr) minmax(320px, 1fr) 22px;
-    gap: 18px;
+    grid-template-columns: 46px minmax(0, 1fr) 22px;
+    grid-template-rows: auto auto;
+    gap: 4px 18px;
     padding: 14px 18px;
     border-radius: 13px;
   }
   .main .panel.page[aria-labelledby="emp-title"] .employee-summary {
     flex-direction: row;
-    align-items: center;
-    justify-content: flex-end;
-    gap: clamp(18px, 3vw, 44px);
+    grid-column: 2;
+    grid-row: 2;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: clamp(12px, 2vw, 24px);
+    max-width: 100%;
     text-align: left;
   }
   .main .panel.page[aria-labelledby="emp-title"] .employee-summary > span { justify-items: start; }
