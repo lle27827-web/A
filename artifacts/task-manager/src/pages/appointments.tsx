@@ -106,20 +106,30 @@ function activityDetails(activity: AppointmentStaffActivity) {
     if (activity.serviceType) details.push({ kind: 'detail', text: activity.serviceType });
     if (activity.endsAt) {
       details.push({ kind: 'detail', text: `Dự kiến ra lúc ${formatActivityEnd(activity.endsAt)}` });
+    } else {
+      details.push({ kind: 'detail', text: 'Chưa xác định giờ dự kiến xong' });
     }
   } else {
     details.push({ kind: 'state', text: activity.state === 'off' ? 'Đang nghỉ' : 'Đang rảnh' });
     if (activity.lastFinishedAt) {
       details.push({
         kind: 'detail',
-        text: `Ca gần nhất kết thúc lúc ${formatActivityEnd(activity.lastFinishedAt)}`,
+        text: `Ca gần nhất dự kiến xong lúc ${formatActivityEnd(activity.lastFinishedAt)}`,
       });
+    } else {
+      details.push({ kind: 'detail', text: 'Chưa có giờ kết thúc gần đây' });
     }
   }
   if (activity.nextAppointmentAt) {
+    const appointmentInfo = [
+      `Lịch hẹn lúc ${formatNextAppointment(activity.nextAppointmentAt)}`,
+      activity.nextAppointmentCustomerName ? `Khách: ${activity.nextAppointmentCustomerName}` : null,
+      activity.nextAppointmentRequest ? `Yêu cầu: ${activity.nextAppointmentRequest}` : null,
+      activity.nextAppointmentNote ? `Ghi chú: ${activity.nextAppointmentNote}` : null,
+    ].filter((value): value is string => value !== null);
     details.push({
       kind: 'appointment',
-      text: `Lịch hẹn lúc ${formatNextAppointment(activity.nextAppointmentAt)}`,
+      text: appointmentInfo.join(' · '),
     });
   }
   return details;
@@ -327,60 +337,68 @@ export default function AppointmentsPage() {
           <ul className="staff-activity-list" data-testid="list-staff-activity">
             {staffActivity.data.map((activity) => {
               const details = activityDetails(activity);
+              const canOpenAttendance = canEditEmployees &&
+                members.some((member) => member.id === activity.memberId);
+              const staffIcon = (
+                <span className="staff-activity-icon" aria-hidden="true">
+                  {activity.state === 'working'
+                    ? <BriefcaseBusiness size={17} />
+                    : activity.state === 'off' ? <Coffee size={17} /> : <CheckCircle2 size={18} />}
+                </span>
+              );
               return (
-              <li className={`staff-activity-row is-${activity.state}`} key={activity.memberId} data-testid={`staff-activity-${activity.memberId}`}>
-                <div className="staff-activity-person">
-                  <span className="staff-activity-icon" aria-hidden="true">
-                    {activity.state === 'working'
-                      ? <BriefcaseBusiness size={17} />
-                      : activity.state === 'off' ? <Coffee size={17} /> : <CheckCircle2 size={18} />}
-                  </span>
-                  {canEditEmployees && members.some((member) => member.id === activity.memberId) ? (
+                <li className={`staff-activity-row is-${activity.state}`} key={activity.memberId} data-testid={`staff-activity-${activity.memberId}`}>
+                  {canOpenAttendance ? (
                     <button
                       type="button"
-                      className="staff-activity-name-button"
+                      className="staff-activity-person staff-activity-person-button"
                       onClick={() => openAttendance(activity.memberId)}
                       aria-haspopup="dialog"
                       aria-label={`Chấm công cho ${activity.employeeName}`}
                       data-testid={`button-attendance-staff-${activity.memberId}`}
                     >
-                      {activity.employeeName}
+                      {staffIcon}
+                      <span className="staff-activity-person-name">{activity.employeeName}</span>
                     </button>
-                  ) : <strong>{activity.employeeName}</strong>}
-                </div>
-                <div
-                  className={`staff-activity-state is-${activity.state}`}
-                  role="status"
-                  aria-label={details.map((detail) => detail.text).join('. ')}
-                >
-                  {details.map((detail, index) => (
-                    <span
-                      className={`staff-activity-detail is-${detail.kind}`}
-                      key={`${detail.kind}-${index}`}
-                    >
-                      {index === 0 && activity.state === 'working' && <Clock3 size={14} aria-hidden="true" />}
-                      {index === 0 && activity.state === 'available' && <CheckCircle2 size={14} aria-hidden="true" />}
-                      {index === 0 && activity.state === 'off' && <Coffee size={14} aria-hidden="true" />}
-                      {detail.text}
-                    </span>
-                  ))}
-                </div>
-                {canEdit && (
-                  <button
-                    type="button"
-                    className="btn small staff-activity-toggle"
-                    disabled={updateActivity.isPending || activity.state === 'working'}
-                    onClick={() => setEmployeeOff(activity)}
-                    aria-label={activity.state === 'off' ? `Cho ${activity.employeeName} trở lại làm` : `Đánh dấu ${activity.employeeName} nghỉ`}
-                    data-testid={`button-staff-activity-${activity.memberId}`}
+                  ) : (
+                    <div className="staff-activity-person">
+                      {staffIcon}
+                      <strong className="staff-activity-person-name">{activity.employeeName}</strong>
+                    </div>
+                  )}
+                  <div
+                    className={`staff-activity-state is-${activity.state}`}
+                    role="status"
+                    aria-label={details.map((detail) => detail.text).join('. ')}
                   >
-                    {updateActivity.isPending && updateActivity.variables?.memberId === activity.memberId
-                      ? <LoaderCircle size={14} className="spin" aria-hidden="true" />
-                      : null}
-                    {activity.state === 'off' ? 'Trở lại làm' : activity.state === 'working' ? 'Đang làm' : 'Đánh dấu nghỉ'}
-                  </button>
-                )}
-              </li>
+                    {details.map((detail, index) => (
+                      <span
+                        className={`staff-activity-detail is-${detail.kind}`}
+                        key={`${detail.kind}-${index}`}
+                      >
+                        {index === 0 && activity.state === 'working' && <Clock3 size={14} aria-hidden="true" />}
+                        {index === 0 && activity.state === 'available' && <CheckCircle2 size={14} aria-hidden="true" />}
+                        {index === 0 && activity.state === 'off' && <Coffee size={14} aria-hidden="true" />}
+                        {detail.text}
+                      </span>
+                    ))}
+                  </div>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      className="btn small staff-activity-toggle"
+                      disabled={updateActivity.isPending || activity.state === 'working'}
+                      onClick={() => setEmployeeOff(activity)}
+                      aria-label={activity.state === 'off' ? `Cho ${activity.employeeName} trở lại làm` : `Đánh dấu ${activity.employeeName} nghỉ`}
+                      data-testid={`button-staff-activity-${activity.memberId}`}
+                    >
+                      {updateActivity.isPending && updateActivity.variables?.memberId === activity.memberId
+                        ? <LoaderCircle size={14} className="spin" aria-hidden="true" />
+                        : null}
+                      {activity.state === 'off' ? 'Trở lại làm' : activity.state === 'working' ? 'Đang làm' : 'Đánh dấu nghỉ'}
+                    </button>
+                  )}
+                </li>
               );
             })}
           </ul>
