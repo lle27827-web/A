@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   cardTopUpsTable,
   db,
+  facilityNightSettingsTable,
   isPartitionedStorageEnabled,
   readPartitionedTable,
   serviceSessionsTable,
@@ -44,15 +45,36 @@ function serviceBreakdown(rows: readonly { serviceType: string; minutes: number 
 }
 
 async function getPartitionedFacilityRevenue(month: string, date: string, start: string, end: string) {
-  const [allCards, allTopUps, allSessions] = await Promise.all([
+  const [allCards, allTopUps, allSessions, nightSettings] = await Promise.all([
     readPartitionedTable("treatment_cards"),
     readPartitionedTable("card_top_ups"),
     readPartitionedTable("service_sessions"),
+    readPartitionedTable("facility_night_settings"),
   ]);
   const cards = allCards as unknown as (typeof treatmentCardsTable.$inferSelect)[];
   const topUps = allTopUps as unknown as (typeof cardTopUpsTable.$inferSelect)[];
   const sessions = allSessions as unknown as (typeof serviceSessionsTable.$inferSelect)[];
-  return aggregatePartitionedFacilityRevenue(month, date, start, end, cards, topUps, sessions);
+  const settings = (nightSettings as unknown as (typeof facilityNightSettingsTable.$inferSelect)[])
+    .filter((setting) => setting.id === 1)
+    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  return aggregatePartitionedFacilityRevenue(
+    month, date, start, end, cards, topUps, sessions, settings[0]?.enabled ?? false,
+  );
+}
+
+export async function getNightServiceEnabled(): Promise<boolean> {
+  if (isPartitionedStorageEnabled()) {
+    const rows = await readPartitionedTable("facility_night_settings");
+    const settings = (rows as unknown as (typeof facilityNightSettingsTable.$inferSelect)[])
+      .filter((setting) => setting.id === 1)
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    return settings[0]?.enabled ?? false;
+  }
+  const [setting] = await db.select({ enabled: facilityNightSettingsTable.enabled })
+    .from(facilityNightSettingsTable)
+    .where(sql`${facilityNightSettingsTable.id} = 1`)
+    .limit(1);
+  return setting?.enabled ?? false;
 }
 
 type PartitionRevenueCard = Pick<
@@ -131,6 +153,7 @@ export function aggregatePartitionedFacilityRevenue(
   cards: readonly PartitionRevenueCard[],
   topUps: readonly PartitionRevenueTopUp[],
   sessions: readonly PartitionRevenueSession[],
+  nightServiceEnabled = false,
 ) {
   const activeCards = cards.filter((card) => card.deletedAt === null);
   const activeCardIds = new Set(activeCards.map((card) => card.id));
@@ -168,6 +191,7 @@ export function aggregatePartitionedFacilityRevenue(
 
   return {
     month,
+    nightServiceEnabled,
     ...revenueTotals(monthWalkInRevenue, monthCardRevenue, sum(monthWalkIns, (row) => row.earnings)),
     serviceRevenue: monthWalkInRevenue,
     walkInServiceRevenue: monthWalkInRevenue,
@@ -196,7 +220,9 @@ export function aggregatePartitionedFacilityRevenue(
           minutes: sum(activeMonthSessions.filter((row) => row.serviceType.trim() === mostUsedAll[0]), (row) => row.minutes),
         }
       : null,
-    serviceBreakdown: serviceBreakdown(activeMonthSessions),
+    serviceBreakdown: serviceBreakdown(nightServiceEnabled
+      ? activeMonthSessions.filter((session) => !session.isNightShift)
+      : activeMonthSessions),
     nightShiftBreakdown: serviceBreakdown(monthNightSessions),
     paymentBreakdown: monthlyPaymentBreakdown,
     today: {
@@ -211,7 +237,9 @@ export function aggregatePartitionedFacilityRevenue(
       cardsSold: dayCardSales.length,
       walkInVisits: dayWalkIns.length,
       cardVisits: daySessions.filter((row) => row.cardId !== null && activeCardIds.has(row.cardId)).length,
-      serviceBreakdown: serviceBreakdown(activeDaySessions),
+      serviceBreakdown: serviceBreakdown(nightServiceEnabled
+        ? activeDaySessions.filter((session) => !session.isNightShift)
+        : activeDaySessions),
       nightShiftBreakdown: serviceBreakdown(dayNightSessions),
       paymentBreakdown: dailyPaymentBreakdown,
     },
@@ -263,7 +291,13 @@ async function getPaymentBreakdowns(start: string, end: string, date: string) {
   return { monthBreakdown, dayBreakdown };
 }
 
-async function getServiceBreakdown(start: string, end: string, date?: string, nightOnly = false) {
+async function getServiceBreakdown(
+  start: string,
+  end: string,
+  date?: string,
+  nightOnly = false,
+  regularOnly = false,
+) {
   const period = date
     ? sql`${serviceSessionsTable.workDate} = ${date}`
     : sql`${serviceSessionsTable.workDate} >= ${start} and ${serviceSessionsTable.workDate} < ${end}`;
@@ -273,7 +307,11 @@ async function getServiceBreakdown(start: string, end: string, date?: string, ni
     visits: sql<number>`count(*)`,
   }).from(serviceSessionsTable).where(sql`
     ${period}
-    and (${nightOnly ? sql`${serviceSessionsTable.isNightShift} = true` : sql`true`})
+    and (${nightOnly
+      ? sql`${serviceSessionsTable.isNightShift} = true`
+      : regularOnly
+        ? sql`${serviceSessionsTable.isNightShift} = false`
+        : sql`true`})
     and (
       ${serviceSessionsTable.cardId} is null
       or exists (
@@ -300,6 +338,7 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
   if (isPartitionedStorageEnabled()) {
     return getPartitionedFacilityRevenue(month, date, start, end);
   }
+  const nightServiceEnabled = await getNightServiceEnabled();
   const topSoldCardServiceType = sql<string | null>`(
     select ${treatmentCardsTable.serviceType}
     from ${treatmentCardsTable}
@@ -524,14 +563,14 @@ export async function getFacilityRevenue(month: string, requestedDate?: string) 
     dailyNightShiftBreakdown,
     paymentBreakdowns,
   ] = await Promise.all([
-    getServiceBreakdown(start, end),
-    getServiceBreakdown(start, end, date),
+    getServiceBreakdown(start, end, undefined, false, nightServiceEnabled),
+    getServiceBreakdown(start, end, date, false, nightServiceEnabled),
     getServiceBreakdown(start, end, undefined, true),
     getServiceBreakdown(start, end, date, true),
     getPaymentBreakdowns(start, end, date),
   ]);
   return {
-    month, ...revenueTotals(walkInServiceRevenue, cardRevenue, walkInPayroll),
+    month, nightServiceEnabled, ...revenueTotals(walkInServiceRevenue, cardRevenue, walkInPayroll),
     serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, payroll,
     revenueExcludingCardSessions: walkInServiceRevenue + cardRevenue, cardRevenue, cardsSold: Number(row.cardsSold),
     walkInVisits: Number(row.walkInVisits), cardVisits: Number(row.cardVisits),

@@ -15,6 +15,8 @@ import type { ServiceDurationBreakdown } from './serviceDurationBreakdown';
 
 export interface MassageSummary {
   month: string;
+  /** Có bật cấu hình dịch vụ ca đêm hay không. */
+  nightServiceEnabled: boolean;
   /** Tổng doanh thu gộp: tiền dịch vụ khách lẻ cộng tiền bán thẻ trong tháng; không cộng lại khi dùng thẻ. */
   revenue: number;
   /** Tiền dịch vụ khách lẻ cộng tiền bán và nạp thẻ trừ tiền công ca khách lẻ. Ca dùng thẻ không thay đổi chỉ tiêu này; tiền công ca thẻ vẫn ghi vào lương nhân viên. */

@@ -1747,6 +1747,7 @@ export const GetMassageSummaryQueryParams = zod.object({
 
 export const GetMassageSummaryResponse = zod.object({
   "month": zod.string(),
+  "nightServiceEnabled": zod.boolean().describe('Có bật cấu hình dịch vụ ca đêm hay không.'),
   "revenue": zod.number().describe('Tổng doanh thu gộp: tiền dịch vụ khách lẻ cộng tiền bán thẻ trong tháng; không cộng lại khi dùng thẻ.'),
   "netRevenue": zod.number().describe('Tiền dịch vụ khách lẻ cộng tiền bán và nạp thẻ trừ tiền công ca khách lẻ. Ca dùng thẻ không thay đổi chỉ tiêu này; tiền công ca thẻ vẫn ghi vào lương nhân viên.'),
   "serviceRevenue": zod.number().describe('Tiền khách lẻ trả theo giá dịch vụ đã lưu ở từng ca; không gồm ca thanh toán bằng thẻ.'),
@@ -1905,6 +1906,7 @@ export const GetMemberPayrollResponse = zod.object({
   "historicalNameSource": zod.enum(['version', 'session', 'unverified']).optional()
 }),
   "month": zod.string(),
+  "nightServiceEnabled": zod.boolean().describe('Có bật cấu hình dịch vụ ca đêm hay không.'),
   "totalMinutes": zod.number(),
   "totalSalary": zod.number()
 })

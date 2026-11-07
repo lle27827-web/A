@@ -10,6 +10,8 @@ import type { MemberRecord } from './memberRecord';
 export interface MemberPayroll {
   member: MemberRecord;
   month: string;
+  /** Có bật cấu hình dịch vụ ca đêm hay không. */
+  nightServiceEnabled: boolean;
   totalMinutes: number;
   totalSalary: number;
 }

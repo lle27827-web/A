@@ -125,3 +125,25 @@ test("partitioned duration summaries normalize service names before totaling", (
     { serviceType: "Massage", minutes: 90, visits: 1 },
   ]);
 });
+
+test("enabled night service separates normal and night facility service summaries", () => {
+  const result = aggregatePartitionedFacilityRevenue(
+    "2026-10",
+    "2026-10-21",
+    "2026-10-01",
+    "2026-11-01",
+    [] as never,
+    [] as never,
+    [
+      { id: 1, memberId: 1, workDate: "2026-10-21", cardId: null, serviceType: "Massage", customerCharge: 100, earnings: 40, minutes: 60, paymentMethod: "cash", customerName: "A", employeeName: "E", isNightShift: false },
+      { id: 2, memberId: 1, workDate: "2026-10-21", cardId: null, serviceType: "Massage", customerCharge: 120, earnings: 60, minutes: 90, paymentMethod: "cash", customerName: "B", employeeName: "E", isNightShift: true },
+    ] as never,
+    true,
+  );
+
+  assert.equal(result.nightServiceEnabled, true);
+  assert.deepEqual(result.serviceBreakdown, [{ serviceType: "Massage", minutes: 60, visits: 1 }]);
+  assert.deepEqual(result.nightShiftBreakdown, [{ serviceType: "Massage", minutes: 90, visits: 1 }]);
+  assert.deepEqual(result.today.serviceBreakdown, result.serviceBreakdown);
+  assert.deepEqual(result.today.nightShiftBreakdown, result.nightShiftBreakdown);
+});

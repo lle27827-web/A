@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  getGetMassageSummaryQueryKey,
+  getGetMemberPayrollQueryKey,
   getGetNightServicePricingQueryKey,
   useGetNightServicePricing,
   useUpdateNightServicePricing,
@@ -90,7 +92,11 @@ export function NightServicePricingSettings({ open, isOwner }: { open: boolean; 
       data: { enabled, startTime, endTime, rates },
     }, {
       onSuccess: async () => {
-        await queryClient.invalidateQueries({ queryKey: getGetNightServicePricingQueryKey() });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: getGetNightServicePricingQueryKey() }),
+          queryClient.invalidateQueries({ queryKey: getGetMassageSummaryQueryKey() }),
+          queryClient.invalidateQueries({ queryKey: getGetMemberPayrollQueryKey() }),
+        ]);
         setMessage("Đã lưu giá ca đêm. Các ca đã ghi trước đó giữ nguyên giá.");
       },
       onError: (saveError) => setError(getApiError(saveError)),

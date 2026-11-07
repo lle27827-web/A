@@ -17,7 +17,7 @@ import {
 import { deleteSession, MassageError, monthBounds, retainedDate, retainedMonthBounds, saveSession, sessionResponse, validDate } from "../lib/massage";
 import { retentionCutoffDate } from "../lib/retention-window";
 import { massageHandler, parseInput } from "./massage-errors";
-import { getFacilityRevenue, getPaymentDetails } from "../lib/facility-revenue";
+import { getFacilityRevenue, getNightServiceEnabled, getPaymentDetails } from "../lib/facility-revenue";
 import { listMembersForPeriod } from "../lib/employee-history";
 import { noPermissions } from "../lib/facility-permissions";
 import type { OwnerAuthStatus } from "../lib/owner-auth";
@@ -179,6 +179,7 @@ router.get("/member-payroll", massageHandler(async (req, res) => {
   const { start, end } = retainedMonthBounds(month);
   const [member] = await listMembersForPeriod(month, memberId);
   if (!member) throw new MassageError(404, "Không tìm thấy nhân viên.");
+  const nightServiceEnabled = await getNightServiceEnabled();
   if (isPartitionedStorageEnabled()) {
     const sessions = await readPartitionedTable("service_sessions") as unknown as (typeof serviceSessionsTable.$inferSelect)[];
     const relevant = sessions.filter((session) =>
@@ -187,6 +188,7 @@ router.get("/member-payroll", massageHandler(async (req, res) => {
     res.json(GetMemberPayrollResponse.parse({
       month,
       member,
+      nightServiceEnabled,
       totalMinutes: relevant.reduce((total, session) => total + Number(session.minutes), 0),
       totalSalary: relevant.reduce((total, session) => total + Number(session.earnings), 0),
     }));
@@ -199,6 +201,7 @@ router.get("/member-payroll", massageHandler(async (req, res) => {
     gte(serviceSessionsTable.workDate, start), lt(serviceSessionsTable.workDate, end)));
   res.json(GetMemberPayrollResponse.parse({
     month, member,
+    nightServiceEnabled,
     totalMinutes: Number(row.minutes), totalSalary: Number(row.salary),
   }));
 }));

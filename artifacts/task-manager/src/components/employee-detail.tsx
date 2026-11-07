@@ -58,13 +58,26 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
 
   const sessions = useMemo(() => sessionsQuery.data ?? [], [sessionsQuery.data]);
   const daySessions = useMemo(() => sessions.filter((s) => s.workDate === day), [sessions, day]);
+  const showNightService = payroll.data?.nightServiceEnabled === true;
+  const regularMonthSessions = showNightService ? sessions.filter((session) => !session.isNightShift) : sessions;
+  const nightMonthSessions = showNightService ? sessions.filter((session) => session.isNightShift) : [];
+  const regularDaySessions = showNightService ? daySessions.filter((session) => !session.isNightShift) : daySessions;
+  const nightDaySessions = showNightService ? daySessions.filter((session) => session.isNightShift) : [];
   const monthTypes = useMemo(
-    () => summarizeServiceAttendance(summarizeServiceDurations(sessions)),
-    [sessions],
+    () => summarizeServiceAttendance(summarizeServiceDurations(regularMonthSessions)),
+    [regularMonthSessions],
+  );
+  const nightMonthTypes = useMemo(
+    () => summarizeServiceAttendance(summarizeServiceDurations(nightMonthSessions)),
+    [nightMonthSessions],
   );
   const dayTypes = useMemo(
-    () => summarizeServiceAttendance(summarizeServiceDurations(daySessions)),
-    [daySessions],
+    () => summarizeServiceAttendance(summarizeServiceDurations(regularDaySessions)),
+    [regularDaySessions],
+  );
+  const nightDayTypes = useMemo(
+    () => summarizeServiceAttendance(summarizeServiceDurations(nightDaySessions)),
+    [nightDaySessions],
   );
   const dayEarnings = daySessions.reduce((a, s) => a + s.earnings, 0);
 
@@ -212,13 +225,23 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
         {sessionsQuery.isLoading ? <span className="muted" role="status">Đang tải số liệu tháng…</span> : !sessionsQuery.isError && (
           <div className="employee-period-stats" data-testid="employee-month-stats">
             <div className="employee-service-summary" data-testid="employee-month-service-breakdown">
-              <strong>Ca dịch vụ trong tháng</strong>
-              <ul className="service-duration-list" aria-label={`Ca và tổng giờ theo dịch vụ trong ${formatMonth(month).toLowerCase()}`}>
+              <strong>{showNightService ? 'Dịch vụ thường trong tháng' : 'Ca dịch vụ trong tháng'}</strong>
+              <ul className="service-duration-list" aria-label={`Ca và tổng giờ theo ${showNightService ? 'dịch vụ thường' : 'dịch vụ'} trong ${formatMonth(month).toLowerCase()}`}>
                 {monthTypes.length
                   ? monthTypes.map((item) => <li key={item.serviceType}>{serviceAttendanceLabel(item, formatMinutes)}</li>)
                   : <li>Chưa có ca dịch vụ</li>}
               </ul>
             </div>
+            {showNightService && (
+              <div className="employee-service-summary night-shift-summary" data-testid="employee-month-night-service-breakdown">
+                <strong>Dịch vụ ca đêm trong tháng</strong>
+                <ul className="service-duration-list" aria-label={`Ca và tổng giờ dịch vụ ca đêm trong ${formatMonth(month).toLowerCase()}`}>
+                  {nightMonthTypes.length
+                    ? nightMonthTypes.map((item) => <li key={item.serviceType}>{serviceAttendanceLabel(item, formatMinutes)}</li>)
+                    : <li>Chưa có ca dịch vụ ca đêm</li>}
+                </ul>
+              </div>
+            )}
           </div>
         )}
       </section>
@@ -239,7 +262,26 @@ export function EmployeeDetail({ memberId, readOnly }: { memberId: number | null
       {sessionsQuery.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải lương ngày" /> : sessionsQuery.isError ? <ErrorBanner text="Không tải được giờ dịch vụ." onRetry={() => void sessionsQuery.refetch()} /> : (
           <>
             <p className="day-salary-value mono" data-testid="text-day-salary">{formatVnd(dayEarnings)}</p>
-            {dayTypes.length > 0 ? (
+            {showNightService ? (
+              <div className="employee-period-stats" data-testid="employee-day-service-breakdown">
+                <div className="employee-service-summary">
+                  <strong>Dịch vụ thường trong ngày</strong>
+                  <ul className="type-counts" aria-label="Số ca và tổng giờ dịch vụ thường trong ngày">
+                    {dayTypes.length
+                      ? dayTypes.map((item) => <li key={item.serviceType}>{serviceAttendanceLabel(item, formatMinutes)}</li>)
+                      : <li>Chưa có dịch vụ thường trong ngày.</li>}
+                  </ul>
+                </div>
+                <div className="employee-service-summary night-shift-summary" data-testid="employee-day-night-service-breakdown">
+                  <strong>Dịch vụ ca đêm trong ngày</strong>
+                  <ul className="type-counts" aria-label="Số ca và tổng giờ dịch vụ ca đêm trong ngày">
+                    {nightDayTypes.length
+                      ? nightDayTypes.map((item) => <li key={item.serviceType}>{serviceAttendanceLabel(item, formatMinutes)}</li>)
+                      : <li>Chưa có dịch vụ ca đêm trong ngày.</li>}
+                  </ul>
+                </div>
+              </div>
+            ) : dayTypes.length > 0 ? (
               <ul className="type-counts" aria-label="Số ca và tổng giờ theo dịch vụ">{dayTypes.map((item) => <li key={item.serviceType}>{serviceAttendanceLabel(item, formatMinutes)}</li>)}</ul>
             ) : <p className="muted small">Chưa có dịch vụ trong ngày.</p>}
           </>

@@ -1552,9 +1552,10 @@ components:
         note: { type: string, maxLength: 2000 }
     MassageSummary:
       type: object
-      required: [month, revenue, netRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits, topSoldCardService, mostUsedCardService, mostUsedWalkInService, mostUsedService, serviceBreakdown, nightShiftBreakdown, paymentBreakdown, today]
+      required: [month, nightServiceEnabled, revenue, netRevenue, serviceRevenue, walkInServiceRevenue, walkInServiceMinutes, revenueExcludingCardSessions, cardRevenue, payroll, cardsSold, walkInVisits, cardVisits, topSoldCardService, mostUsedCardService, mostUsedWalkInService, mostUsedService, serviceBreakdown, nightShiftBreakdown, paymentBreakdown, today]
       properties:
         month: { type: string }
+        nightServiceEnabled: { type: boolean, description: "Có bật cấu hình dịch vụ ca đêm hay không." }
         revenue: { type: number, description: "Tổng doanh thu gộp: tiền dịch vụ khách lẻ cộng tiền bán thẻ trong tháng; không cộng lại khi dùng thẻ." }
         netRevenue: { type: number, description: "Tiền dịch vụ khách lẻ cộng tiền bán và nạp thẻ trừ tiền công ca khách lẻ. Ca dùng thẻ không thay đổi chỉ tiêu này; tiền công ca thẻ vẫn ghi vào lương nhân viên." }
         serviceRevenue: { type: number, description: "Tiền khách lẻ trả theo giá dịch vụ đã lưu ở từng ca; không gồm ca thanh toán bằng thẻ." }
@@ -1709,10 +1710,11 @@ components:
         employeeHourlyRate: { type: ["integer", "null"], minimum: 1, maximum: 10000000 }
     MemberPayroll:
       type: object
-      required: [member, month, totalMinutes, totalSalary]
+      required: [member, month, nightServiceEnabled, totalMinutes, totalSalary]
       properties:
         member: { $ref: "#/components/schemas/MemberRecord" }
         month: { type: string }
+        nightServiceEnabled: { type: boolean, description: "Có bật cấu hình dịch vụ ca đêm hay không." }
         totalMinutes: { type: number }
         totalSalary: { type: number }
 

@@ -6,6 +6,7 @@ import { AlertCircle, LoaderCircle, Pencil, Plus, Sparkles, Trash2 } from 'lucid
 import { Link } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
+import { NightServicePricingSettings } from '@/components/night-service-pricing-settings';
 import { statusCode } from '@/lib/attendance';
 import { errorText, formatVnd, parseMoney, useRefreshMassage } from '@/lib/massage';
 
@@ -14,7 +15,7 @@ export default function ServicesPage() {
 }
 
 export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
-  const { canEditServices: canEdit, notify, fail } = useShell();
+  const { canEditServices: canEdit, isOwner, notify, fail } = useShell();
   const q = useListServiceTypes({ query: { queryKey: getListServiceTypesQueryKey(), staleTime: 20_000, refetchInterval: 60_000, refetchOnWindowFocus: true } });
   const create = useCreateServiceType();
   const update = useUpdateServiceType();
@@ -131,6 +132,7 @@ export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
           ))}
         </ul>
       )}
+      {isOwner && <NightServicePricingSettings open={true} isOwner={isOwner} />}
       {dialog && canEdit && <ServiceDialog service={dialog.service} busy={create.isPending || update.isPending} serverError={dialogError} authError={loginPrompt} onClose={() => setDialog(null)} onSubmit={save} />}
       {confirm && <ConfirmDialog state={confirm} busy={del.isPending || bulkDeleting} onClose={() => setConfirm(null)} />}
     </section>
