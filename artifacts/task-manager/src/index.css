@@ -1227,9 +1227,9 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .staff-activity-panel .panel-head { align-items: center; }
 .staff-activity-count { color: hsl(var(--muted-foreground)); font-size: 12px; font-weight: 700; white-space: nowrap; }
 .staff-activity-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
-.staff-activity-row { display: grid; grid-template-columns: minmax(150px, .8fr) minmax(210px, 1fr) auto; align-items: center; gap: 12px; min-width: 0; padding: 11px 8px; border-bottom: 1px solid hsl(var(--border) / .7); }
+.staff-activity-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: start; gap: 6px 12px; min-width: 0; padding: 11px 8px; border-bottom: 1px solid hsl(var(--border) / .7); }
 .staff-activity-row:first-child { border-top: 1px solid hsl(var(--border) / .7); }
-.staff-activity-person { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.staff-activity-person { display: flex; grid-column: 1; grid-row: 1; align-items: center; gap: 9px; min-width: 0; }
 .staff-activity-person strong { overflow-wrap: anywhere; font-size: 14px; }
 .staff-activity-name-button { min-width: 0; padding: 3px 0; border: 0; color: inherit; background: transparent; font: inherit; font-size: 14px; font-weight: 800; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
 .staff-activity-name-button:hover { color: hsl(var(--primary)); text-decoration: underline; text-underline-offset: 3px; }
@@ -1238,13 +1238,13 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .staff-activity-row.is-working .staff-activity-icon { color: hsl(32 85% 35%); background: hsl(38 92% 50% / .16); }
 .staff-activity-row.is-available .staff-activity-icon { color: hsl(var(--ok)); background: hsl(var(--ok) / .13); }
 .staff-activity-row.is-off .staff-activity-icon { color: hsl(var(--muted-foreground)); }
-.staff-activity-state { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 12px; min-width: 0; color: hsl(var(--muted-foreground)); font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+.staff-activity-state { display: flex; grid-column: 1; grid-row: 2; flex-wrap: wrap; align-items: center; gap: 5px 12px; min-width: 0; padding-left: 39px; color: hsl(var(--muted-foreground)); font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
 .staff-activity-detail { display: inline-flex; align-items: center; gap: 5px; min-width: 0; line-height: 1.45; }
 .staff-activity-detail.is-appointment { flex-basis: 100%; padding-left: 19px; color: hsl(var(--foreground)); }
 .staff-activity-state.is-working { color: hsl(32 85% 35%); }
 .staff-activity-state.is-available { color: hsl(var(--ok)); }
 .staff-activity-state.is-off { color: hsl(var(--muted-foreground)); }
-.staff-activity-toggle { min-width: 106px; }
+.staff-activity-toggle { grid-column: 2; grid-row: 1 / span 2; align-self: center; min-width: 106px; }
 .staff-activity-toggle:disabled { opacity: .65; cursor: not-allowed; }
 .staff-activity-empty { padding: 14px 4px 3px; color: hsl(var(--muted-foreground)); font-size: 13px; }
 
@@ -1256,9 +1256,8 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   .appointment-customer { grid-column: 1; grid-row: 2; }
   .appointment-detail-lines { grid-column: 1 / -1; grid-row: 3; padding-left: 22px; }
   .appointment-actions { grid-column: 2; grid-row: 1 / span 2; }
-  .staff-activity-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; padding: 12px 4px; }
-  .staff-activity-person { grid-column: 1; grid-row: 1; }
-  .staff-activity-state { grid-column: 1; grid-row: 2; padding-left: 39px; font-size: 12px; }
+  .staff-activity-row { gap: 8px 10px; padding: 12px 4px; }
+  .staff-activity-state { font-size: 12px; }
   .staff-activity-detail.is-appointment { padding-left: 0; }
   .staff-activity-toggle { grid-column: 2; grid-row: 1 / span 2; min-width: 94px; }
 }
@@ -3397,32 +3396,4 @@ body:has(.modal-backdrop) .screen-nav {
   .night-service-base-rates {
     grid-column: 1;
   }
-}
-
-/* Employee roster: center names and stack month/day pay summaries as separate rows. */
-.main .panel.page[aria-labelledby="emp-title"] .emp-row.as-row .employee-name {
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-.main .panel.page[aria-labelledby="emp-title"] .emp-row.as-row .employee-name > strong {
-  width: 100%;
-  text-align: center;
-}
-.main .panel.page[aria-labelledby="emp-title"] .emp-row.as-row .employee-summary {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  justify-content: center;
-  justify-items: center;
-  gap: 3px;
-  text-align: center;
-}
-.main .panel.page[aria-labelledby="emp-title"] .emp-row.as-row .employee-summary > span {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: center;
-  gap: 2px 8px;
-  width: 100%;
-  text-align: center;
 }
