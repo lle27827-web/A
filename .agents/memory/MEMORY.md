@@ -24,3 +24,4 @@
 - [Print paper sizes](print-paper-sizes.md) — use explicit valid page dimensions for thermal receipts; `width auto` may be ignored.
 - [Payroll print scope](payroll-print-scope.md) — employee payroll summaries belong only to the print report; preserve the rest of the app UI.
 - [Push to main](push-to-main.md) — push completed project changes to `main` without asking for confirmation again.
+- [Workflow port restart conflicts](workflow-port-restart-conflicts.md) — a failed managed workflow can leave its old server listening; verify the port before retrying.

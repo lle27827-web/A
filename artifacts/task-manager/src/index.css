@@ -3289,30 +3289,64 @@ body:has(.modal-backdrop) .screen-nav {
 .night-service-settings .night-service-toggle {
   margin: 0;
 }
-.night-service-window,
-.night-service-rate-row {
+.night-service-window {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   min-width: 0;
 }
-.night-service-rate-row {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin: 0;
-  padding: 12px;
-  border: 1px solid hsl(var(--border) / .7);
-  border-radius: 12px;
-}
-.night-service-rate-row legend {
-  padding: 0 5px;
-  font-size: 15px;
-  font-weight: 800;
-}
 .night-service-base-rates {
-  grid-column: 1 / -1;
-  margin: -6px 0 0;
+  margin: 0 0 10px;
   color: hsl(var(--muted-foreground));
   font-size: 12px;
+}
+.night-service-rate-item {
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.night-service-rate-item:disabled {
+  cursor: wait;
+}
+.night-service-rate-item .grow {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.night-service-rate-item .grow > strong,
+.night-service-rate-item .grow > span {
+  overflow-wrap: anywhere;
+}
+.night-rate-indicator {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  color: hsl(var(--primary));
+}
+.night-clock-field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.night-clock-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+.night-clock-inputs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: end;
+  gap: 8px;
+  min-width: 0;
+}
+.night-clock-inputs .field {
+  min-width: 0;
+}
+.night-clock-separator {
+  padding-bottom: 9px;
+  font-weight: 800;
 }
 .night-service-settings .field {
   min-width: 0;
@@ -3389,12 +3423,8 @@ body:has(.modal-backdrop) .screen-nav {
   .night-service-settings {
     padding: 12px;
   }
-  .night-service-window,
-  .night-service-rate-row {
+  .night-service-window {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .night-service-base-rates {
-    grid-column: 1;
   }
 }
 
