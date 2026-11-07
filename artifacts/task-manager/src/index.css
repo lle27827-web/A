@@ -559,6 +559,19 @@ a.hit:hover, .emp-row:hover, .card-row:hover { border-color: hsl(var(--primary) 
 .inline-service-choice-list .service-choice-row { width: 100%; min-width: 0; }
 .service-choice-row[aria-pressed="true"] { border-color: hsl(var(--primary)); background: hsl(var(--primary) / .1); }
 .settings-link { margin: 12px 0 4px; font-size: 13px; }
+.keyboard-shortcuts-settings { display: grid; gap: 10px; margin: 18px 0 8px; min-width: 0; }
+.keyboard-shortcuts-settings h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; font-weight: 800; }
+.keyboard-shortcuts-help { margin: 0; font-size: 12px; }
+.keyboard-shortcuts-settings .field { min-width: 0; }
+.keyboard-shortcuts-settings .btn { justify-self: start; }
+.shortcut-recording { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.shortcut-capture { flex: 1 1 180px; min-width: 0; min-height: 42px; max-width: 100%; padding: 9px 12px; border: 1px solid hsl(var(--border)); border-radius: 10px; background: hsl(var(--card)); color: hsl(var(--foreground)); font: inherit; font-weight: 800; text-align: center; }
+.shortcut-capture:focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
+.keyboard-shortcut-status { margin: 0; color: hsl(var(--muted-foreground)); font-size: 13px; overflow-wrap: anywhere; }
+.keyboard-shortcut-list { display: grid; gap: 2px; margin: 2px 0 0; padding: 0; list-style: none; }
+.keyboard-shortcut-row { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 7px 0; }
+.keyboard-shortcut-row .grow { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.keyboard-shortcut-row .icon-btn { flex: 0 0 auto; }
 .service-pick { border: 0; padding: 0; margin: 0; min-width: 0; }
 .service-pick legend { padding: 0; margin-bottom: 6px; }
 .service-duration-row dd { min-width: 0; overflow-wrap: anywhere; }

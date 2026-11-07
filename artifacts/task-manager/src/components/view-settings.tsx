@@ -8,6 +8,8 @@ import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
 import { AccessGrantsDialog } from '@/components/access-grants';
 import { MonthlyPayrollPrint } from '@/components/monthly-payroll-print';
 import { PrintPreview } from '@/components/print-preview';
+import { KeyboardShortcutsSettings } from '@/components/keyboard-shortcuts-settings';
+import type { KeyboardShortcutAction } from '@/lib/keyboard-shortcuts';
 import {
   DEFAULT_PRINT_PREFERENCES,
   PRINT_PAPER_OPTIONS,
@@ -46,7 +48,7 @@ export function useViewPrefs() {
   return [prefs, update] as const;
 }
 
-export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOwner, permissions, canManageGrants, homeHref, printPreferences, onPrintPreferencesChange }: {
+export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOwner, permissions, canManageGrants, homeHref, shortcutActions, printPreferences, onPrintPreferencesChange }: {
   prefs: ViewPrefs;
   members: MemberRecord[];
   open: boolean;
@@ -56,6 +58,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   permissions: FacilityPermissions;
   canManageGrants: boolean;
   homeHref: string;
+  shortcutActions?: KeyboardShortcutAction[];
   printPreferences?: PrintPreferences;
   onPrintPreferencesChange?: (next: PrintPreferences) => void;
 }) {
@@ -113,6 +116,8 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
               <Trash2 size={15} aria-hidden="true" /><span className="grow"><strong>Xóa lịch sử chấm công</strong><span className="muted">Chọn khoảng ngày cần xóa</span></span><ChevronRight size={16} aria-hidden="true" />
             </button>
           )}
+
+          {shortcutActions && <KeyboardShortcutsSettings actions={shortcutActions} />}
 
           {onPrintPreferencesChange && (
             <section className="print-settings" aria-labelledby="print-settings-title">

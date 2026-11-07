@@ -7,21 +7,24 @@ import {
 } from '@workspace/api-client-react';
 import type { PersonalService, PersonalSession } from '@workspace/api-client-react';
 import { serviceAttendanceLabel, summarizeServiceAttendance } from '@/lib/service-duration-summary';
-import { AlertCircle, ArrowLeft, BookHeart, CalendarDays, Check, ChevronLeft, ChevronRight, Home, LogIn, Plus, Scale, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, BookHeart, CalendarDays, Check, ChevronLeft, ChevronRight, Home, LogIn, Menu, Plus, Scale, X } from 'lucide-react';
 import { Link, useLocation, useSearch } from 'wouter';
-import { ConfirmDialog, ErrorBanner, Skeleton, type ConfirmState } from '@/components/modal';
+import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
 import { DatePickerDialog } from '@/components/date-picker-dialog';
 import { defaultDateFor } from '@/components/history-months-dialog';
 import { ComparisonDialog } from '@/components/personal/comparison-dialog';
 import { PersonalServiceDialog, PersonalShiftDialog } from '@/components/personal/personal-dialogs';
 import { ServiceList, ShiftList } from '@/components/personal/personal-lists';
+import { KeyboardShortcutsSettings } from '@/components/keyboard-shortcuts-settings';
 import { formatShortDate, formatShortDayMonth } from '@/lib/attendance';
 import { errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth } from '@/lib/massage';
 import { resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
+import { useDeviceKeyboardShortcuts, type KeyboardShortcutAction } from '@/lib/keyboard-shortcuts';
 
-function PersonalFrame({ children, onSignOut, homeHref, onTouchStart, onTouchEnd, onTouchCancel }: {
+function PersonalFrame({ children, onSignOut, onOpenSettings, homeHref, onTouchStart, onTouchEnd, onTouchCancel }: {
   children: ReactNode;
   onSignOut?: () => void;
+  onOpenSettings?: () => void;
   homeHref: string | null;
   onTouchStart?: (event: ReactTouchEvent<HTMLElement>) => void;
   onTouchEnd?: (event: ReactTouchEvent<HTMLElement>) => void;
@@ -43,6 +46,7 @@ function PersonalFrame({ children, onSignOut, homeHref, onTouchStart, onTouchEnd
         <div className="p-top-inner">
           <Link href="/personal" className="brand" data-testid="link-personal-brand"><span className="brand-mark p-mark"><BookHeart size={15} strokeWidth={2.4} aria-hidden="true" /></span><span>SỔ CỦA TÔI</span></Link>
           <span className="p-pill" data-testid="status-personal">Riêng tư · chỉ bạn thấy</span>
+          {onOpenSettings && <button type="button" className="gear-btn" aria-label="Cài đặt phím tắt" onClick={onOpenSettings} data-testid="button-personal-shortcuts"><Menu size={20} strokeWidth={2.5} aria-hidden="true" /></button>}
           {onSignOut && <button type="button" className="link-soft as-button p-logout" onClick={onSignOut} data-testid="button-personal-sign-out">Đăng xuất</button>}
         </div>
       </header>
@@ -94,6 +98,7 @@ export default function PersonalPage({ onSignOut, homeHref = '/' }: { onSignOut?
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [pendingHistorySpeech, setPendingHistorySpeech] = useState<PersonalSession | null>(null);
+  const [shortcutSettingsOpen, setShortcutSettingsOpen] = useState(false);
 
   const createService = useCreatePersonalService();
   const updateService = useUpdatePersonalService();
@@ -217,6 +222,26 @@ export default function PersonalPage({ onSignOut, homeHref = '/' }: { onSignOut?
     });
   }
 
+  const shortcutActions = useMemo<KeyboardShortcutAction[]>(() => {
+    const actions: KeyboardShortcutAction[] = [
+      { id: 'personal', label: 'Mở chấm công cá nhân', run: () => navigate('/personal') },
+      { id: 'settings', label: 'Mở cài đặt phím tắt', run: () => setShortcutSettingsOpen(true) },
+      { id: 'back', label: 'Trở về', run: () => window.history.back() },
+      { id: 'choose-date', label: 'Chọn ngày', run: () => open({ kind: 'date' }) },
+      { id: 'compare', label: 'Đối chiếu sổ cá nhân', run: () => open({ kind: 'compare' }) },
+      { id: 'view-day', label: 'Xem ca trong ngày', run: () => setMode('day') },
+      { id: 'view-month', label: 'Xem ca trong tháng', run: () => setMode('month') },
+      { id: 'previous-month', label: 'Xem tháng trước', run: () => goPeriod(shiftMonth(month, -1)) },
+    ];
+    if (homeHref) actions.push({ id: 'facility-home', label: 'Về sổ cơ sở', run: () => navigate(homeHref) });
+    if (month < currentMonth) actions.push({ id: 'next-month', label: 'Xem tháng sau', run: () => goPeriod(shiftMonth(month, 1)) });
+    if (services.length) actions.push({ id: 'new-shift', label: 'Ghi ca cá nhân', run: () => open({ kind: 'shift', item: null }) });
+    if (!useFacility) actions.push({ id: 'new-service', label: 'Thêm dịch vụ cá nhân', run: () => open({ kind: 'service', item: null }) });
+    return actions;
+  }, [currentMonth, goPeriod, homeHref, month, navigate, open, services.length, useFacility]);
+
+  useDeviceKeyboardShortcuts(shortcutActions);
+
   const askDeleteService = (s: PersonalService) => setConfirm({
     title: `Xóa dịch vụ ${s.name}?`,
     body: <p>Dịch vụ sẽ được lưu trữ và không còn hiện khi ghi ca mới. Các ca cũ vẫn giữ tên và giá đã ghi.</p>,
@@ -233,7 +258,7 @@ export default function PersonalPage({ onSignOut, homeHref = '/' }: { onSignOut?
   });
 
   return (
-    <PersonalFrame onSignOut={onSignOut} homeHref={homeHref} onTouchStart={startDaySwipe} onTouchEnd={finishDaySwipe} onTouchCancel={() => { swipeStart.current = null; }}>
+    <PersonalFrame onSignOut={onSignOut} onOpenSettings={() => setShortcutSettingsOpen(true)} homeHref={homeHref} onTouchStart={startDaySwipe} onTouchEnd={finishDaySwipe} onTouchCancel={() => { swipeStart.current = null; }}>
       <section className="p-hero" aria-labelledby="p-title" data-testid="section-personal-hero">
         <div className="month-nav">
           <button type="button" className="icon-btn" onClick={() => goPeriod(shiftMonth(month, -1))} aria-label="Tháng trước" data-testid="button-personal-prev-month"><ChevronLeft size={16} /></button>
@@ -306,6 +331,9 @@ export default function PersonalPage({ onSignOut, homeHref = '/' }: { onSignOut?
       {dlg?.kind === 'compare' && <ComparisonDialog month={month} date={date} onClose={() => setDlg(null)} onUpdated={refresh} />}
       {dlg?.kind === 'date' && <DatePickerDialog value={date} title="Chọn ngày" immediate onClose={() => setDlg(null)} onSelect={(d) => { setDlg(null); goPeriod(monthOf(d), d); }} />}
       {confirm && <ConfirmDialog state={confirm} busy={deleteService.isPending || deleteShift.isPending} onClose={() => setConfirm(null)} />}
+      {shortcutSettingsOpen && <Modal title="Phím tắt" onClose={() => setShortcutSettingsOpen(false)} testId="dialog-personal-keyboard-shortcuts">
+        <KeyboardShortcutsSettings actions={shortcutActions} />
+      </Modal>}
     </PersonalFrame>
   );
 }
