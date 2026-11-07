@@ -1227,9 +1227,13 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .staff-activity-panel .panel-head { align-items: center; }
 .staff-activity-count { color: hsl(var(--muted-foreground)); font-size: 12px; font-weight: 700; white-space: nowrap; }
 .staff-activity-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
-.staff-activity-row { display: grid; grid-template-columns: minmax(150px, .8fr) minmax(210px, 1fr) auto; align-items: center; gap: 12px; min-width: 0; padding: 11px 8px; border-top: 1px solid hsl(var(--border) / .7); }
+.staff-activity-row { display: grid; grid-template-columns: minmax(150px, .8fr) minmax(210px, 1fr) auto; align-items: center; gap: 12px; min-width: 0; padding: 11px 8px; border-bottom: 1px solid hsl(var(--border) / .7); }
+.staff-activity-row:first-child { border-top: 1px solid hsl(var(--border) / .7); }
 .staff-activity-person { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .staff-activity-person strong { overflow-wrap: anywhere; font-size: 14px; }
+.staff-activity-name-button { min-width: 0; padding: 3px 0; border: 0; color: inherit; background: transparent; font: inherit; font-size: 14px; font-weight: 800; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.staff-activity-name-button:hover { color: hsl(var(--primary)); text-decoration: underline; text-underline-offset: 3px; }
+.staff-activity-name-button:focus-visible { border-radius: 4px; outline: 2px solid hsl(var(--ring)); outline-offset: 3px; }
 .staff-activity-icon { display: grid; place-items: center; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; color: hsl(var(--muted-foreground)); background: hsl(var(--muted) / .7); }
 .staff-activity-row.is-working .staff-activity-icon { color: hsl(32 85% 35%); background: hsl(38 92% 50% / .16); }
 .staff-activity-row.is-available .staff-activity-icon { color: hsl(var(--ok)); background: hsl(var(--ok) / .13); }

@@ -2,16 +2,18 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getListAppointmentStaffActivityQueryKey,
-  getListAppointmentsQueryKey, useCreateAppointment, useDeleteAppointment,
+  getListAppointmentsQueryKey, getListTreatmentCardsQueryKey, useCreateAppointment, useCreateServiceSession, useDeleteAppointment,
   useListAppointmentStaffActivity, useListAppointments, useUpdateAppointment,
-  useUpdateAppointmentStaffActivity,
+  useListTreatmentCards, useUpdateAppointmentStaffActivity,
 } from '@workspace/api-client-react';
-import type { Appointment, AppointmentInput, AppointmentStaffActivity } from '@workspace/api-client-react';
+import type { Appointment, AppointmentInput, AppointmentStaffActivity, ServiceSessionInput } from '@workspace/api-client-react';
 import { BriefcaseBusiness, CalendarDays, CheckCircle2, Clock3, Coffee, LoaderCircle, Pencil, Phone, Plus, Trash2, UserRound } from 'lucide-react';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
 import { useShell } from '@/components/app-shell';
+import { SessionDialog } from '@/components/session-dialog';
 import { phoneCallHref } from '@/lib/phone';
-import { errorText } from '@/lib/massage';
+import { errorText, useRefreshMassage } from '@/lib/massage';
+import { printServiceSession, reservePrintWindow } from '@/lib/printing';
 
 type AppointmentDraft = {
   customerName: string;
@@ -104,7 +106,9 @@ function activityLabel(activity: AppointmentStaffActivity) {
 }
 
 export default function AppointmentsPage() {
-  const { permissions } = useShell();
+  const {
+    permissions, members, canEditEmployees, canEditCards, period, notify, printPreferences,
+  } = useShell();
   const canEdit = permissions.editAppointments;
   const cache = useQueryClient();
   const appointments = useListAppointments({
@@ -126,16 +130,57 @@ export default function AppointmentsPage() {
   const update = useUpdateAppointment();
   const updateActivity = useUpdateAppointmentStaffActivity();
   const remove = useDeleteAppointment();
+  const createSession = useCreateServiceSession();
+  const refreshMassage = useRefreshMassage();
   const [editing, setEditing] = useState<Appointment | null>(null);
   const [draft, setDraft] = useState<AppointmentDraft | null>(null);
+  const [attendanceMemberId, setAttendanceMemberId] = useState<number | null>(null);
+  const [attendanceError, setAttendanceError] = useState('');
   const [formError, setFormError] = useState('');
   const [notice, setNotice] = useState('');
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const cards = useListTreatmentCards(undefined, {
+    query: {
+      queryKey: getListTreatmentCardsQueryKey(),
+      enabled: attendanceMemberId !== null && canEditEmployees && canEditCards,
+    },
+  });
   const records = useMemo(
     () => [...(appointments.data ?? [])].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)),
     [appointments.data],
   );
   const busy = create.isPending || update.isPending;
+
+  function openAttendance(memberId: number) {
+    if (!canEditEmployees || !members.some((member) => member.id === memberId)) return;
+    setAttendanceError('');
+    setAttendanceMemberId(memberId);
+  }
+
+  function submitAttendance(input: ServiceSessionInput) {
+    if (!canEditEmployees || attendanceMemberId === null || input.memberId !== attendanceMemberId) return;
+    setAttendanceError('');
+    const printWindow = printPreferences.autoPrintServiceSessions ? reservePrintWindow() : null;
+    createSession.mutate({ data: input }, {
+      onSuccess: (saved) => {
+        refreshMassage();
+        void cache.invalidateQueries({ queryKey: getListAppointmentsQueryKey() });
+        setAttendanceMemberId(null);
+        if (printPreferences.autoPrintServiceSessions) {
+          const printed = printServiceSession(printWindow, saved, printPreferences);
+          notify(printed
+            ? 'Đã chấm công và mở phiếu in.'
+            : 'Đã chấm công. Trình duyệt chặn cửa sổ in; hãy cho phép cửa sổ bật lên để tự in.');
+        } else {
+          notify(`Đã chấm công cho ${saved.employeeName}.`);
+        }
+      },
+      onError: (error) => {
+        if (printWindow && !printWindow.closed) printWindow.close();
+        setAttendanceError(errorText(error));
+      },
+    });
+  }
 
   function closeForm() {
     if (busy) return;
@@ -268,7 +313,18 @@ export default function AppointmentsPage() {
                       ? <BriefcaseBusiness size={17} />
                       : activity.state === 'off' ? <Coffee size={17} /> : <CheckCircle2 size={18} />}
                   </span>
-                  <strong>{activity.employeeName}</strong>
+                  {canEditEmployees && members.some((member) => member.id === activity.memberId) ? (
+                    <button
+                      type="button"
+                      className="staff-activity-name-button"
+                      onClick={() => openAttendance(activity.memberId)}
+                      aria-haspopup="dialog"
+                      aria-label={`Chấm công cho ${activity.employeeName}`}
+                      data-testid={`button-attendance-staff-${activity.memberId}`}
+                    >
+                      {activity.employeeName}
+                    </button>
+                  ) : <strong>{activity.employeeName}</strong>}
                 </div>
                 <span className={`staff-activity-state is-${activity.state}`} role="status">
                   {activity.state === 'working' && <Clock3 size={14} aria-hidden="true" />}
@@ -421,6 +477,25 @@ export default function AppointmentsPage() {
             </div>
           </form>
         </Modal>
+      )}
+      {attendanceMemberId !== null && canEditEmployees && (
+        <SessionDialog
+          session={null}
+          members={members}
+          allowCards={canEditCards}
+          cards={canEditCards ? cards.data ?? [] : []}
+          cardsLoading={canEditCards && cards.isLoading}
+          defaultDate={period.today}
+          fixedMemberId={attendanceMemberId}
+          busy={createSession.isPending}
+          serverError={attendanceError}
+          onClose={() => {
+            if (createSession.isPending) return;
+            setAttendanceMemberId(null);
+            setAttendanceError('');
+          }}
+          onSubmit={submitAttendance}
+        />
       )}
       {confirm && <ConfirmDialog state={confirm} busy={remove.isPending} onClose={() => setConfirm(null)} />}
     </section>
