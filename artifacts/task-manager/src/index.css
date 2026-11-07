@@ -3398,3 +3398,31 @@ body:has(.modal-backdrop) .screen-nav {
     grid-column: 1;
   }
 }
+
+/* Employee roster: center names and stack month/day pay summaries as separate rows. */
+.main .panel.page[aria-labelledby="emp-title"] .emp-row.as-row .employee-name {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.main .panel.page[aria-labelledby="emp-title"] .emp-row.as-row .employee-name > strong {
+  width: 100%;
+  text-align: center;
+}
+.main .panel.page[aria-labelledby="emp-title"] .emp-row.as-row .employee-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: center;
+  justify-items: center;
+  gap: 3px;
+  text-align: center;
+}
+.main .panel.page[aria-labelledby="emp-title"] .emp-row.as-row .employee-summary > span {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2px 8px;
+  width: 100%;
+  text-align: center;
+}
