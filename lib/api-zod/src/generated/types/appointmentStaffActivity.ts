@@ -20,4 +20,10 @@ export interface AppointmentStaffActivity {
   serviceType: string | null;
   /** @nullable */
   nextAppointmentAt: Date | null;
+  /** @nullable */
+  nextAppointmentCustomerName: string | null;
+  /** @nullable */
+  nextAppointmentRequest: string | null;
+  /** @nullable */
+  nextAppointmentNote: string | null;
 }

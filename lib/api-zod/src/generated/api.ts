@@ -995,7 +995,10 @@ export const ListAppointmentStaffActivityResponseItem = zod.object({
   "endsAt": zod.coerce.date().nullable(),
   "lastFinishedAt": zod.coerce.date().nullable(),
   "serviceType": zod.string().nullable(),
-  "nextAppointmentAt": zod.coerce.date().nullable()
+  "nextAppointmentAt": zod.coerce.date().nullable(),
+  "nextAppointmentCustomerName": zod.string().nullable(),
+  "nextAppointmentRequest": zod.string().nullable(),
+  "nextAppointmentNote": zod.string().nullable()
 })
 export const ListAppointmentStaffActivityResponse = zod.array(ListAppointmentStaffActivityResponseItem)
 
@@ -1024,7 +1027,10 @@ export const UpdateAppointmentStaffActivityResponse = zod.object({
   "endsAt": zod.coerce.date().nullable(),
   "lastFinishedAt": zod.coerce.date().nullable(),
   "serviceType": zod.string().nullable(),
-  "nextAppointmentAt": zod.coerce.date().nullable()
+  "nextAppointmentAt": zod.coerce.date().nullable(),
+  "nextAppointmentCustomerName": zod.string().nullable(),
+  "nextAppointmentRequest": zod.string().nullable(),
+  "nextAppointmentNote": zod.string().nullable()
 })
 
 

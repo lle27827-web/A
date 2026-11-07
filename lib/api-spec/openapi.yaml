@@ -1113,7 +1113,7 @@ components:
         note: { type: string, maxLength: 2000 }
     AppointmentStaffActivity:
       type: object
-      required: [memberId, employeeName, state, endsAt, lastFinishedAt, serviceType, nextAppointmentAt]
+      required: [memberId, employeeName, state, endsAt, lastFinishedAt, serviceType, nextAppointmentAt, nextAppointmentCustomerName, nextAppointmentRequest, nextAppointmentNote]
       properties:
         memberId: { type: integer, minimum: 1 }
         employeeName: { type: string }
@@ -1122,6 +1122,9 @@ components:
         lastFinishedAt: { type: ["string", "null"], format: date-time }
         serviceType: { type: ["string", "null"] }
         nextAppointmentAt: { type: ["string", "null"], format: date-time }
+        nextAppointmentCustomerName: { type: ["string", "null"] }
+        nextAppointmentRequest: { type: ["string", "null"] }
+        nextAppointmentNote: { type: ["string", "null"] }
     AppointmentStaffActivityInput:
       type: object
       required: [state]

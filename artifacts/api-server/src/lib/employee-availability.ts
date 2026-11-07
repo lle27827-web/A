@@ -11,6 +11,9 @@ export type ActivityAppointment = {
   memberId: number | null;
   scheduledAt: Date | string;
   status: string;
+  customerName?: string | null;
+  request?: string | null;
+  note?: string | null;
 };
 export type StaffActivity = {
   memberId: number;
@@ -20,6 +23,9 @@ export type StaffActivity = {
   lastFinishedAt: string | null;
   serviceType: string | null;
   nextAppointmentAt: string | null;
+  nextAppointmentCustomerName: string | null;
+  nextAppointmentRequest: string | null;
+  nextAppointmentNote: string | null;
 };
 
 export function hoChiMinhDate(now = new Date()): string {
@@ -44,7 +50,12 @@ export function deriveStaffActivity(
   const statuses = new Map(manualStatuses.filter((row) => row.statusDate === today).map((row) => [row.memberId, row.state]));
   const activeSessions = new Map<number, { startsAt: number; endsAt: number; serviceType: string }>();
   const finishedSessions = new Map<number, number>();
-  const nextAppointments = new Map<number, number>();
+  const nextAppointments = new Map<number, {
+    scheduledAt: number;
+    customerName: string | null;
+    request: string | null;
+    note: string | null;
+  }>();
   const dailySessionCounts = new Map<string, Map<number, number>>();
   const todayCounts = new Map<number, number>();
   const lastWorkedDate = new Map<number, string>();
@@ -83,7 +94,14 @@ export function deriveStaffActivity(
     const scheduledAt = new Date(appointment.scheduledAt).getTime();
     if (!Number.isFinite(scheduledAt) || scheduledAt < nowMs) continue;
     const previous = nextAppointments.get(appointment.memberId);
-    if (previous === undefined || scheduledAt < previous) nextAppointments.set(appointment.memberId, scheduledAt);
+    if (previous === undefined || scheduledAt < previous.scheduledAt) {
+      nextAppointments.set(appointment.memberId, {
+        scheduledAt,
+        customerName: appointment.customerName?.trim() || null,
+        request: appointment.request?.trim() || null,
+        note: appointment.note?.trim() || null,
+      });
+    }
   }
 
   const historyDates = [...dailySessionCounts.keys()].sort((a, b) => b.localeCompare(a));
@@ -102,8 +120,11 @@ export function deriveStaffActivity(
           : null,
         serviceType: current?.serviceType ?? null,
         nextAppointmentAt: nextAppointments.has(member.id)
-          ? new Date(nextAppointments.get(member.id)!).toISOString()
+          ? new Date(nextAppointments.get(member.id)!.scheduledAt).toISOString()
           : null,
+        nextAppointmentCustomerName: nextAppointments.get(member.id)?.customerName ?? null,
+        nextAppointmentRequest: nextAppointments.get(member.id)?.request ?? null,
+        nextAppointmentNote: nextAppointments.get(member.id)?.note ?? null,
       };
     })
     .sort((a, b) => {

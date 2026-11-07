@@ -14,13 +14,39 @@ test("staff activity derives work end time, idle, and daily leave in Ho Chi Minh
     ],
     [{ memberId: 3, statusDate: today, state: "off" }],
     now,
-    [{ memberId: 2, scheduledAt: "2026-11-07T07:30:00.000Z", status: "scheduled" }],
+    [
+      { memberId: 2, scheduledAt: "2026-11-07T04:20:00.000Z", status: "scheduled", customerName: "Khách cũ" },
+      {
+        memberId: 2,
+        scheduledAt: "2026-11-07T07:30:00.000Z",
+        status: "scheduled",
+        customerName: "Khách Mai",
+        request: "Mát xa",
+        note: "Hẹn đến sớm",
+      },
+      { memberId: 2, scheduledAt: "2026-11-07T08:30:00.000Z", status: "scheduled", customerName: "Khách sau" },
+    ],
   );
 
   assert.deepEqual(result, [
-    { memberId: 2, employeeName: "Mai", state: "available", endsAt: null, lastFinishedAt: "2026-11-07T03:30:00.000Z", serviceType: null, nextAppointmentAt: "2026-11-07T07:30:00.000Z" },
-    { memberId: 3, employeeName: "An", state: "off", endsAt: null, lastFinishedAt: null, serviceType: null, nextAppointmentAt: null },
-    { memberId: 1, employeeName: "Lan", state: "working", endsAt: "2026-11-07T05:00:00.000Z", lastFinishedAt: null, serviceType: "Mát xa", nextAppointmentAt: null },
+    {
+      memberId: 2, employeeName: "Mai", state: "available", endsAt: null,
+      lastFinishedAt: "2026-11-07T03:30:00.000Z", serviceType: null,
+      nextAppointmentAt: "2026-11-07T07:30:00.000Z",
+      nextAppointmentCustomerName: "Khách Mai",
+      nextAppointmentRequest: "Mát xa",
+      nextAppointmentNote: "Hẹn đến sớm",
+    },
+    {
+      memberId: 3, employeeName: "An", state: "off", endsAt: null,
+      lastFinishedAt: null, serviceType: null, nextAppointmentAt: null,
+      nextAppointmentCustomerName: null, nextAppointmentRequest: null, nextAppointmentNote: null,
+    },
+    {
+      memberId: 1, employeeName: "Lan", state: "working", endsAt: "2026-11-07T05:00:00.000Z",
+      lastFinishedAt: null, serviceType: "Mát xa", nextAppointmentAt: null,
+      nextAppointmentCustomerName: null, nextAppointmentRequest: null, nextAppointmentNote: null,
+    },
   ]);
 });
 

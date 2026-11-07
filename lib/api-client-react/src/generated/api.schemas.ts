@@ -238,6 +238,12 @@ export interface AppointmentStaffActivity {
   serviceType: string | null;
   /** @nullable */
   nextAppointmentAt: string | null;
+  /** @nullable */
+  nextAppointmentCustomerName: string | null;
+  /** @nullable */
+  nextAppointmentRequest: string | null;
+  /** @nullable */
+  nextAppointmentNote: string | null;
 }
 
 export type AppointmentStaffActivityInputState = typeof AppointmentStaffActivityInputState[keyof typeof AppointmentStaffActivityInputState];

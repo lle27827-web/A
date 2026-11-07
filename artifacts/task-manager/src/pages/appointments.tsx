@@ -76,13 +76,23 @@ function formatAppointmentTime(value: string) {
 
 function formatNextAppointment(value: string) {
   return new Intl.DateTimeFormat('vi-VN', {
-    timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+    timeZone: 'Asia/Ho_Chi_Minh',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(new Date(value));
 }
 
 function activityLabel(activity: AppointmentStaffActivity) {
   const nextAppointment = activity.nextAppointmentAt
-    ? ` · Lịch hẹn ${formatNextAppointment(activity.nextAppointmentAt)}`
+    ? [
+        ` · Lịch hẹn ${formatNextAppointment(activity.nextAppointmentAt)}`,
+        activity.nextAppointmentCustomerName,
+        activity.nextAppointmentRequest,
+        activity.nextAppointmentNote ? `Ghi chú: ${activity.nextAppointmentNote}` : null,
+      ].filter(Boolean).join(' · ')
     : '';
   if (activity.state === 'working') {
     return `Đang làm${activity.serviceType ? ` · ${activity.serviceType}` : ''}${activity.endsAt ? ` · dự kiến xong lúc ${formatActivityEnd(activity.endsAt)}` : ''}${nextAppointment}`;
