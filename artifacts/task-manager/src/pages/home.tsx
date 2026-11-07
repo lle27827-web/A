@@ -151,8 +151,8 @@ export default function HomePage({ revenueOnly = false }: { revenueOnly?: boolea
                     </div>
                   </div>
                   <div className="revenue-service-summary">
-                    <span>{summary.data.nightServiceEnabled ? 'Ca dịch vụ thường trong tháng' : 'Ca dịch vụ trong tháng'}</span>
-                    <ServiceBreakdownList items={summary.data.serviceBreakdown ?? []} label="Ca dịch vụ theo loại hình trong tháng" testId="list-facility-month-service-durations" />
+                    <span>Tổng ca dịch vụ tháng</span>
+                    <ServiceBreakdownList items={summary.data.serviceBreakdown ?? []} label="Tổng ca dịch vụ theo loại hình trong tháng" testId="list-facility-month-service-durations" />
                   </div>
                   {summary.data.nightServiceEnabled && (summary.data.nightShiftBreakdown?.length ?? 0) > 0 && (
                     <details className="revenue-service-summary night-shift-summary night-service-accordion">
@@ -229,8 +229,8 @@ export default function HomePage({ revenueOnly = false }: { revenueOnly?: boolea
                     </div>
                   </div>
                   <div className="revenue-service-summary">
-                    <span>{summary.data.nightServiceEnabled ? `Ca dịch vụ thường ${dayLabel}` : `Ca dịch vụ ${dayLabel}`}</span>
-                    <ServiceBreakdownList items={summary.data.today.serviceBreakdown ?? []} label={`Ca dịch vụ theo loại hình ${dayLabel}`} testId="list-facility-day-service-durations" />
+                    <span>Tổng ca dịch vụ ngày</span>
+                    <ServiceBreakdownList items={summary.data.today.serviceBreakdown ?? []} label="Tổng ca dịch vụ theo loại hình ngày" testId="list-facility-day-service-durations" />
                   </div>
                   {summary.data.nightServiceEnabled && (summary.data.today.nightShiftBreakdown?.length ?? 0) > 0 && (
                     <details className="revenue-service-summary night-shift-summary night-service-accordion">
