@@ -3370,9 +3370,6 @@ body:has(.modal-backdrop) .screen-nav {
   min-width: 0;
   max-width: 100%;
 }
-.night-service-save {
-  justify-self: start;
-}
 .night-shift-summary {
   flex-wrap: wrap;
 }

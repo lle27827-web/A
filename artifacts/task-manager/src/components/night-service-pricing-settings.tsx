@@ -70,6 +70,7 @@ export function NightServicePricingSettings({ open, isOwner }: { open: boolean; 
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const draftTouched = useRef(false);
+  const saveInFlight = useRef(false);
 
   useEffect(() => {
     if (!config.data || draftTouched.current) return;
@@ -120,35 +121,53 @@ export function NightServicePricingSettings({ open, isOwner }: { open: boolean; 
       setRateEditorError("Mỗi mức giá phải là số nguyên từ 1 đến 10.000.000 đồng/giờ.");
       return;
     }
-    if (bothBlank) {
-      draftTouched.current = true;
+    const nextRateDraft = {
+      ...rateDraft,
+      [editingRate.serviceTypeId]: bothBlank
+        ? { customer: "", employee: "" }
+        : editingDraft,
+    };
+    draftTouched.current = true;
+    setRateDraft(nextRateDraft);
+    setRateEditorError("");
+    saveSettings({
+      rateDraftOverride: nextRateDraft,
+      onSuccess: () => setEditingServiceTypeId(null),
+      onError: setRateEditorError,
+    });
+  }
+
+  function cancelRateEdit() {
+    if (!editingRate) return;
+    const savedRate = config.data?.rates.find((rate) => rate.serviceTypeId === editingRate.serviceTypeId);
+    if (savedRate) {
       setRateDraft((previous) => ({
         ...previous,
-        [editingRate.serviceTypeId]: { customer: "", employee: "" },
+        [editingRate.serviceTypeId]: {
+          customer: savedRate.customerHourlyRate === null ? "" : String(savedRate.customerHourlyRate),
+          employee: savedRate.employeeHourlyRate === null ? "" : String(savedRate.employeeHourlyRate),
+        },
       }));
     }
     setRateEditorError("");
     setEditingServiceTypeId(null);
   }
 
-  function clearRateEdit() {
-    if (!editingRate) return;
-    draftTouched.current = true;
-    setRateDraft((previous) => ({
-      ...previous,
-      [editingRate.serviceTypeId]: { customer: "", employee: "" },
-    }));
-    setRateEditorError("");
-    setMessage("");
-    setEditingServiceTypeId(null);
-  }
-
-  function saveSettings(enabledValue = enabled, revertEnabledOnFailure = false) {
-    if (!config.data || save.isPending) return;
+  function saveSettings(options: {
+    enabledValue?: boolean;
+    revertEnabledOnFailure?: boolean;
+    rateDraftOverride?: Record<number, RateDraft>;
+    onSuccess?: () => void;
+    onError?: (message: string) => void;
+  } = {}) {
+    if (!config.data || saveInFlight.current) return;
+    const enabledValue = options.enabledValue ?? enabled;
+    const revertEnabledOnFailure = options.revertEnabledOnFailure ?? false;
     setError("");
     setMessage("");
     const reject = (text: string) => {
       setError(text);
+      options.onError?.(text);
       if (revertEnabledOnFailure) setEnabled(config.data?.enabled ?? false);
     };
     const startTime = joinClock(start.hour, start.minute);
@@ -157,7 +176,9 @@ export function NightServicePricingSettings({ open, isOwner }: { open: boolean; 
     if (startTime === endTime) return reject("Giờ bắt đầu và kết thúc không được trùng nhau.");
 
     const rates = config.data.rates.map((rate) => {
-      const draft = rateDraft[rate.serviceTypeId] ?? { customer: "", employee: "" };
+      const draft = options.rateDraftOverride?.[rate.serviceTypeId]
+        ?? rateDraft[rate.serviceTypeId]
+        ?? { customer: "", employee: "" };
       return {
         serviceTypeId: rate.serviceTypeId,
         customerHourlyRate: parseRate(draft.customer),
@@ -176,10 +197,12 @@ export function NightServicePricingSettings({ open, isOwner }: { open: boolean; 
       return reject(`Hãy nhập cả giá khách trả và tiền công ca đêm cho ${serviceName ?? "mỗi dịch vụ"} trước khi bật.`);
     }
 
+    saveInFlight.current = true;
     save.mutate({
       data: { enabled: enabledValue, startTime, endTime, rates },
     }, {
       onSuccess: async () => {
+        saveInFlight.current = false;
         draftTouched.current = false;
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: getGetNightServicePricingQueryKey() }),
@@ -187,9 +210,13 @@ export function NightServicePricingSettings({ open, isOwner }: { open: boolean; 
           queryClient.invalidateQueries({ queryKey: getGetMemberPayrollQueryKey() }),
         ]);
         setMessage("Đã lưu giá ca đêm. Các ca đã ghi trước đó giữ nguyên giá.");
+        options.onSuccess?.();
       },
       onError: (saveError) => {
-        setError(getApiError(saveError));
+        saveInFlight.current = false;
+        const errorMessage = getApiError(saveError);
+        setError(errorMessage);
+        options.onError?.(errorMessage);
         if (revertEnabledOnFailure) setEnabled(config.data?.enabled ?? false);
       },
     });
@@ -215,14 +242,23 @@ export function NightServicePricingSettings({ open, isOwner }: { open: boolean; 
                 draftTouched.current = true;
                 setEnabled(nextEnabled);
                 setMessage("");
-                saveSettings(nextEnabled, true);
+                saveSettings({ enabledValue: nextEnabled, revertEnabledOnFailure: true });
               }}
               disabled={save.isPending}
               data-testid="switch-night-service-enabled"
             />
             <span><strong>Bật giá ca đêm</strong><small>Dùng giá khách trả và tiền công ca đêm đã cài; không cộng thêm thưởng.</small></span>
           </label>
-          <div className="night-service-window">
+          <div className="night-service-window" onBlur={(event) => {
+            if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+            window.setTimeout(() => {
+              if (!config.data) return;
+              const nextStart = joinClock(start.hour, start.minute);
+              const nextEnd = joinClock(end.hour, end.minute);
+              if (nextStart === config.data.startTime && nextEnd === config.data.endTime) return;
+              saveSettings();
+            }, 0);
+          }}>
             <ClockInputs id="night-service-start" title="Bắt đầu" value={start}
               onChange={(value) => { draftTouched.current = true; setStart(value); setMessage(""); }} disabled={save.isPending} />
             <ClockInputs id="night-service-end" title="Kết thúc" value={end}
@@ -258,16 +294,11 @@ export function NightServicePricingSettings({ open, isOwner }: { open: boolean; 
           ) : <p className="muted">Thêm ít nhất một dịch vụ trước khi cài giá ca đêm.</p>}
           {error && <p className="form-error" role="alert">{error}</p>}
           {message && <p className="form-success" role="status">{message}</p>}
-          <button type="button" className="btn primary night-service-save" onClick={() => saveSettings()}
-            disabled={save.isPending || config.isLoading} data-testid="button-save-night-service-pricing">
-            {save.isPending && <LoaderCircle size={14} className="spin" aria-hidden="true" />}
-            Lưu giá ca đêm
-          </button>
         </>
       ) : null}
       {editingRate && (
         <Modal title={`Giá ca đêm · ${editingRate.serviceName}`}
-          onClose={() => { setEditingServiceTypeId(null); setRateEditorError(""); }}
+          onClose={cancelRateEdit}
           testId={`dialog-night-service-rate-${editingRate.serviceTypeId}`}>
           <p className="night-service-base-rates">
             Giá thường: khách {formatVnd(editingRate.standardCustomerHourlyRate)} · công {formatVnd(editingRate.standardEmployeeHourlyRate)} / giờ
@@ -286,9 +317,11 @@ export function NightServicePricingSettings({ open, isOwner }: { open: boolean; 
           </label>
           {rateEditorError && <p className="form-error" role="alert">{rateEditorError}</p>}
           <div className="dialog-actions">
-            <button type="button" className="btn ghost" onClick={clearRateEdit} disabled={save.isPending}>Bỏ giá ca đêm</button>
-            <button type="button" className="btn ghost" onClick={() => setEditingServiceTypeId(null)} disabled={save.isPending}>Hủy</button>
-            <button type="button" className="btn primary" onClick={finishRateEdit} disabled={save.isPending}>Xong</button>
+            <button type="button" className="btn ghost" onClick={cancelRateEdit} disabled={save.isPending}>Hủy</button>
+            <button type="button" className="btn primary" onClick={finishRateEdit} disabled={save.isPending}>
+              {save.isPending && <LoaderCircle size={14} className="spin" aria-hidden="true" />}
+              Xong
+            </button>
           </div>
         </Modal>
       )}
