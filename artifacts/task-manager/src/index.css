@@ -3326,6 +3326,34 @@ body:has(.modal-backdrop) .screen-nav {
 .night-shift-summary > span {
   font-weight: 800;
 }
+.night-service-accordion {
+  display: block;
+  min-width: 0;
+}
+.night-service-accordion > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+  list-style: none;
+}
+.night-service-accordion > summary::-webkit-details-marker {
+  display: none;
+}
+.night-service-accordion > summary svg {
+  flex: 0 0 auto;
+  transition: transform 160ms ease;
+}
+.night-service-accordion[open] > summary svg {
+  transform: rotate(180deg);
+}
+.night-service-accordion[open] > .service-duration-list {
+  margin: 9px 0 0;
+  padding: 8px 0 0 20px;
+  border-top: 1px solid hsl(0 0% 100% / .4);
+}
 .night-shift-badge {
   display: inline-flex;
   align-items: center;

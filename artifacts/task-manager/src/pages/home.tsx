@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { getGetMassageSummaryQueryKey, useGetMassageSummary } from '@workspace/api-client-react';
-import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, CreditCard, Sparkles, Users } from 'lucide-react';
+import { ArrowRight, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, CreditCard, Sparkles, Users } from 'lucide-react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { DatePickerDialog } from '@/components/date-picker-dialog';
@@ -152,10 +152,13 @@ export default function HomePage() {
                     <span>Ca dịch vụ trong tháng</span>
                     <ServiceBreakdownList items={summary.data.serviceBreakdown ?? []} label="Ca dịch vụ theo loại hình trong tháng" testId="list-facility-month-service-durations" />
                   </div>
-                  <div className="revenue-service-summary night-shift-summary">
-                    <span>Ca đêm muộn trong tháng</span>
+                  <details className="revenue-service-summary night-shift-summary night-service-accordion">
+                    <summary>
+                      <span>Dịch vụ ca đêm trong tháng</span>
+                      <ChevronDown size={18} aria-hidden="true" />
+                    </summary>
                     <ServiceBreakdownList items={summary.data.nightShiftBreakdown ?? []} label="Ca đêm muộn theo dịch vụ trong tháng" testId="list-facility-month-night-shifts" />
-                  </div>
+                  </details>
                   <details className="revenue-details">
                     <summary>
                       <span className="revenue-details-closed">Xem chi tiết</span>
@@ -225,10 +228,13 @@ export default function HomePage() {
                     <span>Ca dịch vụ {dayLabel}</span>
                     <ServiceBreakdownList items={summary.data.today.serviceBreakdown ?? []} label={`Ca dịch vụ theo loại hình ${dayLabel}`} testId="list-facility-day-service-durations" />
                   </div>
-                  <div className="revenue-service-summary night-shift-summary">
-                    <span>Ca đêm muộn {dayLabel}</span>
+                  <details className="revenue-service-summary night-shift-summary night-service-accordion">
+                    <summary>
+                      <span>Dịch vụ ca đêm {dayLabel}</span>
+                      <ChevronDown size={18} aria-hidden="true" />
+                    </summary>
                     <ServiceBreakdownList items={summary.data.today.nightShiftBreakdown ?? []} label={`Ca đêm muộn theo dịch vụ ${dayLabel}`} testId="list-facility-day-night-shifts" />
-                  </div>
+                  </details>
                   <details className="revenue-details">
                     <summary>
                       <span className="revenue-details-closed">Xem chi tiết</span>
