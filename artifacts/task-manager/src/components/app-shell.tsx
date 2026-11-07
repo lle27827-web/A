@@ -57,6 +57,7 @@ type ShellCtx = {
   retryMembers: () => void;
   query: string;
   setQuery: (q: string) => void;
+  desktopLayout: boolean;
   notify: (msg: string) => void;
   fail: (err: unknown) => void;
   clearMessages: () => void;
@@ -76,6 +77,7 @@ export function useShell() {
 export function AppShell({
   children,
   employeeView,
+  desktopLeftPanel,
   isOwner,
   permissions,
   userId,
@@ -84,6 +86,7 @@ export function AppShell({
 }: {
   children: ReactNode;
   employeeView: ReactNode;
+  desktopLeftPanel?: ReactNode;
   isOwner: boolean;
   permissions: FacilityPermissions;
   userId?: string | null;
@@ -91,6 +94,9 @@ export function AppShell({
   onSignOut?: () => void;
 }) {
   const [location, navigate] = useLocation();
+  const [desktopLayout, setDesktopLayout] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(min-width: 900px)').matches,
+  );
   const [prefs, setPrefs] = useViewPrefs();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [printPreferences, setPrintPreferences] = useState<PrintPreferences>(() =>
@@ -114,6 +120,15 @@ export function AppShell({
   const [error, setError] = useState('');
   const showResults = query.trim().length > 0;
   const employeeMode = isOwner && prefs.mode === 'employee';
+  const desktopRevenueLayout = desktopLayout && permissions.viewRevenue && !employeeMode && desktopLeftPanel != null;
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 900px)');
+    const update = () => setDesktopLayout(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   useEffect(() => {
     const unlock = () => primeSaveChime();
@@ -186,6 +201,7 @@ export function AppShell({
     retryMembers: () => void membersQuery.refetch(),
     query,
     setQuery,
+    desktopLayout,
     notify: (message) => { setError(''); setNotice(message); },
     fail: (err) => { setNotice(''); setError(errorText(err)); },
     clearMessages: () => { setError(''); setNotice(''); },
@@ -197,7 +213,7 @@ export function AppShell({
 
   return (
     <Ctx.Provider value={ctx}>
-      <div className="app">
+      <div className={desktopRevenueLayout ? 'app desktop-revenue-layout' : 'app'}>
         <a className="skip-link" href="#main" data-testid="link-skip-main">Bỏ qua đến nội dung chính</a>
         <header className="topbar">
           <div className="topbar-inner">
@@ -228,6 +244,11 @@ export function AppShell({
             </div>
           </div>
         </header>
+        {desktopRevenueLayout && (
+          <aside className="desktop-revenue-panel" aria-label="Doanh thu cơ sở">
+            {desktopLeftPanel}
+          </aside>
+        )}
         <aside className="desktop-rail" aria-label="Điều hướng chính">
           <nav className="desktop-rail-nav">
             <Link href={homeHref} onClick={() => setQuery('')} className="desktop-nav-link" aria-current={location === '/' || location === '/attendance' ? 'page' : undefined} data-testid="desktop-link-home">

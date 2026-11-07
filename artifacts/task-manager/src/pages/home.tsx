@@ -55,31 +55,33 @@ function ServiceBreakdownList({ items, label, testId }: {
   );
 }
 
-export default function HomePage() {
-  const { query, withHistory, permissions, canViewEmployees, canEditServices, period, isOwner } = useShell();
+export default function HomePage({ revenueOnly = false }: { revenueOnly?: boolean } = {}) {
+  const { query, withHistory, permissions, canViewEmployees, canEditServices, period, isOwner, desktopLayout } = useShell();
   const today = period.today;
   const search = useSearch();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const [paymentDetails, setPaymentDetails] = useState<{ method: PaymentMethodFilter; date?: string } | null>(null);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const { month, date, currentMonth } = resolveRevenuePeriod(search, today);
   const homePath = isOwner ? '/' : '/attendance';
+  const revenuePath = revenueOnly ? location : homePath;
   const dayLabel = date === today ? 'hôm nay' : `ngày ${formatShortDate(date)}`;
   const summaryParams = useMemo(() => ({ month, date }), [month, date]);
-  const summary = useGetMassageSummary(summaryParams, { query: { queryKey: getGetMassageSummaryQueryKey(summaryParams), enabled: permissions.viewRevenue, refetchOnWindowFocus: true, staleTime: 20_000, refetchInterval: 60_000 } });
+  const summary = useGetMassageSummary(summaryParams, { query: { queryKey: getGetMassageSummaryQueryKey(summaryParams), enabled: permissions.viewRevenue && (!desktopLayout || revenueOnly), refetchOnWindowFocus: true, staleTime: 20_000, refetchInterval: 60_000 } });
   const navigateToRevenueDate = (nextDate: string) => {
     setDatePickerOpen(false);
     setMonthPickerOpen(false);
-    navigate(nextDate === today ? homePath : `${homePath}?month=${nextDate.slice(0, 7)}&date=${nextDate}`);
+    navigate(nextDate === today ? revenuePath : `${revenuePath}?month=${nextDate.slice(0, 7)}&date=${nextDate}`);
   };
 
   // While searching, the shared SearchResults (mounted in AppShell) replaces the home tiles and report.
-  if (query.trim()) return null;
+  if (query.trim() && !revenueOnly) return null;
+  const showRevenue = permissions.viewRevenue && (!desktopLayout || revenueOnly);
 
   return (
-    <div className={permissions.viewRevenue ? 'home home-with-revenue' : 'home home-actions-only'}>
-      <nav className="tiles" aria-label="Chức năng cơ sở">
+    <div className={showRevenue ? `home home-with-revenue${revenueOnly ? ' home-revenue-only' : ''}` : 'home home-actions-only'}>
+      {!revenueOnly && <nav className="tiles" aria-label="Chức năng cơ sở">
         {canViewEmployees && <Link href={withHistory('/employees')} className="tile tile-employees" aria-labelledby="employees-link-title" data-testid="link-employees">
           <Users size={28} aria-hidden="true" />
           <strong id="employees-link-title">Quản lý nhân viên</strong>
@@ -100,8 +102,8 @@ export default function HomePage() {
           <strong id="services-link-title">Dịch vụ &amp; giá</strong>
           <span className="tile-go" aria-hidden="true">Mở <ArrowRight size={16} /></span>
         </Link>}
-      </nav>
-      {permissions.viewRevenue && <section className="revenue" aria-labelledby="rev-title" data-testid="section-revenue">
+      </nav>}
+      {showRevenue && <section className="revenue" aria-labelledby="rev-title" data-testid={revenueOnly ? 'section-desktop-revenue' : 'section-revenue'}>
         <div className="revenue-summary" data-testid="revenue-summary">
           {summary.isLoading ? <span className="rev-skel" role="status" aria-label="Đang tải doanh thu" /> : summary.isError
             ? statusCode(summary.error) === 401 || statusCode(summary.error) === 403
@@ -258,11 +260,11 @@ export default function HomePage() {
             )}
         </div>
       </section>}
-      {datePickerOpen && <DatePickerDialog value={date} title="Chọn ngày xem doanh thu" immediate maxDate={today}
+      {showRevenue && datePickerOpen && <DatePickerDialog value={date} title="Chọn ngày xem doanh thu" immediate maxDate={today}
         onClose={() => setDatePickerOpen(false)} onSelect={navigateToRevenueDate} />}
-      {monthPickerOpen && <HistoryMonthsDialog title="Chọn tháng doanh thu" listOnly includeCurrentMonth
+      {showRevenue && monthPickerOpen && <HistoryMonthsDialog title="Chọn tháng doanh thu" listOnly includeCurrentMonth
         onClose={() => setMonthPickerOpen(false)} onPick={(_selectedMonth, selectedDate) => navigateToRevenueDate(selectedDate)} />}
-      {paymentDetails && <PaymentDetailsDialog month={month} date={paymentDetails.date} method={paymentDetails.method}
+      {showRevenue && paymentDetails && <PaymentDetailsDialog month={month} date={paymentDetails.date} method={paymentDetails.method}
         onClose={() => setPaymentDetails(null)} />}
     </div>
   );

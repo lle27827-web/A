@@ -3397,3 +3397,125 @@ body:has(.modal-backdrop) .screen-nav {
     grid-column: 1;
   }
 }
+
+/* Desktop: keep revenue and the active workspace in separate scroll regions. */
+@media (min-width: 900px) {
+  .app.desktop-revenue-layout {
+    grid-template-columns: minmax(330px, 0.42fr) minmax(0, 0.58fr);
+    grid-template-rows: 68px auto minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .app.desktop-revenue-layout > .desktop-revenue-panel {
+    display: block;
+    grid-column: 1;
+    grid-row: 2 / 4;
+    min-width: 0;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 22px clamp(14px, 2vw, 30px) 36px;
+    border-right: 1px solid hsl(var(--border));
+  }
+
+  .app.desktop-revenue-layout > .desktop-rail {
+    grid-column: 2;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    min-height: 0;
+    padding: 12px clamp(14px, 2vw, 28px);
+    border-right: 0;
+    border-bottom: 1px solid hsl(var(--border));
+  }
+
+  .app.desktop-revenue-layout .desktop-rail-nav {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .app.desktop-revenue-layout .desktop-nav-link {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .app.desktop-revenue-layout .desktop-nav-link[data-testid="desktop-link-home"] {
+    display: none;
+  }
+
+  .app.desktop-revenue-layout .desktop-rail-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .app.desktop-revenue-layout > .main {
+    grid-column: 2;
+    grid-row: 3;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 22px clamp(14px, 2vw, 32px) 40px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app.desktop-revenue-layout > .main .home {
+    max-width: 1500px;
+    grid-template-columns: minmax(0, 1fr);
+    margin: 0 auto;
+  }
+
+  .app.desktop-revenue-layout > .desktop-revenue-panel .home.home-revenue-only {
+    max-width: none;
+    grid-template-columns: minmax(0, 1fr);
+    margin: 0;
+  }
+
+  .app.desktop-revenue-layout > .desktop-revenue-panel .home.home-revenue-only > .revenue {
+    grid-column: 1;
+    grid-row: auto;
+    min-width: 0;
+    border-radius: 20px;
+  }
+
+  /* Home keeps the existing management shortcuts on the right; its report is in the left pane. */
+  .app.desktop-revenue-layout > .main .home > .tiles {
+    grid-column: 1;
+    grid-row: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .app.desktop-revenue-layout > .main .home > .tiles .tile {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .app .screen-nav,
+  .app .desktop-nav-link[data-testid="desktop-link-home"],
+  .personal .nav-home-action,
+  .personal .nav-return-action,
+  .settings-dialog [data-testid="link-settings-home"],
+  .settings-dialog [data-testid="button-settings-back"] {
+    display: none;
+  }
+}

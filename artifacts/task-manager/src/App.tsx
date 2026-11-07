@@ -93,8 +93,8 @@ function FacilityRoutes({ permissions }: { permissions: FacilityPermissions }) {
   const employees = permissions.allEmployees || permissions.employeeIds.length > 0;
   return (
     <Switch>
-      <Route path="/" component={HomePage} />
-      <Route path="/attendance" component={HomePage} />
+      <Route path="/"><HomePage /></Route>
+      <Route path="/attendance"><HomePage /></Route>
       {employees && <Route path="/employees" component={EmployeesPage} />}
       {employees && <Route path="/employees/:id" component={EmployeePage} />}
       {permissions.viewCards && <Route path="/cards" component={CardsPage} />}
@@ -140,6 +140,7 @@ function SignedInApplication({
               permissions={permissions}
               onSignOut={onSignOut}
               employeeView={<EmployeeModeView />}
+              desktopLeftPanel={<HomePage revenueOnly />}
             >
               <FacilityRoutes permissions={permissions} />
             </AppShell>
