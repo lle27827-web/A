@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { TreatmentCard } from '@workspace/api-client-react';
 import { getListTreatmentCardsQueryKey, useCreateTreatmentCard, useListTreatmentCards } from '@workspace/api-client-react';
 import { ChevronRight, CreditCard, LockKeyhole, Phone, Plus, Printer, Search, X } from 'lucide-react';
-import { Link, useLocation } from 'wouter';
+import { Link, useLocation, useSearch } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { CardDialog, mergeConflictTarget } from '@/components/entity-dialogs';
 import { ErrorBanner, Skeleton } from '@/components/modal';
@@ -15,6 +15,7 @@ import { printCardSale, printTreatmentCard, reservePrintWindow } from '@/lib/pri
 export default function CardsPage() {
   const { canEditCards: canEdit, query, setQuery, notify, fail, printPreferences } = useShell();
   const [, navigate] = useLocation();
+  const search = useSearch();
   const cardSearch = useMemo(() => query.trim() ? { search: query.trim() } : undefined, [query]);
   const cardsQuery = useListTreatmentCards(cardSearch, {
     query: { queryKey: getListTreatmentCardsQueryKey(cardSearch), refetchOnWindowFocus: true },
@@ -27,6 +28,18 @@ export default function CardsPage() {
   const refresh = useRefreshMassage();
   const cards = useMemo(() => cardsQuery.data ?? [], [cardsQuery.data]);
   const list = cards;
+
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    if (params.get('shortcutAction') !== 'new-card') return;
+    params.delete('shortcutAction');
+    const remaining = params.toString();
+    navigate(`/cards${remaining ? `?${remaining}` : ''}`, { replace: true });
+    if (canEdit) {
+      setDialogError('');
+      setOpen(true);
+    }
+  }, [canEdit, navigate, search]);
 
   return (
     <section className="panel page" aria-labelledby="cards-title">

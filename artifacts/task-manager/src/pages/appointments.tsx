@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getListAppointmentStaffActivityQueryKey,
@@ -10,6 +10,7 @@ import type { Appointment, AppointmentInput, AppointmentStaffActivity, ServiceSe
 import { BriefcaseBusiness, CalendarDays, CheckCircle2, Clock3, Coffee, LoaderCircle, Pencil, Phone, Plus, Trash2, UserRound } from 'lucide-react';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
 import { useShell } from '@/components/app-shell';
+import { useLocation, useSearch } from 'wouter';
 import { SessionDialog } from '@/components/session-dialog';
 import { phoneCallHref } from '@/lib/phone';
 import { errorText, useRefreshMassage } from '@/lib/massage';
@@ -139,6 +140,8 @@ export default function AppointmentsPage() {
   const {
     permissions, members, canEditEmployees, canEditCards, period, notify, printPreferences,
   } = useShell();
+  const [, navigate] = useLocation();
+  const search = useSearch();
   const canEdit = permissions.editAppointments;
   const cache = useQueryClient();
   const appointments = useListAppointments({
@@ -225,6 +228,15 @@ export default function AppointmentsPage() {
     setEditing(null);
     setDraft(blankDraft());
   }
+
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    if (params.get('shortcutAction') !== 'new-appointment') return;
+    params.delete('shortcutAction');
+    const remaining = params.toString();
+    navigate(`/appointments${remaining ? `?${remaining}` : ''}`, { replace: true });
+    if (canEdit) openNew();
+  }, [canEdit, navigate, search]);
 
   function openEdit(appointment: Appointment) {
     setNotice('');
@@ -475,7 +487,7 @@ export default function AppointmentsPage() {
 
       {draft && (
         <Modal title={editing ? 'Sửa lịch hẹn' : 'Thêm lịch hẹn'} onClose={closeForm} testId="dialog-appointment">
-          <form className="appointment-form" onSubmit={submit} noValidate data-testid="form-appointment">
+          <form className="appointment-form" onSubmit={submit} noValidate data-testid="form-appointment" data-keyboard-shortcut-save="true">
             <label className="field" htmlFor="appointment-customer">Tên khách <span className="hint">Không bắt buộc</span>
               <input id="appointment-customer" value={draft.customerName} maxLength={160} autoComplete="name"
                 onChange={(event) => { setFormError(''); setDraft({ ...draft, customerName: event.target.value }); }}

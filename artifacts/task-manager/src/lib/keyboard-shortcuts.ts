@@ -4,11 +4,16 @@ export type KeyboardShortcutAction = {
   id: string;
   label: string;
   run: () => void;
+  group?: string;
+  targetId?: string;
+  allowInDialog?: boolean;
+  allowWhenEditing?: boolean;
 };
 
 export type KeyboardShortcutBindings = Record<string, string>;
 
 const STORAGE_KEY = 'so-cong:keyboard-shortcuts:v1';
+const LABELS_STORAGE_KEY = 'so-cong:keyboard-shortcut-labels:v1';
 const CHANGE_EVENT = 'so-cong:keyboard-shortcuts-change';
 const MODIFIERS = ['Ctrl', 'Alt', 'Shift', 'Meta'] as const;
 type Modifier = (typeof MODIFIERS)[number];
@@ -120,6 +125,109 @@ export function writeDeviceShortcutBindings(bindings: KeyboardShortcutBindings):
   }
 }
 
+export function readDeviceShortcutLabels(): Record<string, string> {
+  try {
+    const stored = window.localStorage.getItem(LABELS_STORAGE_KEY);
+    if (!stored) return {};
+    const parsed: unknown = JSON.parse(stored);
+    if (!isBindings(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter(([id, label]) =>
+        /^[a-z0-9-]{1,80}$/i.test(id) && typeof label === 'string' && label.trim().length > 0,
+      ).map(([id, label]) => [id, (label as string).trim().slice(0, 140)]),
+    );
+  } catch {
+    return {};
+  }
+}
+
+export function writeDeviceShortcutLabels(actions: KeyboardShortcutAction[], bindings: KeyboardShortcutBindings): void {
+  try {
+    const actionLabels = new Map(actions.map((action) => [action.id, action.label]));
+    const existingLabels = readDeviceShortcutLabels();
+    const labels: Record<string, string> = {};
+    for (const [id, combination] of Object.entries(bindings)) {
+      if (!combination) continue;
+      const label = actionLabels.get(id) ?? existingLabels[id];
+      if (label) labels[id] = label;
+    }
+    window.localStorage.setItem(LABELS_STORAGE_KEY, JSON.stringify(labels));
+  } catch {
+    // Shortcut assignment still works if device label storage is unavailable.
+  }
+}
+
+function shortcutActionHash(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function shortcutLabel(element: HTMLElement): string {
+  const explicit = element.getAttribute('aria-label')?.trim() || element.getAttribute('title')?.trim();
+  if (explicit) return explicit.replace(/\s+/g, ' ').slice(0, 140);
+  const text = (element.innerText || element.textContent || '').replace(/\s+/g, ' ').trim();
+  if (text) return text.slice(0, 140);
+  const testId = element.dataset.testid;
+  return testId
+    ? testId.replace(/^(button|link|select|input)-/i, '').replace(/[-_]+/g, ' ').slice(0, 140)
+    : '';
+}
+
+function shortcutTarget(id: string): HTMLElement | null {
+  const target = document.querySelector<HTMLElement>(`[data-keyboard-shortcut-target-id="${id}"]`);
+  if (!target || target.hidden || target.getAttribute('aria-disabled') === 'true' ||
+    target.closest('[inert], [aria-hidden="true"]')) return null;
+  if (target instanceof HTMLButtonElement && target.disabled) return null;
+  if (!target.getClientRects().length || getComputedStyle(target).visibility === 'hidden') return null;
+  return target;
+}
+
+/** Discovers currently rendered controls so each visible action can be assigned on its screen. */
+export function discoverDeviceShortcutActions(): KeyboardShortcutAction[] {
+  if (typeof document === 'undefined') return [];
+  const pageTitle = document.querySelector<HTMLElement>('#main h1')?.innerText?.trim();
+  const group = pageTitle ? `Nút trên màn hình · ${pageTitle}` : 'Nút trên màn hình';
+  const duplicates = new Map<string, number>();
+  const actions: KeyboardShortcutAction[] = [];
+  const controls = document.querySelectorAll<HTMLElement>('button, a[href], [role="button"]');
+
+  for (const element of controls) {
+    if (element.closest('.keyboard-shortcuts-settings, [data-keyboard-shortcut-exclude], .skip-link')) continue;
+    const containingDialog = element.closest<HTMLElement>('[role="dialog"][aria-modal="true"]');
+    if (containingDialog && containingDialog.dataset.testid !== 'dialog-view-settings') continue;
+    // Radix marks the page behind Settings as aria-hidden while its modal is open.
+    // Keep those page controls discoverable, but never include controls hidden by layout.
+    if (element.closest('[inert]') || element.hidden || element.getAttribute('aria-hidden') === 'true') continue;
+    if (element instanceof HTMLButtonElement && element.disabled) continue;
+    if (element.getAttribute('aria-disabled') === 'true' || !element.getClientRects().length ||
+      getComputedStyle(element).visibility === 'hidden') continue;
+
+    const label = shortcutLabel(element);
+    if (!label) continue;
+    const identity = element.dataset.testid || element.id ||
+      `${element.tagName}:${element.getAttribute('aria-label') ?? ''}:${label}:${element.getAttribute('href') ?? ''}`;
+    const occurrence = duplicates.get(identity) ?? 0;
+    duplicates.set(identity, occurrence + 1);
+    const id = `ui-${shortcutActionHash(`${window.location.pathname}:${identity}:${occurrence}`)}`;
+    if (element.dataset.keyboardShortcutTargetId !== id) {
+      element.dataset.keyboardShortcutTargetId = id;
+    }
+    actions.push({
+      id,
+      label,
+      group,
+      targetId: id,
+      run: () => shortcutTarget(id)?.click(),
+    });
+  }
+
+  return actions;
+}
+
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   return target.isContentEditable || Boolean(target.closest(
@@ -134,28 +242,65 @@ export function useDeviceKeyboardShortcuts(actions: KeyboardShortcutAction[]): v
 
   useEffect(() => {
     const syncBindings = () => { bindingsRef.current = readDeviceShortcutBindings(); };
+    const syncTargets = () => { discoverDeviceShortcutActions(); };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing || event.repeat || isEditableTarget(event.target)) return;
-      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      if (event.defaultPrevented || event.isComposing || event.repeat) return;
       const combination = shortcutFromKeyboardEvent(event);
       if (!combination || !isSupportedShortcut(combination)) return;
       const entry = Object.entries(bindingsRef.current).find(([, assigned]) => assigned === combination);
       if (!entry) return;
-      const action = actionRef.current.find((candidate) => candidate.id === entry[0]);
+      const action = actionRef.current.find((candidate) => candidate.id === entry[0]) ??
+        (entry[0].startsWith('ui-') ? {
+          id: entry[0],
+          label: readDeviceShortcutLabels()[entry[0]] ?? 'Nút trên màn hình',
+          targetId: entry[0],
+          run: () => shortcutTarget(entry[0])?.click(),
+        } : undefined);
       if (!action) return;
+      if (document.activeElement?.closest('[data-keyboard-shortcut-capture], .keyboard-shortcuts-settings')) return;
+      const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]');
+      const activeDialog = dialogs.item(dialogs.length - 1) ?? null;
+      const target = action.targetId ? shortcutTarget(action.targetId) : null;
+      if (action.targetId && !target) return;
+      if (activeDialog && !(action.allowInDialog || (target && activeDialog.contains(target)))) return;
+      if (isEditableTarget(event.target) && !action.allowWhenEditing) return;
       event.preventDefault();
-      event.stopPropagation();
-      action.run();
+      event.stopImmediatePropagation();
+      if (target) target.click();
+      else action.run();
     };
 
     syncBindings();
+    syncTargets();
     window.addEventListener(CHANGE_EVENT, syncBindings);
     window.addEventListener('storage', syncBindings);
     window.addEventListener('keydown', onKeyDown, true);
+    const observer = typeof MutationObserver === 'undefined' || !document.body
+      ? null
+      : new MutationObserver(syncTargets);
+    observer?.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['aria-label', 'aria-hidden', 'disabled', 'hidden', 'title', 'data-testid'],
+    });
     return () => {
       window.removeEventListener(CHANGE_EVENT, syncBindings);
       window.removeEventListener('storage', syncBindings);
       window.removeEventListener('keydown', onKeyDown, true);
+      observer?.disconnect();
     };
   }, []);
+}
+
+export function submitActiveDialogForm(): void {
+  const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]');
+  const activeDialog = dialogs.item(dialogs.length - 1);
+  if (!activeDialog || activeDialog.querySelector('.keyboard-shortcuts-settings')) return;
+  const form = activeDialog.querySelector<HTMLFormElement>('form[data-keyboard-shortcut-save="true"]');
+  if (!form || form.hidden || !form.getClientRects().length) return;
+  const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+  if (submit?.disabled) return;
+  if (submit) submit.click();
+  else form.requestSubmit();
 }

@@ -3,8 +3,10 @@ import test from 'node:test';
 import {
   blockedShortcutReason,
   readDeviceShortcutBindings,
+  readDeviceShortcutLabels,
   shortcutFromKeyboardEvent,
   writeDeviceShortcutBindings,
+  writeDeviceShortcutLabels,
 } from './keyboard-shortcuts';
 
 function keyEvent(overrides: Partial<KeyboardEvent> = {}): Pick<KeyboardEvent, 'key' | 'code' | 'ctrlKey' | 'altKey' | 'shiftKey' | 'metaKey'> {
@@ -60,6 +62,30 @@ test('stores normalized bindings locally and drops duplicate combinations', () =
       invalid: 'Ctrl+S',
     }), true);
     assert.deepEqual(readDeviceShortcutBindings(), { first: 'Ctrl+Shift+1' });
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else Reflect.deleteProperty(globalThis, 'window');
+  }
+});
+
+test('keeps labels only for assigned screen actions on this device', () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const values = new Map<string, string>();
+  const fakeWindow = {
+    localStorage: {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value); },
+    },
+    dispatchEvent: () => true,
+  } as unknown as Window;
+
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: fakeWindow });
+  try {
+    writeDeviceShortcutLabels([
+      { id: 'ui-a1', label: 'Thêm lịch hẹn', run: () => undefined },
+      { id: 'ui-b2', label: 'Xóa nhân viên Mai', run: () => undefined },
+    ], { 'ui-a1': 'Alt+A' });
+    assert.deepEqual(readDeviceShortcutLabels(), { 'ui-a1': 'Thêm lịch hẹn' });
   } finally {
     if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
     else Reflect.deleteProperty(globalThis, 'window');

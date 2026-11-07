@@ -104,7 +104,7 @@ export function CardDialog({ card, defaultDate, busy, serverError, mergeTargetId
           </div>
         </div>
       )}
-      <form hidden={pending} className="form-grid" onSubmit={submit} noValidate>
+      <form hidden={pending} className="form-grid" onSubmit={submit} noValidate data-keyboard-shortcut-save="true">
         <div className="field-row">
           <label className="field" htmlFor="c-name">Tên khách<input id="c-name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={120} required data-testid="input-card-customer" /></label>
           <div className="field">
@@ -183,7 +183,7 @@ export function MemberDialog({ member, busy, serverError, onClose, onSubmit }: {
   const shown = error || serverError;
   return (
     <Modal title={member ? 'Sửa nhân viên' : 'Thêm nhân viên'} onClose={onClose} testId="dialog-member">
-      <form className="form-grid" onSubmit={submit} noValidate>
+      <form className="form-grid" onSubmit={submit} noValidate data-keyboard-shortcut-save="true">
         <label className="field" htmlFor="m-name">Tên nhân viên<input id="m-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} required data-testid="input-member-name" /></label>
         {shown && <p className="form-error" role="alert"><AlertCircle size={13} /> {shown}</p>}
         <div className="dialog-actions">

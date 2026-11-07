@@ -1,9 +1,9 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getListServiceTypesQueryKey, useCreateServiceType, useDeleteServiceType, useListServiceTypes, useUpdateServiceType } from '@workspace/api-client-react';
 import type { ServiceTypeRecord } from '@workspace/api-client-react';
 import { AlertCircle, LoaderCircle, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link, useLocation, useSearch } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
 import { NightServicePricingSettings } from '@/components/night-service-pricing-settings';
@@ -16,6 +16,8 @@ export default function ServicesPage() {
 
 export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
   const { canEditServices: canEdit, isOwner, notify, fail } = useShell();
+  const [, navigate] = useLocation();
+  const search = useSearch();
   const q = useListServiceTypes({ query: { queryKey: getListServiceTypesQueryKey(), staleTime: 20_000, refetchInterval: 60_000, refetchOnWindowFocus: true } });
   const create = useCreateServiceType();
   const update = useUpdateServiceType();
@@ -28,6 +30,18 @@ export function ServiceCatalog({ embedded = false }: { embedded?: boolean }) {
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const list = q.data ?? [];
+
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    if (embedded || params.get('shortcutAction') !== 'new-service') return;
+    params.delete('shortcutAction');
+    const remaining = params.toString();
+    navigate(`/services${remaining ? `?${remaining}` : ''}`, { replace: true });
+    if (canEdit) {
+      setDialogError('');
+      setDialog({ service: null });
+    }
+  }, [canEdit, embedded, navigate, search]);
 
   function save(data: { name: string; customerHourlyRate: number; hourlyRate: number }) {
     if (!canEdit || !dialog) return;
@@ -160,7 +174,7 @@ function ServiceDialog({ service, busy, serverError, authError, onClose, onSubmi
   const shown = error || serverError;
   return (
     <Modal title={service ? 'Sửa dịch vụ' : 'Thêm dịch vụ'} onClose={onClose} testId="dialog-service">
-      <form className="form-grid" onSubmit={submit} noValidate>
+      <form className="form-grid" onSubmit={submit} noValidate data-keyboard-shortcut-save="true">
         <label className="field" htmlFor="sv-name">Tên dịch vụ<input id="sv-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} required placeholder="Massage body đá nóng" data-testid="input-service-name" /></label>
         <label className="field" htmlFor="sv-customer-rate">Tiền dịch vụ / giờ (VND)
           <input id="sv-customer-rate" inputMode="numeric" value={customerRate} onChange={(e) => setCustomerRate(e.target.value)} required placeholder="150000" data-testid="input-service-customer-rate" />

@@ -25,7 +25,7 @@ export function PersonalServiceDialog({ service, busy, serverError, onClose, onS
   }
   return (
     <Modal title={service ? 'Sửa dịch vụ của tôi' : 'Thêm dịch vụ của tôi'} onClose={onClose} testId="dialog-personal-service" className="personal-surface-dialog">
-      <form className="form-grid" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+      <form className="form-grid" onSubmit={(e) => { e.preventDefault(); submit(); }} data-keyboard-shortcut-save="true">
         <label className="field">Tên dịch vụ
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoFocus placeholder="VD: Massage body đá nóng" data-testid="input-personal-service-name" />
         </label>
@@ -83,7 +83,7 @@ export function PersonalShiftDialog({ session, services, defaultDate, maxDate, b
   }
   return (
     <Modal title={session ? 'Sửa ca của tôi' : 'Ghi ca của tôi'} onClose={onClose} testId="dialog-personal-shift" className="personal-surface-dialog">
-      <form className="form-grid" data-app-gesture-save="attendance" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+      <form className="form-grid" data-app-gesture-save="attendance" data-keyboard-shortcut-save="true" onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <label className="field">Dịch vụ
           <select className="service-select" value={serviceId} onChange={(e) => setServiceId(e.target.value)} data-testid="select-personal-service">
             {options.map((o) => <option key={o.id} value={o.id}>

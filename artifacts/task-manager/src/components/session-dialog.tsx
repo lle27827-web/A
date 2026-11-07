@@ -145,7 +145,7 @@ export function SessionDialog({ session, members, cards, cardsLoading, defaultDa
   return (
     <Modal title={session ? 'Sửa ca phục vụ' : quick ? `Chấm công${fixedMember ? ` · ${fixedMember.name}` : ''}` : 'Thêm ca phục vụ'}
       onClose={onClose} testId="dialog-session" className="personal-surface-dialog">
-      <form className="form-grid" onSubmit={submit} noValidate data-app-gesture-save="attendance">
+      <form className="form-grid" onSubmit={submit} noValidate data-app-gesture-save="attendance" data-keyboard-shortcut-save="true">
         <fieldset className="field service-pick">
           <legend>Loại hình dịch vụ</legend>
           {catalogQuery.isLoading ? <span className="hint" role="status">Đang tải danh mục dịch vụ…</span>

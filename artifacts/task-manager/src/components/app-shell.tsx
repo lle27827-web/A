@@ -6,7 +6,7 @@ import { Link, useLocation, useSearch } from 'wouter';
 import { SearchResults } from '@/components/search-results';
 import { ViewSettings, useViewPrefs, type ViewPrefs } from '@/components/view-settings';
 import type { KeyboardShortcutAction } from '@/lib/keyboard-shortcuts';
-import { useDeviceKeyboardShortcuts } from '@/lib/keyboard-shortcuts';
+import { submitActiveDialogForm, useDeviceKeyboardShortcuts } from '@/lib/keyboard-shortcuts';
 import { errorText, formatMonth, SESSION_FRESHNESS } from '@/lib/massage';
 import { periodHref, resolveRevenuePeriod } from '@/lib/revenue-period';
 import { useVietnamToday } from '@/lib/use-vietnam-today';
@@ -114,6 +114,10 @@ export function AppShell({
   const memberParams = useMemo(() => (historyMonth ? { month: historyMonth } : undefined), [historyMonth]);
   const canViewEmployees = permissions.allEmployees || permissions.employeeIds.length > 0;
   const membersQuery = useListMembers(memberParams, { query: { queryKey: getListMembersQueryKey(memberParams), enabled: canViewEmployees, ...SESSION_FRESHNESS } });
+  const canEditEmployees = canViewEmployees && permissions.editEmployees && !historyMonth;
+  const canAddEmployees = permissions.allEmployees && permissions.editEmployees && !historyMonth;
+  const canEditCards = permissions.viewCards && permissions.editCards && !historyMonth;
+  const canEditServices = permissions.editServices && !historyMonth;
   const fullLocation = search ? `${location}?${search}` : location;
   const employeeRoute = /^\/employees(?:\/|$)/.test(location);
   const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
@@ -183,33 +187,83 @@ export function AppShell({
 
   const shortcutActions = useMemo<KeyboardShortcutAction[]>(() => {
     const actions: KeyboardShortcutAction[] = [
-      { id: 'home', label: 'Mở trang chính', run: () => navigate(homeHref) },
-      { id: 'personal', label: 'Mở chấm công cá nhân', run: () => navigate('/personal') },
-      { id: 'search', label: 'Đưa tiêu điểm đến tìm kiếm', run: () => document.getElementById('global-search')?.focus() },
-      { id: 'settings', label: 'Mở cài đặt', run: () => setSettingsOpen(true) },
-      { id: 'back', label: 'Trở về', run: goBack },
+      { id: 'home', label: 'Mở trang chính', group: 'Điều hướng chung', run: () => navigate(homeHref) },
+      { id: 'personal', label: 'Mở chấm công cá nhân', group: 'Điều hướng chung', run: () => navigate('/personal') },
+      { id: 'search', label: 'Đưa tiêu điểm đến tìm kiếm', group: 'Điều hướng chung', run: () => document.getElementById('global-search')?.focus() },
+      { id: 'settings', label: 'Mở cài đặt', group: 'Điều hướng chung', run: () => setSettingsOpen(true) },
+      { id: 'back', label: 'Trở về', group: 'Điều hướng chung', run: goBack },
     ];
-    if (canViewEmployees) actions.push({ id: 'employees', label: 'Quản lý nhân viên', run: () => navigate(withHistory('/employees')) });
-    if (permissions.viewCards) actions.push({ id: 'cards', label: 'Quản lý thẻ', run: () => navigate('/cards') });
+    if (location !== '/personal') actions.push({
+        id: 'save-active-form',
+        label: 'Lưu biểu mẫu đang mở',
+        group: 'Biểu mẫu',
+        allowInDialog: true,
+        allowWhenEditing: true,
+        run: submitActiveDialogForm,
+    });
+    if (canViewEmployees) actions.push({ id: 'employees', label: 'Quản lý nhân viên', group: 'Điều hướng chung', run: () => navigate(withHistory('/employees')) });
+    if (permissions.viewCards) actions.push({ id: 'cards', label: 'Quản lý thẻ', group: 'Điều hướng chung', run: () => navigate('/cards') });
     if (permissions.viewAppointments || permissions.editAppointments) {
-      actions.push({ id: 'appointments', label: 'Lịch hẹn và trạng thái', run: () => navigate('/appointments') });
+      actions.push({ id: 'appointments', label: 'Lịch hẹn và trạng thái', group: 'Điều hướng chung', run: () => navigate('/appointments') });
     }
-    if (permissions.editServices) actions.push({ id: 'services', label: 'Dịch vụ và giá', run: () => navigate('/services') });
+    if (permissions.editAppointments && !historyMonth) {
+      actions.push({
+        id: 'new-appointment',
+        label: 'Thêm lịch hẹn',
+        group: 'Thao tác nhanh',
+        run: () => navigate('/appointments?shortcutAction=new-appointment'),
+      });
+    }
+    if (canAddEmployees) {
+      actions.push({
+        id: 'new-employee',
+        label: 'Thêm nhân viên',
+        group: 'Thao tác nhanh',
+        run: () => navigate('/employees?shortcutAction=new-employee'),
+      });
+    }
+    if (canEditCards) {
+      actions.push({
+        id: 'new-card',
+        label: 'Bán thẻ mới',
+        group: 'Thao tác nhanh',
+        run: () => navigate('/cards?shortcutAction=new-card'),
+      });
+    }
+    if (canEditEmployees) {
+      for (const member of members) {
+        actions.push({
+          id: `attendance-${member.id}`,
+          label: `Chấm công cho ${member.name}`,
+          group: 'Chấm công theo nhân viên',
+          run: () => navigate(`/employees?shortcutAttendance=${encodeURIComponent(String(member.id))}`),
+        });
+      }
+    }
+    if (permissions.editServices) actions.push({ id: 'services', label: 'Dịch vụ và giá', group: 'Điều hướng chung', run: () => navigate('/services') });
+    if (canEditServices) {
+      actions.push({
+        id: 'new-facility-service',
+        label: 'Thêm dịch vụ cơ sở',
+        group: 'Thao tác nhanh',
+        run: () => navigate('/services?shortcutAction=new-service'),
+      });
+    }
     return actions;
-  }, [canViewEmployees, goBack, homeHref, navigate, permissions.editServices, permissions.editAppointments, permissions.viewAppointments, permissions.viewCards, withHistory]);
+  }, [canAddEmployees, canEditCards, canEditEmployees, canEditServices, canViewEmployees, goBack, historyMonth, homeHref, location, members, navigate, permissions.editServices, permissions.editAppointments, permissions.viewAppointments, permissions.viewCards, withHistory]);
 
   useDeviceKeyboardShortcuts(shortcutActions);
 
   const ctx: ShellCtx = {
-    canEdit: canViewEmployees && permissions.editEmployees && !historyMonth,
+    canEdit: canEditEmployees,
     isOwner,
     permissions,
     canViewEmployees,
-    canEditEmployees: canViewEmployees && permissions.editEmployees && !historyMonth,
-    canAddEmployees: permissions.allEmployees && permissions.editEmployees && !historyMonth,
+    canEditEmployees,
+    canAddEmployees,
     canDeleteEmployees: canViewEmployees && permissions.deleteEmployees && !historyMonth,
-    canEditCards: permissions.viewCards && permissions.editCards && !historyMonth,
-    canEditServices: permissions.editServices && !historyMonth,
+    canEditCards,
+    canEditServices,
     historyMonth,
     selectedHistoryDate,
     period: { month: resolved.month, date: resolved.date, currentMonth: resolved.currentMonth, today },

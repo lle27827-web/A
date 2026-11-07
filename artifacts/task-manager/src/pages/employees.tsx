@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   getListServiceSessionsQueryKey, getListTreatmentCardsQueryKey,
   useCreateMember, useCreateServiceSession, useDeleteMember, useListServiceSessions, useListTreatmentCards,
 } from '@workspace/api-client-react';
 import type { MemberRecord, ServiceSessionInput } from '@workspace/api-client-react';
 import { ChevronRight, ClipboardCheck, Eye, Plus, Trash2, Users } from 'lucide-react';
-import { Link, useLocation } from 'wouter';
+import { Link, useLocation, useSearch } from 'wouter';
 import { useShell } from '@/components/app-shell';
 import { MemberDialog } from '@/components/entity-dialogs';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
@@ -30,6 +30,7 @@ export function MemberTags({ member }: { member: MemberRecord }) {
 export default function EmployeesPage() {
   const { members, membersLoading, membersError, retryMembers, canViewEmployees, canEditEmployees: canEdit, canDeleteEmployees, canAddEmployees, canEditCards, query, notify, fail, historyMonth, period, withHistory, printPreferences } = useShell();
   const [, navigate] = useLocation();
+  const search = useSearch();
   const [open, setOpen] = useState(false);
   const [dialogError, setDialogError] = useState('');
   const [choice, setChoice] = useState<MemberRecord | null>(null);
@@ -53,6 +54,31 @@ export default function EmployeesPage() {
   const cardsQuery = useListTreatmentCards(undefined, { query: { queryKey: getListTreatmentCardsQueryKey(), enabled: canEdit && canEditCards && quick !== null } });
   const refresh = useRefreshMassage();
   const list = useMemo(() => members.filter((m) => normalize(m.name).includes(normalize(query))), [members, query]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const attendanceMemberId = params.get('shortcutAttendance');
+    const shortcutAction = params.get('shortcutAction');
+    if (!attendanceMemberId && shortcutAction !== 'new-employee') return;
+    if (attendanceMemberId && membersLoading) return;
+
+    if (shortcutAction === 'new-employee' && canAddEmployees) {
+      setDialogError('');
+      setOpen(true);
+    } else if (attendanceMemberId && canEdit) {
+      const member = members.find((item) => String(item.id) === attendanceMemberId);
+      if (member) {
+        setDialogError('');
+        setQuickDate(localDate());
+        setQuick(member);
+      }
+    }
+
+    params.delete('shortcutAttendance');
+    params.delete('shortcutAction');
+    const remaining = params.toString();
+    navigate(`/employees${remaining ? `?${remaining}` : ''}`, { replace: true });
+  }, [canAddEmployees, canEdit, members, membersLoading, navigate, search]);
 
   function submitQuick(input: ServiceSessionInput) {
     if (!canEdit || !quick) return;

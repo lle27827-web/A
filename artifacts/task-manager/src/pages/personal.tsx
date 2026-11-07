@@ -19,7 +19,7 @@ import { KeyboardShortcutsSettings } from '@/components/keyboard-shortcuts-setti
 import { formatShortDate, formatShortDayMonth } from '@/lib/attendance';
 import { errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth } from '@/lib/massage';
 import { resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
-import { useDeviceKeyboardShortcuts, type KeyboardShortcutAction } from '@/lib/keyboard-shortcuts';
+import { submitActiveDialogForm, useDeviceKeyboardShortcuts, type KeyboardShortcutAction } from '@/lib/keyboard-shortcuts';
 
 function PersonalFrame({ children, onSignOut, onOpenSettings, homeHref, onTouchStart, onTouchEnd, onTouchCancel }: {
   children: ReactNode;
@@ -224,19 +224,19 @@ export default function PersonalPage({ onSignOut, homeHref = '/' }: { onSignOut?
 
   const shortcutActions = useMemo<KeyboardShortcutAction[]>(() => {
     const actions: KeyboardShortcutAction[] = [
-      { id: 'personal', label: 'Mở chấm công cá nhân', run: () => navigate('/personal') },
-      { id: 'settings', label: 'Mở cài đặt phím tắt', run: () => setShortcutSettingsOpen(true) },
-      { id: 'back', label: 'Trở về', run: () => window.history.back() },
-      { id: 'choose-date', label: 'Chọn ngày', run: () => open({ kind: 'date' }) },
-      { id: 'compare', label: 'Đối chiếu sổ cá nhân', run: () => open({ kind: 'compare' }) },
-      { id: 'view-day', label: 'Xem ca trong ngày', run: () => setMode('day') },
-      { id: 'view-month', label: 'Xem ca trong tháng', run: () => setMode('month') },
-      { id: 'previous-month', label: 'Xem tháng trước', run: () => goPeriod(shiftMonth(month, -1)) },
+      { id: 'personal-shortcuts-settings', label: 'Mở cài đặt phím tắt cá nhân', group: 'Điều hướng chung', run: () => setShortcutSettingsOpen(true) },
+      { id: 'personal-back', label: 'Trở về trong sổ cá nhân', group: 'Điều hướng chung', run: () => window.history.back() },
+      { id: 'save-active-form', label: 'Lưu biểu mẫu đang mở', group: 'Biểu mẫu', allowInDialog: true, allowWhenEditing: true, run: submitActiveDialogForm },
+      { id: 'choose-date', label: 'Chọn ngày', group: 'Chấm công cá nhân', run: () => open({ kind: 'date' }) },
+      { id: 'compare', label: 'Đối chiếu sổ cá nhân', group: 'Chấm công cá nhân', run: () => open({ kind: 'compare' }) },
+      { id: 'view-day', label: 'Xem ca trong ngày', group: 'Chấm công cá nhân', run: () => setMode('day') },
+      { id: 'view-month', label: 'Xem ca trong tháng', group: 'Chấm công cá nhân', run: () => setMode('month') },
+      { id: 'previous-month', label: 'Xem tháng trước', group: 'Chấm công cá nhân', run: () => goPeriod(shiftMonth(month, -1)) },
     ];
-    if (homeHref) actions.push({ id: 'facility-home', label: 'Về sổ cơ sở', run: () => navigate(homeHref) });
-    if (month < currentMonth) actions.push({ id: 'next-month', label: 'Xem tháng sau', run: () => goPeriod(shiftMonth(month, 1)) });
-    if (services.length) actions.push({ id: 'new-shift', label: 'Ghi ca cá nhân', run: () => open({ kind: 'shift', item: null }) });
-    if (!useFacility) actions.push({ id: 'new-service', label: 'Thêm dịch vụ cá nhân', run: () => open({ kind: 'service', item: null }) });
+    if (homeHref) actions.push({ id: 'facility-home', label: 'Về sổ cơ sở', group: 'Điều hướng chung', run: () => navigate(homeHref) });
+    if (month < currentMonth) actions.push({ id: 'next-month', label: 'Xem tháng sau', group: 'Chấm công cá nhân', run: () => goPeriod(shiftMonth(month, 1)) });
+    if (services.length) actions.push({ id: 'new-shift', label: 'Ghi ca cá nhân', group: 'Chấm công cá nhân', run: () => open({ kind: 'shift', item: null }) });
+    if (!useFacility) actions.push({ id: 'new-service', label: 'Thêm dịch vụ cá nhân', group: 'Chấm công cá nhân', run: () => open({ kind: 'service', item: null }) });
     return actions;
   }, [currentMonth, goPeriod, homeHref, month, navigate, open, services.length, useFacility]);
 
