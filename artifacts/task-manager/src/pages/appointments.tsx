@@ -77,32 +77,52 @@ function formatAppointmentTime(value: string) {
 }
 
 function formatNextAppointment(value: string) {
-  return new Intl.DateTimeFormat('vi-VN', {
+  const dateKey = (date: Date) => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+    const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? '';
+    return `${part('year')}-${part('month')}-${part('day')}`;
+  };
+  const appointmentDate = dateKey(new Date(value));
+  const today = dateKey(new Date());
+  const time = formatAppointmentTime(value);
+  if (appointmentDate === today) return time;
+  const date = new Intl.DateTimeFormat('vi-VN', {
     timeZone: 'Asia/Ho_Chi_Minh',
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
   }).format(new Date(value));
+  return `${date} lúc ${time}`;
 }
 
-function activityLabel(activity: AppointmentStaffActivity) {
-  const nextAppointment = activity.nextAppointmentAt
-    ? [
-        ` · Lịch hẹn ${formatNextAppointment(activity.nextAppointmentAt)}`,
-        activity.nextAppointmentCustomerName,
-        activity.nextAppointmentRequest,
-        activity.nextAppointmentNote ? `Ghi chú: ${activity.nextAppointmentNote}` : null,
-      ].filter(Boolean).join(' · ')
-    : '';
+function activityDetails(activity: AppointmentStaffActivity) {
+  const details: { kind: 'state' | 'detail' | 'appointment'; text: string }[] = [];
   if (activity.state === 'working') {
-    return `Đang làm${activity.serviceType ? ` · ${activity.serviceType}` : ''}${activity.endsAt ? ` · dự kiến xong lúc ${formatActivityEnd(activity.endsAt)}` : ''}${nextAppointment}`;
+    details.push({ kind: 'state', text: 'Đang làm' });
+    if (activity.serviceType) details.push({ kind: 'detail', text: activity.serviceType });
+    if (activity.endsAt) {
+      details.push({ kind: 'detail', text: `Dự kiến ra lúc ${formatActivityEnd(activity.endsAt)}` });
+    }
+  } else {
+    details.push({ kind: 'state', text: activity.state === 'off' ? 'Đang nghỉ' : 'Đang rảnh' });
+    if (activity.lastFinishedAt) {
+      details.push({
+        kind: 'detail',
+        text: `Ca gần nhất kết thúc lúc ${formatActivityEnd(activity.lastFinishedAt)}`,
+      });
+    }
   }
-  const lastFinish = activity.lastFinishedAt
-    ? ` · ca gần nhất xong khoảng ${formatActivityEnd(activity.lastFinishedAt)}`
-    : '';
-  return `${activity.state === 'off' ? 'Đang nghỉ' : 'Đang rảnh'}${lastFinish}${nextAppointment}`;
+  if (activity.nextAppointmentAt) {
+    details.push({
+      kind: 'appointment',
+      text: `Lịch hẹn lúc ${formatNextAppointment(activity.nextAppointmentAt)}`,
+    });
+  }
+  return details;
 }
 
 export default function AppointmentsPage() {
@@ -305,7 +325,9 @@ export default function AppointmentsPage() {
           <div className="staff-activity-empty">Chưa có nhân viên đang hoạt động.</div>
         ) : (
           <ul className="staff-activity-list" data-testid="list-staff-activity">
-            {staffActivity.data.map((activity) => (
+            {staffActivity.data.map((activity) => {
+              const details = activityDetails(activity);
+              return (
               <li className={`staff-activity-row is-${activity.state}`} key={activity.memberId} data-testid={`staff-activity-${activity.memberId}`}>
                 <div className="staff-activity-person">
                   <span className="staff-activity-icon" aria-hidden="true">
@@ -326,12 +348,23 @@ export default function AppointmentsPage() {
                     </button>
                   ) : <strong>{activity.employeeName}</strong>}
                 </div>
-                <span className={`staff-activity-state is-${activity.state}`} role="status">
-                  {activity.state === 'working' && <Clock3 size={14} aria-hidden="true" />}
-                  {activity.state === 'available' && <CheckCircle2 size={14} aria-hidden="true" />}
-                  {activity.state === 'off' && <Coffee size={14} aria-hidden="true" />}
-                  {activityLabel(activity)}
-                </span>
+                <div
+                  className={`staff-activity-state is-${activity.state}`}
+                  role="status"
+                  aria-label={details.map((detail) => detail.text).join('. ')}
+                >
+                  {details.map((detail, index) => (
+                    <span
+                      className={`staff-activity-detail is-${detail.kind}`}
+                      key={`${detail.kind}-${index}`}
+                    >
+                      {index === 0 && activity.state === 'working' && <Clock3 size={14} aria-hidden="true" />}
+                      {index === 0 && activity.state === 'available' && <CheckCircle2 size={14} aria-hidden="true" />}
+                      {index === 0 && activity.state === 'off' && <Coffee size={14} aria-hidden="true" />}
+                      {detail.text}
+                    </span>
+                  ))}
+                </div>
                 {canEdit && (
                   <button
                     type="button"
@@ -348,7 +381,8 @@ export default function AppointmentsPage() {
                   </button>
                 )}
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </section>

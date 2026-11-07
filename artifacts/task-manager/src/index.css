@@ -1238,7 +1238,9 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .staff-activity-row.is-working .staff-activity-icon { color: hsl(32 85% 35%); background: hsl(38 92% 50% / .16); }
 .staff-activity-row.is-available .staff-activity-icon { color: hsl(var(--ok)); background: hsl(var(--ok) / .13); }
 .staff-activity-row.is-off .staff-activity-icon { color: hsl(var(--muted-foreground)); }
-.staff-activity-state { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: hsl(var(--muted-foreground)); font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+.staff-activity-state { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 12px; min-width: 0; color: hsl(var(--muted-foreground)); font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+.staff-activity-detail { display: inline-flex; align-items: center; gap: 5px; min-width: 0; line-height: 1.45; }
+.staff-activity-detail.is-appointment { flex-basis: 100%; padding-left: 19px; color: hsl(var(--foreground)); }
 .staff-activity-state.is-working { color: hsl(32 85% 35%); }
 .staff-activity-state.is-available { color: hsl(var(--ok)); }
 .staff-activity-state.is-off { color: hsl(var(--muted-foreground)); }
@@ -1257,6 +1259,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   .staff-activity-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; padding: 12px 4px; }
   .staff-activity-person { grid-column: 1; grid-row: 1; }
   .staff-activity-state { grid-column: 1; grid-row: 2; padding-left: 39px; font-size: 12px; }
+  .staff-activity-detail.is-appointment { padding-left: 0; }
   .staff-activity-toggle { grid-column: 2; grid-row: 1 / span 2; min-width: 94px; }
 }
 @media (max-width: 420px) {
