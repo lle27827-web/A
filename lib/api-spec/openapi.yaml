@@ -1113,12 +1113,13 @@ components:
         note: { type: string, maxLength: 2000 }
     AppointmentStaffActivity:
       type: object
-      required: [memberId, employeeName, state, endsAt, serviceType, nextAppointmentAt]
+      required: [memberId, employeeName, state, endsAt, lastFinishedAt, serviceType, nextAppointmentAt]
       properties:
         memberId: { type: integer, minimum: 1 }
         employeeName: { type: string }
         state: { type: string, enum: [working, available, off] }
         endsAt: { type: ["string", "null"], format: date-time }
+        lastFinishedAt: { type: ["string", "null"], format: date-time }
         serviceType: { type: ["string", "null"] }
         nextAppointmentAt: { type: ["string", "null"], format: date-time }
     AppointmentStaffActivityInput:

@@ -15,6 +15,8 @@ export interface AppointmentStaffActivity {
   /** @nullable */
   endsAt: Date | null;
   /** @nullable */
+  lastFinishedAt: Date | null;
+  /** @nullable */
   serviceType: string | null;
   /** @nullable */
   nextAppointmentAt: Date | null;

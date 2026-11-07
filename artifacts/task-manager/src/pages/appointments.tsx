@@ -85,9 +85,12 @@ function activityLabel(activity: AppointmentStaffActivity) {
     ? ` · Lịch hẹn ${formatNextAppointment(activity.nextAppointmentAt)}`
     : '';
   if (activity.state === 'working') {
-    return `Đang làm${activity.serviceType ? ` · ${activity.serviceType}` : ''}${activity.endsAt ? ` · xong lúc ${formatActivityEnd(activity.endsAt)}` : ''}${nextAppointment}`;
+    return `Đang làm${activity.serviceType ? ` · ${activity.serviceType}` : ''}${activity.endsAt ? ` · dự kiến xong lúc ${formatActivityEnd(activity.endsAt)}` : ''}${nextAppointment}`;
   }
-  return `${activity.state === 'off' ? 'Đang nghỉ' : 'Đang rảnh'}${nextAppointment}`;
+  const lastFinish = activity.lastFinishedAt
+    ? ` · ca gần nhất xong khoảng ${formatActivityEnd(activity.lastFinishedAt)}`
+    : '';
+  return `${activity.state === 'off' ? 'Đang nghỉ' : 'Đang rảnh'}${lastFinish}${nextAppointment}`;
 }
 
 export default function AppointmentsPage() {

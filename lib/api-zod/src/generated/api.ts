@@ -993,6 +993,7 @@ export const ListAppointmentStaffActivityResponseItem = zod.object({
   "employeeName": zod.string(),
   "state": zod.enum(['working', 'available', 'off']),
   "endsAt": zod.coerce.date().nullable(),
+  "lastFinishedAt": zod.coerce.date().nullable(),
   "serviceType": zod.string().nullable(),
   "nextAppointmentAt": zod.coerce.date().nullable()
 })
@@ -1021,6 +1022,7 @@ export const UpdateAppointmentStaffActivityResponse = zod.object({
   "employeeName": zod.string(),
   "state": zod.enum(['working', 'available', 'off']),
   "endsAt": zod.coerce.date().nullable(),
+  "lastFinishedAt": zod.coerce.date().nullable(),
   "serviceType": zod.string().nullable(),
   "nextAppointmentAt": zod.coerce.date().nullable()
 })

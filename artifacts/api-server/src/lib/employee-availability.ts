@@ -17,6 +17,7 @@ export type StaffActivity = {
   employeeName: string;
   state: "working" | "available" | "off";
   endsAt: string | null;
+  lastFinishedAt: string | null;
   serviceType: string | null;
   nextAppointmentAt: string | null;
 };
@@ -42,6 +43,7 @@ export function deriveStaffActivity(
   const today = hoChiMinhDate(now);
   const statuses = new Map(manualStatuses.filter((row) => row.statusDate === today).map((row) => [row.memberId, row.state]));
   const activeSessions = new Map<number, { startsAt: number; endsAt: number; serviceType: string }>();
+  const finishedSessions = new Map<number, number>();
   const nextAppointments = new Map<number, number>();
   const dailySessionCounts = new Map<string, Map<number, number>>();
   const todayCounts = new Map<number, number>();
@@ -64,7 +66,12 @@ export function deriveStaffActivity(
     todayCounts.set(session.memberId, (todayCounts.get(session.memberId) ?? 0) + 1);
     const startsAt = new Date(session.createdAt).getTime();
     const endsAt = startsAt + session.minutes * 60_000;
-    if (!Number.isFinite(startsAt) || startsAt > nowMs || endsAt <= nowMs) continue;
+    if (!Number.isFinite(startsAt) || startsAt > nowMs) continue;
+    if (endsAt <= nowMs) {
+      const previousFinish = finishedSessions.get(session.memberId);
+      if (previousFinish === undefined || endsAt > previousFinish) finishedSessions.set(session.memberId, endsAt);
+      continue;
+    }
     const previous = activeSessions.get(session.memberId);
     if (!previous || startsAt > previous.startsAt) {
       activeSessions.set(session.memberId, { startsAt, endsAt, serviceType: session.serviceType });
@@ -90,6 +97,9 @@ export function deriveStaffActivity(
         employeeName: member.name,
         state,
         endsAt: current ? new Date(current.endsAt).toISOString() : null,
+        lastFinishedAt: !current && finishedSessions.has(member.id)
+          ? new Date(finishedSessions.get(member.id)!).toISOString()
+          : null,
         serviceType: current?.serviceType ?? null,
         nextAppointmentAt: nextAppointments.has(member.id)
           ? new Date(nextAppointments.get(member.id)!).toISOString()
