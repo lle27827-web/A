@@ -280,7 +280,6 @@ export function NightServicePricingSettings({ open, isOwner }: { open: boolean; 
                       data-testid={`row-night-service-${rate.serviceTypeId}`}>
                       <span className="grow">
                         <strong>{rate.serviceName}</strong>
-                        <span className="muted mono">Giá thường: khách {formatVnd(rate.standardCustomerHourlyRate)} · công {formatVnd(rate.standardEmployeeHourlyRate)} / giờ</span>
                         <span className="muted mono">Ca đêm: khách {displayNightRate(draft.customer)} · công {displayNightRate(draft.employee)}</span>
                       </span>
                       <span className="night-rate-indicator" aria-label={configured ? "Đã cài giá ca đêm" : "Chưa cài giá ca đêm"}>
