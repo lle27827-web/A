@@ -39,6 +39,15 @@ export function hoChiMinhDate(now = new Date()): string {
   return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
+export function isAppointmentOnOrAfterHoChiMinhDate(
+  scheduledAt: Date | string,
+  now = new Date(),
+): boolean {
+  const appointmentDate = scheduledAt instanceof Date ? scheduledAt : new Date(scheduledAt);
+  return Number.isFinite(appointmentDate.getTime()) &&
+    hoChiMinhDate(appointmentDate) >= hoChiMinhDate(now);
+}
+
 export function deriveStaffActivity(
   members: readonly ActivityMember[],
   sessions: readonly ActivitySession[],

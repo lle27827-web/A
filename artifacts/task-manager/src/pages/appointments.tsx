@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getListAppointmentStaffActivityQueryKey,
@@ -28,7 +28,7 @@ type AppointmentDraft = {
 };
 
 const blankDraft = (): AppointmentDraft => {
-  const scheduledAt = toLocalInput(new Date(Date.now() + 60 * 60 * 1000));
+  const scheduledAt = toHoChiMinhInput(new Date(Date.now() + 60 * 60 * 1000));
   return {
     customerName: '',
     phone: '',
@@ -41,13 +41,33 @@ const blankDraft = (): AppointmentDraft => {
   };
 };
 
-function toLocalInput(date: Date): string {
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
+function hoChiMinhDateKey(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? '';
+  return `${value('year')}-${value('month')}-${value('day')}`;
+}
+
+function toHoChiMinhInput(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? '';
+  return `${value('year')}-${value('month')}-${value('day')}T${value('hour')}:${value('minute')}`;
 }
 
 function fromAppointment(appointment: Appointment): AppointmentDraft {
-  const scheduledAt = toLocalInput(new Date(appointment.scheduledAt));
+  const scheduledAt = toHoChiMinhInput(new Date(appointment.scheduledAt));
   return {
     customerName: appointment.customerName,
     phone: appointment.phone,
@@ -61,7 +81,13 @@ function fromAppointment(appointment: Appointment): AppointmentDraft {
 }
 
 function formatAppointmentDate(value: string) {
-  return new Intl.DateTimeFormat('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value));
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(value));
 }
 
 function formatActivityEnd(value: string | null) {
@@ -159,6 +185,9 @@ export default function AppointmentsPage() {
       refetchOnWindowFocus: true,
     },
   });
+  const [todayInVietnam, setTodayInVietnam] = useState(() => hoChiMinhDateKey(new Date()));
+  const refetchAppointments = useRef(appointments.refetch);
+  refetchAppointments.current = appointments.refetch;
   const create = useCreateAppointment();
   const update = useUpdateAppointment();
   const updateActivity = useUpdateAppointmentStaffActivity();
@@ -178,9 +207,31 @@ export default function AppointmentsPage() {
       enabled: attendanceMemberId !== null && canEditEmployees && canEditCards,
     },
   });
+  useEffect(() => {
+    const [year, month, day] = todayInVietnam.split('-').map(Number);
+    const nextDate = new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+    const nextMidnight = new Date(`${nextDate}T00:00:00.000+07:00`).getTime();
+    const syncBusinessDate = () => {
+      const current = hoChiMinhDateKey(new Date());
+      if (current !== todayInVietnam) {
+        setTodayInVietnam(current);
+        void refetchAppointments.current();
+      }
+    };
+    const timeout = window.setTimeout(syncBusinessDate, Math.max(0, nextMidnight - Date.now() + 20));
+    window.addEventListener('focus', syncBusinessDate);
+    document.addEventListener('visibilitychange', syncBusinessDate);
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener('focus', syncBusinessDate);
+      document.removeEventListener('visibilitychange', syncBusinessDate);
+    };
+  }, [todayInVietnam]);
   const records = useMemo(
-    () => [...(appointments.data ?? [])].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)),
-    [appointments.data],
+    () => [...(appointments.data ?? [])]
+      .filter((appointment) => hoChiMinhDateKey(new Date(appointment.scheduledAt)) >= todayInVietnam)
+      .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)),
+    [appointments.data, todayInVietnam],
   );
   const busy = create.isPending || update.isPending;
 
@@ -272,7 +323,9 @@ export default function AppointmentsPage() {
       !Number.isInteger(minute) || minute < 0 || minute > 59) {
       return setFormError('Chọn ngày, giờ và phút hẹn hợp lệ.');
     }
-    const scheduled = new Date(`${draft.date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`);
+    const scheduled = new Date(
+      `${draft.date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00+07:00`,
+    );
     if (Number.isNaN(scheduled.getTime())) return setFormError('Chọn ngày và giờ hẹn hợp lệ.');
     if (draft.note.trim().length > 2000) return setFormError('Ghi chú không được dài quá 2.000 ký tự.');
     const data: AppointmentInput = {
@@ -324,7 +377,7 @@ export default function AppointmentsPage() {
         <div className="appointments-title-block">
           <span className="appointments-kicker"><CalendarDays size={14} aria-hidden="true" />SỔ CÔNG · CƠ SỞ</span>
           <h1 id="appointments-title" className="page-title">Lịch hẹn</h1>
-          <p className="sub">Sổ lịch hẹn dùng chung cho toàn cơ sở.</p>
+          <p className="sub">Hiển thị lịch từ hôm nay trở đi; lịch đã qua ngày được ẩn, không bị xóa.</p>
         </div>
         {canEdit && <button type="button" className="btn primary" onClick={openNew} data-testid="button-add-appointment">
           <Plus size={15} aria-hidden="true" />Thêm lịch hẹn
@@ -428,7 +481,7 @@ export default function AppointmentsPage() {
         ) : records.length === 0 ? (
           <div className="empty appointment-empty">
             <CalendarDays size={24} aria-hidden="true" />
-            <strong>Chưa có lịch hẹn</strong>
+            <strong>Không có lịch hẹn từ hôm nay trở đi</strong>
             <p>Thêm lịch hẹn đầu tiên để cả cơ sở cùng theo dõi.</p>
             {canEdit && <button type="button" className="btn small" onClick={openNew} data-testid="button-add-first-appointment">
               <Plus size={14} aria-hidden="true" />Thêm lịch hẹn

@@ -1,6 +1,41 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { deriveStaffActivity, hoChiMinhDate } from "./employee-availability";
+import {
+  deriveStaffActivity,
+  hoChiMinhDate,
+  isAppointmentOnOrAfterHoChiMinhDate,
+} from "./employee-availability";
+
+test("appointment visibility follows Ho Chi Minh calendar dates through midnight", () => {
+  const beforeMidnight = new Date("2026-11-07T16:59:00.000Z"); // Nov 7, 23:59 in Vietnam
+  assert.equal(
+    isAppointmentOnOrAfterHoChiMinhDate("2026-11-06T16:59:00.000Z", beforeMidnight),
+    false,
+    "yesterday's appointment is hidden",
+  );
+  assert.equal(
+    isAppointmentOnOrAfterHoChiMinhDate("2026-11-06T17:01:00.000Z", beforeMidnight),
+    true,
+    "an appointment earlier today remains visible even after its appointment time",
+  );
+  assert.equal(
+    isAppointmentOnOrAfterHoChiMinhDate("2026-11-07T17:00:00.000Z", beforeMidnight),
+    true,
+    "tomorrow's appointment is visible",
+  );
+
+  const afterMidnight = new Date("2026-11-07T17:00:00.000Z"); // Nov 8, 00:00 in Vietnam
+  assert.equal(
+    isAppointmentOnOrAfterHoChiMinhDate("2026-11-07T16:59:00.000Z", afterMidnight),
+    false,
+    "the previous Vietnam date is hidden at midnight",
+  );
+  assert.equal(
+    isAppointmentOnOrAfterHoChiMinhDate("2026-11-07T17:00:00.000Z", afterMidnight),
+    true,
+    "today's Vietnam date remains visible",
+  );
+});
 
 test("staff activity derives work end time, idle, and daily leave in Ho Chi Minh time", () => {
   const now = new Date("2026-11-07T04:30:00.000Z"); // 11:30 in Ho Chi Minh

@@ -25,7 +25,11 @@ import {
 } from "@workspace/api-zod";
 import { idempotentTransaction, MassageError } from "../lib/massage";
 import { listMembersForPeriod } from "../lib/employee-history";
-import { deriveStaffActivity, hoChiMinhDate } from "../lib/employee-availability";
+import {
+  deriveStaffActivity,
+  hoChiMinhDate,
+  isAppointmentOnOrAfterHoChiMinhDate,
+} from "../lib/employee-availability";
 import { retentionCutoffDate } from "../lib/retention-window";
 import { massageHandler, parseInput } from "./massage-errors";
 import { commitPartitionedMutations, operationIdFromRequest, upsertMutation, deleteMutation } from "../lib/partitioned-mutations";
@@ -33,6 +37,10 @@ import type { OwnerAuthStatus } from "../lib/owner-auth";
 import { isMaskedCustomerPhone, maskCustomerPhone } from "../lib/customer-phone";
 
 const router: IRouter = Router();
+
+function scheduledAtTime(value: Date | string): number {
+  return value instanceof Date ? value.getTime() : new Date(value).getTime();
+}
 
 function output(row: typeof appointmentsTable.$inferSelect, isOwner: boolean) {
   return {
@@ -80,10 +88,16 @@ async function requireActiveMember(memberId: number | null) {
 
 router.get("/appointments", massageHandler(async (_req, res) => {
   res.set("Cache-Control", "private, no-store");
+  const now = new Date();
+  const todayInVietnam = hoChiMinhDate(now);
+  const startOfVietnamDay = new Date(`${todayInVietnam}T00:00:00.000+07:00`);
   const rows = isPartitionedStorageEnabled()
     ? (await readPartitionedTable("appointments") as unknown as (typeof appointmentsTable.$inferSelect)[])
-      .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime())
-    : await db.select().from(appointmentsTable).orderBy(asc(appointmentsTable.scheduledAt));
+      .filter((row) => isAppointmentOnOrAfterHoChiMinhDate(row.scheduledAt, now))
+      .sort((a, b) => scheduledAtTime(a.scheduledAt) - scheduledAtTime(b.scheduledAt))
+    : await db.select().from(appointmentsTable)
+      .where(gte(appointmentsTable.scheduledAt, startOfVietnamDay))
+      .orderBy(asc(appointmentsTable.scheduledAt));
   res.json(ListAppointmentsResponse.parse(rows.map((row) => output(row, isOwnerView(res)))));
 }));
 

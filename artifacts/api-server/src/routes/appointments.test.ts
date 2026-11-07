@@ -8,9 +8,19 @@ import {
   serviceSessionsTable, serviceTypesTable, treatmentCardsTable,
 } from "@workspace/db";
 import { noPermissions, permissionsForEmail } from "../lib/facility-permissions";
+import { hoChiMinhDate } from "../lib/employee-availability";
 import { managerRequestAllowed } from "../lib/owner-auth";
 import { saveSession } from "../lib/massage";
 import appointmentsRouter from "./appointments";
+
+function vietnamDateOffset(offset: number): string {
+  const [year, month, day] = hoChiMinhDate().split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + offset)).toISOString().slice(0, 10);
+}
+
+function vietnamAppointmentTime(date: string, hour: number): Date {
+  return new Date(`${date}T${String(hour).padStart(2, "0")}:00:00+07:00`);
+}
 
 test("appointments require explicit view/edit grants and support create, update, list, and delete", async () => {
   const email = `appointments-${Date.now()}@example.com`;
@@ -35,6 +45,9 @@ test("appointments require explicit view/edit grants and support create, update,
     const address = server.address();
     assert.ok(address && typeof address === "object");
     const base = `http://127.0.0.1:${address.port}`;
+    const today = vietnamDateOffset(0);
+    const todayAppointment = vietnamAppointmentTime(today, 9);
+    const updatedAppointment = vietnamAppointmentTime(today, 10);
 
     assert.equal((await fetch(`${base}/appointments`)).status, 200);
     const deniedCreate = await fetch(`${base}/appointments`, {
@@ -54,7 +67,7 @@ test("appointments require explicit view/edit grants and support create, update,
       body: JSON.stringify({
         customerName: "  Khách thử  ",
         phone: "  0900000000 ",
-        scheduledAt: "2026-11-02T09:30:00.000Z",
+        scheduledAt: todayAppointment.toISOString(),
       }),
     });
     assert.equal(create.status, 201);
@@ -77,7 +90,7 @@ test("appointments require explicit view/edit grants and support create, update,
       body: JSON.stringify({
         customerName: "Khách đã sửa",
         phone: "0911111111",
-        scheduledAt: "2026-11-02T10:30:00.000Z",
+        scheduledAt: updatedAppointment.toISOString(),
         request: "15:30, muốn gặp Lan",
         note: "Yêu cầu nhẹ nhàng",
       }),
@@ -90,7 +103,7 @@ test("appointments require explicit view/edit grants and support create, update,
     assert.equal(updated.id, created.id);
     assert.equal(updated.customerName, "Khách đã sửa");
     assert.equal(updated.phone, "•••••••111");
-    assert.equal(updated.scheduledAt, "2026-11-02T10:30:00.000Z");
+    assert.equal(updated.scheduledAt, updatedAppointment.toISOString());
     assert.equal(updated.request, "15:30, muốn gặp Lan");
     assert.equal(updated.note, "Yêu cầu nhẹ nhàng");
     assert.equal(updated.status, "scheduled", "editing appointment details does not clear its status");
@@ -104,6 +117,49 @@ test("appointments require explicit view/edit grants and support create, update,
     if (server) await new Promise<void>((resolve, reject) => server!.close((err) => err ? reject(err) : resolve()));
     if (appointmentIds.length) await db.delete(appointmentsTable).where(eq(appointmentsTable.id, appointmentIds[0]));
     await db.delete(managerGrantsTable).where(eq(managerGrantsTable.email, email));
+  }
+});
+
+test("appointment list hides past Vietnam dates without deleting their records", async () => {
+  const appointmentIds: number[] = [];
+  let server: ReturnType<ReturnType<typeof express>["listen"]> | undefined;
+  try {
+    const yesterday = vietnamDateOffset(-1);
+    const today = vietnamDateOffset(0);
+    const tomorrow = vietnamDateOffset(1);
+    const created = await db.insert(appointmentsTable).values([
+      { customerName: "Lịch hôm qua", phone: "", scheduledAt: vietnamAppointmentTime(yesterday, 23) },
+      { customerName: "Lịch hôm nay", phone: "", scheduledAt: vietnamAppointmentTime(today, 1) },
+      { customerName: "Lịch ngày mai", phone: "", scheduledAt: vietnamAppointmentTime(tomorrow, 10) },
+    ]).returning({ id: appointmentsTable.id });
+    appointmentIds.push(...created.map((row) => row.id));
+
+    const app = express();
+    app.use(express.json());
+    app.use((_req, res, next) => {
+      res.locals.facilityAuth = { isOwner: true };
+      next();
+    });
+    app.use(appointmentsRouter);
+    server = app.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+
+    const response = await fetch(`http://127.0.0.1:${address.port}/appointments`);
+    assert.equal(response.status, 200);
+    const listed = await response.json() as { id: number }[];
+    assert.equal(listed.some((row) => row.id === created[0].id), false, "yesterday is hidden");
+    assert.equal(listed.some((row) => row.id === created[1].id), true, "today remains visible all day");
+    assert.equal(listed.some((row) => row.id === created[2].id), true, "tomorrow remains visible");
+
+    const persisted = await db.select({ id: appointmentsTable.id }).from(appointmentsTable)
+      .where(inArray(appointmentsTable.id, appointmentIds));
+    assert.deepEqual(new Set(persisted.map((row) => row.id)), new Set(appointmentIds),
+      "hiding past appointments does not delete database records");
+  } finally {
+    if (server) await new Promise<void>((resolve, reject) => server!.close((err) => err ? reject(err) : resolve()));
+    if (appointmentIds.length) await db.delete(appointmentsTable).where(inArray(appointmentsTable.id, appointmentIds));
   }
 });
 
