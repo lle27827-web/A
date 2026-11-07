@@ -143,14 +143,18 @@ export function NightServicePricingSettings({ open, isOwner }: { open: boolean; 
     setEditingServiceTypeId(null);
   }
 
-  function saveSettings() {
+  function saveSettings(enabledValue = enabled, revertEnabledOnFailure = false) {
     if (!config.data || save.isPending) return;
     setError("");
     setMessage("");
+    const reject = (text: string) => {
+      setError(text);
+      if (revertEnabledOnFailure) setEnabled(config.data?.enabled ?? false);
+    };
     const startTime = joinClock(start.hour, start.minute);
     const endTime = joinClock(end.hour, end.minute);
-    if (!startTime || !endTime) return setError("Nhập giờ từ 0 đến 23 và phút từ 0 đến 59.");
-    if (startTime === endTime) return setError("Giờ bắt đầu và kết thúc không được trùng nhau.");
+    if (!startTime || !endTime) return reject("Nhập giờ từ 0 đến 23 và phút từ 0 đến 59.");
+    if (startTime === endTime) return reject("Giờ bắt đầu và kết thúc không được trùng nhau.");
 
     const rates = config.data.rates.map((rate) => {
       const draft = rateDraft[rate.serviceTypeId] ?? { customer: "", employee: "" };
@@ -165,15 +169,15 @@ export function NightServicePricingSettings({ open, isOwner }: { open: boolean; 
         value !== null && (!Number.isInteger(value) || value < 1 || value > 10_000_000),
       ),
     );
-    if (invalid) return setError("Mỗi mức giá phải là số nguyên từ 1 đến 10.000.000 đồng/giờ.");
+    if (invalid) return reject("Mỗi mức giá phải là số nguyên từ 1 đến 10.000.000 đồng/giờ.");
     const missing = rates.find((rate) => rate.customerHourlyRate === null || rate.employeeHourlyRate === null);
-    if (enabled && missing) {
+    if (enabledValue && missing) {
       const serviceName = config.data.rates.find((rate) => rate.serviceTypeId === missing.serviceTypeId)?.serviceName;
-      return setError(`Hãy nhập cả giá khách trả và tiền công cho ${serviceName ?? "mỗi dịch vụ"} trước khi bật.`);
+      return reject(`Hãy nhập cả giá khách trả và tiền công ca đêm cho ${serviceName ?? "mỗi dịch vụ"} trước khi bật.`);
     }
 
     save.mutate({
-      data: { enabled, startTime, endTime, rates },
+      data: { enabled: enabledValue, startTime, endTime, rates },
     }, {
       onSuccess: async () => {
         draftTouched.current = false;
@@ -184,7 +188,10 @@ export function NightServicePricingSettings({ open, isOwner }: { open: boolean; 
         ]);
         setMessage("Đã lưu giá ca đêm. Các ca đã ghi trước đó giữ nguyên giá.");
       },
-      onError: (saveError) => setError(getApiError(saveError)),
+      onError: (saveError) => {
+        setError(getApiError(saveError));
+        if (revertEnabledOnFailure) setEnabled(config.data?.enabled ?? false);
+      },
     });
   }
 
@@ -203,7 +210,13 @@ export function NightServicePricingSettings({ open, isOwner }: { open: boolean; 
               type="checkbox"
               role="switch"
               checked={enabled}
-              onChange={(event) => { draftTouched.current = true; setEnabled(event.target.checked); setMessage(""); }}
+              onChange={(event) => {
+                const nextEnabled = event.target.checked;
+                draftTouched.current = true;
+                setEnabled(nextEnabled);
+                setMessage("");
+                saveSettings(nextEnabled, true);
+              }}
               disabled={save.isPending}
               data-testid="switch-night-service-enabled"
             />
@@ -245,7 +258,7 @@ export function NightServicePricingSettings({ open, isOwner }: { open: boolean; 
           ) : <p className="muted">Thêm ít nhất một dịch vụ trước khi cài giá ca đêm.</p>}
           {error && <p className="form-error" role="alert">{error}</p>}
           {message && <p className="form-success" role="status">{message}</p>}
-          <button type="button" className="btn primary night-service-save" onClick={saveSettings}
+          <button type="button" className="btn primary night-service-save" onClick={() => saveSettings()}
             disabled={save.isPending || config.isLoading} data-testid="button-save-night-service-pricing">
             {save.isPending && <LoaderCircle size={14} className="spin" aria-hidden="true" />}
             Lưu giá ca đêm
