@@ -193,7 +193,7 @@ export function NightServicePricingSettings({ open, isOwner }: { open: boolean; 
   return (
     <section className="night-service-settings" aria-labelledby="night-service-settings-title" data-testid="section-night-service-settings">
       <h3 id="night-service-settings-title"><Moon size={16} aria-hidden="true" />Dịch vụ ca đêm muộn</h3>
-      <p className="sub">Giá ca đêm thay giá thường trong khung giờ đã đặt.</p>
+      <p className="sub">Giá ca đêm thay giá thường trong khung giờ đã đặt; không cộng thêm thưởng hay phụ cấp.</p>
       {config.isLoading ? <p className="muted" role="status">Đang tải giá ca đêm…</p> : config.isError ? (
         <ErrorBanner text="Không tải được cấu hình giá ca đêm." onRetry={() => void config.refetch()} />
       ) : config.data ? (
@@ -207,7 +207,7 @@ export function NightServicePricingSettings({ open, isOwner }: { open: boolean; 
               disabled={save.isPending}
               data-testid="switch-night-service-enabled"
             />
-            <span><strong>Bật giá ca đêm</strong><small>Thay giá khách trả và tiền công theo dịch vụ.</small></span>
+            <span><strong>Bật giá ca đêm</strong><small>Dùng giá khách trả và tiền công ca đêm đã cài; không cộng thêm thưởng.</small></span>
           </label>
           <div className="night-service-window">
             <ClockInputs id="night-service-start" title="Bắt đầu" value={start}
