@@ -51,3 +51,20 @@ test("staff roster sorts by yesterday's shift count then compares earlier days",
   );
   assert.deepEqual(result.map((row) => row.memberId), [2, 1, 3]);
 });
+
+test("the employee who started the latest active shift is placed last among working staff", () => {
+  const now = new Date("2026-11-07T04:30:00.000Z");
+  const today = hoChiMinhDate(now);
+  const result = deriveStaffActivity(
+    [{ id: 1, name: "An" }, { id: 2, name: "Bình" }, { id: 3, name: "Chi" }],
+    [
+      { memberId: 1, serviceType: "Mát xa", minutes: 120, workDate: today, createdAt: "2026-11-07T04:00:00.000Z" },
+      { memberId: 2, serviceType: "Trị liệu", minutes: 90, workDate: today, createdAt: "2026-11-07T04:15:00.000Z" },
+    ],
+    [],
+    now,
+  );
+
+  assert.deepEqual(result.map((row) => row.memberId), [3, 1, 2]);
+  assert.equal(result.at(-1)?.serviceType, "Trị liệu");
+});

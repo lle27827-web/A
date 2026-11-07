@@ -41,7 +41,7 @@ export function deriveStaffActivity(
 ): StaffActivity[] {
   const today = hoChiMinhDate(now);
   const statuses = new Map(manualStatuses.filter((row) => row.statusDate === today).map((row) => [row.memberId, row.state]));
-  const activeSessions = new Map<number, { endsAt: number; serviceType: string }>();
+  const activeSessions = new Map<number, { startsAt: number; endsAt: number; serviceType: string }>();
   const nextAppointments = new Map<number, number>();
   const dailySessionCounts = new Map<string, Map<number, number>>();
   const todayCounts = new Map<number, number>();
@@ -66,7 +66,9 @@ export function deriveStaffActivity(
     const endsAt = startsAt + session.minutes * 60_000;
     if (!Number.isFinite(startsAt) || startsAt > nowMs || endsAt <= nowMs) continue;
     const previous = activeSessions.get(session.memberId);
-    if (!previous || endsAt > previous.endsAt) activeSessions.set(session.memberId, { endsAt, serviceType: session.serviceType });
+    if (!previous || startsAt > previous.startsAt) {
+      activeSessions.set(session.memberId, { startsAt, endsAt, serviceType: session.serviceType });
+    }
   }
 
   for (const appointment of appointments) {
@@ -97,6 +99,9 @@ export function deriveStaffActivity(
     .sort((a, b) => {
       if (a.state === "working" && b.state !== "working") return 1;
       if (b.state === "working" && a.state !== "working") return -1;
+      if (a.state === "working" && b.state === "working") {
+        return activeSessions.get(a.memberId)!.startsAt - activeSessions.get(b.memberId)!.startsAt;
+      }
       for (const date of historyDates) {
         const difference = (dailySessionCounts.get(date)?.get(a.memberId) ?? 0) -
           (dailySessionCounts.get(date)?.get(b.memberId) ?? 0);

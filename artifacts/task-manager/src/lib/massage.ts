@@ -5,6 +5,7 @@ import {
   getGetMemberPayrollQueryKey,
   getGetPersonalComparisonQueryKey,
   getListMembersQueryKey,
+  getListAppointmentStaffActivityQueryKey,
   getListServiceTypesQueryKey,
   getListServiceSessionsQueryKey,
   getListTreatmentCardsQueryKey,
@@ -102,6 +103,7 @@ export function useRefreshMassage() {
     void cache.invalidateQueries({ queryKey: getGetPaymentDetailsQueryKey() });
     void cache.invalidateQueries({ queryKey: getGetMemberPayrollQueryKey() });
     void cache.invalidateQueries({ queryKey: getGetPersonalComparisonQueryKey() });
+    void cache.invalidateQueries({ queryKey: getListAppointmentStaffActivityQueryKey() });
     if (opts.services) void cache.invalidateQueries({ queryKey: getListServiceTypesQueryKey() });
     if (opts.members) void cache.invalidateQueries({ queryKey: getListMembersQueryKey() });
   };

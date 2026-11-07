@@ -87,7 +87,7 @@ function activityLabel(activity: AppointmentStaffActivity) {
   if (activity.state === 'working') {
     return `Đang làm${activity.serviceType ? ` · ${activity.serviceType}` : ''}${activity.endsAt ? ` · xong lúc ${formatActivityEnd(activity.endsAt)}` : ''}${nextAppointment}`;
   }
-  return `${activity.state === 'off' ? 'Đang nghỉ' : 'Rảnh'}${nextAppointment}`;
+  return `${activity.state === 'off' ? 'Đang nghỉ' : 'Đang rảnh'}${nextAppointment}`;
 }
 
 export default function AppointmentsPage() {
