@@ -140,8 +140,14 @@ export default function EmployeesPage() {
                     <span className="employee-name grow"><strong>{m.name}<MemberTags member={m} /></strong></span>
                     {sessionsQuery.isLoading ? <span className="employee-summary muted">Đang tải tổng lương…</span> : !sessionsQuery.isError && (
                       <span className="employee-summary" data-testid={`summary-employee-${m.id}`}>
-                        <span><span>{monthLabel}</span><strong>{formatVnd(summary?.monthEarnings ?? 0)}</strong></span>
-                        <span><span>{dayLabel}</span><strong>{formatVnd(summary?.dayEarnings ?? 0)}</strong></span>
+                        <span className="employee-pay-summary">
+                          <span className="employee-pay-label">{monthLabel}</span>
+                          <strong className="employee-pay-amount">{formatVnd(summary?.monthEarnings ?? 0)}</strong>
+                        </span>
+                        <span className="employee-pay-summary">
+                          <span className="employee-pay-label">{dayLabel}</span>
+                          <strong className="employee-pay-amount">{formatVnd(summary?.dayEarnings ?? 0)}</strong>
+                        </span>
                       </span>
                     )}
                     <ChevronRight size={18} />

@@ -59,6 +59,13 @@ test("staff activity derives work end time, idle, and daily leave in Ho Chi Minh
         request: "Mát xa",
         note: "Hẹn đến sớm",
       },
+      {
+        memberId: 1,
+        scheduledAt: "2026-11-07T05:30:00.000Z",
+        status: "scheduled",
+        customerName: "Khách Lan",
+        request: "Trị liệu",
+      },
       { memberId: 2, scheduledAt: "2026-11-07T08:30:00.000Z", status: "scheduled", customerName: "Khách sau" },
     ],
   );
@@ -79,8 +86,8 @@ test("staff activity derives work end time, idle, and daily leave in Ho Chi Minh
     },
     {
       memberId: 1, employeeName: "Lan", state: "working", endsAt: "2026-11-07T05:00:00.000Z",
-      lastFinishedAt: null, serviceType: "Mát xa", nextAppointmentAt: null,
-      nextAppointmentCustomerName: null, nextAppointmentRequest: null, nextAppointmentNote: null,
+      lastFinishedAt: null, serviceType: "Mát xa", nextAppointmentAt: "2026-11-07T05:30:00.000Z",
+      nextAppointmentCustomerName: "Khách Lan", nextAppointmentRequest: "Trị liệu", nextAppointmentNote: null,
     },
   ]);
 });

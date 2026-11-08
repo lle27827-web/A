@@ -127,12 +127,12 @@ function formatNextAppointment(value: string) {
 }
 
 function activityDetails(activity: AppointmentStaffActivity) {
-  const details: { kind: 'state' | 'detail' | 'appointment'; text: string }[] = [];
+  const details: { kind: 'state' | 'detail' | 'completion' | 'appointment'; text: string }[] = [];
   if (activity.state === 'working') {
     details.push({ kind: 'state', text: 'Đang làm' });
     if (activity.serviceType) details.push({ kind: 'detail', text: activity.serviceType });
     if (activity.endsAt) {
-      details.push({ kind: 'detail', text: `Dự kiến ra lúc ${formatActivityEnd(activity.endsAt)}` });
+      details.push({ kind: 'completion', text: `Dự kiến hoàn thành lúc ${formatActivityEnd(activity.endsAt)}` });
     } else {
       details.push({ kind: 'detail', text: 'Chưa xác định giờ dự kiến xong' });
     }
@@ -390,7 +390,7 @@ export default function AppointmentsPage() {
         <div className="panel-head wrap">
           <div>
             <h2 id="staff-activity-title">Trạng thái nhân viên hôm nay</h2>
-            <p className="sub">Tự cập nhật theo thời lượng ca đã ghi; trạng thái làm việc được làm mới mỗi 30 giây.</p>
+            <p className="sub">Giờ kết thúc dự kiến tính từ lúc ghi ca và thời lượng; trạng thái tự làm mới mỗi 30 giây.</p>
           </div>
           <span className="staff-activity-count">{staffActivity.data?.length ?? 0} nhân viên</span>
         </div>
@@ -441,7 +441,7 @@ export default function AppointmentsPage() {
                         className={`staff-activity-detail is-${detail.kind}`}
                         key={`${detail.kind}-${index}`}
                       >
-                        {index === 0 && activity.state === 'working' && <Clock3 size={14} aria-hidden="true" />}
+                        {detail.kind === 'completion' && <Clock3 size={14} aria-hidden="true" />}
                         {index === 0 && activity.state === 'available' && <CheckCircle2 size={14} aria-hidden="true" />}
                         {index === 0 && activity.state === 'off' && <Coffee size={14} aria-hidden="true" />}
                         {detail.text}

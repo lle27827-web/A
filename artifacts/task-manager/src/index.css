@@ -552,6 +552,18 @@ a.hit:hover, .emp-row:hover, .card-row:hover { border-color: hsl(var(--primary) 
   min-width: 0;
   width: 100%;
 }
+.employee-summary > .employee-pay-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 2px;
+}
+.employee-pay-label { text-align: left; }
+.employee-pay-amount {
+  display: block;
+  width: 100%;
+  text-align: right;
+}
 .employee-summary > span > span { min-width: 0; overflow-wrap: anywhere; }
 .employee-summary strong { color: hsl(var(--foreground)); font-size: 16px; font-weight: 800; }
 .choice-list { display: grid; gap: 10px; margin-top: 12px; }
@@ -1272,12 +1284,13 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .staff-activity-row.is-working .staff-activity-icon { color: hsl(32 85% 35%); background: hsl(38 92% 50% / .16); }
 .staff-activity-row.is-available .staff-activity-icon { color: hsl(var(--ok)); background: hsl(var(--ok) / .13); }
 .staff-activity-row.is-off .staff-activity-icon { color: hsl(var(--muted-foreground)); }
-.staff-activity-state { display: flex; grid-column: 1; grid-row: 2; flex-wrap: wrap; align-items: center; gap: 5px 12px; min-width: 0; padding-left: 39px; color: hsl(var(--muted-foreground)); font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+.staff-activity-state { display: flex; grid-column: 1; grid-row: 2; flex-wrap: wrap; align-items: center; gap: 5px 12px; min-width: 0; padding: 7px 10px 7px 39px; border-radius: 9px; background: hsl(25 30% 25%); color: hsl(0 0% 100%); font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
 .staff-activity-detail { display: inline-flex; align-items: center; gap: 5px; min-width: 0; line-height: 1.45; }
-.staff-activity-detail.is-appointment { flex-basis: 100%; padding-left: 19px; color: hsl(var(--foreground)); }
-.staff-activity-state.is-working { color: hsl(32 85% 35%); }
-.staff-activity-state.is-available { color: hsl(var(--ok)); }
-.staff-activity-state.is-off { color: hsl(var(--muted-foreground)); }
+.staff-activity-detail.is-completion { font-weight: 900; }
+.staff-activity-detail.is-appointment { flex-basis: 100%; padding-left: 19px; color: inherit; }
+.staff-activity-state.is-working,
+.staff-activity-state.is-available,
+.staff-activity-state.is-off { color: hsl(0 0% 100%); }
 .staff-activity-toggle { grid-column: 2; grid-row: 1 / span 2; align-self: center; min-width: 106px; }
 .staff-activity-toggle:disabled { opacity: .65; cursor: not-allowed; }
 .staff-activity-empty { padding: 14px 4px 3px; color: hsl(var(--muted-foreground)); font-size: 13px; }
