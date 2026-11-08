@@ -650,7 +650,12 @@ function sortPaymentDetails(rows: PaymentDetailItem[]) {
 }
 
 /** Returns transaction-level detail only when a revenue viewer opens a tender row. */
-export async function getPaymentDetails(month: string, requestedDate: string | undefined, method: PaymentMethodFilter) {
+export async function getPaymentDetails(
+  month: string,
+  requestedDate: string | undefined,
+  method: PaymentMethodFilter,
+  businessId = "00000000-0000-4000-8000-000000000001",
+) {
   const { start, end } = retainedMonthBounds(month);
   const date = requestedDate ? retainedDate(requestedDate) : null;
   if (date && !date.startsWith(`${month}-`)) {
@@ -661,9 +666,9 @@ export async function getPaymentDetails(month: string, requestedDate: string | u
 
   if (isPartitionedStorageEnabled()) {
     const [cardRows, topUpRows, sessionRows] = await Promise.all([
-      readPartitionedTable("treatment_cards"),
-      readPartitionedTable("card_top_ups"),
-      readPartitionedTable("service_sessions"),
+      readPartitionedTable("treatment_cards", { businessId }),
+      readPartitionedTable("card_top_ups", { businessId }),
+      readPartitionedTable("service_sessions", { businessId }),
     ]);
     const cards = cardRows as unknown as (typeof treatmentCardsTable.$inferSelect)[];
     const topUps = topUpRows as unknown as (typeof cardTopUpsTable.$inferSelect)[];
@@ -724,9 +729,11 @@ export async function getPaymentDetails(month: string, requestedDate: string | u
   }
 
   const [sessions, sales, topUps] = await Promise.all([
-    db.select().from(serviceSessionsTable).where(sql`${serviceSessionsTable.cardId} is null
+    db.select().from(serviceSessionsTable).where(sql`${serviceSessionsTable.businessId} = ${businessId}
+      and ${serviceSessionsTable.cardId} is null
       and ${serviceSessionsTable.workDate} >= ${start} and ${serviceSessionsTable.workDate} < ${end}`),
-    db.select().from(treatmentCardsTable).where(sql`${treatmentCardsTable.deletedAt} is null
+    db.select().from(treatmentCardsTable).where(sql`${treatmentCardsTable.businessId} = ${businessId}
+      and ${treatmentCardsTable.deletedAt} is null
       and ${treatmentCardsTable.purchaseDate} >= ${start} and ${treatmentCardsTable.purchaseDate} < ${end}`),
     db.select({
       id: cardTopUpsTable.id,
@@ -741,8 +748,11 @@ export async function getPaymentDetails(month: string, requestedDate: string | u
       serviceType: treatmentCardsTable.serviceType,
       cardDeletedAt: treatmentCardsTable.deletedAt,
     }).from(cardTopUpsTable).innerJoin(treatmentCardsTable,
-      sql`${treatmentCardsTable.id} = ${cardTopUpsTable.cardId}`)
+      sql`${treatmentCardsTable.id} = ${cardTopUpsTable.cardId}
+        and ${treatmentCardsTable.businessId} = ${cardTopUpsTable.businessId}`)
       .where(sql`${treatmentCardsTable.deletedAt} is null
+        and ${treatmentCardsTable.businessId} = ${businessId}
+        and ${cardTopUpsTable.businessId} = ${businessId}
         and ${cardTopUpsTable.paymentDate} >= ${start} and ${cardTopUpsTable.paymentDate} < ${end}`),
   ]);
   const transactions: PaymentDetailItem[] = [];

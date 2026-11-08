@@ -3,8 +3,8 @@ import { ClerkProvider, useAuth, useClerk } from '@clerk/react';
 import { viVN } from '@clerk/localizations';
 import { MutationCache, QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { Route, Switch, Router as WouterRouter, Redirect, useLocation, useSearch } from 'wouter';
-import type { FacilityPermissions } from '@workspace/api-client-react';
-import { getAuthStatus, getGetAuthStatusQueryKey, setAuthTokenGetter, useGetAuthStatus } from '@workspace/api-client-react';
+import type { AuthStatus, FacilityPermissions } from '@workspace/api-client-react';
+import { getAuthStatus, getGetAuthStatusQueryKey, setAuthTokenGetter, setBusinessIdGetter, useGetAuthStatus } from '@workspace/api-client-react';
 import { ALL_PERMISSIONS, AppShell, NO_PERMISSIONS, hasFacilityAccess, useShell } from '@/components/app-shell';
 import { AppGestureProvider } from '@/components/app-gesture-provider';
 import { ColorThemeProvider, useColorTheme } from '@/components/color-theme-provider';
@@ -17,10 +17,12 @@ import CardDetailPage from '@/pages/card-detail';
 import ServicesPage from '@/pages/services';
 import PersonalPage from '@/pages/personal';
 import AppointmentsPage from '@/pages/appointments';
-import { AuthLoadingPage, AuthRestoreErrorPage, AuthSetupPage, clerkAppearance, ForgotPasswordPage, NoFacilityAccessPage, SignInPage, SignUpPage, WelcomePage } from '@/components/auth-pages';
+import { AuthLoadingPage, AuthRestoreErrorPage, AuthSetupPage, clerkAppearance, ForgotPasswordPage, SignInPage, SignUpPage, WelcomePage } from '@/components/auth-pages';
 import { postAuthPath, retrySessionCheck, sessionScreen, validateRestoredSession } from '@/lib/auth-session';
 import { createWebSessionTokenGetter } from '@/lib/web-session-token';
 import { playSaveChime } from '@/lib/save-chime';
+import { BusinessOnboarding } from '@/components/business-onboarding';
+import { BusinessSwitcher } from '@/components/business-switcher';
 
 function createAppQueryClient() {
   return new QueryClient({
@@ -111,55 +113,83 @@ function FacilityRoutes({ permissions }: { permissions: FacilityPermissions }) {
 function SignedInApplication({
   isOwner,
   permissions,
+  status,
   onSignOut,
+  onBusinessSelected,
+  onContinuePersonal,
+  onRefreshStatus,
   userId,
 }: {
   isOwner: boolean;
   permissions: FacilityPermissions;
   onSignOut: () => void;
+  status: AuthStatus;
+  onBusinessSelected: (id: string) => Promise<void>;
+  onContinuePersonal: () => void;
+  onRefreshStatus: () => Promise<AuthStatus | undefined>;
   userId?: string | null;
 }) {
   const search = useSearch();
+  const [location, setLocation] = useLocation();
   const signedInDestination = postAuthPath(search);
   const facility = hasFacilityAccess(permissions);
+  const hasSelectedFacility = Boolean(status.businessId && facility);
   return (
     <AppGestureProvider key={userId ?? 'account'} userId={userId ?? undefined}>
       <Switch>
         <Route path="/sign-in/*?"><Redirect to={signedInDestination} replace /></Route>
         <Route path="/sign-up/*?"><Redirect to={signedInDestination} replace /></Route>
-        {/* Non-owner accounts open their private notebook first; granted facility pages remain available by their own routes. */}
-        {!isOwner && <Route path="/"><Redirect to="/personal" replace /></Route>}
-        {/* Personal notebook: every signed-in account, independent of facility permissions. */}
-        <Route path="/personal"><PersonalPage onSignOut={onSignOut} homeHref={isOwner ? '/' : facility ? '/attendance' : null} /></Route>
+        <Route path="/personal"><PersonalPage onSignOut={onSignOut} homeHref={hasSelectedFacility ? '/' : null} /></Route>
         <Route>
-          {facility ? (
+          {hasSelectedFacility ? (
             <AppShell
-              key={userId ?? 'account'}
+              key={`${userId ?? 'account'}:${status.businessId ?? 'none'}`}
               userId={userId}
               isOwner={isOwner}
               permissions={permissions}
               onSignOut={onSignOut}
               employeeView={<EmployeeModeView />}
               desktopLeftPanel={<HomePage revenueOnly />}
+              businessSwitcher={<BusinessSwitcher businesses={status.businesses ?? []} businessId={status.businessId} onSelect={onBusinessSelected} />}
             >
               <FacilityRoutes permissions={permissions} />
             </AppShell>
-          ) : <NoFacilityAccessPage onSignOut={onSignOut} />}
+          ) : location === '/' ? (
+            <BusinessOnboarding
+              status={status}
+              onBusinessSelected={onBusinessSelected}
+              onContinuePersonal={onContinuePersonal}
+              onRefreshStatus={onRefreshStatus}
+            />
+          ) : <Redirect to="/" replace />}
         </Route>
       </Switch>
     </AppGestureProvider>
   );
 }
 
-function permissionKey(p: FacilityPermissions | undefined, owner: boolean): string {
+function permissionKey(p: FacilityPermissions | undefined, owner: boolean, businessId: string | null): string {
   if (!p) return 'none';
-  return JSON.stringify([owner, p.allEmployees, [...p.employeeIds].sort((a, b) => a - b), p.viewCards, p.viewRevenue, p.editEmployees, p.deleteEmployees, p.editCards, p.editServices, p.viewAppointments, p.editAppointments]);
+  return JSON.stringify([businessId, owner, p.allEmployees, [...p.employeeIds].sort((a, b) => a - b), p.viewCards, p.viewRevenue, p.editEmployees, p.deleteEmployees, p.editCards, p.editServices, p.viewAppointments, p.editAppointments]);
 }
 
 function AuthenticatedApplication() {
   const { isLoaded, isSignedIn, sessionId, userId } = useAuth();
   const { signOut } = useClerk();
+  const [, setLocation] = useLocation();
   const client = useQueryClient();
+  const businessStorageKey = userId ? `so-cong:selected-business:${userId}` : null;
+  useLayoutEffect(() => {
+    setBusinessIdGetter(() => {
+      if (!businessStorageKey) return null;
+      try {
+        return window.localStorage.getItem(businessStorageKey);
+      } catch {
+        return null;
+      }
+    });
+    return () => setBusinessIdGetter(null);
+  }, [businessStorageKey]);
   const status = useGetAuthStatus({
     query: {
       queryKey: [...getGetAuthStatusQueryKey(), sessionId ?? 'anonymous'],
@@ -180,7 +210,7 @@ function AuthenticatedApplication() {
   const data = status.data;
   const isOwner = data?.isOwner === true;
   const permissions = isOwner ? ALL_PERMISSIONS : data?.permissions ?? NO_PERMISSIONS;
-  const key = data ? permissionKey(permissions, isOwner) : null;
+  const key = data ? permissionKey(permissions, isOwner, data.businessId) : null;
   const lastKey = useRef<string | null>(null);
   // Effective rights changed (granted, narrowed, revoked): drop every cached
   // facility response so nothing fetched under the old scope stays visible.
@@ -217,11 +247,44 @@ function AuthenticatedApplication() {
   if (isSignedIn !== true || data?.authenticated !== true) {
     return <SignedOutApplication authConfigured={Boolean(clerkPublishableKey)} />;
   }
+  const onRefreshStatus = async (): Promise<AuthStatus | undefined> => {
+    const refreshed = await status.refetch();
+    return refreshed.data;
+  };
+  const onBusinessSelected = async (id: string) => {
+    if (!businessStorageKey) throw new Error('The signed-in account is not available.');
+    const previous = window.localStorage.getItem(businessStorageKey);
+    window.localStorage.setItem(businessStorageKey, id);
+    // Clear tenant-scoped responses before sending a request with the new
+    // business header. Personal notebook cache stays isolated and untouched.
+    await client.cancelQueries();
+    client.removeQueries({
+      predicate: (query) => {
+        const head = query.queryKey[0];
+        return !(typeof head === 'string' &&
+          (head === getGetAuthStatusQueryKey()[0] || head.startsWith('/api/personal')));
+      },
+    });
+    const refreshed = await onRefreshStatus();
+    if (refreshed?.businessId === id) {
+      setLocation('/');
+      return;
+    }
+    if (previous) window.localStorage.setItem(businessStorageKey, previous);
+    else window.localStorage.removeItem(businessStorageKey);
+    await onRefreshStatus();
+    throw new Error('The server has not confirmed this workspace as active.');
+  };
+  const onContinuePersonal = () => setLocation('/personal');
   return (
     <SignedInApplication
       key={key}
       isOwner={isOwner}
       permissions={permissions}
+      status={data}
+      onBusinessSelected={onBusinessSelected}
+      onContinuePersonal={onContinuePersonal}
+      onRefreshStatus={onRefreshStatus}
       userId={userId}
       onSignOut={() => { void signOut({ redirectUrl: basePath || '/' }); }}
     />

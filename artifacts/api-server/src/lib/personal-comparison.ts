@@ -12,6 +12,7 @@ import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, ups
 type Visit = PersonalComparisonVisit;
 const personalLock = (userId: string) =>
   `personal:${createHash("sha256").update(userId).digest("hex").slice(0, 48)}`;
+const LEGACY_DEFAULT_BUSINESS_ID = "00000000-0000-4000-8000-000000000001";
 const normalize = (s: string) => s.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
 const groupKey = (v: Visit) => JSON.stringify([v.workDate, normalize(v.serviceName)]);
 
@@ -33,19 +34,29 @@ export function comparePersonalVisits(personal: Visit[], reference: Visit[]): Pe
     return left.workDate.localeCompare(right.workDate) || normalize(left.serviceName).localeCompare(normalize(right.serviceName), "vi");
   });
 }
-async function comparisonSnapshot(tx: PersonalTx, userId: string, memberId: number, month: string, date: string) {
+async function comparisonSnapshot(
+  tx: PersonalTx,
+  userId: string,
+  memberId: number,
+  month: string,
+  date: string,
+  businessId = LEGACY_DEFAULT_BUSINESS_ID,
+) {
   const { start, end } = retainedMonthBounds(month);
   retainedDate(date);
   if (!userId) throw new MassageError(401, "Vui lòng đăng nhập.");
   if (date.slice(0, 7) !== month) throw new MassageError(400, "Ngày cần nằm trong tháng đã chọn.");
-  const [member] = await listMembersForPeriod(month, memberId);
+  const [member] = await listMembersForPeriod(month, memberId, businessId);
   if (!member) throw new MassageError(404, "Không có nhân viên này trong tháng đã chọn.");
   const personal = await tx.select().from(sessions).where(and(eq(sessions.userId, userId),
     gte(sessions.workDate, start), lt(sessions.workDate, end))).orderBy(asc(sessions.id));
-  const reference = await tx.select().from(visits).where(and(eq(visits.memberId, memberId),
+  const reference = await tx.select().from(visits).where(and(
+    eq(visits.businessId, businessId),
+    eq(visits.memberId, memberId),
     gte(visits.workDate, start), lt(visits.workDate, end),
     sql`(${visits.cardId} is null or exists (
-      select 1 from ${cards} where ${cards.id} = ${visits.cardId} and ${cards.deletedAt} is null
+      select 1 from ${cards} where ${cards.id} = ${visits.cardId}
+        and ${cards.businessId} = ${businessId} and ${cards.deletedAt} is null
     ))`)).orderBy(asc(visits.id));
   const personalVisits: Visit[] = personal.map((s) => ({ id: s.id, workDate: s.workDate, serviceName: s.serviceName,
     customerName: s.customerName, minutes: s.minutes, hourlyRate: s.hourlyRate, earnings: s.earnings, note: s.note }));
@@ -66,23 +77,34 @@ async function comparisonSnapshot(tx: PersonalTx, userId: string, memberId: numb
     revisionDay: revision(date), revisionMonth: revision(),
   } };
 }
-export async function getPersonalComparison(userId: string, memberId: number, month: string, date: string) {
+export async function getPersonalComparison(
+  userId: string,
+  memberId: number,
+  month: string,
+  date: string,
+  businessId = LEGACY_DEFAULT_BUSINESS_ID,
+) {
   if (isPartitionedStorageEnabled()) {
-    return (await partitionedComparisonSnapshot(userId, memberId, month, date)).report;
+    return (await partitionedComparisonSnapshot(userId, memberId, month, date, businessId)).report;
   }
   return db.transaction(async (tx) => {
     await lockPersonal(tx, userId);
-    return (await comparisonSnapshot(tx, userId, memberId, month, date)).report;
+    return (await comparisonSnapshot(tx, userId, memberId, month, date, businessId)).report;
   }, { isolationLevel: "repeatable read" });
 }
 
 /** Destructive only within the selected account AND explicitly confirmed day/month. */
-export async function syncPersonalNotebook(userId: string, input: PersonalSyncInput, operationId?: string) {
+export async function syncPersonalNotebook(
+  userId: string,
+  input: PersonalSyncInput,
+  operationId?: string,
+  businessId = LEGACY_DEFAULT_BUSINESS_ID,
+) {
   if (!userId) throw new MassageError(401, "Vui lòng đăng nhập.");
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi đồng bộ sổ cá nhân.");
     return withPartitionWriteMutex(personalLock(userId), async () => {
-    const snapshot = await partitionedComparisonSnapshot(userId, input.memberId, input.month, input.date);
+    const snapshot = await partitionedComparisonSnapshot(userId, input.memberId, input.month, input.date, businessId);
     const expectedRevision = input.scope === "day" ? snapshot.report.revisionDay : snapshot.report.revisionMonth;
     if (input.revision !== expectedRevision) {
       throw new MassageError(409, "Dữ liệu đã thay đổi. Hãy tải lại đối chiếu và xác nhận lại trước khi thay thế.");
@@ -124,7 +146,7 @@ export async function syncPersonalNotebook(userId: string, input: PersonalSyncIn
       operationId: operationIdValue,
       lockName: personalLock(userId),
       action: "personal-sync.replace",
-      request: { userId, input },
+      request: { userId, input, businessId },
       expectedEventCount,
       idAllocations: reserveCounts,
       alreadyLocked: true,
@@ -165,7 +187,7 @@ export async function syncPersonalNotebook(userId: string, input: PersonalSyncIn
   }
   return db.transaction(async (tx) => {
     await lockPersonal(tx, userId);
-    const snapshot = await comparisonSnapshot(tx, userId, input.memberId, input.month, input.date);
+    const snapshot = await comparisonSnapshot(tx, userId, input.memberId, input.month, input.date, businessId);
     const expected = input.scope === "day" ? snapshot.report.revisionDay : snapshot.report.revisionMonth;
     if (input.revision !== expected) throw new MassageError(409, "Dữ liệu đã thay đổi. Hãy tải lại đối chiếu và xác nhận lại trước khi thay thế.");
     const { start, end } = retainedMonthBounds(input.month);
@@ -174,7 +196,7 @@ export async function syncPersonalNotebook(userId: string, input: PersonalSyncIn
     const removed = await tx.delete(sessions).where(predicate).returning({ id: sessions.id });
     const source = snapshot.reference.filter((s) => input.scope === "month" || s.workDate === input.date);
     const { useFacilityRates } = await personalSettings(tx, userId);
-    if (useFacilityRates) await refreshFacilityServices(tx, userId);
+    if (useFacilityRates) await refreshFacilityServices(tx, userId, businessId);
     for (const row of source) {
       let [service] = useFacilityRates && row.serviceTypeId
         ? await tx.select().from(services).where(and(eq(services.userId, userId), eq(services.facilityServiceId, row.serviceTypeId)))
@@ -204,16 +226,22 @@ async function personalPartitionedSnapshot(userId: string) {
   };
 }
 
-async function partitionedComparisonSnapshot(userId: string, memberId: number, month: string, date: string) {
+async function partitionedComparisonSnapshot(
+  userId: string,
+  memberId: number,
+  month: string,
+  date: string,
+  businessId = LEGACY_DEFAULT_BUSINESS_ID,
+) {
   const { start, end } = retainedMonthBounds(month);
   retainedDate(date);
   if (date.slice(0, 7) !== month) throw new MassageError(400, "Ngày cần nằm trong tháng đã chọn.");
-  const [member] = await listMembersForPeriod(month, memberId);
+  const [member] = await listMembersForPeriod(month, memberId, businessId);
   if (!member) throw new MassageError(404, "Không có nhân viên này trong tháng đã chọn.");
   const [personalSnapshot, visitsRaw, cardsRaw] = await Promise.all([
     personalPartitionedSnapshot(userId),
-    readPartitionedTable("service_sessions"),
-    readPartitionedTable("treatment_cards"),
+    readPartitionedTable("service_sessions", { businessId }),
+    readPartitionedTable("treatment_cards", { businessId }),
   ]);
   const personal = personalSnapshot.sessions.filter((row) =>
     row.userId === userId && row.workDate >= start && row.workDate < end,
@@ -224,7 +252,7 @@ async function partitionedComparisonSnapshot(userId: string, memberId: number, m
       .map((card) => card.id),
   );
   const reference = (visitsRaw as unknown as (typeof visits.$inferSelect)[])
-    .filter((row) => row.memberId === memberId && row.workDate >= start && row.workDate < end &&
+    .filter((row) => row.businessId === businessId && row.memberId === memberId && row.workDate >= start && row.workDate < end &&
       (row.cardId === null || activeCardIds.has(row.cardId)))
     .sort((a, b) => a.id - b.id);
   const personalVisits: Visit[] = personal.map((row) => ({

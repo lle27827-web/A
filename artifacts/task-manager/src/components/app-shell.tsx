@@ -80,6 +80,7 @@ export function AppShell({
   children,
   employeeView,
   desktopLeftPanel,
+  businessSwitcher,
   isOwner,
   permissions,
   userId,
@@ -89,6 +90,7 @@ export function AppShell({
   children: ReactNode;
   employeeView: ReactNode;
   desktopLeftPanel?: ReactNode;
+  businessSwitcher?: ReactNode;
   isOwner: boolean;
   permissions: FacilityPermissions;
   userId?: string | null;
@@ -308,6 +310,7 @@ export function AppShell({
             <div className="account">
               {employeeMode && <span className="mode-pill" data-testid="status-view-mode">Xem NV cơ sở · chỉ xem</span>}
               <span className={isOwner ? 'mode-pill' : 'mode-pill guest-pill'} data-testid={isOwner ? 'status-owner-role' : 'status-manager-role'}>{isOwner ? 'Chủ sở hữu' : 'Quản lý được cấp quyền'}</span>
+              {businessSwitcher}
               <button type="button" className="link-soft as-button" onClick={onSignOut} data-testid="button-sign-out">Đăng xuất</button>
               <ViewSettings prefs={prefs} members={members}
                 open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView}

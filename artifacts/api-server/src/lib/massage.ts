@@ -120,7 +120,10 @@ export function cardResponse(row: typeof treatmentCardsTable.$inferSelect, usedM
   };
 }
 async function cardWithHistory(tx: Tx, row: typeof treatmentCardsTable.$inferSelect, used = 0) {
-  const topUps = await tx.select().from(cardTopUpsTable).where(eq(cardTopUpsTable.cardId, row.id))
+  const topUps = await tx.select().from(cardTopUpsTable).where(and(
+    eq(cardTopUpsTable.cardId, row.id),
+    eq(cardTopUpsTable.businessId, row.businessId),
+  ))
     .orderBy(desc(cardTopUpsTable.paymentDate), desc(cardTopUpsTable.id));
   return cardResponse(row, used, topUps);
 }
@@ -197,17 +200,42 @@ async function creditCard(tx: Tx, card: typeof treatmentCardsTable.$inferSelect,
     throw new MassageError(400, "Tổng số giờ của thẻ không được vượt quá 10.000 giờ.");
   }
   validDate(paymentDate);
-  await tx.insert(cardTopUpsTable).values({ cardId: card.id, minutes, amount, paymentDate, source, note, paymentMethod, sellerName });
+  await tx.insert(cardTopUpsTable).values({
+    businessId: card.businessId,
+    cardId: card.id,
+    minutes,
+    amount,
+    paymentDate,
+    source,
+    note,
+    paymentMethod,
+    sellerName,
+  });
   const [row] = await tx.update(treatmentCardsTable).set({ totalMinutes: card.totalMinutes + minutes })
-    .where(eq(treatmentCardsTable.id, card.id)).returning();
-  return cardWithHistory(tx, row, await usedMinutes(tx, row.id));
+    .where(and(
+      eq(treatmentCardsTable.id, card.id),
+      eq(treatmentCardsTable.businessId, card.businessId),
+    )).returning();
+  return cardWithHistory(tx, row, await usedMinutes(tx, row.id, undefined, row.businessId));
 }
-async function usedMinutes(tx: Tx, cardId: number, excludeId?: number) {
+async function usedMinutes(
+  tx: Tx,
+  cardId: number,
+  excludeId?: number,
+  businessId = "00000000-0000-4000-8000-000000000001",
+) {
   const [live] = await tx.select({ used: sql<number>`coalesce(sum(${serviceSessionsTable.minutes}), 0)` })
     .from(serviceSessionsTable)
-    .where(and(eq(serviceSessionsTable.cardId, cardId), excludeId ? ne(serviceSessionsTable.id, excludeId) : undefined));
+    .where(and(
+      eq(serviceSessionsTable.cardId, cardId),
+      eq(serviceSessionsTable.businessId, businessId),
+      excludeId ? ne(serviceSessionsTable.id, excludeId) : undefined,
+    ));
   const [archived] = await tx.select({ used: sql<number>`coalesce(sum(${cardUsageHistoryTable.minutes}), 0)` })
-    .from(cardUsageHistoryTable).where(eq(cardUsageHistoryTable.cardId, cardId));
+    .from(cardUsageHistoryTable).where(and(
+      eq(cardUsageHistoryTable.cardId, cardId),
+      eq(cardUsageHistoryTable.businessId, businessId),
+    ));
   return Number(live.used) + Number(archived.used);
 }
 type CardValueInput = Omit<TreatmentCardInput, "purchasePaymentMethod" | "sellerName"> & {
@@ -234,19 +262,24 @@ function validatedCardPayment(input: { purchasePaymentMethod?: string | null; se
   }
   return { purchasePaymentMethod: paymentMethod as "cash" | "transfer", sellerName };
 }
-export async function createCard(input: TreatmentCardInput, operationId?: string) {
-  const values = cardValues({ ...input, ...validatedCardPayment(input) });
+export async function createCard(
+  input: TreatmentCardInput,
+  operationId?: string,
+  businessId = "00000000-0000-4000-8000-000000000001",
+) {
+  const values = { ...cardValues({ ...input, ...validatedCardPayment(input) }), businessId };
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi bán thẻ.");
-    return createPartitionedCard(input, values, operationId);
+    return createPartitionedCard(input, values, operationId, businessId);
   }
-  return idempotentTransaction(operationId, "bán thẻ", "card.create", input, async (tx) => {
+  return idempotentTransaction(operationId, "bán thẻ", "card.create", { ...input, businessId }, async (tx) => {
     // Shared by creation and edits: changing identity cannot race a concurrent sale.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('so-cong:card-identities', 0))`);
     const identity = [identityText(values.customerName), identityPhone(values.phone), identityText(values.serviceType)];
     // Serialize identical sale requests even when no matching card exists yet.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${JSON.stringify(identity)}, 0))`);
     const candidates = await tx.select().from(treatmentCardsTable).where(and(
+      eq(treatmentCardsTable.businessId, businessId),
       isNull(treatmentCardsTable.deletedAt),
       sql`lower(normalize(regexp_replace(btrim(${treatmentCardsTable.customerName}), '[[:space:]]+', ' ', 'g'), NFC)) = ${identity[0]}`,
       sql`lower(normalize(regexp_replace(btrim(${treatmentCardsTable.serviceType}), '[[:space:]]+', ' ', 'g'), NFC)) = ${identity[2]}`,
@@ -263,19 +296,24 @@ export async function createCard(input: TreatmentCardInput, operationId?: string
   });
 }
 
-async function createPartitionedCard(input: TreatmentCardInput, values: ReturnType<typeof cardValues>, operationId: string) {
+async function createPartitionedCard(
+  input: TreatmentCardInput,
+  values: ReturnType<typeof cardValues> & { businessId: string },
+  operationId: string,
+  businessId: string,
+) {
   return withPartitionWriteMutex("card-identities", async () => {
-    const requestHash = hashPartitionRequest({ action: "card.create", input });
+    const requestHash = hashPartitionRequest({ action: "card.create", input, businessId });
     const prior = await getReservedPartitionOperation(operationId, requestHash);
     if (prior) {
       const { operation: reconciled, rows: freshRows } = await reconcileAndReload(
         prior,
         reconcilePartitionOperation,
         () => Promise.all([
-          readPartitionedTable("treatment_cards"),
-          readPartitionedTable("card_top_ups"),
-          readPartitionedTable("service_sessions"),
-          readPartitionedTable("card_usage_history"),
+          readPartitionedTable("treatment_cards", { businessId }),
+          readPartitionedTable("card_top_ups", { businessId }),
+          readPartitionedTable("service_sessions", { businessId }),
+          readPartitionedTable("card_usage_history", { businessId }),
         ]),
       );
       if (reconciled.state === "committed") {
@@ -301,10 +339,10 @@ async function createPartitionedCard(input: TreatmentCardInput, values: ReturnTy
       }
     }
     const [cardRowsRaw, topUpRowsRaw, sessionRowsRaw, archivedRowsRaw] = await Promise.all([
-      readPartitionedTable("treatment_cards"),
-      readPartitionedTable("card_top_ups"),
-      readPartitionedTable("service_sessions"),
-      readPartitionedTable("card_usage_history"),
+      readPartitionedTable("treatment_cards", { businessId }),
+      readPartitionedTable("card_top_ups", { businessId }),
+      readPartitionedTable("service_sessions", { businessId }),
+      readPartitionedTable("card_usage_history", { businessId }),
     ]);
     const cards = cardRowsRaw as unknown as (typeof treatmentCardsTable.$inferSelect)[];
     const topUps = topUpRowsRaw as unknown as CardTopUpRow[];
@@ -320,6 +358,7 @@ async function createPartitionedCard(input: TreatmentCardInput, values: ReturnTy
       identityText(values.serviceType),
     ];
     const candidates = cards.filter((card) =>
+      card.businessId === businessId &&
       card.deletedAt === null &&
       identityText(card.customerName) === identity[0] &&
       identityText(card.serviceType) === identity[2],
@@ -348,10 +387,10 @@ async function createPartitionedCard(input: TreatmentCardInput, values: ReturnTy
       operation,
       reconcilePartitionOperation,
       () => Promise.all([
-        readPartitionedTable("treatment_cards"),
-        readPartitionedTable("card_top_ups"),
-        readPartitionedTable("service_sessions"),
-        readPartitionedTable("card_usage_history"),
+        readPartitionedTable("treatment_cards", { businessId }),
+        readPartitionedTable("card_top_ups", { businessId }),
+        readPartitionedTable("service_sessions", { businessId }),
+        readPartitionedTable("card_usage_history", { businessId }),
       ]),
     );
     if (reconciled.state === "committed") {
@@ -393,6 +432,7 @@ async function createPartitionedCard(input: TreatmentCardInput, values: ReturnTy
         action: "upsert",
         payload: {
           id: topUpId,
+          businessId,
           cardId: existing.id,
           minutes: values.totalMinutes,
           amount: values.purchaseAmount,
@@ -457,22 +497,27 @@ async function createPartitionedCard(input: TreatmentCardInput, values: ReturnTy
     };
   });
 }
-export async function updateCard(id: number, input: TreatmentCardUpdate, operationId?: string) {
+export async function updateCard(
+  id: number,
+  input: TreatmentCardUpdate,
+  operationId?: string,
+  businessId = "00000000-0000-4000-8000-000000000001",
+) {
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi sửa thẻ.");
     return withPartitionWriteMutex("card-identities", () =>
       withPartitionWriteMutex("card-ledger", async () => {
         const [cardsRaw, topUpsRaw, sessionsRaw, archivedRaw] = await Promise.all([
-          readPartitionedTable("treatment_cards"),
-          readPartitionedTable("card_top_ups"),
-          readPartitionedTable("service_sessions"),
-          readPartitionedTable("card_usage_history"),
+          readPartitionedTable("treatment_cards", { businessId }),
+          readPartitionedTable("card_top_ups", { businessId }),
+          readPartitionedTable("service_sessions", { businessId }),
+          readPartitionedTable("card_usage_history", { businessId }),
         ]);
         const cards = cardsRaw as unknown as (typeof treatmentCardsTable.$inferSelect)[];
         const topUps = topUpsRaw as unknown as CardTopUpRow[];
         const sessions = sessionsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[];
         const archived = archivedRaw as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
-        const old = cards.find((row) => row.id === id && row.deletedAt === null);
+        const old = cards.find((row) => row.id === id && row.businessId === businessId && row.deletedAt === null);
         if (!old) throw new MassageError(404, "Không tìm thấy thẻ.");
         const used = sessions.filter((row) => row.cardId === id).reduce((sum, row) => sum + row.minutes, 0) +
           archived.filter((row) => row.cardId === id).reduce((sum, row) => sum + row.minutes, 0);
@@ -484,7 +529,7 @@ export async function updateCard(id: number, input: TreatmentCardUpdate, operati
           throw new MassageError(409, "Tổng giờ không thể thấp hơn số giờ đã nạp trong lịch sử.");
         }
         const identity = [identityText(values.customerName), identityPhone(values.phone), identityText(values.serviceType)];
-        const target = cards.filter((row) => row.id !== id && row.deletedAt === null)
+        const target = cards.filter((row) => row.id !== id && row.businessId === businessId && row.deletedAt === null)
           .sort((a, b) => a.id - b.id)
           .find((row) =>
             identityText(row.customerName) === identity[0] &&
@@ -512,12 +557,12 @@ export async function updateCard(id: number, input: TreatmentCardUpdate, operati
             operationId,
             lockName: `card:${id}`,
             action: "card.update",
-            request: { id, input },
+            request: { id, input, businessId },
             expectedEventCount: 1,
             alreadyLocked: true,
             build: () => [upsertMutation("treatment_cards", id, updated)],
           });
-          const refreshed = (await readPartitionedTable("treatment_cards") as unknown as (typeof treatmentCardsTable.$inferSelect)[])
+          const refreshed = (await readPartitionedTable("treatment_cards", { businessId }) as unknown as (typeof treatmentCardsTable.$inferSelect)[])
             .find((row) => row.id === id);
           if (!refreshed) throw new MassageError(503, "Không tải lại được thẻ sau khi sửa.");
           return cardResponse(refreshed, used, topUps.filter((row) => row.cardId === id));
@@ -535,7 +580,7 @@ export async function updateCard(id: number, input: TreatmentCardUpdate, operati
           operationId,
           lockName: `card:${id}`,
           action: "card.merge",
-          request: { id, input },
+          request: { id, input, businessId },
           expectedEventCount: eventCount,
           idAllocations: { card_top_ups: 1 },
           alreadyLocked: true,
@@ -551,6 +596,7 @@ export async function updateCard(id: number, input: TreatmentCardUpdate, operati
               upsertMutation("treatment_cards", old.id, { ...old, deletedAt: now }),
               upsertMutation("card_top_ups", topUpId, {
                 id: topUpId,
+                businessId,
                 cardId: target.id,
                 minutes: oldFundingMinutes,
                 amount: values.purchaseAmount,
@@ -567,12 +613,12 @@ export async function updateCard(id: number, input: TreatmentCardUpdate, operati
             ];
           },
         });
-        const targetCard = (await readPartitionedTable("treatment_cards") as unknown as (typeof treatmentCardsTable.$inferSelect)[])
+        const targetCard = (await readPartitionedTable("treatment_cards", { businessId }) as unknown as (typeof treatmentCardsTable.$inferSelect)[])
           .find((row) => row.id === target.id);
         if (!targetCard) throw new MassageError(503, "Không tải lại được thẻ sau khi gộp.");
-        const refreshedTopUps = await readPartitionedTable("card_top_ups") as unknown as CardTopUpRow[];
-        const refreshedSessions = await readPartitionedTable("service_sessions") as unknown as (typeof serviceSessionsTable.$inferSelect)[];
-        const refreshedArchived = await readPartitionedTable("card_usage_history") as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
+        const refreshedTopUps = await readPartitionedTable("card_top_ups", { businessId }) as unknown as CardTopUpRow[];
+        const refreshedSessions = await readPartitionedTable("service_sessions", { businessId }) as unknown as (typeof serviceSessionsTable.$inferSelect)[];
+        const refreshedArchived = await readPartitionedTable("card_usage_history", { businessId }) as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
         const targetUsed = refreshedSessions.filter((row) => row.cardId === target.id).reduce((sum, row) => sum + row.minutes, 0) +
           refreshedArchived.filter((row) => row.cardId === target.id).reduce((sum, row) => sum + row.minutes, 0);
         return {
@@ -582,20 +628,28 @@ export async function updateCard(id: number, input: TreatmentCardUpdate, operati
       }),
     );
   }
-  return idempotentTransaction(operationId, "sửa thẻ", "card.update", { id, input }, async (tx) => {
+  return idempotentTransaction(operationId, "sửa thẻ", "card.update", { id, input, businessId }, async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('so-cong:card-identities', 0))`);
-    const [old] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
+    const [old] = await tx.select().from(treatmentCardsTable).where(and(
+      eq(treatmentCardsTable.id, id),
+      eq(treatmentCardsTable.businessId, businessId),
+    )).for("update");
     if (!old || old.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
-    const used = await usedMinutes(tx, id);
+    const used = await usedMinutes(tx, id, undefined, businessId);
     const values = cardValues({ ...old, ...input });
     if (values.totalMinutes < used) throw new MassageError(409, "Tổng giờ của thẻ không thể thấp hơn số giờ đã sử dụng.");
     const [topUpTotal] = await tx.select({ minutes: sql<number>`coalesce(sum(${cardTopUpsTable.minutes}), 0)` })
-      .from(cardTopUpsTable).where(eq(cardTopUpsTable.cardId, id));
+      .from(cardTopUpsTable).where(and(
+        eq(cardTopUpsTable.cardId, id),
+        eq(cardTopUpsTable.businessId, businessId),
+      ));
     if (values.totalMinutes < Number(topUpTotal.minutes)) {
       throw new MassageError(409, "Tổng giờ không thể thấp hơn số giờ đã nạp trong lịch sử.");
     }
     const identity = [identityText(values.customerName), identityPhone(values.phone), identityText(values.serviceType)];
-    const matches = await tx.select().from(treatmentCardsTable).where(and(ne(treatmentCardsTable.id, id),
+    const matches = await tx.select().from(treatmentCardsTable).where(and(
+      eq(treatmentCardsTable.businessId, businessId),
+      ne(treatmentCardsTable.id, id),
       isNull(treatmentCardsTable.deletedAt),
       sql`lower(normalize(regexp_replace(btrim(${treatmentCardsTable.customerName}), '[[:space:]]+', ' ', 'g'), NFC)) = ${identity[0]}`,
       sql`lower(normalize(regexp_replace(btrim(${treatmentCardsTable.serviceType}), '[[:space:]]+', ' ', 'g'), NFC)) = ${identity[2]}`,
@@ -614,39 +668,55 @@ export async function updateCard(id: number, input: TreatmentCardUpdate, operati
         sellerName: values.sellerName ?? null,
         source: "merged_card",
         note: `Gộp thẻ #${old.id}${values.note ? ` · ${values.note}` : ""}` });
-      await tx.update(cardTopUpsTable).set({ cardId: target.id }).where(eq(cardTopUpsTable.cardId, id));
-      await tx.update(serviceSessionsTable).set({ cardId: target.id }).where(eq(serviceSessionsTable.cardId, id));
-      await tx.update(cardUsageHistoryTable).set({ cardId: target.id }).where(eq(cardUsageHistoryTable.cardId, id));
+      await tx.update(cardTopUpsTable).set({ cardId: target.id }).where(and(
+        eq(cardTopUpsTable.cardId, id), eq(cardTopUpsTable.businessId, businessId),
+      ));
+      await tx.update(serviceSessionsTable).set({ cardId: target.id }).where(and(
+        eq(serviceSessionsTable.cardId, id), eq(serviceSessionsTable.businessId, businessId),
+      ));
+      await tx.update(cardUsageHistoryTable).set({ cardId: target.id }).where(and(
+        eq(cardUsageHistoryTable.cardId, id), eq(cardUsageHistoryTable.businessId, businessId),
+      ));
       const firstUsedAt = [target.firstUsedAt, old.firstUsedAt].filter((v): v is Date => Boolean(v))
         .sort((a, b) => a.getTime() - b.getTime())[0] ?? (used > 0 ? new Date() : null);
       const [merged] = await tx.update(treatmentCardsTable).set({ totalMinutes, firstUsedAt })
-        .where(eq(treatmentCardsTable.id, target.id)).returning();
-      await tx.update(treatmentCardsTable).set({ deletedAt: new Date() }).where(eq(treatmentCardsTable.id, id));
-      return { ...await cardWithHistory(tx, merged, await usedMinutes(tx, target.id)), mergedIntoExisting: true };
+        .where(and(eq(treatmentCardsTable.id, target.id), eq(treatmentCardsTable.businessId, businessId))).returning();
+      await tx.update(treatmentCardsTable).set({ deletedAt: new Date() }).where(and(
+        eq(treatmentCardsTable.id, id),
+        eq(treatmentCardsTable.businessId, businessId),
+      ));
+      return { ...await cardWithHistory(tx, merged, await usedMinutes(tx, target.id, undefined, businessId)), mergedIntoExisting: true };
     }
     if (input.mergeTargetId) throw new MassageError(409, "Thẻ cần gộp đã thay đổi. Hãy kiểm tra thông tin và lưu lại.");
     const [row] = await tx.update(treatmentCardsTable).set({
       customerName: values.customerName, phone: values.phone, serviceType: values.serviceType,
       totalMinutes: values.totalMinutes, purchaseAmount: values.purchaseAmount,
       purchaseDate: values.purchaseDate, note: values.note,
-    }).where(eq(treatmentCardsTable.id, id)).returning();
+    }).where(and(
+      eq(treatmentCardsTable.id, id),
+      eq(treatmentCardsTable.businessId, businessId),
+    )).returning();
     return cardWithHistory(tx, row, used);
   });
 }
-export async function deleteCard(id: number, operationId?: string) {
+export async function deleteCard(
+  id: number,
+  operationId?: string,
+  businessId = "00000000-0000-4000-8000-000000000001",
+) {
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi xóa thẻ.");
     return withPartitionWriteMutex("card-identities", () =>
       withPartitionWriteMutex("card-ledger", async () => {
-        const cardsRaw = await readPartitionedTable("treatment_cards");
+        const cardsRaw = await readPartitionedTable("treatment_cards", { businessId });
         const cards = cardsRaw as unknown as (typeof treatmentCardsTable.$inferSelect)[];
-        const card = cards.find((row) => row.id === id && row.deletedAt === null);
+        const card = cards.find((row) => row.id === id && row.businessId === businessId && row.deletedAt === null);
         if (!card) throw new MassageError(404, "Không tìm thấy thẻ.");
         await commitPartitionedMutations({
           operationId,
           lockName: `card:${id}`,
           action: "card.delete",
-          request: { id },
+          request: { id, businessId },
           expectedEventCount: 1,
           alreadyLocked: true,
           build: () => [upsertMutation("treatment_cards", id, { ...card, deletedAt: new Date() })],
@@ -654,12 +724,18 @@ export async function deleteCard(id: number, operationId?: string) {
       }),
     );
   }
-  await idempotentTransaction(operationId, "xóa thẻ", "card.delete", { id }, async (tx) => {
-    const [card] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
+  await idempotentTransaction(operationId, "xóa thẻ", "card.delete", { id, businessId }, async (tx) => {
+    const [card] = await tx.select().from(treatmentCardsTable).where(and(
+      eq(treatmentCardsTable.id, id),
+      eq(treatmentCardsTable.businessId, businessId),
+    )).for("update");
     if (!card || card.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
     // Keep the card, payments, and every employee visit as audit history.
     // Active card lists and card-sale revenue exclude this archived card.
-    await tx.update(treatmentCardsTable).set({ deletedAt: new Date() }).where(eq(treatmentCardsTable.id, id));
+    await tx.update(treatmentCardsTable).set({ deletedAt: new Date() }).where(and(
+      eq(treatmentCardsTable.id, id),
+      eq(treatmentCardsTable.businessId, businessId),
+    ));
   });
 }
 
@@ -767,6 +843,7 @@ export async function addCardHours(
   paymentMethod: string,
   sellerName: string,
   operationId?: string,
+  businessId = "00000000-0000-4000-8000-000000000001",
 ) {
   if (!Number.isSafeInteger(minutes) || minutes < 1 || minutes > 600000) {
     throw new MassageError(400, "Số giờ nạp phải lớn hơn 0 và không quá 10.000 giờ.");
@@ -778,17 +855,17 @@ export async function addCardHours(
       throw new MassageError(400, "Số tiền nạp không hợp lệ.");
     }
     return withPartitionWriteMutex("card-ledger", async () => {
-      const requestHash = hashPartitionRequest({ action: "card.topup", id, minutes, amount, ...tender });
+      const requestHash = hashPartitionRequest({ action: "card.topup", id, minutes, amount, ...tender, businessId });
       const prior = await getReservedPartitionOperation(operationId, requestHash);
       if (prior) {
         const { operation: reconciledPrior, rows: freshRows } = await reconcileAndReload(
           prior,
           reconcilePartitionOperation,
           () => Promise.all([
-            readPartitionedTable("treatment_cards"),
-            readPartitionedTable("card_top_ups"),
-            readPartitionedTable("service_sessions"),
-            readPartitionedTable("card_usage_history"),
+            readPartitionedTable("treatment_cards", { businessId }),
+            readPartitionedTable("card_top_ups", { businessId }),
+            readPartitionedTable("service_sessions", { businessId }),
+            readPartitionedTable("card_usage_history", { businessId }),
           ]),
         );
         if (reconciledPrior.state === "committed") {
@@ -810,16 +887,16 @@ export async function addCardHours(
         }
       }
       const [cards, topUps, sessions, archived] = await Promise.all([
-        readPartitionedTable("treatment_cards"),
-        readPartitionedTable("card_top_ups"),
-        readPartitionedTable("service_sessions"),
-        readPartitionedTable("card_usage_history"),
+        readPartitionedTable("treatment_cards", { businessId }),
+        readPartitionedTable("card_top_ups", { businessId }),
+        readPartitionedTable("service_sessions", { businessId }),
+        readPartitionedTable("card_usage_history", { businessId }),
       ]);
       const cardRows = cards as unknown as (typeof treatmentCardsTable.$inferSelect)[];
       const topUpRows = topUps as unknown as CardTopUpRow[];
       const sessionRows = sessions as unknown as (typeof serviceSessionsTable.$inferSelect)[];
       const archivedRows = archived as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
-      const card = cardRows.find((row) => row.id === id && row.deletedAt === null);
+      const card = cardRows.find((row) => row.id === id && row.businessId === businessId && row.deletedAt === null);
       if (!card) throw new MassageError(404, "Không tìm thấy thẻ.");
       if (card.totalMinutes + minutes > 600000) {
         throw new MassageError(400, "Tổng số giờ của thẻ không được vượt quá 10.000 giờ.");
@@ -839,6 +916,7 @@ export async function addCardHours(
         const updatedCard = { ...card, totalMinutes: card.totalMinutes + minutes };
         const topUpEvent = {
           id: topUpId,
+          businessId,
           cardId: id,
           minutes,
           amount,
@@ -864,12 +942,12 @@ export async function addCardHours(
           },
         ]);
       }
-      const refreshedCards = await readPartitionedTable("treatment_cards") as unknown as (typeof treatmentCardsTable.$inferSelect)[];
+      const refreshedCards = await readPartitionedTable("treatment_cards", { businessId }) as unknown as (typeof treatmentCardsTable.$inferSelect)[];
       const refreshedCard = refreshedCards.find((row) => row.id === id);
       if (!refreshedCard) throw new MassageError(503, "Không tải lại được thẻ sau khi nạp.");
-      const refreshedTopUps = await readPartitionedTable("card_top_ups") as unknown as CardTopUpRow[];
-      const usedLive = await readPartitionedTable("service_sessions") as unknown as (typeof serviceSessionsTable.$inferSelect)[];
-      const usedArchived = await readPartitionedTable("card_usage_history") as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
+      const refreshedTopUps = await readPartitionedTable("card_top_ups", { businessId }) as unknown as CardTopUpRow[];
+      const usedLive = await readPartitionedTable("service_sessions", { businessId }) as unknown as (typeof serviceSessionsTable.$inferSelect)[];
+      const usedArchived = await readPartitionedTable("card_usage_history", { businessId }) as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
       const used = usedLive.filter((row) => row.cardId === id).reduce((sum, row) => sum + row.minutes, 0)
         + usedArchived.filter((row) => row.cardId === id).reduce((sum, row) => sum + row.minutes, 0);
       return cardResponse(
@@ -880,8 +958,11 @@ export async function addCardHours(
       );
     });
   }
-  return idempotentTransaction(operationId, "nạp thẻ", "card.topup", { id, minutes, amount, ...tender }, async (tx) => {
-    const [card] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, id)).for("update");
+  return idempotentTransaction(operationId, "nạp thẻ", "card.topup", { id, minutes, amount, ...tender, businessId }, async (tx) => {
+    const [card] = await tx.select().from(treatmentCardsTable).where(and(
+      eq(treatmentCardsTable.id, id),
+      eq(treatmentCardsTable.businessId, businessId),
+    )).for("update");
     if (!card || card.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
     return creditCard(tx, card, minutes, amount, currentBusinessDate(), "topup", "", tender.purchasePaymentMethod, tender.sellerName);
   });
@@ -905,7 +986,7 @@ export async function saveSession(
     return savePartitionedSession(input, id, permissions, operationId, businessId);
   }
   return idempotentTransaction(operationId, id === undefined ? "chấm công" : "sửa ca", "service-session.save", {
-    id: id ?? null, input,
+    id: id ?? null, input, businessId,
   }, async (tx) => {
     const [old] = id ? await tx.select().from(serviceSessionsTable).where(and(
       eq(serviceSessionsTable.id, id),
@@ -984,7 +1065,7 @@ export async function saveSession(
     if (cardId === null && (!customerRate || customerRate <= 0) && (!old || !sameService)) {
       throw new MassageError(400, "Hãy cài giá khách trả mỗi giờ cho dịch vụ trước khi ghi ca khách lẻ.");
     }
-    if (card && await usedMinutes(tx, card.id, id) + input.minutes > card.totalMinutes) {
+    if (card && await usedMinutes(tx, card.id, id, businessId) + input.minutes > card.totalMinutes) {
       throw new MassageError(409, "Thẻ không đủ số giờ còn lại cho lượt sử dụng này.");
     }
     const sameCard = old && old.cardId === cardId && cardId !== null;
@@ -1011,7 +1092,10 @@ export async function saveSession(
       : await tx.insert(serviceSessionsTable).values(values).returning();
     if (card && !card.firstUsedAt) {
       await tx.update(treatmentCardsTable).set({ firstUsedAt: sql`clock_timestamp()` })
-        .where(eq(treatmentCardsTable.id, card.id));
+        .where(and(
+          eq(treatmentCardsTable.id, card.id),
+          eq(treatmentCardsTable.businessId, businessId),
+        ));
     }
     if (card) {
       const sameDayAppointments = await tx.select().from(appointmentsTable).where(and(
@@ -1225,17 +1309,18 @@ export async function deleteSession(
   id: number,
   permissions?: FacilityPermissions,
   operationId?: string,
+  businessId = "00000000-0000-4000-8000-000000000001",
 ) {
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi xóa ca.");
     return withPartitionWriteMutex("card-ledger", async () => {
-      const requestHash = hashPartitionRequest({ action: "service-session.delete", id });
+      const requestHash = hashPartitionRequest({ action: "service-session.delete", id, businessId });
       const prior = await getReservedPartitionOperation(operationId, requestHash);
       if (prior) {
         const reconciled = await reconcilePartitionOperation(prior);
         if (reconciled.state === "committed") return;
       }
-      const old = await readPartitionedRowById<typeof serviceSessionsTable.$inferSelect>("service_sessions", id);
+      const old = await readPartitionedRowById<typeof serviceSessionsTable.$inferSelect>("service_sessions", id, businessId);
       if (!old) throw new MassageError(404, "Không tìm thấy lượt phục vụ.");
       if (old && permissions && (!(old.memberId === null
         ? permissions.allEmployees && permissions.editEmployees
@@ -1256,15 +1341,23 @@ export async function deleteSession(
       return;
     });
   }
-  await idempotentTransaction(operationId, "xóa ca", "service-session.delete", { id }, async (tx) => {
-    const [old] = await tx.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, id)).for("update");
+  await idempotentTransaction(operationId, "xóa ca", "service-session.delete", { id, businessId }, async (tx) => {
+    const [old] = await tx.select().from(serviceSessionsTable).where(and(
+      eq(serviceSessionsTable.id, id),
+      eq(serviceSessionsTable.businessId, businessId),
+    )).for("update");
     if (old && permissions && (!(old.memberId === null ? permissions.allEmployees && permissions.editEmployees : canEditEmployee(permissions, old.memberId))
       || (old.cardId !== null && !(permissions.viewCards && permissions.editCards)))) {
       throw new MassageError(403, "Bạn chưa được cấp quyền xóa ca này.");
     }
     if (!old) throw new MassageError(404, "Không tìm thấy lượt phục vụ.");
-    if (old.cardId !== null) await tx.select().from(treatmentCardsTable)
-      .where(eq(treatmentCardsTable.id, old.cardId)).for("update");
-    await tx.delete(serviceSessionsTable).where(eq(serviceSessionsTable.id, id));
+    if (old.cardId !== null) await tx.select().from(treatmentCardsTable).where(and(
+      eq(treatmentCardsTable.id, old.cardId),
+      eq(treatmentCardsTable.businessId, businessId),
+    )).for("update");
+    await tx.delete(serviceSessionsTable).where(and(
+      eq(serviceSessionsTable.id, id),
+      eq(serviceSessionsTable.businessId, businessId),
+    ));
   });
 }

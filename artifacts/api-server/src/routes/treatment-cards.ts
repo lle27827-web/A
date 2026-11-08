@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Response } from "express";
-import { desc, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   cardTopUpsTable,
   cardUsageHistoryTable,
@@ -22,6 +22,8 @@ import { isMaskedCustomerPhone, maskCustomerPhone, matchesTreatmentCardSearch } 
 import { MassageError } from "../lib/massage";
 
 const router: IRouter = Router();
+const businessIdFor = (res: Response) =>
+  (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? "00000000-0000-4000-8000-000000000001";
 function ownerView(res: Response): boolean {
   return (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.isOwner === true;
 }
@@ -37,12 +39,13 @@ router.get("/treatment-cards", massageHandler(async (req, res) => {
   }
   const search = typeof rawSearch === "string" ? rawSearch.trim() : "";
   const isOwner = ownerView(res);
+  const businessId = businessIdFor(res);
   if (isPartitionedStorageEnabled()) {
     const [cardRows, sessionRows, archivedRows, topUpRows] = await Promise.all([
-      readPartitionedTable("treatment_cards"),
-      readPartitionedTable("service_sessions"),
-      readPartitionedTable("card_usage_history"),
-      readPartitionedTable("card_top_ups"),
+      readPartitionedTable("treatment_cards", { businessId }),
+      readPartitionedTable("service_sessions", { businessId }),
+      readPartitionedTable("card_usage_history", { businessId }),
+      readPartitionedTable("card_top_ups", { businessId }),
     ]);
     const cards = (cardRows as unknown as (typeof treatmentCardsTable.$inferSelect)[])
       .filter((card) => card.deletedAt === null)
@@ -67,26 +70,35 @@ router.get("/treatment-cards", massageHandler(async (req, res) => {
     return;
   }
   const result = await db.transaction(async (tx) => {
-    const cards = await tx.select().from(treatmentCardsTable).where(isNull(treatmentCardsTable.deletedAt))
+    const cards = await tx.select().from(treatmentCardsTable).where(and(
+      eq(treatmentCardsTable.businessId, businessId),
+      isNull(treatmentCardsTable.deletedAt),
+    ))
       .orderBy(desc(treatmentCardsTable.purchaseDate), desc(treatmentCardsTable.id));
     const matchingCards = cards.filter((card) => matchesTreatmentCardSearch(card, search));
     const cardIds = matchingCards.map((card) => card.id);
     const liveUse = cardIds.length ? await tx.select({
       cardId: serviceSessionsTable.cardId,
       minutes: sql<number>`coalesce(sum(${serviceSessionsTable.minutes}), 0)`,
-    }).from(serviceSessionsTable).where(inArray(serviceSessionsTable.cardId, cardIds))
+    }).from(serviceSessionsTable).where(and(
+      inArray(serviceSessionsTable.cardId, cardIds),
+      eq(serviceSessionsTable.businessId, businessId),
+    ))
       .groupBy(serviceSessionsTable.cardId) : [];
     const archivedUse = cardIds.length ? await tx.select({
       cardId: cardUsageHistoryTable.cardId,
       minutes: sql<number>`coalesce(sum(${cardUsageHistoryTable.minutes}), 0)`,
-    }).from(cardUsageHistoryTable).where(inArray(cardUsageHistoryTable.cardId, cardIds))
+    }).from(cardUsageHistoryTable).where(and(
+      inArray(cardUsageHistoryTable.cardId, cardIds),
+      eq(cardUsageHistoryTable.businessId, businessId),
+    ))
       .groupBy(cardUsageHistoryTable.cardId) : [];
     const usage = new Map<number, number>();
     for (const row of [...liveUse, ...archivedUse]) {
       if (row.cardId !== null) usage.set(row.cardId, (usage.get(row.cardId) ?? 0) + Number(row.minutes));
     }
     const topUps = cardIds.length ? await tx.select().from(cardTopUpsTable)
-      .where(inArray(cardTopUpsTable.cardId, cardIds))
+      .where(and(inArray(cardTopUpsTable.cardId, cardIds), eq(cardTopUpsTable.businessId, businessId)))
       .orderBy(desc(cardTopUpsTable.paymentDate), desc(cardTopUpsTable.id)) : [];
     const history = new Map<number, typeof topUps>();
     for (const payment of topUps) {
@@ -101,30 +113,35 @@ router.get("/treatment-cards", massageHandler(async (req, res) => {
   res.json(result);
 }));
 router.post("/treatment-cards", massageHandler(async (req, res) => {
+  const businessId = businessIdFor(res);
   const input = parseInput(CreateTreatmentCardBody, req.body);
-  const card = await createCard(input, operationIdFromRequest(req.get("Idempotency-Key"), "bán thẻ"));
+  const card = await createCard(input, operationIdFromRequest(req.get("Idempotency-Key"), "bán thẻ"), businessId);
   res.status(201).json(CreateTreatmentCardResponse.parse(visibleCard(card, ownerView(res))));
 }));
 router.patch("/treatment-cards/:id", massageHandler(async (req, res) => {
+  const businessId = businessIdFor(res);
   const { id } = parseInput(UpdateTreatmentCardParams, req.params);
   const input = parseInput(UpdateTreatmentCardBody, req.body);
   if (!ownerView(res) && isMaskedCustomerPhone(input.phone)) delete input.phone;
   if (!Object.keys(input).length) { res.status(400).json({ error: "Chưa có thông tin cần cập nhật." }); return; }
-  const card = await updateCard(id, input, operationIdFromRequest(req.get("Idempotency-Key"), "sửa thẻ"));
+  const card = await updateCard(id, input, operationIdFromRequest(req.get("Idempotency-Key"), "sửa thẻ"), businessId);
   res.json(UpdateTreatmentCardResponse.parse(visibleCard(card, ownerView(res))));
 }));
 router.post("/treatment-cards/:id/hours", massageHandler(async (req, res) => {
+  const businessId = businessIdFor(res);
   const { id } = parseInput(AddTreatmentCardHoursParams, req.params);
   const { minutes, amount, paymentMethod, sellerName } = parseInput(AddTreatmentCardHoursBody, req.body);
   const card = await addCardHours(
     id, minutes, amount, paymentMethod, sellerName,
     operationIdFromRequest(req.get("Idempotency-Key"), "nạp thẻ"),
+    businessId,
   );
   res.json(AddTreatmentCardHoursResponse.parse(visibleCard(card, ownerView(res))));
 }));
 router.delete("/treatment-cards/:id", massageHandler(async (req, res) => {
+  const businessId = businessIdFor(res);
   const { id } = parseInput(DeleteTreatmentCardParams, req.params);
-  await deleteCard(id, operationIdFromRequest(req.get("Idempotency-Key"), "xóa thẻ"));
+  await deleteCard(id, operationIdFromRequest(req.get("Idempotency-Key"), "xóa thẻ"), businessId);
   res.sendStatus(204);
 }));
 export default router;

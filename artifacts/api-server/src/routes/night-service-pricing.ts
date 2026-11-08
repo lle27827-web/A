@@ -1,5 +1,5 @@
-import { Router, type IRouter } from "express";
-import { asc, eq } from "drizzle-orm";
+import { Router, type IRouter, type Response } from "express";
+import { and, asc, eq } from "drizzle-orm";
 import {
   db,
   facilityNightSettingsTable,
@@ -18,14 +18,17 @@ import { commitPartitionedMutations, operationIdFromRequest, upsertMutation } fr
 import { requireOwner } from "../lib/owner-auth";
 import { massageHandler, parseInput } from "./massage-errors";
 import { parseClockMinutes } from "../lib/night-service-pricing";
+import type { OwnerAuthStatus } from "../lib/owner-auth";
 
 const router: IRouter = Router();
+const businessIdFor = (res: Response) =>
+  (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? "00000000-0000-4000-8000-000000000001";
 
-async function readConfig() {
+async function readConfig(businessId: string) {
   if (isPartitionedStorageEnabled()) {
     const [settingsRaw, servicesRaw] = await Promise.all([
-      readPartitionedTable("facility_night_settings"),
-      readPartitionedTable("service_types"),
+      readPartitionedTable("facility_night_settings", { businessId }),
+      readPartitionedTable("service_types", { businessId }),
     ]);
     const settings = settingsRaw as unknown as (typeof facilityNightSettingsTable.$inferSelect)[];
     const services = servicesRaw as unknown as (typeof serviceTypesTable.$inferSelect)[];
@@ -45,8 +48,11 @@ async function readConfig() {
     };
   }
   const [settings, services] = await Promise.all([
-    db.select().from(facilityNightSettingsTable).where(eq(facilityNightSettingsTable.id, 1)).limit(1),
-    db.select().from(serviceTypesTable).orderBy(asc(serviceTypesTable.name)),
+    db.select().from(facilityNightSettingsTable).where(and(
+      eq(facilityNightSettingsTable.businessId, businessId),
+      eq(facilityNightSettingsTable.id, 1),
+    )).limit(1),
+    db.select().from(serviceTypesTable).where(eq(serviceTypesTable.businessId, businessId)).orderBy(asc(serviceTypesTable.name)),
   ]);
   return {
     enabled: settings[0]?.enabled ?? false,
@@ -97,15 +103,16 @@ function validateConfiguration(input: {
 
 router.get("/night-service-pricing", requireOwner, massageHandler(async (_req, res) => {
   res.set("Cache-Control", "private, no-store");
-  res.json(GetNightServicePricingResponse.parse(await readConfig()));
+  res.json(GetNightServicePricingResponse.parse(await readConfig(businessIdFor(res))));
 }));
 
 router.patch("/night-service-pricing", requireOwner, massageHandler(async (req, res) => {
+  const businessId = businessIdFor(res);
   const input = parseInput(UpdateNightServicePricingBody, req.body);
   const operationId = operationIdFromRequest(req.get("Idempotency-Key"), "lưu giá dịch vụ ca đêm");
   if (isPartitionedStorageEnabled()) {
     const saved = await withPartitionWriteMutex("night-service-pricing", async () => {
-      const servicesRaw = await readPartitionedTable("service_types");
+      const servicesRaw = await readPartitionedTable("service_types", { businessId });
       const services = servicesRaw as unknown as (typeof serviceTypesTable.$inferSelect)[];
       const rates = validateConfiguration(input, services);
       const serviceUpdates = services.filter((service) => {
@@ -118,11 +125,12 @@ router.patch("/night-service-pricing", requireOwner, massageHandler(async (req, 
         lockName: "night-service-pricing",
         alreadyLocked: true,
         action: "night-service-pricing.update",
-        request: input,
+        request: { ...input, businessId },
         expectedEventCount: serviceUpdates.length + 1,
         build: () => [
           upsertMutation("facility_night_settings", 1, {
             id: 1,
+            businessId,
             enabled: input.enabled,
             startTime: input.startTime,
             endTime: input.endTime,
@@ -142,13 +150,13 @@ router.patch("/night-service-pricing", requireOwner, massageHandler(async (req, 
     });
     if (saved.state !== "committed") throw new MassageError(503, "Chưa xác nhận được bảng giá ca đêm đã lưu.");
   } else {
-    await idempotentTransaction(operationId, "lưu giá dịch vụ ca đêm", "night-service-pricing.update", input, async (tx) => {
-      const services = await tx.select().from(serviceTypesTable);
+    await idempotentTransaction(operationId, "lưu giá dịch vụ ca đêm", "night-service-pricing.update", { ...input, businessId }, async (tx) => {
+      const services = await tx.select().from(serviceTypesTable).where(eq(serviceTypesTable.businessId, businessId));
       const rates = validateConfiguration(input, services);
       await tx.insert(facilityNightSettingsTable).values({
-        id: 1, enabled: input.enabled, startTime: input.startTime, endTime: input.endTime, updatedAt: new Date(),
+        id: 1, businessId, enabled: input.enabled, startTime: input.startTime, endTime: input.endTime, updatedAt: new Date(),
       }).onConflictDoUpdate({
-        target: facilityNightSettingsTable.id,
+        target: [facilityNightSettingsTable.businessId, facilityNightSettingsTable.id],
         set: { enabled: input.enabled, startTime: input.startTime, endTime: input.endTime, updatedAt: new Date() },
       });
       for (const service of services) {
@@ -158,12 +166,15 @@ router.patch("/night-service-pricing", requireOwner, massageHandler(async (req, 
         await tx.update(serviceTypesTable).set({
           nightCustomerHourlyRate: rate?.customerHourlyRate ?? null,
           nightHourlyRate: rate?.employeeHourlyRate ?? null,
-        }).where(eq(serviceTypesTable.id, service.id));
+        }).where(and(
+          eq(serviceTypesTable.id, service.id),
+          eq(serviceTypesTable.businessId, businessId),
+        ));
       }
       return true;
     });
   }
-  res.json(UpdateNightServicePricingResponse.parse(await readConfig()));
+  res.json(UpdateNightServicePricingResponse.parse(await readConfig(businessId)));
 }));
 
 export default router;

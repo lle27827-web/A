@@ -73,8 +73,11 @@ router.post("/businesses/join", async (req, res): Promise<void> => {
 router.post("/businesses/:id/join-code", async (req, res): Promise<void> => {
   const status = currentStatus(res);
   const businessId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  if (!status?.userId || status.role !== "owner" || status.businessId !== businessId) {
-    res.status(403).json({ error: "Chỉ chủ doanh nghiệp đang chọn mới được đổi mã tham gia." });
+  const ownedBusiness = status?.businesses.find((business) =>
+    business.id === businessId && business.role === "owner",
+  );
+  if (!status?.userId || !ownedBusiness) {
+    res.status(403).json({ error: "Chỉ chủ sở hữu của cơ sở này mới được đổi mã tham gia." });
     return;
   }
   try {
@@ -88,8 +91,8 @@ router.post("/businesses/:id/join-code", async (req, res): Promise<void> => {
     }
     res.json(RotateBusinessJoinCodeResponse.parse({
       business: {
-        id: status.businessId,
-        name: status.businessName,
+        id: ownedBusiness.id,
+        name: ownedBusiness.name,
         role: "owner",
       },
       joinCode,

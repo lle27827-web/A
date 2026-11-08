@@ -117,6 +117,7 @@ const TABLE_DB_KEY_COLUMN: Record<string, string> = {
   personal_settings: "user_id",
   employee_availability: "member_id",
 };
+const LEGACY_DEFAULT_BUSINESS_ID = "00000000-0000-4000-8000-000000000001";
 const EVENT_TABLE = "public.storage_partition_events";
 const STATE_TABLE = "public.storage_partition_state";
 const OPERATIONS_TABLE = "public.storage_partition_operations";
@@ -341,11 +342,16 @@ function stableJson(value: unknown): string {
   ).join(",")}}`;
 }
 
-export function partitionEntityKey(entityType: string, id: string | number): string {
+export function partitionEntityKey(entityType: string, id: string | number, businessId?: string): string {
   if (!/^[a-z][a-z0-9_]*$/.test(entityType)) {
     throw new PartitionStorageError("Invalid partition entity type.", "partition_entity_invalid", 400);
   }
-  const normalizedId = String(id).trim();
+  const normalizedId = String(
+    businessId && businessId !== LEGACY_DEFAULT_BUSINESS_ID &&
+      ["facility_bonus_settings", "facility_night_settings"].includes(entityType)
+      ? `${businessId}:${id}`
+      : id,
+  ).trim();
   if (!normalizedId || normalizedId.length > 200) {
     throw new PartitionStorageError("Invalid partition entity ID.", "partition_entity_invalid", 400);
   }
@@ -1773,8 +1779,13 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
       WHERE committed = true AND entity_type = $1 AND payload->>'userId' = ${p})`,
     filter.userId,
   );
-  if (filter?.businessId) addEventParam((p) => `entity_key IN (SELECT entity_key FROM ${EVENT_TABLE}
-    WHERE committed = true AND entity_type = $1 AND payload->>'businessId' = ${p})`, filter.businessId);
+  if (filter?.businessId) {
+    const isLegacyDefault = filter.businessId === LEGACY_DEFAULT_BUSINESS_ID;
+    addEventParam((p) => `entity_key IN (SELECT entity_key FROM ${EVENT_TABLE}
+      WHERE committed = true AND entity_type = $1 AND
+        (payload->>'businessId' = ${p}${isLegacyDefault ? " OR payload->>'businessId' IS NULL" : ""}))`,
+    filter.businessId);
+  }
   const eventFilter = eventConditions.map((condition) => `AND ${condition}`).join("\n");
   const dbKeyColumn = TABLE_DB_KEY_COLUMN[tableName]!;
   const baseConditions: string[] = [];
@@ -1860,7 +1871,11 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
   const baseRows = new Map<string, T>();
   for (const rawRow of rows.rows as Record<string, unknown>[]) {
     const row = normalizePartitionDatabaseRow(rawRow) as T;
-    const key = partitionEntityKey(tableName, row[keyColumn] as string | number);
+    const key = partitionEntityKey(
+      tableName,
+      row[keyColumn] as string | number,
+      typeof row.businessId === "string" ? row.businessId : undefined,
+    );
     baseRows.set(key, row);
   }
 

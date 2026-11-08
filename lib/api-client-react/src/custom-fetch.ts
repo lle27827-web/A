@@ -17,6 +17,7 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _businessIdGetter: (() => string | null) | null = null;
 const inMemoryIdempotencyKeys = new Map<string, string>();
 const IDEMPOTENCY_STORAGE_PREFIX = "so-cong:pending-request:";
 const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
@@ -107,6 +108,11 @@ export function setBaseUrl(url: string | null): void {
  */
 export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
+}
+
+/** Sets the currently selected business context; the API always validates membership server-side. */
+export function setBusinessIdGetter(getter: (() => string | null) | null): void {
+  _businessIdGetter = getter;
 }
 
 function isRequest(input: RequestInfo | URL): input is Request {
@@ -401,6 +407,12 @@ export async function customFetch<T = unknown>(
   }
 
   const headers = mergeHeaders(isRequest(input) ? input.headers : undefined, headersInit);
+  if (_businessIdGetter && !headers.has("x-business-id")) {
+    const businessId = _businessIdGetter();
+    const url = resolveUrl(input);
+    const isBusinessOnboarding = /\/api\/businesses(?:\/join)?(?:\?|$)/.test(url);
+    if (businessId && !isBusinessOnboarding) headers.set("X-Business-ID", businessId);
+  }
 
   if (
     typeof init.body === "string" &&

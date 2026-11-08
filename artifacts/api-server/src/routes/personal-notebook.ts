@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Response } from "express";
 import { sql } from "drizzle-orm";
 import { db, isPartitionedStorageEnabled, readPartitionedTable } from "@workspace/db";
 import {
@@ -22,20 +22,46 @@ function account(value: unknown): string {
   if (typeof value !== "string" || !value) throw new MassageError(401, "Vui lòng đăng nhập.");
   return value;
 }
+function requireMemberRead(res: Response, memberId: number): string {
+  const status = res.locals.facilityAuth as OwnerAuthStatus | undefined;
+  if (!status?.businessId) throw new MassageError(403, "Bạn chưa được cấp quyền xem dữ liệu của cơ sở.");
+  if (!status.isOwner && !status.permissions.allEmployees && !status.permissions.employeeIds.includes(memberId)) {
+    throw new MassageError(403, "Bạn chưa được cấp quyền xem nhân viên này.");
+  }
+  return status.businessId;
+}
+function selectedBusinessId(res: Response): string | undefined {
+  const status = res.locals.facilityAuth as OwnerAuthStatus | undefined;
+  if (!status?.businessId) return undefined;
+  if (status.isOwner || status.permissions.allEmployees || status.permissions.employeeIds.length > 0) {
+    return status.businessId;
+  }
+  return undefined;
+}
 router.put("/personal/settings", massageHandler(async (req, res) => {
   const { useFacilityRates } = parseInput(UpdatePersonalSettingsBody, req.body);
-  res.json(await updatePersonalSettings(account(res.locals.personalUserId), useFacilityRates, req.get("Idempotency-Key") ?? undefined));
+  res.json(await updatePersonalSettings(
+    account(res.locals.personalUserId),
+    useFacilityRates,
+    req.get("Idempotency-Key") ?? undefined,
+    selectedBusinessId(res),
+  ));
 }));
 router.post("/personal/sync", massageHandler(async (req, res) => {
+  const input = parseInput(SyncPersonalNotebookBody, req.body);
+  const businessId = requireMemberRead(res, input.memberId);
   res.json(await syncPersonalNotebook(
     account(res.locals.personalUserId),
-    parseInput(SyncPersonalNotebookBody, req.body),
+    input,
     req.get("Idempotency-Key") ?? undefined,
+    businessId,
   ));
 }));
 router.get("/personal/notebook", massageHandler(async (req, res) => {
   const { month, date } = parseInput(GetPersonalNotebookQueryParams, req.query);
-  res.json(GetPersonalNotebookResponse.parse(await getPersonalNotebook(account(res.locals.personalUserId), month, date)));
+  res.json(GetPersonalNotebookResponse.parse(await getPersonalNotebook(
+    account(res.locals.personalUserId), month, date, selectedBusinessId(res),
+  )));
 }));
 router.post("/personal/services", massageHandler(async (req, res) => {
   res.status(201).json(await savePersonalService(
@@ -65,6 +91,7 @@ router.post("/personal/sessions", massageHandler(async (req, res) => {
     parseInput(CreatePersonalSessionBody, req.body),
     undefined,
     req.get("Idempotency-Key") ?? undefined,
+    selectedBusinessId(res),
   ));
 }));
 router.put("/personal/sessions/:id", massageHandler(async (req, res) => {
@@ -74,6 +101,7 @@ router.put("/personal/sessions/:id", massageHandler(async (req, res) => {
     parseInput(UpdatePersonalSessionBody, req.body),
     id,
     req.get("Idempotency-Key") ?? undefined,
+    selectedBusinessId(res),
   ));
 }));
 router.delete("/personal/sessions/:id", massageHandler(async (req, res) => {
@@ -83,15 +111,27 @@ router.delete("/personal/sessions/:id", massageHandler(async (req, res) => {
 }));
 router.get("/personal/comparison", massageHandler(async (req, res) => {
   const { memberId, month, date } = parseInput(GetPersonalComparisonQueryParams, req.query);
-  res.json(GetPersonalComparisonResponse.parse(await getPersonalComparison(account(res.locals.personalUserId), memberId, month, date)));
+  const businessId = requireMemberRead(res, memberId);
+  res.json(GetPersonalComparisonResponse.parse(await getPersonalComparison(
+    account(res.locals.personalUserId), memberId, month, date, businessId,
+  )));
 }));
 router.get("/history-months", massageHandler(async (_req, res) => {
-  const p = (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.permissions ?? noPermissions();
+  const status = res.locals.facilityAuth as OwnerAuthStatus | undefined;
+  const businessId = status?.businessId;
+  const p = status?.permissions ?? noPermissions();
+  const current = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit",
+  }).format(new Date());
+  if (!businessId) {
+    res.json([current]);
+    return;
+  }
   if (isPartitionedStorageEnabled()) {
     const [attendanceRaw, sessionsRaw, cardsRaw] = await Promise.all([
-      readPartitionedTable("attendance"),
-      readPartitionedTable("service_sessions"),
-      readPartitionedTable("treatment_cards"),
+      readPartitionedTable("attendance", { businessId }),
+      readPartitionedTable("service_sessions", { businessId }),
+      readPartitionedTable("treatment_cards", { businessId }),
     ]);
     const cutoff = retentionCutoffDate();
     const attendance = attendanceRaw as unknown as (typeof import("@workspace/db").attendanceTable.$inferSelect)[];
@@ -108,9 +148,6 @@ router.get("/history-months", massageHandler(async (_req, res) => {
           (row.cardId !== null && !activeCardIds.has(row.cardId))) continue;
       months.add(row.workDate.slice(0, 7));
     }
-    const current = new Intl.DateTimeFormat("sv-SE", {
-      timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit",
-    }).format(new Date());
     res.json([...new Set([current, ...months])].sort().reverse());
     return;
   }
@@ -121,14 +158,15 @@ router.get("/history-months", massageHandler(async (_req, res) => {
   const { rows } = await db.execute<{ month: string }>(sql`
     SELECT DISTINCT month FROM (
       SELECT to_char(a.work_date, 'YYYY-MM') AS month FROM public.attendance a
-      WHERE ${attendanceScope} AND a.work_date >= ${cutoff}::date
+      WHERE a.business_id = ${businessId} AND ${attendanceScope} AND a.work_date >= ${cutoff}::date
       UNION ALL
       SELECT to_char(s.work_date, 'YYYY-MM') AS month FROM public.service_sessions s
-      WHERE ${sessionScope} AND s.work_date >= ${cutoff}::date AND (s.card_id IS NULL OR EXISTS (
-        SELECT 1 FROM public.treatment_cards c WHERE c.id=s.card_id AND c.deleted_at IS NULL
+      WHERE s.business_id = ${businessId} AND ${sessionScope}
+        AND s.work_date >= ${cutoff}::date AND (s.card_id IS NULL OR EXISTS (
+        SELECT 1 FROM public.treatment_cards c WHERE c.id=s.card_id
+          AND c.business_id = ${businessId} AND c.deleted_at IS NULL
       ))
     ) history ORDER BY month DESC`);
-  const current = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit" }).format(new Date());
   res.json([...new Set([current, ...rows.map((row) => row.month)])].sort().reverse());
 }));
 export default router;

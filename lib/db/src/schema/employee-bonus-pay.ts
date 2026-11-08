@@ -26,6 +26,16 @@ export const employeeServiceBonusRatesTable = pgTable("employee_service_bonus_ra
   check("employee_service_bonus_rates_rate_bounds", sql`${table.hourlyRate} between 1 and 10000000`),
 ]);
 
-export function employeeBonusRateKey(memberId: number, serviceTypeId: number) {
-  return `${memberId}:${serviceTypeId}`;
+export const DEFAULT_BUSINESS_ID = "00000000-0000-4000-8000-000000000001";
+
+export function employeeBonusRateKey(
+  memberId: number,
+  serviceTypeId: number,
+  businessId = DEFAULT_BUSINESS_ID,
+) {
+  // Preserve the legacy key for the migrated default business. Other businesses
+  // share the same ID ranges, so their primary keys must include the tenant ID.
+  return businessId === DEFAULT_BUSINESS_ID
+    ? `${memberId}:${serviceTypeId}`
+    : `${businessId}:${memberId}:${serviceTypeId}`;
 }

@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Response } from "express";
 import {
   DeleteRetentionDateRangeBody,
   DeleteRetentionDateRangeResponse,
@@ -16,13 +16,16 @@ import {
   previewFacilityHistoryDateRange,
 } from "../lib/retention";
 import { requireOwner } from "../lib/owner-auth";
+import type { OwnerAuthStatus } from "../lib/owner-auth";
 
 const router: IRouter = Router();
+const businessIdFor = (res: Response) =>
+  (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? "00000000-0000-4000-8000-000000000001";
 
 router.get("/retention/years", requireOwner, async (_req, res, next): Promise<void> => {
   try {
     res.set("Cache-Control", "no-store");
-    const years = await listFacilityHistoryYears();
+    const years = await listFacilityHistoryYears(businessIdFor(res));
     res.json(ListRetentionYearsResponse.parse(years));
   } catch (error) {
     next(error);
@@ -38,7 +41,7 @@ router.delete("/retention/years/:year", requireOwner, async (req, res, next): Pr
 
   try {
     res.set("Cache-Control", "no-store");
-    const result = await deleteFacilityHistoryYear(params.data.year, req.get("Idempotency-Key"));
+    const result = await deleteFacilityHistoryYear(params.data.year, req.get("Idempotency-Key"), businessIdFor(res));
     if (result.deletedAttendance === 0 && result.deletedServiceSessions === 0) {
       res.status(404).json({ error: "Năm này không còn lịch sử chấm công cơ sở." });
       return;
@@ -58,7 +61,7 @@ router.get("/retention/range", requireOwner, async (req, res, next): Promise<voi
 
   try {
     res.set("Cache-Control", "no-store");
-    const summary = await previewFacilityHistoryDateRange(query.data);
+    const summary = await previewFacilityHistoryDateRange(query.data, businessIdFor(res));
     res.json(PreviewRetentionDateRangeResponse.parse(summary));
   } catch (error) {
     next(error);
@@ -74,7 +77,7 @@ router.delete("/retention/range", requireOwner, async (req, res, next): Promise<
 
   try {
     res.set("Cache-Control", "no-store");
-    const result = await deleteFacilityHistoryDateRange(input.data, req.get("Idempotency-Key"));
+    const result = await deleteFacilityHistoryDateRange(input.data, req.get("Idempotency-Key"), businessIdFor(res));
     res.json(DeleteRetentionDateRangeResponse.parse(result));
   } catch (error) {
     next(error);

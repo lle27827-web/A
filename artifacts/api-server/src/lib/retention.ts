@@ -20,11 +20,13 @@ export type RetentionYearSummary = {
   cardUseCount: number;
 };
 
-export async function listFacilityHistoryYears(): Promise<RetentionYearSummary[]> {
+const LEGACY_DEFAULT_BUSINESS_ID = "00000000-0000-4000-8000-000000000001";
+
+export async function listFacilityHistoryYears(businessId = LEGACY_DEFAULT_BUSINESS_ID): Promise<RetentionYearSummary[]> {
   if (isPartitionedStorageEnabled()) {
     const [attendanceRaw, sessionsRaw] = await Promise.all([
-      readPartitionedTable("attendance"),
-      readPartitionedTable("service_sessions"),
+      readPartitionedTable("attendance", { businessId }),
+      readPartitionedTable("service_sessions", { businessId }),
     ]);
     const attendance = attendanceRaw as unknown as (typeof attendanceTable.$inferSelect)[];
     const sessions = sessionsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[];
@@ -55,6 +57,7 @@ export async function listFacilityHistoryYears(): Promise<RetentionYearSummary[]
         0::int AS service_session_count,
         0::int AS card_use_count
       FROM public.attendance
+      WHERE business_id = ${businessId}
       GROUP BY 1
 
       UNION ALL
@@ -64,6 +67,7 @@ export async function listFacilityHistoryYears(): Promise<RetentionYearSummary[]
         count(*)::int AS service_session_count,
         count(*) FILTER (WHERE card_id IS NOT NULL)::int AS card_use_count
       FROM public.service_sessions
+      WHERE business_id = ${businessId}
       GROUP BY 1
     ) AS yearly_history
     GROUP BY year
@@ -81,7 +85,11 @@ export async function listFacilityHistoryYears(): Promise<RetentionYearSummary[]
   });
 }
 
-export async function deleteFacilityHistoryYear(year: number, operationId?: string) {
+export async function deleteFacilityHistoryYear(
+  year: number,
+  operationId?: string,
+  businessId = LEGACY_DEFAULT_BUSINESS_ID,
+) {
   const startDate = `${year}-01-01`;
   const endDate = `${year + 1}-01-01`;
 
@@ -89,7 +97,7 @@ export async function deleteFacilityHistoryYear(year: number, operationId?: stri
     const result = await deleteFacilityHistoryDateRange({
       fromDate: startDate,
       toDate: `${year}-12-31`,
-    }, operationId);
+    }, operationId, businessId);
     return { year, ...result };
   }
 
@@ -103,16 +111,16 @@ export async function deleteFacilityHistoryYear(year: number, operationId?: stri
     const archived = await tx.execute(sql`
       WITH inserted AS (
         INSERT INTO public.card_usage_history (
-          source_session_id, card_id, member_id, employee_name, customer_name,
+          business_id, source_session_id, card_id, member_id, employee_name, customer_name,
           service_type, service_type_id, work_date, minutes, customer_hourly_rate,
           customer_charge, hourly_rate, earnings, is_night_shift, note, created_at
         )
         SELECT
-          id, card_id, member_id, employee_name, customer_name,
+          business_id, id, card_id, member_id, employee_name, customer_name,
           service_type, service_type_id, work_date, minutes, customer_hourly_rate,
           customer_charge, hourly_rate, earnings, is_night_shift, note, created_at
         FROM public.service_sessions
-        WHERE card_id IS NOT NULL
+        WHERE business_id = ${businessId} AND card_id IS NOT NULL
           AND work_date >= ${startDate}::date
           AND work_date < ${endDate}::date
         ON CONFLICT (source_session_id) DO NOTHING
@@ -124,7 +132,8 @@ export async function deleteFacilityHistoryYear(year: number, operationId?: stri
     const deletedSessions = await tx.execute(sql`
       WITH deleted AS (
         DELETE FROM public.service_sessions
-        WHERE work_date >= ${startDate}::date
+        WHERE business_id = ${businessId}
+          AND work_date >= ${startDate}::date
           AND work_date < ${endDate}::date
         RETURNING 1
       )
@@ -133,7 +142,8 @@ export async function deleteFacilityHistoryYear(year: number, operationId?: stri
     const deletedAttendance = await tx.execute(sql`
       WITH deleted AS (
         DELETE FROM public.attendance
-        WHERE work_date >= ${startDate}::date
+        WHERE business_id = ${businessId}
+          AND work_date >= ${startDate}::date
           AND work_date < ${endDate}::date
         RETURNING 1
       )
@@ -241,12 +251,15 @@ export function buildPartitionedHistoryDeleteMutations(
  * Count only the selected date range. The work_date indexes keep the preview
  * from scanning unrelated history; the response contains counts, not records.
  */
-export async function previewFacilityHistoryDateRange(input: RetentionDateRange) {
+export async function previewFacilityHistoryDateRange(
+  input: RetentionDateRange,
+  businessId = LEGACY_DEFAULT_BUSINESS_ID,
+) {
   const { fromDate, toDate } = validateRetentionDateRange(input);
   if (isPartitionedStorageEnabled()) {
     const [attendanceRaw, sessionsRaw] = await Promise.all([
-      readPartitionedTable("attendance"),
-      readPartitionedTable("service_sessions"),
+      readPartitionedTable("attendance", { businessId }),
+      readPartitionedTable("service_sessions", { businessId }),
     ]);
     const attendance = (attendanceRaw as unknown as (typeof attendanceTable.$inferSelect)[])
       .filter((row) => isWithinRetentionDateRange(row.workDate, { fromDate, toDate }));
@@ -264,7 +277,8 @@ export async function previewFacilityHistoryDateRange(input: RetentionDateRange)
   const result = await db.execute(sql`
     SELECT
       (SELECT count(*)::int FROM public.attendance
-        WHERE work_date >= ${fromDate}::date AND work_date <= ${toDate}::date) AS "attendanceCount",
+        WHERE business_id = ${businessId}
+          AND work_date >= ${fromDate}::date AND work_date <= ${toDate}::date) AS "attendanceCount",
       sessions.service_session_count AS "serviceSessionCount",
       sessions.card_use_count AS "cardUseCount"
     FROM (
@@ -272,7 +286,8 @@ export async function previewFacilityHistoryDateRange(input: RetentionDateRange)
         count(*)::int AS service_session_count,
         count(*) FILTER (WHERE card_id IS NOT NULL)::int AS card_use_count
       FROM public.service_sessions
-      WHERE work_date >= ${fromDate}::date AND work_date <= ${toDate}::date
+      WHERE business_id = ${businessId}
+        AND work_date >= ${fromDate}::date AND work_date <= ${toDate}::date
     ) AS sessions
   `);
   const row = result.rows[0] as Record<string, unknown>;
@@ -290,13 +305,17 @@ export async function previewFacilityHistoryDateRange(input: RetentionDateRange)
  * range. Card-use snapshots are inserted first in the same transaction, so
  * card balances never change and the permanent usage ledger remains intact.
  */
-export async function deleteFacilityHistoryDateRange(input: RetentionDateRange, operationId?: string) {
+export async function deleteFacilityHistoryDateRange(
+  input: RetentionDateRange,
+  operationId?: string,
+  businessId = LEGACY_DEFAULT_BUSINESS_ID,
+) {
   const { fromDate, toDate } = validateRetentionDateRange(input);
   if (isPartitionedStorageEnabled()) {
     const [attendanceRaw, sessionsRaw, historyRaw] = await Promise.all([
-      readPartitionedTable("attendance"),
-      readPartitionedTable("service_sessions"),
-      readPartitionedTable("card_usage_history"),
+      readPartitionedTable("attendance", { businessId }),
+      readPartitionedTable("service_sessions", { businessId }),
+      readPartitionedTable("card_usage_history", { businessId }),
     ]);
     const history = historyRaw as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
     const deletion = buildPartitionedHistoryDeleteMutations(
@@ -309,7 +328,7 @@ export async function deleteFacilityHistoryDateRange(input: RetentionDateRange, 
       await commitRetentionMutationBatches(deletion.mutations, {
         requestId: operationId,
         action: "retention.manual-delete-range",
-        rangeKey: `${fromDate}:${toDate}`,
+        rangeKey: `${businessId}:${fromDate}:${toDate}`,
       });
     }
     return {
@@ -331,16 +350,16 @@ export async function deleteFacilityHistoryDateRange(input: RetentionDateRange, 
     const archived = await tx.execute(sql`
       WITH inserted AS (
         INSERT INTO public.card_usage_history (
-          source_session_id, card_id, member_id, employee_name, customer_name,
+          business_id, source_session_id, card_id, member_id, employee_name, customer_name,
           service_type, service_type_id, work_date, minutes, customer_hourly_rate,
           customer_charge, hourly_rate, earnings, is_night_shift, note, created_at
         )
         SELECT
-          id, card_id, member_id, employee_name, customer_name,
+          business_id, id, card_id, member_id, employee_name, customer_name,
           service_type, service_type_id, work_date, minutes, customer_hourly_rate,
           customer_charge, hourly_rate, earnings, is_night_shift, note, created_at
         FROM public.service_sessions
-        WHERE card_id IS NOT NULL
+        WHERE business_id = ${businessId} AND card_id IS NOT NULL
           AND work_date >= ${fromDate}::date
           AND work_date <= ${toDate}::date
         ON CONFLICT (source_session_id) DO NOTHING
@@ -351,7 +370,8 @@ export async function deleteFacilityHistoryDateRange(input: RetentionDateRange, 
     const deletedSessions = await tx.execute(sql`
       WITH deleted AS (
         DELETE FROM public.service_sessions
-        WHERE work_date >= ${fromDate}::date
+        WHERE business_id = ${businessId}
+          AND work_date >= ${fromDate}::date
           AND work_date <= ${toDate}::date
         RETURNING 1
       )
@@ -360,7 +380,8 @@ export async function deleteFacilityHistoryDateRange(input: RetentionDateRange, 
     const deletedAttendance = await tx.execute(sql`
       WITH deleted AS (
         DELETE FROM public.attendance
-        WHERE work_date >= ${fromDate}::date
+        WHERE business_id = ${businessId}
+          AND work_date >= ${fromDate}::date
           AND work_date <= ${toDate}::date
         RETURNING 1
       )
@@ -402,6 +423,7 @@ export async function cleanupExpiredHistory() {
       .filter((row) => row.workDate < cutoff);
     const mutations = [
       ...cardUses.map((row) => upsertMutation("card_usage_history", row.id, {
+        businessId: row.businessId,
         sourceSessionId: row.id,
         cardId: row.cardId!,
         memberId: row.memberId,
@@ -444,12 +466,12 @@ export async function cleanupExpiredHistory() {
 
     const archived = await tx.execute(sql`
       INSERT INTO public.card_usage_history (
-        source_session_id, card_id, member_id, employee_name, customer_name,
+        business_id, source_session_id, card_id, member_id, employee_name, customer_name,
         service_type, service_type_id, work_date, minutes, customer_hourly_rate,
         customer_charge, hourly_rate, earnings, is_night_shift, note, created_at
       )
       SELECT
-        id, card_id, member_id, employee_name, customer_name,
+        business_id, id, card_id, member_id, employee_name, customer_name,
         service_type, service_type_id, work_date, minutes, customer_hourly_rate,
         customer_charge, hourly_rate, earnings, is_night_shift, note, created_at
       FROM public.service_sessions

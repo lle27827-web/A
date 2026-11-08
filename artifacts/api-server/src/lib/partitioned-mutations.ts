@@ -71,9 +71,14 @@ export function upsertMutation(
   id: string | number,
   payload: Record<string, unknown>,
 ): MutationDraft {
+  const businessId = typeof payload.businessId === "string" ? payload.businessId : undefined;
+  const keyId = businessId && businessId !== "00000000-0000-4000-8000-000000000001" &&
+    (entityType === "facility_bonus_settings" || entityType === "facility_night_settings")
+    ? `${businessId}:${id}`
+    : id;
   return {
     entityType,
-    entityKey: partitionEntityKey(entityType, id),
+    entityKey: partitionEntityKey(entityType, keyId),
     action: "upsert",
     payload,
   };

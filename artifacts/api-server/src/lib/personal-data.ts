@@ -10,14 +10,14 @@ export async function personalSettings(tx: PersonalTx, userId: string) {
   return { useFacilityRates: row?.useFacilityRates ?? false };
 }
 /** Mirror only service names and employee pay rates, never customer prices. */
-export async function refreshFacilityServices(tx: PersonalTx, userId: string) {
+export async function refreshFacilityServices(tx: PersonalTx, userId: string, businessId: string) {
   const catalog = await tx.select({
     id: serviceTypesTable.id,
     name: serviceTypesTable.name,
     hourlyRate: serviceTypesTable.hourlyRate,
     nightHourlyRate: serviceTypesTable.nightHourlyRate,
   })
-    .from(serviceTypesTable);
+    .from(serviceTypesTable).where(eq(serviceTypesTable.businessId, businessId));
   for (const item of catalog) {
     await tx.insert(services).values({
       userId, facilityServiceId: item.id, name: item.name,

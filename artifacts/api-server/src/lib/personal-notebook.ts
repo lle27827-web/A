@@ -30,12 +30,12 @@ const personalLock = (userId: string) =>
 const operation = (id?: string, label?: string) => operationIdFromRequest(id, label ?? "sổ cá nhân");
 const withPersonalPartitionWrite = <T>(userId: string, callback: () => Promise<T>) =>
   withPartitionWriteMutex(personalLock(userId), callback);
-async function partitionedPersonalSnapshot(userId: string) {
+async function partitionedPersonalSnapshot(userId: string, businessId?: string) {
   const [servicesRaw, sessionsRaw, settingsRaw, nightSettingsRaw] = await Promise.all([
     readPartitionedTable("personal_services", { userId }),
     readPartitionedTable("personal_sessions", { userId }),
     readPartitionedTable("personal_settings", { userId }),
-    readPartitionedTable("facility_night_settings"),
+    businessId ? readPartitionedTable("facility_night_settings", { businessId }) : Promise.resolve([]),
   ]);
   return {
     services: servicesRaw as unknown as (typeof services.$inferSelect)[],
@@ -133,7 +133,13 @@ export async function deletePersonalService(userId: string, id: number, operatio
     if (!row) throw missing();
   });
 }
-export async function savePersonalSession(userId: string, input: PersonalSessionInput, id?: number, operationId?: string) {
+export async function savePersonalSession(
+  userId: string,
+  input: PersonalSessionInput,
+  id?: number,
+  operationId?: string,
+  businessId?: string,
+) {
   owned(userId);
   retainedDate(input.workDate);
   if (!Number.isInteger(input.minutes) || input.minutes < 1 || input.minutes > 1440 || input.note.length > 2000) {
@@ -142,7 +148,7 @@ export async function savePersonalSession(userId: string, input: PersonalSession
   if (isPartitionedStorageEnabled()) {
     return withPersonalPartitionWrite(userId, async () => {
     if ((input.customerName?.trim().length ?? 0) > 160) throw new MassageError(400, "Tên khách quá dài.");
-    const { services: serviceRows, sessions: sessionRows, settings, nightSettings } = await partitionedPersonalSnapshot(userId);
+    const { services: serviceRows, sessions: sessionRows, settings, nightSettings } = await partitionedPersonalSnapshot(userId, businessId);
     const previous = id ? sessionRows.find((row) => row.id === id && row.userId === userId) : undefined;
     if (id && !previous) throw missing();
     if (!id && input.requestId) {
@@ -150,6 +156,7 @@ export async function savePersonalSession(userId: string, input: PersonalSession
       if (duplicate) return sessionResult(duplicate);
     }
     const useFacilityRates = settings.find((row) => row.userId === userId)?.useFacilityRates ?? false;
+    if (useFacilityRates && !businessId) throw new MassageError(403, "Chọn cơ sở đã được cấp quyền để dùng đơn giá cơ sở.");
     const service = serviceRows.find((row) => row.id === input.serviceId && row.userId === userId);
     if (!service || (service.deletedAt && previous?.serviceId !== service.id)) throw missing();
     const sameService = previous?.serviceId === service.id;
@@ -212,7 +219,10 @@ export async function savePersonalSession(userId: string, input: PersonalSession
     }
     if ((input.customerName?.trim().length ?? 0) > 160) throw new MassageError(400, "Tên khách quá dài.");
     const { useFacilityRates } = await personalSettings(tx, userId);
-    if (useFacilityRates) await refreshFacilityServices(tx, userId);
+    if (useFacilityRates) {
+      if (!businessId) throw new MassageError(403, "Chọn cơ sở đã được cấp quyền để dùng đơn giá cơ sở.");
+      await refreshFacilityServices(tx, userId, businessId);
+    }
     const [previous] = id ? await tx.select().from(sessions)
       .where(and(eq(sessions.id, id), eq(sessions.userId, userId))).for("update") : [];
     if (id && !previous) throw missing();
@@ -221,8 +231,11 @@ export async function savePersonalSession(userId: string, input: PersonalSession
     if (!service || (service.deletedAt && previous?.serviceId !== service.id)) throw missing();
     const sameService = previous?.serviceId === service.id;
     if (!sameService && useFacilityRates && !service.facilityServiceId) throw new MassageError(409, "Hãy chọn dịch vụ đang có của cơ sở.");
-    const [nightConfig] = await tx.select().from(facilityNightSettingsTable)
-      .where(eq(facilityNightSettingsTable.id, 1)).limit(1);
+    const [nightConfig] = businessId ? await tx.select().from(facilityNightSettingsTable)
+      .where(and(
+        eq(facilityNightSettingsTable.id, 1),
+        eq(facilityNightSettingsTable.businessId, businessId),
+      )).limit(1) : [];
     const createdAt = previous?.createdAt ?? new Date();
     const pricing = resolvePersonalShiftPricing({
       now: createdAt, previous, serviceId: service.id, serviceHourlyRate: service.hourlyRate,
@@ -271,11 +284,11 @@ export async function deletePersonalSession(userId: string, id: number, operatio
     if (!row) throw missing();
   });
 }
-export async function getPersonalNotebook(userId: string, month: string, date: string) {
+export async function getPersonalNotebook(userId: string, month: string, date: string, businessId?: string) {
   owned(userId);
   const { start, end } = period(month, date);
   if (isPartitionedStorageEnabled()) {
-  const { services: serviceRows, sessions: sessionRows, settings } = await partitionedPersonalSnapshot(userId);
+  const { services: serviceRows, sessions: sessionRows, settings } = await partitionedPersonalSnapshot(userId, businessId);
     const useFacilityRates = settings.find((row) => row.userId === userId)?.useFacilityRates ?? false;
     const visibleServices = serviceRows.filter((row) => row.userId === userId && row.deletedAt === null &&
       (useFacilityRates ? row.facilityServiceId !== null : row.facilityServiceId === null))
@@ -297,7 +310,7 @@ export async function getPersonalNotebook(userId: string, month: string, date: s
   return db.transaction(async (tx) => {
   await lockPersonal(tx, userId);
   const { useFacilityRates } = await personalSettings(tx, userId);
-  if (useFacilityRates) await refreshFacilityServices(tx, userId);
+  if (useFacilityRates && businessId) await refreshFacilityServices(tx, userId, businessId);
   const serviceRows = await tx.select().from(services).where(and(eq(services.userId, userId), isNull(services.deletedAt),
     useFacilityRates ? isNotNull(services.facilityServiceId) : isNull(services.facilityServiceId))).orderBy(asc(services.name));
   const sessionRows = await tx.select().from(sessions).where(and(eq(sessions.userId, userId),
@@ -311,13 +324,21 @@ export async function getPersonalNotebook(userId: string, month: string, date: s
   });
 }
 
-export async function updatePersonalSettings(userId: string, useFacilityRates: boolean, operationId?: string) {
+export async function updatePersonalSettings(
+  userId: string,
+  useFacilityRates: boolean,
+  operationId?: string,
+  businessId?: string,
+) {
   owned(userId);
+  if (useFacilityRates && !businessId) throw new MassageError(403, "Chọn cơ sở đã được cấp quyền để dùng đơn giá cơ sở.");
   if (isPartitionedStorageEnabled()) {
     return withPersonalPartitionWrite(userId, async () => {
     const [snapshot, facilityRaw] = await Promise.all([
-      partitionedPersonalSnapshot(userId),
-      readPartitionedTable("service_types"),
+      partitionedPersonalSnapshot(userId, businessId),
+      useFacilityRates
+        ? readPartitionedTable("service_types", { businessId: businessId! })
+        : Promise.resolve([]),
     ]);
     const catalog = (facilityRaw as unknown as (typeof import("@workspace/db").serviceTypesTable.$inferSelect)[])
       .map(({ id, name, hourlyRate, nightHourlyRate }) => ({ id, name, hourlyRate, nightHourlyRate }))
@@ -384,7 +405,7 @@ export async function updatePersonalSettings(userId: string, useFacilityRates: b
     await lockPersonal(tx, userId);
     await tx.insert(personalSettingsTable).values({ userId, useFacilityRates })
       .onConflictDoUpdate({ target: personalSettingsTable.userId, set: { useFacilityRates } });
-    if (useFacilityRates) await refreshFacilityServices(tx, userId);
+    if (useFacilityRates) await refreshFacilityServices(tx, userId, businessId!);
     return { useFacilityRates };
   });
 }
