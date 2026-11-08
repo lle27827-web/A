@@ -1261,6 +1261,8 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .grant-email-field > .hint { line-height: 1.4; }
 .appointments-page { display: grid; gap: 16px; width: 100%; max-width: 980px; margin: 0 auto; }
 .appointments-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; padding: 2px 2px 4px; }
+.appointments-heading > .btn.primary { border-color: hsl(0 0% 100%); color: hsl(25 20% 18%); background: hsl(0 0% 100%); }
+.appointments-heading > .btn.primary:hover:not(:disabled) { background: hsl(0 0% 94%); }
 .appointments-title-block { min-width: 0; }
 .appointments-kicker { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 5px; color: hsl(var(--primary)); font-size: 10px; font-weight: 800; letter-spacing: .09em; }
 .appointments-title-block .sub { margin-top: 4px; font-size: 13px; }
