@@ -9,6 +9,7 @@ import { isValidRetentionCronAuthorization } from "./retention-auth";
 import { createAsyncTtlCache } from "./user-identity-cache";
 import { businessesByIds, DEFAULT_BUSINESS_ID, listBusinessesForIdentity, type BusinessRole, type BusinessSummary } from "./business-tenancy";
 import { and } from "drizzle-orm";
+import { personalOnlyBusinessAccess } from "./business-access-policy";
 
 const secretKey = process.env.APP_CLERK_SECRET_KEY?.trim();
 const publishableKey = process.env.APP_CLERK_PUBLISHABLE_KEY?.trim();
@@ -32,6 +33,7 @@ export type OwnerAuthStatus = {
   role: BusinessRole | "platform_admin" | null;
   businesses: BusinessSummary[];
   permissions: FacilityPermissions;
+  businessAccessAvailable?: boolean;
 };
 
 export function ownerAuthIsConfigured(): boolean {
@@ -67,41 +69,68 @@ export async function getOwnerAuthStatus(req: Request): Promise<OwnerAuthStatus>
   });
   const email = identity.verified ? identity.email : null;
   const isPlatformAdmin = Boolean(email && email === ownerEmail);
-  let businesses = email
-    ? await listBusinessesForIdentity(userId, email, isPlatformAdmin)
-    : [];
-  if (email && !isPlatformAdmin) {
-    const legacyGrants = isPartitionedStorageEnabled()
-      ? await readPartitionedTable<typeof managerGrantsTable.$inferSelect>("manager_grants", { email: email.toLowerCase() })
-      : await db.select({ businessId: managerGrantsTable.businessId }).from(managerGrantsTable)
-        .where(eq(managerGrantsTable.email, email.toLowerCase()));
-    const existingIds = new Set(businesses.map((business) => business.id));
-    const grantBusinessIds = legacyGrants
-      .map((grant) => String(grant.businessId ?? ""))
-      .filter((id) => id && !existingIds.has(id));
-    businesses = [...businesses, ...await businessesByIds(grantBusinessIds)];
+  let businesses: BusinessSummary[] = [];
+  let businessAccessAvailable = true;
+  let businessId: string | null = null;
+  let businessName: string | null = null;
+  let role: BusinessRole | "platform_admin" | null = null;
+  let isOwner = false;
+  let permissions = noPermissions();
+
+  if (email) {
+    try {
+      businesses = await listBusinessesForIdentity(userId, email, isPlatformAdmin);
+      if (!isPlatformAdmin) {
+        const legacyGrants = isPartitionedStorageEnabled()
+          ? await readPartitionedTable<typeof managerGrantsTable.$inferSelect>("manager_grants", { email: email.toLowerCase() })
+          : await db.select({ businessId: managerGrantsTable.businessId }).from(managerGrantsTable)
+            .where(eq(managerGrantsTable.email, email.toLowerCase()));
+        const existingIds = new Set(businesses.map((business) => business.id));
+        const grantBusinessIds = legacyGrants
+          .map((grant) => String(grant.businessId ?? ""))
+          .filter((id) => id && !existingIds.has(id));
+        businesses = [...businesses, ...await businessesByIds(grantBusinessIds)];
+      }
+
+      let selectedBusinessId = req.get("x-business-id")?.trim() || null;
+      if (!selectedBusinessId) {
+        selectedBusinessId = isPlatformAdmin
+          ? DEFAULT_BUSINESS_ID
+          : businesses.length === 1 ? businesses[0]!.id : null;
+      }
+      const selected = selectedBusinessId
+        ? businesses.find((business) => business.id === selectedBusinessId) ?? null
+        : null;
+      businessId = selected?.id ?? null;
+      businessName = selected?.name ?? null;
+      role = selected?.role ?? null;
+      isOwner = Boolean(businessId && (isPlatformAdmin || role === "owner"));
+      permissions = isOwner
+        ? ownerPermissions()
+        : businessId
+          ? await permissionsForEmail(email, businessId)
+          : noPermissions();
+    } catch (error) {
+      // Clerk authentication and personal notebooks remain usable during a
+      // business-registry outage. Never infer or grant facility access from
+      // stale data or another database when the authoritative registry fails.
+      const fallback = personalOnlyBusinessAccess(noPermissions());
+      businessAccessAvailable = fallback.businessAccessAvailable;
+      businesses = fallback.businesses;
+      businessId = fallback.businessId;
+      businessName = fallback.businessName;
+      role = fallback.role;
+      isOwner = fallback.isOwner;
+      permissions = fallback.permissions;
+      console.error(
+        "[auth-status] Business access lookup failed; returning personal-only access.",
+        error instanceof Error ? `${error.name}: ${error.message}` : "Unknown error",
+      );
+    }
   }
-  const requestedBusinessId = req.get("x-business-id")?.trim() || null;
-  let selectedBusinessId = requestedBusinessId;
-  if (!selectedBusinessId) {
-    selectedBusinessId = isPlatformAdmin
-      ? DEFAULT_BUSINESS_ID
-      : businesses.length === 1 ? businesses[0]!.id : null;
-  }
-  const selected = selectedBusinessId
-    ? businesses.find((business) => business.id === selectedBusinessId) ?? null
-    : null;
-  const businessId = selected?.id ?? null;
-  const role = selected?.role ?? null;
-  const isOwner = Boolean(businessId && (isPlatformAdmin || role === "owner"));
-  const permissions = isOwner
-    ? ownerPermissions()
-    : email && businessId
-      ? await permissionsForEmail(email, businessId)
-      : noPermissions();
   return {
     authConfigured: true, authenticated: true, isOwner, isPlatformAdmin, userId, email,
-    businessId, businessName: selected?.name ?? null, role, businesses, permissions,
+    businessId, businessName, role, businesses, permissions, businessAccessAvailable,
   };
 }
 

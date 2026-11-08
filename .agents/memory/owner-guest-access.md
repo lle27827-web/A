@@ -27,6 +27,12 @@ Accounts that have not completed role onboarding see the personal, owner, and em
 
 **How to apply:** keep role and business setup in Settings; identify the business from the verified 10-digit join code on the server. Preserve current business data and personal notebooks when changing the account's workspace choice.
 
+If Clerk has verified the user but the business registry or permission store is unavailable, keep the authenticated personal notebook usable while returning no business membership or permissions and clearly marking business access unavailable.
+
+**Why:** A DB4 or grants-store outage should not lock users out of their personal records, while stale or cross-database fallback data could grant access to the wrong business.
+
+**How to apply:** keep identity verification separate from business authorization; on registry failure fail closed for business access, surface a warning, and never infer grants from another store.
+
 On the first authenticated session, offer personal, owner, and employee paths; skipping means personal. An employee may leave only the selected business, revoking that account's grant and membership while retaining login, personal data, all business records, and other memberships. Owners cannot leave before transferring ownership. Rejoining by a valid code restores membership only and never restores manager rights automatically.
 
 **Why:** the user requested first-login role selection, safe single-business departure, retained records, and a permission-free rejoin.

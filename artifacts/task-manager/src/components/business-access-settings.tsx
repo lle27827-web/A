@@ -184,6 +184,11 @@ export function BusinessAccessSettings({
         <h3 id="business-access-title">Vai trò và cơ sở</h3>
         <p>Chưa chọn vai trò thì mặc định sử dụng sổ cá nhân. Quyền cơ sở do máy chủ xác minh.</p>
       </div>
+      {status.businessAccessAvailable === false && (
+        <div className="banner danger" role="status" data-testid="status-business-access-unavailable">
+          Kho doanh nghiệp chưa sẵn sàng. Sổ cá nhân vẫn dùng được; chưa thể mở, tạo hoặc tham gia cơ sở.
+        </div>
+      )}
 
       <div className="business-role-options" role="group" aria-label="Chọn vai trò">
         <button type="button" aria-pressed={role === 'personal'} className={role === 'personal' ? 'selected' : ''}

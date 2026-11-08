@@ -195,6 +195,7 @@ export interface AuthStatus {
   /** @nullable */
   role: AuthStatusRole;
   businesses: BusinessSummary[];
+  businessAccessAvailable?: boolean;
   permissions: FacilityPermissions;
 }
 

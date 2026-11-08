@@ -276,10 +276,13 @@ function AuthenticatedApplication() {
     const decision = decideBusinessRoleOnboarding({
       completed: hasCompletedBusinessRoleOnboarding(userId),
       savedRole: readBusinessRolePreference(userId),
-      hasExistingBusiness: data.isPlatformAdmin || (data.businesses?.length ?? 0) > 0,
-      hasOwnerWorkspace: data.isOwner || data.businesses?.some((business) =>
-        business.role === 'owner' || business.role === 'platform_admin',
-      ) === true,
+      hasExistingBusiness: data.businessAccessAvailable !== false &&
+        (data.isPlatformAdmin || (data.businesses?.length ?? 0) > 0),
+      hasOwnerWorkspace: data.businessAccessAvailable !== false && (
+        data.isOwner || data.businesses?.some((business) =>
+          business.role === 'owner' || business.role === 'platform_admin',
+        ) === true
+      ),
     });
     if (decision.preferredRole && !readBusinessRolePreference(userId)) {
       saveBusinessRolePreference(userId, decision.preferredRole);

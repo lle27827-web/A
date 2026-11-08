@@ -804,6 +804,7 @@ export const GetAuthStatusResponse = zod.object({
   "name": zod.string(),
   "role": zod.enum(['owner', 'employee', 'platform_admin'])
 })),
+  "businessAccessAvailable": zod.boolean().optional(),
   "permissions": zod.object({
   "allEmployees": zod.boolean(),
   "employeeIds": zod.array(zod.number().int().min(1)).max(getAuthStatusResponsePermissionsEmployeeIdsMax),

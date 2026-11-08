@@ -269,6 +269,11 @@ export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus
 
   return (
     <PersonalFrame onSignOut={onSignOut} onOpenSettings={() => setShortcutSettingsOpen(true)} homeHref={homeHref} onTouchStart={startDaySwipe} onTouchEnd={finishDaySwipe} onTouchCancel={() => { swipeStart.current = null; }}>
+      {businessStatus.businessAccessAvailable === false && (
+        <div className="banner danger" role="status" data-testid="status-business-access-unavailable">
+          Kho doanh nghiệp chưa sẵn sàng. Sổ cá nhân vẫn dùng được; chưa thể mở, tạo hoặc tham gia cơ sở.
+        </div>
+      )}
       <section className="p-hero" aria-labelledby="p-title" data-testid="section-personal-hero">
         <div className="month-nav">
           <button type="button" className="icon-btn" onClick={() => goPeriod(shiftMonth(month, -1))} aria-label="Tháng trước" data-testid="button-personal-prev-month"><ChevronLeft size={16} /></button>

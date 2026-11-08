@@ -1136,6 +1136,8 @@ components:
         businesses:
           type: array
           items: { $ref: "#/components/schemas/BusinessSummary" }
+        businessAccessAvailable:
+          type: boolean
         permissions:
           $ref: "#/components/schemas/FacilityPermissions"
       required: [authConfigured, authenticated, isOwner, isPlatformAdmin, userId, email, businessId, businessName, role, businesses, permissions]
