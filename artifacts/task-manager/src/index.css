@@ -528,7 +528,7 @@ a.hit:hover, .emp-row:hover, .card-row:hover { border-color: hsl(var(--primary) 
 }
 .emp-row .grow, .choice-row .grow, .settings-link .grow { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .emp-row.as-row > .initials { grid-column: 1; grid-row: 1 / span 2; }
-.employee-name { grid-column: 2; grid-row: 1; min-width: 0; text-align: left; }
+.employee-name { grid-column: 2; grid-row: 1; min-width: 0; text-align: center; }
 .emp-row.as-row > svg:last-child { grid-column: 3; grid-row: 1 / span 2; justify-self: end; }
 .employee-summary {
   display: grid;
@@ -1261,11 +1261,11 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .appointment-form .dialog-actions { margin-top: 3px; }
 .staff-activity-panel .panel-head { align-items: center; }
 .staff-activity-count { color: hsl(var(--muted-foreground)); font-size: 12px; font-weight: 700; white-space: nowrap; }
-.staff-activity-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
-.staff-activity-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: start; gap: 6px 12px; min-width: 0; padding: 11px 8px; border-bottom: 1px solid hsl(var(--border) / .7); }
-.staff-activity-row:first-child { border-top: 1px solid hsl(var(--border) / .7); }
-.staff-activity-person { display: flex; grid-column: 1; grid-row: 1; align-items: center; gap: 9px; min-width: 0; }
+.staff-activity-list { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+.staff-activity-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: start; gap: 8px 12px; min-width: 0; padding: 12px; border: 2px solid hsl(var(--frame-border)); border-radius: 12px; background: hsl(var(--card)); }
+.staff-activity-person { display: flex; grid-column: 1; grid-row: 1; align-items: center; justify-content: center; gap: 9px; min-width: 0; }
 .staff-activity-person-button {
+  display: flex;
   box-sizing: border-box;
   width: 100%;
   min-height: 44px;
@@ -1274,10 +1274,11 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   color: inherit;
   background: transparent;
   font: inherit;
-  text-align: left;
+  justify-content: center;
+  text-align: center;
   cursor: pointer;
 }
-.staff-activity-person-name { min-width: 0; overflow-wrap: anywhere; font-size: 15px; font-weight: 800; }
+.staff-activity-person-name { min-width: 0; overflow-wrap: anywhere; font-size: 18px; font-weight: 900; text-align: center; }
 .staff-activity-person-button:hover .staff-activity-person-name { color: hsl(var(--primary)); text-decoration: underline; text-underline-offset: 3px; }
 .staff-activity-person-button:focus-visible { border-radius: 6px; outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
 .staff-activity-icon { display: grid; place-items: center; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; color: hsl(var(--muted-foreground)); background: hsl(var(--muted) / .7); }
