@@ -9,6 +9,26 @@ import {
   writeDeviceShortcutLabels,
 } from './keyboard-shortcuts';
 
+function withFakeWindow<T>(callback: (values: Map<string, string>) => T): T {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const values = new Map<string, string>();
+  const fakeWindow = {
+    localStorage: {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value); },
+    },
+    dispatchEvent: () => true,
+  } as unknown as Window;
+
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: fakeWindow });
+  try {
+    return callback(values);
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else Reflect.deleteProperty(globalThis, 'window');
+  }
+}
+
 function keyEvent(overrides: Partial<KeyboardEvent> = {}): Pick<KeyboardEvent, 'key' | 'code' | 'ctrlKey' | 'altKey' | 'shiftKey' | 'metaKey'> {
   return {
     key: 'k',
@@ -44,50 +64,44 @@ test('rejects system, browser, and screen-reader shortcut combinations', () => {
 });
 
 test('stores normalized bindings locally and drops duplicate combinations', () => {
-  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
-  const values = new Map<string, string>();
-  const fakeWindow = {
-    localStorage: {
-      getItem: (key: string) => values.get(key) ?? null,
-      setItem: (key: string, value: string) => { values.set(key, value); },
-    },
-    dispatchEvent: () => true,
-  } as unknown as Window;
+  withFakeWindow(() => {
+    assert.equal(writeDeviceShortcutBindings([
+      { id: 'first', actionId: 'first', combination: 'Shift+Ctrl+1' },
+      { id: 'duplicate', actionId: 'second', combination: 'Ctrl+Shift+1' },
+      { id: 'invalid', actionId: 'third', combination: 'Ctrl+S' },
+    ]), true);
+    assert.deepEqual(readDeviceShortcutBindings(), [
+      { id: 'first', actionId: 'first', combination: 'Ctrl+Shift+1' },
+    ]);
+  });
+});
 
-  Object.defineProperty(globalThis, 'window', { configurable: true, value: fakeWindow });
-  try {
-    assert.equal(writeDeviceShortcutBindings({
-      first: 'Shift+Ctrl+1',
-      duplicate: 'Ctrl+Shift+1',
-      invalid: 'Ctrl+S',
-    }), true);
-    assert.deepEqual(readDeviceShortcutBindings(), { first: 'Ctrl+Shift+1' });
-  } finally {
-    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
-    else Reflect.deleteProperty(globalThis, 'window');
-  }
+test('supports multiple shortcuts for one action and migrates old device bindings', () => {
+  withFakeWindow((values) => {
+    values.set('so-cong:keyboard-shortcuts:v1', JSON.stringify({
+      'employee-attendance-7': 'Alt+1',
+    }));
+    const migrated = readDeviceShortcutBindings();
+    assert.equal(migrated.length, 1);
+    assert.equal(migrated[0].actionId, 'employee-attendance-7');
+    assert.equal(migrated[0].combination, 'Alt+1');
+
+    const multiple = [
+      { id: 'binding-one', actionId: 'employee-attendance-7', combination: 'Alt+1' },
+      { id: 'binding-two', actionId: 'employee-attendance-7', combination: 'Alt+2' },
+      { id: 'binding-three', actionId: 'new-appointment', combination: 'Ctrl+Shift+3' },
+    ];
+    assert.equal(writeDeviceShortcutBindings(multiple), true);
+    assert.deepEqual(readDeviceShortcutBindings(), multiple);
+  });
 });
 
 test('keeps labels only for assigned screen actions on this device', () => {
-  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
-  const values = new Map<string, string>();
-  const fakeWindow = {
-    localStorage: {
-      getItem: (key: string) => values.get(key) ?? null,
-      setItem: (key: string, value: string) => { values.set(key, value); },
-    },
-    dispatchEvent: () => true,
-  } as unknown as Window;
-
-  Object.defineProperty(globalThis, 'window', { configurable: true, value: fakeWindow });
-  try {
+  withFakeWindow(() => {
     writeDeviceShortcutLabels([
       { id: 'ui-a1', label: 'Thêm lịch hẹn', run: () => undefined },
       { id: 'ui-b2', label: 'Xóa nhân viên Mai', run: () => undefined },
-    ], { 'ui-a1': 'Alt+A' });
+    ], [{ id: 'binding-a', actionId: 'ui-a1', combination: 'Alt+A' }]);
     assert.deepEqual(readDeviceShortcutLabels(), { 'ui-a1': 'Thêm lịch hẹn' });
-  } finally {
-    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
-    else Reflect.deleteProperty(globalThis, 'window');
-  }
+  });
 });

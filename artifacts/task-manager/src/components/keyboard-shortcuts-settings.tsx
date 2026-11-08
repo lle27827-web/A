@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
-import { Keyboard, Pencil, Trash2 } from 'lucide-react';
+import { ChevronDown, Keyboard, Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   blockedShortcutReason,
+  createDeviceShortcutBindingId,
   discoverDeviceShortcutActions,
   formatShortcutLabel,
   readDeviceShortcutLabels,
@@ -21,6 +22,7 @@ export function KeyboardShortcutsSettings({ actions }: { actions: KeyboardShortc
   const [actionFilter, setActionFilter] = useState('');
   const [recording, setRecording] = useState(false);
   const [candidate, setCandidate] = useState('');
+  const [editingBindingId, setEditingBindingId] = useState<string | null>(null);
   const [status, setStatus] = useState('');
   const captureRef = useRef<HTMLButtonElement>(null);
   const availableActions = useMemo(() => {
@@ -50,13 +52,13 @@ export function KeyboardShortcutsSettings({ actions }: { actions: KeyboardShortc
       `${action.group ?? ''} ${action.label}`.toLocaleLowerCase('vi').includes(filter),
     );
   }, [actionFilter, availableActions]);
-  const visibleBindings = Object.entries(bindings).map(([actionId, combination]) => ({
-    action: actionById.get(actionId) ?? {
-      id: actionId,
-      label: knownLabels[actionId] ?? 'Chức năng đã lưu',
+  const visibleBindings = bindings.map((binding) => ({
+    binding,
+    action: actionById.get(binding.actionId) ?? {
+      id: binding.actionId,
+      label: knownLabels[binding.actionId] ?? 'Chức năng đã lưu',
       run: () => undefined,
     },
-    combination,
   }));
   const selectedAction = actionById.get(selectedActionId);
 
@@ -76,17 +78,27 @@ export function KeyboardShortcutsSettings({ actions }: { actions: KeyboardShortc
   }, [recording]);
 
   function saveCombination(combination: string) {
-    const conflict = Object.entries(bindings).find(([actionId, assigned]) =>
-      assigned === combination && actionId !== selectedActionId,
+    if (!selectedActionId) {
+      setStatus('Trước tiên, hãy chọn chức năng cần gán.');
+      return;
+    }
+    const conflict = bindings.find((binding) =>
+      binding.combination === combination && binding.id !== editingBindingId,
     );
     if (conflict) {
-      const conflictLabel = actionById.get(conflict[0])?.label ?? knownLabels[conflict[0]];
+      const conflictLabel = actionById.get(conflict.actionId)?.label ?? knownLabels[conflict.actionId];
       setStatus(conflictLabel
         ? `Tổ hợp này đã gán cho ${conflictLabel}.`
         : 'Tổ hợp này đã được gán cho chức năng khác trên thiết bị.');
       return;
     }
-    const next = { ...bindings, [selectedActionId]: combination };
+    const next = editingBindingId
+      ? bindings.map((binding) => binding.id === editingBindingId ? { ...binding, combination } : binding)
+      : [...bindings, {
+          id: createDeviceShortcutBindingId(),
+          actionId: selectedActionId,
+          combination,
+        }];
     if (!writeDeviceShortcutBindings(next)) {
       setStatus('Không lưu được trên thiết bị này. Hãy kiểm tra quyền lưu của trình duyệt.');
       return;
@@ -96,7 +108,8 @@ export function KeyboardShortcutsSettings({ actions }: { actions: KeyboardShortc
     setKnownLabels(readDeviceShortcutLabels());
     setRecording(false);
     setCandidate('');
-    setStatus(`Đã gán ${formatShortcutLabel(combination)} cho ${selectedAction?.label ?? 'chức năng'}.`);
+    setEditingBindingId(null);
+    setStatus(`${editingBindingId ? 'Đã đổi' : 'Đã thêm'} ${formatShortcutLabel(combination)} cho ${selectedAction?.label ?? 'chức năng'}.`);
   }
 
   function handleCaptureKey(event: ReactKeyboardEvent<HTMLButtonElement>) {
@@ -141,9 +154,8 @@ export function KeyboardShortcutsSettings({ actions }: { actions: KeyboardShortc
     setStatus(`Đã nhận ${formatShortcutLabel(combination)}. Nhấn Enter để xác nhận.`);
   }
 
-  function removeCombination(actionId: string) {
-    const next = { ...bindings };
-    delete next[actionId];
+  function removeCombination(bindingId: string) {
+    const next = bindings.filter((binding) => binding.id !== bindingId);
     if (!writeDeviceShortcutBindings(next)) {
       setStatus('Không xóa được phím tắt trên thiết bị này.');
       return;
@@ -155,11 +167,17 @@ export function KeyboardShortcutsSettings({ actions }: { actions: KeyboardShortc
   }
 
   return (
-    <section className="keyboard-shortcuts-settings" aria-labelledby="keyboard-shortcuts-title">
-      <h3 id="keyboard-shortcuts-title"><Keyboard size={16} aria-hidden="true" />Phím tắt</h3>
-      <p className="sub keyboard-shortcuts-help">
-        Danh sách gồm chức năng chung, nút trên màn hình hiện tại và thao tác theo từng nhân viên. Phím tắt lưu riêng trên thiết bị; dùng Alt + chữ/số hoặc Ctrl + Shift + số. Phím Lưu chỉ gửi biểu mẫu được hỗ trợ, không xác nhận xóa hay nạp thẻ. Tổ hợp bị trình duyệt hoặc trợ năng giữ lại sẽ không được nhận.
-      </p>
+    <details className="keyboard-shortcuts-settings" aria-labelledby="keyboard-shortcuts-title" data-testid="section-keyboard-shortcuts">
+      <summary className="keyboard-shortcuts-summary">
+        <span className="keyboard-shortcuts-summary-title" id="keyboard-shortcuts-title">
+          <Keyboard size={16} aria-hidden="true" />Phím tắt
+        </span>
+        <ChevronDown size={18} className="keyboard-shortcuts-chevron" aria-hidden="true" />
+      </summary>
+      <div className="keyboard-shortcuts-content">
+        <p className="sub keyboard-shortcuts-help">
+          Gán nhiều phím cho các chức năng trong ứng dụng; có thể dùng nhiều phím khác nhau cho cùng một chức năng. Phím tắt lưu riêng trên thiết bị. Dùng Alt + chữ/số hoặc Ctrl + Shift + số. Phím Lưu chỉ gửi biểu mẫu được hỗ trợ, không xác nhận xóa hay nạp thẻ. Một số tổ hợp được trình duyệt hoặc trợ năng giữ lại sẽ không thể gán.
+        </p>
       {availableActions.length ? (
         <>
           <label className="field" htmlFor="shortcut-action-filter">Tìm chức năng
@@ -172,7 +190,7 @@ export function KeyboardShortcutsSettings({ actions }: { actions: KeyboardShortc
             <>
               <label className="field" htmlFor="shortcut-action">Chức năng
                 <select id="shortcut-action" value={selectedActionId}
-                  onChange={(event) => { setSelectedActionId(event.target.value); setStatus(''); }}
+                  onChange={(event) => { setSelectedActionId(event.target.value); setEditingBindingId(null); setStatus(''); }}
                   disabled={recording} data-testid="select-keyboard-shortcut-action">
                   {[...new Set(filteredActions.map((action) => action.group ?? 'Chức năng khác'))].map((group) => (
                     <optgroup key={group} label={group}>
@@ -183,9 +201,14 @@ export function KeyboardShortcutsSettings({ actions }: { actions: KeyboardShortc
                 </select>
               </label>
               <button type="button" className="btn" disabled={!selectedAction}
-                onClick={() => { setCandidate(''); setStatus('Nhấn tổ hợp phím, sau đó nhấn Enter để lưu.'); setRecording(true); }}
+                onClick={() => {
+                  setEditingBindingId(null);
+                  setCandidate('');
+                  setStatus('Nhấn tổ hợp phím, sau đó nhấn Enter để lưu.');
+                  setRecording(true);
+                }}
                 data-testid="button-record-keyboard-shortcut">
-                {bindings[selectedActionId] ? 'Đổi phím' : 'Gán phím'}
+                <Plus size={15} aria-hidden="true" />Thêm phím tắt
               </button>
               {recording && (
                 <div className="shortcut-recording" role="group" aria-label="Ghi tổ hợp phím">
@@ -203,24 +226,31 @@ export function KeyboardShortcutsSettings({ actions }: { actions: KeyboardShortc
           ) : <p className="muted" role="status">Không tìm thấy chức năng phù hợp với nội dung tìm kiếm.</p>}
           {status && <p className="keyboard-shortcut-status" role="status">{status}</p>}
           <ul className="keyboard-shortcut-list" aria-label="Phím tắt đã gán">
-            {visibleBindings.map(({ action, combination }) => (
-              <li className="keyboard-shortcut-row" key={action.id}>
+            {visibleBindings.map(({ binding, action }) => (
+              <li className="keyboard-shortcut-row" key={binding.id}>
                 <span className="grow">
                   <strong>{action.label}</strong>
-                  <span className="muted mono">{formatShortcutLabel(combination)}</span>
+                  <span className="muted mono">{formatShortcutLabel(binding.combination)}</span>
                 </span>
                 <button type="button" className="icon-btn" aria-label={`Sửa phím tắt cho ${action.label}`}
-                  onClick={() => { setSelectedActionId(action.id); setCandidate(''); setStatus('Nhấn tổ hợp phím, sau đó nhấn Enter để lưu.'); setRecording(true); }}
-                  data-testid={`button-edit-shortcut-${action.id}`}><Pencil size={15} aria-hidden="true" /></button>
+                  onClick={() => {
+                    setSelectedActionId(binding.actionId);
+                    setEditingBindingId(binding.id);
+                    setCandidate('');
+                    setStatus('Nhấn tổ hợp phím mới, sau đó nhấn Enter để lưu.');
+                    setRecording(true);
+                  }}
+                  data-testid={`button-edit-shortcut-${binding.id}`}><Pencil size={15} aria-hidden="true" /></button>
                 <button type="button" className="icon-btn danger" aria-label={`Xóa phím tắt cho ${action.label}`}
-                  onClick={() => removeCombination(action.id)}
-                  data-testid={`button-remove-shortcut-${action.id}`}><Trash2 size={15} aria-hidden="true" /></button>
+                  onClick={() => removeCombination(binding.id)}
+                  data-testid={`button-remove-shortcut-${binding.id}`}><Trash2 size={15} aria-hidden="true" /></button>
               </li>
             ))}
           </ul>
           {!visibleBindings.length && <p className="muted">Chưa gán phím tắt.</p>}
         </>
       ) : <p className="muted">Không có chức năng được cấp quyền để gán phím.</p>}
-    </section>
+      </div>
+    </details>
   );
 }

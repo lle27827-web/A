@@ -10,13 +10,21 @@ export type KeyboardShortcutAction = {
   allowWhenEditing?: boolean;
 };
 
-export type KeyboardShortcutBindings = Record<string, string>;
+export type KeyboardShortcutBinding = {
+  id: string;
+  actionId: string;
+  combination: string;
+};
+export type KeyboardShortcutBindings = KeyboardShortcutBinding[];
 
-const STORAGE_KEY = 'so-cong:keyboard-shortcuts:v1';
+const STORAGE_KEY = 'so-cong:keyboard-shortcuts:v2';
+const LEGACY_STORAGE_KEY = 'so-cong:keyboard-shortcuts:v1';
 const LABELS_STORAGE_KEY = 'so-cong:keyboard-shortcut-labels:v1';
 const CHANGE_EVENT = 'so-cong:keyboard-shortcuts-change';
 const MODIFIERS = ['Ctrl', 'Alt', 'Shift', 'Meta'] as const;
 type Modifier = (typeof MODIFIERS)[number];
+const ACTION_ID_PATTERN = /^[a-z0-9-]{1,80}$/i;
+const BINDING_ID_PATTERN = /^[a-z0-9-]{1,120}$/i;
 
 function parseCombination(combination: string): { modifiers: Modifier[]; key: string } | null {
   const parts = combination.split('+');
@@ -82,41 +90,72 @@ export function formatShortcutLabel(combination: string): string {
   return combination.replaceAll('Meta', '⌘');
 }
 
-function isBindings(value: unknown): value is KeyboardShortcutBindings {
+function isLegacyBindings(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeBindings(value: unknown): KeyboardShortcutBindings {
+  const source: KeyboardShortcutBindings = [];
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (!item || typeof item !== 'object') continue;
+      const record = item as Record<string, unknown>;
+      if (typeof record.id !== 'string' || typeof record.actionId !== 'string' ||
+        typeof record.combination !== 'string') continue;
+      source.push({
+        id: record.id,
+        actionId: record.actionId,
+        combination: record.combination,
+      });
+    }
+  } else if (isLegacyBindings(value)) {
+    for (const [actionId, combination] of Object.entries(value)) {
+      if (typeof combination !== 'string') continue;
+      source.push({
+        id: `legacy-${shortcutActionHash(actionId)}`,
+        actionId,
+        combination,
+      });
+    }
+  }
+
+  const result: KeyboardShortcutBindings = [];
+  const usedIds = new Set<string>();
+  const usedCombinations = new Set<string>();
+  for (const binding of source) {
+    if (!BINDING_ID_PATTERN.test(binding.id) || !ACTION_ID_PATTERN.test(binding.actionId) ||
+      usedIds.has(binding.id) || typeof binding.combination !== 'string') continue;
+    const normalized = normalizeCombination(binding.combination);
+    if (!normalized || !isSupportedShortcut(normalized) || usedCombinations.has(normalized)) continue;
+    result.push({ ...binding, combination: normalized });
+    usedIds.add(binding.id);
+    usedCombinations.add(normalized);
+  }
+  return result;
+}
+
+export function createDeviceShortcutBindingId(): string {
+  const randomPart = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return `binding-${randomPart}`;
 }
 
 export function readDeviceShortcutBindings(): KeyboardShortcutBindings {
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (!stored) return {};
-    const parsed: unknown = JSON.parse(stored);
-    if (!isBindings(parsed)) return {};
-    const result: KeyboardShortcutBindings = {};
-    const used = new Set<string>();
-    for (const [actionId, combination] of Object.entries(parsed)) {
-      if (!/^[a-z0-9-]{1,80}$/i.test(actionId) || typeof combination !== 'string') continue;
-      const normalized = normalizeCombination(combination);
-      if (!normalized || !isSupportedShortcut(normalized) || used.has(normalized)) continue;
-      result[actionId] = normalized;
-      used.add(normalized);
-    }
-    return result;
+    if (stored) return normalizeBindings(JSON.parse(stored));
+    const legacyStored = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (!legacyStored) return [];
+    return normalizeBindings(JSON.parse(legacyStored));
   } catch {
-    return {};
+    return [];
   }
 }
 
 export function writeDeviceShortcutBindings(bindings: KeyboardShortcutBindings): boolean {
   try {
-    const safe: KeyboardShortcutBindings = {};
-    const used = new Set<string>();
-    for (const [actionId, combination] of Object.entries(bindings)) {
-      const normalized = normalizeCombination(combination);
-      if (!/^[a-z0-9-]{1,80}$/i.test(actionId) || !normalized || !isSupportedShortcut(normalized) || used.has(normalized)) continue;
-      safe[actionId] = normalized;
-      used.add(normalized);
-    }
+    const safe = normalizeBindings(bindings);
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
     window.dispatchEvent(new Event(CHANGE_EVENT));
     return true;
@@ -130,7 +169,7 @@ export function readDeviceShortcutLabels(): Record<string, string> {
     const stored = window.localStorage.getItem(LABELS_STORAGE_KEY);
     if (!stored) return {};
     const parsed: unknown = JSON.parse(stored);
-    if (!isBindings(parsed)) return {};
+    if (!isLegacyBindings(parsed)) return {};
     return Object.fromEntries(
       Object.entries(parsed).filter(([id, label]) =>
         /^[a-z0-9-]{1,80}$/i.test(id) && typeof label === 'string' && label.trim().length > 0,
@@ -146,10 +185,9 @@ export function writeDeviceShortcutLabels(actions: KeyboardShortcutAction[], bin
     const actionLabels = new Map(actions.map((action) => [action.id, action.label]));
     const existingLabels = readDeviceShortcutLabels();
     const labels: Record<string, string> = {};
-    for (const [id, combination] of Object.entries(bindings)) {
-      if (!combination) continue;
-      const label = actionLabels.get(id) ?? existingLabels[id];
-      if (label) labels[id] = label;
+    for (const { actionId } of bindings) {
+      const label = actionLabels.get(actionId) ?? existingLabels[actionId];
+      if (label) labels[actionId] = label;
     }
     window.localStorage.setItem(LABELS_STORAGE_KEY, JSON.stringify(labels));
   } catch {
@@ -247,14 +285,14 @@ export function useDeviceKeyboardShortcuts(actions: KeyboardShortcutAction[]): v
       if (event.defaultPrevented || event.isComposing || event.repeat) return;
       const combination = shortcutFromKeyboardEvent(event);
       if (!combination || !isSupportedShortcut(combination)) return;
-      const entry = Object.entries(bindingsRef.current).find(([, assigned]) => assigned === combination);
-      if (!entry) return;
-      const action = actionRef.current.find((candidate) => candidate.id === entry[0]) ??
-        (entry[0].startsWith('ui-') ? {
-          id: entry[0],
-          label: readDeviceShortcutLabels()[entry[0]] ?? 'Nút trên màn hình',
-          targetId: entry[0],
-          run: () => shortcutTarget(entry[0])?.click(),
+      const binding = bindingsRef.current.find((assigned) => assigned.combination === combination);
+      if (!binding) return;
+      const action = actionRef.current.find((candidate) => candidate.id === binding.actionId) ??
+        (binding.actionId.startsWith('ui-') ? {
+          id: binding.actionId,
+          label: readDeviceShortcutLabels()[binding.actionId] ?? 'Nút trên màn hình',
+          targetId: binding.actionId,
+          run: () => shortcutTarget(binding.actionId)?.click(),
         } : undefined);
       if (!action) return;
       if (document.activeElement?.closest('[data-keyboard-shortcut-capture], .keyboard-shortcuts-settings')) return;

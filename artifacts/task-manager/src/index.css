@@ -576,18 +576,52 @@ a.hit:hover, .emp-row:hover, .card-row:hover { border-color: hsl(var(--primary) 
 .inline-service-choice-list .service-choice-row { width: 100%; min-width: 0; }
 .service-choice-row[aria-pressed="true"] { border-color: hsl(var(--primary)); background: hsl(var(--primary) / .1); }
 .settings-link { margin: 12px 0 4px; font-size: 13px; }
-.keyboard-shortcuts-settings { display: grid; gap: 10px; margin: 18px 0 8px; min-width: 0; }
-.keyboard-shortcuts-settings h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; font-weight: 800; }
-.keyboard-shortcuts-help { margin: 0; font-size: 12px; }
+.keyboard-shortcuts-settings {
+  display: block;
+  margin: 18px 0 8px;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid hsl(var(--frame-border));
+  border-radius: 12px;
+  background: hsl(var(--gray-panel));
+  color: hsl(0 0% 100%);
+}
+.keyboard-shortcuts-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 48px;
+  padding: 12px 14px;
+  background: hsl(var(--gray-row));
+  color: hsl(0 0% 100%);
+  font-size: 15px;
+  font-weight: 800;
+  list-style: none;
+  cursor: pointer;
+}
+.keyboard-shortcuts-summary::-webkit-details-marker { display: none; }
+.keyboard-shortcuts-summary-title { display: inline-flex; align-items: center; gap: 8px; }
+.keyboard-shortcuts-chevron { flex: 0 0 auto; transition: transform .15s ease; }
+.keyboard-shortcuts-settings[open] .keyboard-shortcuts-chevron { transform: rotate(180deg); }
+.keyboard-shortcuts-settings[open] .keyboard-shortcuts-summary { border-bottom: 1px solid hsl(0 0% 100% / .25); }
+.keyboard-shortcuts-content { display: grid; gap: 10px; min-width: 0; padding: 12px; color: hsl(0 0% 100%); }
+.keyboard-shortcuts-help { margin: 0; color: hsl(0 0% 96%) !important; font-size: 12px; }
+.keyboard-shortcuts-content .muted { color: hsl(0 0% 92%) !important; }
 .keyboard-shortcuts-settings .field { min-width: 0; }
+.keyboard-shortcuts-settings label.field { color: hsl(0 0% 100%); }
+.keyboard-shortcuts-settings select,
+.keyboard-shortcuts-settings option { color: hsl(0 0% 100%); background-color: hsl(var(--gray-row)); }
 .keyboard-shortcuts-settings .btn { justify-self: start; }
 .shortcut-recording { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
 .shortcut-capture { flex: 1 1 180px; min-width: 0; min-height: 42px; max-width: 100%; padding: 9px 12px; border: 1px solid hsl(var(--border)); border-radius: 10px; background: hsl(var(--card)); color: hsl(var(--foreground)); font: inherit; font-weight: 800; text-align: center; }
 .shortcut-capture:focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
-.keyboard-shortcut-status { margin: 0; color: hsl(var(--muted-foreground)); font-size: 13px; overflow-wrap: anywhere; }
-.keyboard-shortcut-list { display: grid; gap: 2px; margin: 2px 0 0; padding: 0; list-style: none; }
-.keyboard-shortcut-row { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 7px 0; }
+.keyboard-shortcut-status { margin: 0; color: hsl(0 0% 100%); font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+.keyboard-shortcut-list { display: grid; gap: 6px; margin: 2px 0 0; padding: 0; list-style: none; }
+.keyboard-shortcut-row { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px; border: 1px solid hsl(0 0% 100% / .25); border-radius: 9px; background: hsl(var(--gray-row)); color: hsl(0 0% 100%); }
 .keyboard-shortcut-row .grow { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.keyboard-shortcut-row .grow strong,
+.keyboard-shortcut-row .grow .muted { color: hsl(0 0% 100%); }
 .keyboard-shortcut-row .icon-btn { flex: 0 0 auto; }
 .service-pick { border: 0; padding: 0; margin: 0; min-width: 0; }
 .service-pick legend { padding: 0; margin-bottom: 6px; }
@@ -2168,6 +2202,10 @@ body:has(.modal-backdrop) .screen-nav {
 }
 .main .panel.page[aria-labelledby="emp-title"] .emp-list .emp-row,
 .main .panel.page[aria-labelledby="emp-title"] .emp-list .emp-row * {
+  color: hsl(0 0% 100%) !important;
+}
+.main .panel.page[data-testid="section-services"] .emp-list .emp-row strong,
+.main .night-service-settings .night-service-rate-item .grow > strong {
   color: hsl(0 0% 100%) !important;
 }
 .detail > .salary-hero,
