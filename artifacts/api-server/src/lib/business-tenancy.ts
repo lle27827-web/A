@@ -19,7 +19,6 @@ function makeJoinCode(): string {
 
 export async function listBusinessesForIdentity(
   userId: string,
-  email: string,
   isPlatformAdmin: boolean,
 ): Promise<BusinessSummary[]> {
   return withBusinessRegistryClient(async (client) => {
@@ -39,33 +38,14 @@ export async function listBusinessesForIdentity(
        FROM public.businesses b
        JOIN public.business_memberships m ON m.business_id = b.id
        WHERE b.active = true AND m.active = true
-         AND (m.user_id = $1 OR lower(m.email) = lower($2))
+          AND m.user_id = $1
        ORDER BY b.name, b.id`,
-      [userId, email],
+      [userId],
     );
     return result.rows.map((row) => ({
       id: String(row.id),
       name: String(row.name),
       role: row.role === "owner" ? "owner" : "employee",
-    }));
-  });
-}
-
-export async function businessesByIds(ids: readonly string[]): Promise<BusinessSummary[]> {
-  const uniqueIds = [...new Set(ids)].filter((id) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id),
-  );
-  if (!uniqueIds.length) return [];
-  return withBusinessRegistryClient(async (client) => {
-    const result = await client.query(
-      `SELECT id::text, name FROM public.businesses
-       WHERE active = true AND id = ANY($1::uuid[]) ORDER BY name, id`,
-      [uniqueIds],
-    );
-    return result.rows.map((row) => ({
-      id: String(row.id),
-      name: String(row.name),
-      role: "employee" as const,
     }));
   });
 }
@@ -85,17 +65,24 @@ export async function createBusinessForOwner(input: {
   await withBusinessRegistryClient(async (client) => {
     await client.query("BEGIN");
     try {
+      const email = input.email.trim().toLowerCase();
+      await client.query(
+        `INSERT INTO public.business_users (user_id, email)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id) DO UPDATE SET email = EXCLUDED.email, updated_at = now()`,
+        [input.userId, email],
+      );
       await client.query(
         `INSERT INTO public.businesses
           (id, name, owner_user_id, owner_email, join_code_hash, active)
          VALUES ($1::uuid, $2, $3, $4, $5, true)`,
-        [id, name, input.userId, input.email.trim().toLowerCase(), hashJoinCode(joinCode)],
+        [id, name, input.userId, email, hashJoinCode(joinCode)],
       );
       await client.query(
         `INSERT INTO public.business_memberships
           (id, business_id, user_id, email, role, active)
          VALUES ($1::uuid, $2::uuid, $3, $4, 'owner', true)`,
-        [membershipId, id, input.userId, input.email.trim().toLowerCase()],
+        [membershipId, id, input.userId, email],
       );
       await client.query("COMMIT");
     } catch (error) {
@@ -127,6 +114,13 @@ export async function joinBusinessByCode(input: {
         await client.query("ROLLBACK");
         return null;
       }
+      const email = input.email.trim().toLowerCase();
+      await client.query(
+        `INSERT INTO public.business_users (user_id, email)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id) DO UPDATE SET email = EXCLUDED.email, updated_at = now()`,
+        [input.userId, email],
+      );
       // Rejoining restores only the employee membership; this path never creates manager grants.
       await client.query(
         `INSERT INTO public.business_memberships
@@ -135,7 +129,7 @@ export async function joinBusinessByCode(input: {
          ON CONFLICT (business_id, user_id) DO UPDATE
            SET email = EXCLUDED.email, active = true
          WHERE business_memberships.role = 'employee'`,
-        [randomUUID(), String(row.id), input.userId, input.email.trim().toLowerCase()],
+        [randomUUID(), String(row.id), input.userId, email],
       );
       await client.query("COMMIT");
       return { id: String(row.id), name: String(row.name), role: "employee" };

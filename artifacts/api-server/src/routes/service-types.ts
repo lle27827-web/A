@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Response } from "express";
+import { Router, type IRouter } from "express";
 import { and, asc, eq } from "drizzle-orm";
 import {
   cardUsageHistoryTable,
@@ -16,11 +16,10 @@ import {
 import { idempotentTransaction, MassageError, serviceTypeHasHistory } from "../lib/massage";
 import { massageHandler, parseInput } from "./massage-errors";
 import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "../lib/partitioned-mutations";
-import type { OwnerAuthStatus } from "../lib/owner-auth";
+import { currentFacilityBusinessId } from "../lib/owner-auth";
 
 const router: IRouter = Router();
-const currentBusinessId = (res: Response) =>
-  (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? "00000000-0000-4000-8000-000000000001";
+const currentBusinessId = currentFacilityBusinessId;
 const output = (row: typeof serviceTypesTable.$inferSelect) => ({ ...row, createdAt: row.createdAt.toISOString() });
 router.get("/service-types", massageHandler(async (_req, res) => {
   res.set("Cache-Control", "private, no-store");

@@ -32,13 +32,13 @@ import {
 } from "../lib/employee-availability";
 import { retentionCutoffDate } from "../lib/retention-window";
 import { massageHandler, parseInput } from "./massage-errors";
+import { currentFacilityBusinessId } from "../lib/owner-auth";
 import { commitPartitionedMutations, operationIdFromRequest, upsertMutation, deleteMutation } from "../lib/partitioned-mutations";
 import type { OwnerAuthStatus } from "../lib/owner-auth";
 import { isMaskedCustomerPhone, maskCustomerPhone } from "../lib/customer-phone";
 
 const router: IRouter = Router();
-const businessIdFor = (res: Response) =>
-  (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? "00000000-0000-4000-8000-000000000001";
+const businessIdFor = currentFacilityBusinessId;
 
 function scheduledAtTime(value: Date | string): number {
   return value instanceof Date ? value.getTime() : new Date(value).getTime();

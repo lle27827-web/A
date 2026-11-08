@@ -15,7 +15,7 @@ import { massageHandler, parseInput } from "./massage-errors";
 import { canDeleteEmployee, canViewEmployee, noPermissions } from "../lib/facility-permissions";
 import { MassageError } from "../lib/massage";
 import { operationIdFromRequest } from "../lib/partitioned-mutations";
-import type { OwnerAuthStatus } from "../lib/owner-auth";
+import { currentFacilityBusinessId, type OwnerAuthStatus } from "../lib/owner-auth";
 
 const router: IRouter = Router();
 
@@ -24,7 +24,7 @@ router.get("/members", massageHandler(async (req, res) => {
   res.set("Cache-Control", "private, no-store");
   const auth = res.locals.facilityAuth as OwnerAuthStatus | undefined;
   const permissions = auth?.permissions ?? noPermissions();
-  res.json(ListMembersResponse.parse((await listMembersForPeriod(month, undefined, auth?.businessId ?? undefined))
+  res.json(ListMembersResponse.parse((await listMembersForPeriod(month, undefined, currentFacilityBusinessId(res)))
     .filter((member) => canViewEmployee(permissions, member.id))));
 }));
 
@@ -37,7 +37,7 @@ router.post("/members", massageHandler(async (req, res): Promise<void> => {
   res.status(201).json(CreateMemberResponse.parse(await createEmployee(
     parsed.data,
     operationIdFromRequest(req.get("Idempotency-Key"), "thêm nhân viên"),
-    (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? undefined,
+    currentFacilityBusinessId(res),
   )));
 }));
 
@@ -48,7 +48,7 @@ router.patch("/members/:id", massageHandler(async (req, res) => {
     id,
     input,
     operationIdFromRequest(req.get("Idempotency-Key"), "sửa nhân viên"),
-    (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? undefined,
+    currentFacilityBusinessId(res),
   )));
 }));
 
@@ -65,7 +65,7 @@ router.delete("/members/:id", massageHandler(async (req, res): Promise<void> => 
   await deleteMember(
     params.data.id,
     operationIdFromRequest(req.get("Idempotency-Key"), "xóa nhân viên"),
-    facilityAuth?.businessId ?? undefined,
+    currentFacilityBusinessId(res),
   );
   res.sendStatus(204);
 }));

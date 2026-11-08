@@ -1,13 +1,13 @@
 import { createClerkClient } from "@clerk/backend";
 import { getAuth } from "@clerk/express";
 import type { NextFunction, Request, Response } from "express";
-import { DatabaseFailoverInProgressError, db, attendanceTable, isPartitionedStorageEnabled, managerGrantsTable, readPartitionedGrantByEmail, readPartitionedRowById, readPartitionedTable, serviceSessionsTable } from "@workspace/db";
+import { DatabaseFailoverInProgressError, db, attendanceTable, isPartitionedStorageEnabled, readPartitionedRowById, serviceSessionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { FacilityPermissions } from "@workspace/api-zod";
 import { canDeleteEmployee, canEditEmployee, canViewEmployee, noPermissions, ownerPermissions, permissionsForEmail } from "./facility-permissions";
 import { isValidRetentionCronAuthorization } from "./retention-auth";
 import { createAsyncTtlCache } from "./user-identity-cache";
-import { businessesByIds, DEFAULT_BUSINESS_ID, listBusinessesForIdentity, type BusinessRole, type BusinessSummary } from "./business-tenancy";
+import { DEFAULT_BUSINESS_ID, listBusinessesForIdentity, type BusinessRole, type BusinessSummary } from "./business-tenancy";
 import { and } from "drizzle-orm";
 import { personalOnlyBusinessAccess } from "./business-access-policy";
 
@@ -79,19 +79,7 @@ export async function getOwnerAuthStatus(req: Request): Promise<OwnerAuthStatus>
 
   if (email) {
     try {
-      businesses = await listBusinessesForIdentity(userId, email, isPlatformAdmin);
-      if (!isPlatformAdmin) {
-        const legacyGrants = isPartitionedStorageEnabled()
-          ? await readPartitionedTable<typeof managerGrantsTable.$inferSelect>("manager_grants", { email: email.toLowerCase() })
-          : await db.select({ businessId: managerGrantsTable.businessId }).from(managerGrantsTable)
-            .where(eq(managerGrantsTable.email, email.toLowerCase()));
-        const existingIds = new Set(businesses.map((business) => business.id));
-        const grantBusinessIds = legacyGrants
-          .map((grant) => String(grant.businessId ?? ""))
-          .filter((id) => id && !existingIds.has(id));
-        businesses = [...businesses, ...await businessesByIds(grantBusinessIds)];
-      }
-
+      businesses = await listBusinessesForIdentity(userId, isPlatformAdmin);
       let selectedBusinessId = req.get("x-business-id")?.trim() || null;
       if (!selectedBusinessId) {
         selectedBusinessId = isPlatformAdmin
@@ -194,6 +182,15 @@ export async function requireOwner(
 
 export function isPublicEmployeeRead(req: Request): boolean {
   return (req.method === "GET" || req.method === "HEAD") && ["/healthz", "/auth/status"].includes(req.path);
+}
+
+/** Facility data routes must use the server-authenticated tenant, never a client-supplied or default tenant ID. */
+export function currentFacilityBusinessId(res: Response): string {
+  const status = res.locals.facilityAuth as OwnerAuthStatus | undefined;
+  if (!status?.authenticated || !status.businessId) {
+    throw new Error("Verified business scope is required for facility data.");
+  }
+  return status.businessId;
 }
 
 const positiveId = (value: unknown): number => typeof value === "number" && Number.isSafeInteger(value) && value > 0

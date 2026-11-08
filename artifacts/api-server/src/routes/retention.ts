@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Response } from "express";
+import { Router, type IRouter } from "express";
 import {
   DeleteRetentionDateRangeBody,
   DeleteRetentionDateRangeResponse,
@@ -15,12 +15,10 @@ import {
   listFacilityHistoryYears,
   previewFacilityHistoryDateRange,
 } from "../lib/retention";
-import { requireOwner } from "../lib/owner-auth";
-import type { OwnerAuthStatus } from "../lib/owner-auth";
+import { currentFacilityBusinessId, requireOwner } from "../lib/owner-auth";
 
 const router: IRouter = Router();
-const businessIdFor = (res: Response) =>
-  (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? "00000000-0000-4000-8000-000000000001";
+const businessIdFor = currentFacilityBusinessId;
 
 router.get("/retention/years", requireOwner, async (_req, res, next): Promise<void> => {
   try {

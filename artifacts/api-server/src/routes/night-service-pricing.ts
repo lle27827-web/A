@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Response } from "express";
+import { Router, type IRouter } from "express";
 import { and, asc, eq } from "drizzle-orm";
 import {
   db,
@@ -15,14 +15,12 @@ import {
 } from "@workspace/api-zod";
 import { MassageError, idempotentTransaction } from "../lib/massage";
 import { commitPartitionedMutations, operationIdFromRequest, upsertMutation } from "../lib/partitioned-mutations";
-import { requireOwner } from "../lib/owner-auth";
+import { currentFacilityBusinessId, requireOwner } from "../lib/owner-auth";
 import { massageHandler, parseInput } from "./massage-errors";
 import { parseClockMinutes } from "../lib/night-service-pricing";
-import type { OwnerAuthStatus } from "../lib/owner-auth";
 
 const router: IRouter = Router();
-const businessIdFor = (res: Response) =>
-  (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? "00000000-0000-4000-8000-000000000001";
+const businessIdFor = currentFacilityBusinessId;
 
 async function readConfig(businessId: string) {
   if (isPartitionedStorageEnabled()) {

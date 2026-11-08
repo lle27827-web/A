@@ -4,7 +4,7 @@ import { db, isPartitionedStorageEnabled, managerGrantsTable, membersTable, read
 import { DeleteAccessGrantParams, ListAccessGrantsResponse, SaveAccessGrantBody, SaveAccessGrantResponse } from "@workspace/api-zod";
 import { idempotentTransaction, MassageError } from "../lib/massage";
 import { canManageGrant, hasOnlyActiveGrantEmployees, permissionsWithinDelegationScope, safePermissions } from "../lib/facility-permissions";
-import type { OwnerAuthStatus } from "../lib/owner-auth";
+import { currentFacilityBusinessId, type OwnerAuthStatus } from "../lib/owner-auth";
 import { massageHandler, parseInput } from "./massage-errors";
 import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "../lib/partitioned-mutations";
 
@@ -21,7 +21,7 @@ function currentStatus(res: Response): OwnerAuthStatus {
 
 router.get("/access-grants", massageHandler(async (_req, res) => {
   const status = currentStatus(res);
-  const businessId = status.businessId ?? "00000000-0000-4000-8000-000000000001";
+  const businessId = currentFacilityBusinessId(res);
   const rows = isPartitionedStorageEnabled()
     ? (status.isOwner
       ? await readPartitionedTable("manager_grants", { businessId }) as unknown as (typeof managerGrantsTable.$inferSelect)[]
@@ -34,7 +34,7 @@ router.get("/access-grants", massageHandler(async (_req, res) => {
 }));
 router.post("/access-grants", massageHandler(async (req, res) => {
   const status = currentStatus(res);
-  const businessId = status.businessId ?? "00000000-0000-4000-8000-000000000001";
+  const businessId = currentFacilityBusinessId(res);
   const input = parseInput(SaveAccessGrantBody, { ...req.body, email: typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : req.body?.email });
   if (input.email === ownerEmail()) throw new MassageError(400, "Chủ sở hữu luôn có đầy đủ quyền, không cần cấp quyền.");
   if (!status.isOwner && (!status.email || input.email === status.email)) {
@@ -112,7 +112,7 @@ router.post("/access-grants", massageHandler(async (req, res) => {
 }));
 router.delete("/access-grants/:id", massageHandler(async (req, res) => {
   const status = currentStatus(res);
-  const businessId = status.businessId ?? "00000000-0000-4000-8000-000000000001";
+  const businessId = currentFacilityBusinessId(res);
   const { id } = parseInput(DeleteAccessGrantParams, req.params);
   const existing = isPartitionedStorageEnabled()
     ? await readPartitionedRowById<typeof managerGrantsTable.$inferSelect>("manager_grants", id, businessId)

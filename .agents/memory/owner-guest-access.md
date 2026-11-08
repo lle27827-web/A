@@ -27,6 +27,12 @@ Accounts that have not completed role onboarding see the personal, owner, and em
 
 **How to apply:** keep role and business setup in Settings; identify the business from the verified 10-digit join code on the server. Preserve current business data and personal notebooks when changing the account's workspace choice.
 
+Resolve a business membership only by the authenticated Clerk user ID; email is profile data and must not grant membership by itself. Each facility request must use the active business ID verified by server-side membership checks, with no route fallback to a default tenant. Keep user-to-business membership many-to-many so one account can join multiple businesses.
+
+**Why:** the user requires the business code to establish tenant scope before access is granted, and existing users may belong to more than one business.
+
+**How to apply:** use the 10-digit code to create a membership linking the user identity to the selected business; keep owner-granted facility permissions separate. Derive all facility query scopes from verified server auth, not request bodies, email matches, or default IDs.
+
 If Clerk has verified the user but the business registry or permission store is unavailable, keep the authenticated personal notebook usable while returning no business membership or permissions and clearly marking business access unavailable.
 
 **Why:** A DB4 or grants-store outage should not lock users out of their personal records, while stale or cross-database fallback data could grant access to the wrong business.

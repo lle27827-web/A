@@ -23,7 +23,7 @@ import {
   type AttendanceStatus,
 } from "@workspace/db";
 import { noPermissions } from "../lib/facility-permissions";
-import type { OwnerAuthStatus } from "../lib/owner-auth";
+import { currentFacilityBusinessId, type OwnerAuthStatus } from "../lib/owner-auth";
 import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "../lib/partitioned-mutations";
 import { escapeLikePattern, idempotentTransaction, MassageError } from "../lib/massage";
 import { massageHandler } from "./massage-errors";
@@ -59,7 +59,7 @@ router.get("/attendance", async (req, res): Promise<void> => {
 
   const filters = [];
   const auth = res.locals.facilityAuth as OwnerAuthStatus | undefined;
-  const businessId = auth?.businessId ?? "00000000-0000-4000-8000-000000000001";
+  const businessId = currentFacilityBusinessId(res);
   const permissions = auth?.permissions ?? noPermissions();
   filters.push(eq(attendanceTable.businessId, businessId));
   const cutoff = retentionCutoffDate();
@@ -127,7 +127,7 @@ router.get("/attendance/summary", async (req, res): Promise<void> => {
     return;
   }
   const auth = res.locals.facilityAuth as OwnerAuthStatus | undefined;
-  const businessId = auth?.businessId ?? "00000000-0000-4000-8000-000000000001";
+  const businessId = currentFacilityBusinessId(res);
   const permissions = auth?.permissions ?? noPermissions();
   let row: { total: number; present: number; late: number; absent: number; leave: number; checkedIn: number; checkedOut: number };
   if (isPartitionedStorageEnabled()) {
@@ -185,7 +185,7 @@ router.post("/attendance", massageHandler(async (req, res): Promise<void> => {
   const operationId = operationIdFromRequest(req.get("Idempotency-Key"), "chấm công");
 
   const values: AttendanceWrite = {
-    businessId: (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? "00000000-0000-4000-8000-000000000001",
+    businessId: currentFacilityBusinessId(res),
     memberId: parsed.data.memberId,
     employeeName: parsed.data.employeeName,
     workDate: parsed.data.workDate,
@@ -270,12 +270,12 @@ router.patch("/attendance/:id", massageHandler(async (req, res): Promise<void> =
         ? await readPartitionedRowById<typeof membersTable.$inferSelect>(
           "members",
           memberId,
-          (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? undefined,
+          currentFacilityBusinessId(res),
         )
         : (await db.select().from(membersTable)
           .where(and(
             eq(membersTable.id, memberId),
-            eq(membersTable.businessId, (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? ""),
+            eq(membersTable.businessId, currentFacilityBusinessId(res)),
             isNull(membersTable.deletedAt),
           )).limit(1))[0];
       if (!isActiveAttendanceMember(member)) {
@@ -292,7 +292,7 @@ router.patch("/attendance/:id", massageHandler(async (req, res): Promise<void> =
   if ("note" in parsed.data) update.note = parsed.data.note ?? null;
 
   if (isPartitionedStorageEnabled()) {
-    const businessId = (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? "";
+    const businessId = currentFacilityBusinessId(res);
     const old = await readPartitionedRowById<typeof attendanceTable.$inferSelect>("attendance", params.data.id, businessId);
     if (!old) {
       res.status(404).json({ error: "Không tìm thấy bản ghi chấm công." });
@@ -325,7 +325,7 @@ router.patch("/attendance/:id", massageHandler(async (req, res): Promise<void> =
     async (tx) => (await tx.update(attendanceTable)
       .set(update)
       .where(and(eq(attendanceTable.id, params.data.id),
-        eq(attendanceTable.businessId, (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? ""),
+        eq(attendanceTable.businessId, currentFacilityBusinessId(res)),
         gte(attendanceTable.workDate, retentionCutoffDate()),
         res.locals.facilityAuth?.permissions.allEmployees ? undefined
           : inArray(attendanceTable.memberId, res.locals.facilityAuth?.permissions.employeeIds ?? [])))
@@ -349,7 +349,7 @@ router.delete("/attendance/:id", massageHandler(async (req, res): Promise<void> 
   const operationId = operationIdFromRequest(req.get("Idempotency-Key"), "xóa chấm công");
 
   if (isPartitionedStorageEnabled()) {
-    const businessId = (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? "";
+    const businessId = currentFacilityBusinessId(res);
     const old = await readPartitionedRowById<typeof attendanceTable.$inferSelect>("attendance", params.data.id, businessId);
     if (!old || (!res.locals.facilityAuth?.permissions.allEmployees &&
         !res.locals.facilityAuth?.permissions.employeeIds.includes(old.memberId ?? 0))) {
@@ -374,7 +374,7 @@ router.delete("/attendance/:id", massageHandler(async (req, res): Promise<void> 
     { id: params.data.id },
     async (tx) => (await tx.delete(attendanceTable)
       .where(and(eq(attendanceTable.id, params.data.id),
-        eq(attendanceTable.businessId, (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? ""),
+        eq(attendanceTable.businessId, currentFacilityBusinessId(res)),
         res.locals.facilityAuth?.permissions.allEmployees ? undefined
           : inArray(attendanceTable.memberId, res.locals.facilityAuth?.permissions.employeeIds ?? [])))
       .returning({ id: attendanceTable.id }))[0],

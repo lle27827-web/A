@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Response } from "express";
+import { Router, type IRouter } from "express";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import {
   db,
@@ -18,13 +18,12 @@ import {
 } from "@workspace/api-zod";
 import { MassageError, idempotentTransaction } from "../lib/massage";
 import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "../lib/partitioned-mutations";
-import { requireOwner, type OwnerAuthStatus } from "../lib/owner-auth";
+import { currentFacilityBusinessId, requireOwner } from "../lib/owner-auth";
 import { massageHandler, parseInput } from "./massage-errors";
 
 const router: IRouter = Router();
 const DEFAULT_BUSINESS_ID = "00000000-0000-4000-8000-000000000001";
-const businessIdFor = (res: Response) =>
-  (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? DEFAULT_BUSINESS_ID;
+const businessIdFor = currentFacilityBusinessId;
 const bonusRateKey = (memberId: number, serviceTypeId: number, businessId: string) =>
   businessId === DEFAULT_BUSINESS_ID
     ? employeeBonusRateKey(memberId, serviceTypeId)

@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Response } from "express";
+import { Router, type IRouter } from "express";
 import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import {
   cardUsageHistoryTable,
@@ -20,12 +20,11 @@ import { massageHandler, parseInput } from "./massage-errors";
 import { getFacilityRevenue, getNightServiceEnabled, getPaymentDetails } from "../lib/facility-revenue";
 import { listMembersForPeriod } from "../lib/employee-history";
 import { noPermissions } from "../lib/facility-permissions";
-import type { OwnerAuthStatus } from "../lib/owner-auth";
+import { currentFacilityBusinessId, type OwnerAuthStatus } from "../lib/owner-auth";
 import { operationIdFromRequest } from "../lib/partitioned-mutations";
 
 const router: IRouter = Router();
-const businessIdFor = (res: Response) =>
-  (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? "00000000-0000-4000-8000-000000000001";
+const businessIdFor = currentFacilityBusinessId;
 const mutationScope = (auth: OwnerAuthStatus | undefined) => auth?.isOwner ? undefined : auth?.permissions ?? noPermissions();
 router.get("/service-sessions", massageHandler(async (req, res) => {
   const businessId = businessIdFor(res);
@@ -127,33 +126,30 @@ router.get("/service-sessions", massageHandler(async (req, res) => {
     .sort((a, b) => b.workDate.localeCompare(a.workDate) || b.id - a.id)));
 }));
 router.post("/service-sessions", massageHandler(async (req, res) => {
-  const auth = res.locals.facilityAuth as OwnerAuthStatus | undefined;
   res.status(201).json(CreateServiceSessionResponse.parse(await saveSession(
     parseInput(CreateServiceSessionBody, req.body),
     undefined,
     mutationScope(res.locals.facilityAuth),
     operationIdFromRequest(req.get("Idempotency-Key"), "chấm công"),
-    auth?.businessId ?? "00000000-0000-4000-8000-000000000001",
+    businessIdFor(res),
   )));
 }));
 router.patch("/service-sessions/:id", massageHandler(async (req, res) => {
-  const auth = res.locals.facilityAuth as OwnerAuthStatus | undefined;
   const { id } = parseInput(UpdateServiceSessionParams, req.params);
   res.json(UpdateServiceSessionResponse.parse(await saveSession(
     parseInput(UpdateServiceSessionBody, req.body),
     id,
     mutationScope(res.locals.facilityAuth),
     operationIdFromRequest(req.get("Idempotency-Key"), "sửa ca"),
-    auth?.businessId ?? "00000000-0000-4000-8000-000000000001",
+    businessIdFor(res),
   )));
 }));
 router.delete("/service-sessions/:id", massageHandler(async (req, res) => {
-  const auth = res.locals.facilityAuth as OwnerAuthStatus | undefined;
   await deleteSession(
     parseInput(DeleteServiceSessionParams, req.params).id,
     mutationScope(res.locals.facilityAuth),
     operationIdFromRequest(req.get("Idempotency-Key"), "xóa ca"),
-    auth?.businessId ?? "00000000-0000-4000-8000-000000000001",
+    businessIdFor(res),
   );
   res.sendStatus(204);
 }));
@@ -166,7 +162,7 @@ router.get("/payment-details", massageHandler(async (req, res) => {
   const { month, date, method } = parseInput(GetPaymentDetailsQueryParams, req.query);
   res.set("Cache-Control", "private, no-store");
   const auth = res.locals.facilityAuth as OwnerAuthStatus | undefined;
-  const result = await getPaymentDetails(month, date, method, auth?.businessId ?? "00000000-0000-4000-8000-000000000001");
+  const result = await getPaymentDetails(month, date, method, businessIdFor(res));
   const permissions = auth?.permissions ?? noPermissions();
   const transactions = result.transactions.map((transaction) => {
     const { memberId, ...visible } = transaction;

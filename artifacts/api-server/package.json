@@ -22,6 +22,7 @@
     "test:access-grants": "esbuild src/routes/access-grants.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-access-grants-tests.cjs && node --test /tmp/so-cong-access-grants-tests.cjs",
     "test:business-leave": "esbuild src/lib/business-leave-policy.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-business-leave-tests.cjs && node --test /tmp/so-cong-business-leave-tests.cjs",
     "test:business-join-input": "esbuild src/lib/business-join-input.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-business-join-input-tests.cjs && node --test /tmp/so-cong-business-join-input-tests.cjs",
+    "test:business-scope": "esbuild src/lib/business-scope.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-business-scope-tests.cjs && node --test /tmp/so-cong-business-scope-tests.cjs",
     "test:business-access-policy": "esbuild src/lib/business-access-policy.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-business-access-policy-tests.cjs && node --test /tmp/so-cong-business-access-policy-tests.cjs",
     "test:reentrant-locks": "esbuild ../../lib/db/src/reentrant-advisory-lock.test.ts ../../lib/db/src/async-mutex.test.ts --bundle --platform=node --format=cjs --outdir=/tmp/so-cong-reentrant-lock-tests && node --test /tmp/so-cong-reentrant-lock-tests/*.js",
     "test:service-types": "esbuild src/routes/service-types.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-service-type-tests.cjs && node --test /tmp/so-cong-service-type-tests.cjs",

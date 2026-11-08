@@ -15,15 +15,14 @@ import {
   AddTreatmentCardHoursBody, AddTreatmentCardHoursParams, AddTreatmentCardHoursResponse,
 } from "@workspace/api-zod";
 import { addCardHours, cardResponse, createCard, deleteCard, updateCard } from "../lib/massage";
-import type { OwnerAuthStatus } from "../lib/owner-auth";
+import { currentFacilityBusinessId, type OwnerAuthStatus } from "../lib/owner-auth";
 import { operationIdFromRequest } from "../lib/partitioned-mutations";
 import { massageHandler, parseInput } from "./massage-errors";
 import { isMaskedCustomerPhone, maskCustomerPhone, matchesTreatmentCardSearch } from "../lib/customer-phone";
 import { MassageError } from "../lib/massage";
 
 const router: IRouter = Router();
-const businessIdFor = (res: Response) =>
-  (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? "00000000-0000-4000-8000-000000000001";
+const businessIdFor = currentFacilityBusinessId;
 function ownerView(res: Response): boolean {
   return (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.isOwner === true;
 }

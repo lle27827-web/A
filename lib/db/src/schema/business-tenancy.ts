@@ -17,10 +17,19 @@ export const businessesTable = pgTable("businesses", {
   index("businesses_owner_user_idx").on(table.ownerUserId),
 ]);
 
+export const businessUsersTable = pgTable("business_users", {
+  userId: text("user_id").primaryKey(),
+  email: text("email").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("business_users_email_idx").on(table.email),
+]);
+
 export const businessMembershipsTable = pgTable("business_memberships", {
   id: uuid("id").primaryKey(),
-  businessId: uuid("business_id").notNull(),
-  userId: text("user_id").notNull(),
+  businessId: uuid("business_id").notNull().references(() => businessesTable.id, { onDelete: "restrict" }),
+  userId: text("user_id").notNull().references(() => businessUsersTable.userId, { onDelete: "restrict" }),
   email: text("email").notNull(),
   role: text("role").$type<"owner" | "employee">().notNull(),
   active: boolean("active").notNull().default(true),
