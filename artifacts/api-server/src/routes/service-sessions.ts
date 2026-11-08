@@ -24,11 +24,15 @@ import type { OwnerAuthStatus } from "../lib/owner-auth";
 import { operationIdFromRequest } from "../lib/partitioned-mutations";
 
 const router: IRouter = Router();
+const businessIdFor = (res: Response) =>
+  (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? "00000000-0000-4000-8000-000000000001";
 const mutationScope = (auth: OwnerAuthStatus | undefined) => auth?.isOwner ? undefined : auth?.permissions ?? noPermissions();
 router.get("/service-sessions", massageHandler(async (req, res) => {
+  const businessId = businessIdFor(res);
   const q = parseInput(ListServiceSessionsQueryParams, req.query);
   const filters = [];
-  const archivedFilters = [];
+  const archivedFilters = [eq(cardUsageHistoryTable.businessId, businessId)];
+  filters.push(eq(serviceSessionsTable.businessId, businessId));
   const permissions = (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.permissions ?? noPermissions();
   if (!q.cardId && !permissions.allEmployees) filters.push(inArray(serviceSessionsTable.memberId, permissions.employeeIds));
   if (q.memberId) filters.push(eq(serviceSessionsTable.memberId, q.memberId));
@@ -52,8 +56,8 @@ router.get("/service-sessions", massageHandler(async (req, res) => {
   if (!q.cardId && !q.date && !q.month) filters.push(gte(serviceSessionsTable.workDate, retentionCutoffDate()));
   if (isPartitionedStorageEnabled()) {
     const [partitionSessions, partitionHistory] = await Promise.all([
-      readPartitionedTable("service_sessions"),
-      q.cardId ? readPartitionedTable("card_usage_history") : Promise.resolve([]),
+      readPartitionedTable("service_sessions", { businessId }),
+      q.cardId ? readPartitionedTable("card_usage_history", { businessId }) : Promise.resolve([]),
     ]);
     const allSessions = partitionSessions as unknown as (typeof serviceSessionsTable.$inferSelect)[];
     const allArchived = partitionHistory as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
@@ -123,40 +127,46 @@ router.get("/service-sessions", massageHandler(async (req, res) => {
     .sort((a, b) => b.workDate.localeCompare(a.workDate) || b.id - a.id)));
 }));
 router.post("/service-sessions", massageHandler(async (req, res) => {
+  const auth = res.locals.facilityAuth as OwnerAuthStatus | undefined;
   res.status(201).json(CreateServiceSessionResponse.parse(await saveSession(
     parseInput(CreateServiceSessionBody, req.body),
     undefined,
     mutationScope(res.locals.facilityAuth),
     operationIdFromRequest(req.get("Idempotency-Key"), "chấm công"),
+    auth?.businessId ?? "00000000-0000-4000-8000-000000000001",
   )));
 }));
 router.patch("/service-sessions/:id", massageHandler(async (req, res) => {
+  const auth = res.locals.facilityAuth as OwnerAuthStatus | undefined;
   const { id } = parseInput(UpdateServiceSessionParams, req.params);
   res.json(UpdateServiceSessionResponse.parse(await saveSession(
     parseInput(UpdateServiceSessionBody, req.body),
     id,
     mutationScope(res.locals.facilityAuth),
     operationIdFromRequest(req.get("Idempotency-Key"), "sửa ca"),
+    auth?.businessId ?? "00000000-0000-4000-8000-000000000001",
   )));
 }));
 router.delete("/service-sessions/:id", massageHandler(async (req, res) => {
+  const auth = res.locals.facilityAuth as OwnerAuthStatus | undefined;
   await deleteSession(
     parseInput(DeleteServiceSessionParams, req.params).id,
     mutationScope(res.locals.facilityAuth),
     operationIdFromRequest(req.get("Idempotency-Key"), "xóa ca"),
+    auth?.businessId ?? "00000000-0000-4000-8000-000000000001",
   );
   res.sendStatus(204);
 }));
 router.get("/massage-summary", massageHandler(async (req, res) => {
   const { month, date } = parseInput(GetMassageSummaryQueryParams, req.query);
   res.set("Cache-Control", "private, no-store");
-  res.json(GetMassageSummaryResponse.parse(await getFacilityRevenue(month, date)));
+  res.json(GetMassageSummaryResponse.parse(await getFacilityRevenue(month, date, businessIdFor(res))));
 }));
 router.get("/payment-details", massageHandler(async (req, res) => {
   const { month, date, method } = parseInput(GetPaymentDetailsQueryParams, req.query);
   res.set("Cache-Control", "private, no-store");
-  const result = await getPaymentDetails(month, date, method);
   const auth = res.locals.facilityAuth as OwnerAuthStatus | undefined;
+  const result = await getPaymentDetails(month, date, method, auth?.businessId ?? "00000000-0000-4000-8000-000000000001");
   const permissions = auth?.permissions ?? noPermissions();
   const transactions = result.transactions.map((transaction) => {
     const { memberId, ...visible } = transaction;
@@ -175,13 +185,14 @@ router.get("/payment-details", massageHandler(async (req, res) => {
   res.json(GetPaymentDetailsResponse.parse({ ...result, transactions }));
 }));
 router.get("/member-payroll", massageHandler(async (req, res) => {
+  const businessId = businessIdFor(res);
   const { memberId, month } = parseInput(GetMemberPayrollQueryParams, req.query);
   const { start, end } = retainedMonthBounds(month);
-  const [member] = await listMembersForPeriod(month, memberId);
+  const [member] = await listMembersForPeriod(month, memberId, businessId);
   if (!member) throw new MassageError(404, "Không tìm thấy nhân viên.");
-  const nightServiceEnabled = await getNightServiceEnabled();
+  const nightServiceEnabled = await getNightServiceEnabled(businessId);
   if (isPartitionedStorageEnabled()) {
-    const sessions = await readPartitionedTable("service_sessions") as unknown as (typeof serviceSessionsTable.$inferSelect)[];
+    const sessions = await readPartitionedTable("service_sessions", { businessId }) as unknown as (typeof serviceSessionsTable.$inferSelect)[];
     const relevant = sessions.filter((session) =>
       session.memberId === memberId && session.workDate >= start && session.workDate < end,
     );
@@ -197,7 +208,7 @@ router.get("/member-payroll", massageHandler(async (req, res) => {
   const [row] = await db.select({
     minutes: sql<number>`coalesce(sum(${serviceSessionsTable.minutes}), 0)`,
     salary: sql<number>`coalesce(sum(${serviceSessionsTable.earnings}), 0)`,
-  }).from(serviceSessionsTable).where(and(eq(serviceSessionsTable.memberId, memberId),
+  }).from(serviceSessionsTable).where(and(eq(serviceSessionsTable.businessId, businessId), eq(serviceSessionsTable.memberId, memberId),
     gte(serviceSessionsTable.workDate, start), lt(serviceSessionsTable.workDate, end)));
   res.json(GetMemberPayrollResponse.parse({
     month, member,

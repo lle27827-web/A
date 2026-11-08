@@ -9,6 +9,7 @@ export type AttendanceStatus = (typeof attendanceStatuses)[number];
 
 export const attendanceTable = pgTable("attendance", {
   id: serial("id").primaryKey(),
+  businessId: text("business_id").notNull().default("00000000-0000-4000-8000-000000000001"),
   memberId: integer("member_id").references(() => membersTable.id, { onDelete: "set null" }),
   employeeName: varchar("employee_name", { length: 120 }).notNull(),
   workDate: date("work_date", { mode: "string" }).notNull(),

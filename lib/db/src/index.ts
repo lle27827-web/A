@@ -7,6 +7,7 @@ export {
   requestOwnerForcedDatabaseFailover,
   refreshDatabaseBackend,
   DatabaseFailoverInProgressError,
+  withBusinessRegistryClient,
 } from "./runtime-failover-chain";
 export {
   hasReachedDatabaseCapacity,

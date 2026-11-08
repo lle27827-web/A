@@ -22,8 +22,10 @@ const router: IRouter = Router();
 router.get("/members", massageHandler(async (req, res) => {
   const { month } = parseInput(ListMembersQueryParams, req.query);
   res.set("Cache-Control", "private, no-store");
-  const permissions = (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.permissions ?? noPermissions();
-  res.json(ListMembersResponse.parse((await listMembersForPeriod(month)).filter((member) => canViewEmployee(permissions, member.id))));
+  const auth = res.locals.facilityAuth as OwnerAuthStatus | undefined;
+  const permissions = auth?.permissions ?? noPermissions();
+  res.json(ListMembersResponse.parse((await listMembersForPeriod(month, undefined, auth?.businessId ?? undefined))
+    .filter((member) => canViewEmployee(permissions, member.id))));
 }));
 
 router.post("/members", massageHandler(async (req, res): Promise<void> => {
@@ -35,6 +37,7 @@ router.post("/members", massageHandler(async (req, res): Promise<void> => {
   res.status(201).json(CreateMemberResponse.parse(await createEmployee(
     parsed.data,
     operationIdFromRequest(req.get("Idempotency-Key"), "thêm nhân viên"),
+    (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? undefined,
   )));
 }));
 
@@ -45,6 +48,7 @@ router.patch("/members/:id", massageHandler(async (req, res) => {
     id,
     input,
     operationIdFromRequest(req.get("Idempotency-Key"), "sửa nhân viên"),
+    (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? undefined,
   )));
 }));
 
@@ -58,7 +62,11 @@ router.delete("/members/:id", massageHandler(async (req, res): Promise<void> => 
   if (!facilityAuth?.isOwner && !canDeleteEmployee(facilityAuth?.permissions ?? noPermissions(), params.data.id)) {
     throw new MassageError(403, "Bạn chưa được cấp quyền xóa nhân viên này.");
   }
-  await deleteMember(params.data.id, operationIdFromRequest(req.get("Idempotency-Key"), "xóa nhân viên"));
+  await deleteMember(
+    params.data.id,
+    operationIdFromRequest(req.get("Idempotency-Key"), "xóa nhân viên"),
+    facilityAuth?.businessId ?? undefined,
+  );
   res.sendStatus(204);
 }));
 

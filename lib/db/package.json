@@ -21,6 +21,7 @@
     "migrate:card-usage-lock": "node ./scripts/apply-card-usage-lock.mjs",
     "migrate:personal-notebook": "node ./scripts/apply-personal-notebook.mjs",
     "migrate:personal-sync": "node ./scripts/apply-personal-sync.mjs",
+    "migrate:business-tenancy": "node ./scripts/apply-business-tenancy.mjs",
     "migrate:facility-permissions": "node ./scripts/apply-facility-permissions.mjs",
     "migrate:appointments": "node ./scripts/apply-appointments.mjs",
     "migrate:employee-availability": "node ./scripts/apply-employee-availability.mjs",

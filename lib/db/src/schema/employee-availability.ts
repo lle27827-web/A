@@ -2,6 +2,7 @@ import { date, index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-c
 
 export const employeeAvailabilityTable = pgTable("employee_availability", {
   memberId: integer("member_id").primaryKey(),
+  businessId: text("business_id").notNull().default("00000000-0000-4000-8000-000000000001"),
   employeeName: text("employee_name").notNull(),
   statusDate: date("status_date", { mode: "string" }).notNull(),
   state: text("state").$type<"off">().notNull().default("off"),

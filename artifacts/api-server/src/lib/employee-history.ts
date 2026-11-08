@@ -15,13 +15,21 @@ function memberResponse(member: typeof membersTable.$inferSelect) {
 
 type MemberSnapshot = Omit<MemberRecord, "createdAt" | "deletedAt"> & { createdAt: string; deletedAt: string | null };
 
-export async function listMembersForPeriod(month?: string, memberId?: number): Promise<MemberSnapshot[]> {
+export async function listMembersForPeriod(
+  month?: string,
+  memberId?: number,
+  businessId = "00000000-0000-4000-8000-000000000001",
+): Promise<MemberSnapshot[]> {
   if (isPartitionedStorageEnabled()) {
-    return listMembersAcrossPartitions(month, memberId);
+    return listMembersAcrossPartitions(month, memberId, businessId);
   }
   if (!month) {
     const rows = await db.select().from(membersTable)
-      .where(and(isNull(membersTable.deletedAt), memberId ? eq(membersTable.id, memberId) : undefined))
+      .where(and(
+        eq(membersTable.businessId, businessId),
+        isNull(membersTable.deletedAt),
+        memberId ? eq(membersTable.id, memberId) : undefined,
+      ))
       .orderBy(asc(membersTable.name));
     return rows.map(memberResponse);
   }
@@ -30,11 +38,13 @@ export async function listMembersForPeriod(month?: string, memberId?: number): P
   const endInstant = new Date(`${end}T00:00:00+07:00`);
   return db.transaction(async (tx) => {
     const rows = await tx.select().from(membersTable).where(and(
+      eq(membersTable.businessId, businessId),
       memberId ? eq(membersTable.id, memberId) : undefined,
       or(
         and(lt(membersTable.createdAt, endInstant), or(isNull(membersTable.deletedAt), gt(membersTable.deletedAt, startInstant))),
         sql`exists (select 1 from ${serviceSessionsTable}
           where ${serviceSessionsTable}."member_id" = ${membersTable}."id"
+            and ${serviceSessionsTable}."business_id" = ${businessId}
             and ${serviceSessionsTable}."work_date" >= ${start} and ${serviceSessionsTable}."work_date" < ${end}
             and (${serviceSessionsTable}."card_id" is null or exists (
               select 1 from ${treatmentCardsTable}
@@ -45,9 +55,11 @@ export async function listMembersForPeriod(month?: string, memberId?: number): P
     if (!rows.length) return [];
     const ids = rows.map((member) => member.id);
     const versions = await tx.select().from(memberVersionsTable).where(and(
+      eq(memberVersionsTable.businessId, businessId),
       inArray(memberVersionsTable.memberId, ids), lt(memberVersionsTable.recordedAt, endInstant),
     )).orderBy(desc(memberVersionsTable.recordedAt), desc(memberVersionsTable.id));
     const sessions = await tx.select().from(serviceSessionsTable).where(and(
+      eq(serviceSessionsTable.businessId, businessId),
       inArray(serviceSessionsTable.memberId, ids), gte(serviceSessionsTable.workDate, start), lt(serviceSessionsTable.workDate, end),
       sql`(${serviceSessionsTable.cardId} is null or exists (
         select 1 from ${treatmentCardsTable} where ${treatmentCardsTable}."id" = ${serviceSessionsTable}."card_id"
@@ -70,12 +82,16 @@ export async function listMembersForPeriod(month?: string, memberId?: number): P
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 
-async function listMembersAcrossPartitions(month?: string, memberId?: number): Promise<MemberSnapshot[]> {
+async function listMembersAcrossPartitions(
+  month?: string,
+  memberId?: number,
+  businessId = "00000000-0000-4000-8000-000000000001",
+): Promise<MemberSnapshot[]> {
   const [members, versions, sessions, cards] = await Promise.all([
-    readPartitionedTable("members"),
-    readPartitionedTable("member_versions"),
-    month ? readPartitionedTable("service_sessions") : Promise.resolve([]),
-    month ? readPartitionedTable("treatment_cards") : Promise.resolve([]),
+    readPartitionedTable("members", { businessId }),
+    readPartitionedTable("member_versions", { businessId }),
+    month ? readPartitionedTable("service_sessions", { businessId }) : Promise.resolve([]),
+    month ? readPartitionedTable("treatment_cards", { businessId }) : Promise.resolve([]),
   ]);
   const memberRows = members as unknown as (typeof membersTable.$inferSelect)[];
   const versionRows = versions as unknown as (typeof memberVersionsTable.$inferSelect)[];
@@ -133,7 +149,11 @@ async function listMembersAcrossPartitions(month?: string, memberId?: number): P
     .sort((a, b) => a.name.localeCompare(b.name, "vi"));
 }
 
-export async function createEmployee(input: MemberInput, operationId?: string) {
+export async function createEmployee(
+  input: MemberInput,
+  operationId?: string,
+  businessId = "00000000-0000-4000-8000-000000000001",
+) {
   const name = input.name.trim();
   if (!name) throw new MassageError(400, "Cần nhập tên nhân viên.");
   if (isPartitionedStorageEnabled()) {
@@ -143,39 +163,44 @@ export async function createEmployee(input: MemberInput, operationId?: string) {
       operationId,
       lockName: "members",
       action: "member.create",
-      request: { ...input, name },
+      request: { ...input, name, businessId },
       expectedEventCount: 2,
       idAllocations: { members: 1, member_versions: 1 },
       build: (reserved) => {
         const id = reserved.allocatedIds.members?.[0];
         const versionId = reserved.allocatedIds.member_versions?.[0];
         if (!id || !versionId) throw new MassageError(503, "Không cấp được mã nhân viên.");
-        const member = { ...input, name, id, createdAt: now, deletedAt: null };
+        const member = { ...input, name, businessId, id, createdAt: now, deletedAt: null };
         return [
           upsertMutation("members", id, member),
           upsertMutation("member_versions", versionId, {
-            id: versionId, memberId: id, name, hourlyRate: input.hourlyRate ?? 0,
+            id: versionId, businessId, memberId: id, name, hourlyRate: input.hourlyRate ?? 0,
             isBaseline: false, recordedAt: now,
           }),
         ];
       },
     });
     const id = operation.allocatedIds.members?.[0];
-    const [member] = (await readPartitionedTable("members") as unknown as (typeof membersTable.$inferSelect)[])
+    const [member] = (await readPartitionedTable("members", { businessId }) as unknown as (typeof membersTable.$inferSelect)[])
       .filter((row) => row.id === id);
     if (!member) throw new MassageError(503, "Không tải lại được nhân viên sau khi lưu.");
     return memberResponse(member);
   }
-  return idempotentTransaction(operationId, "thêm nhân viên", "member.create", { ...input, name }, async (tx) => {
-    const [member] = await tx.insert(membersTable).values({ ...input, name }).returning();
+  return idempotentTransaction(operationId, "thêm nhân viên", "member.create", { ...input, name, businessId }, async (tx) => {
+    const [member] = await tx.insert(membersTable).values({ ...input, name, businessId }).returning();
     await tx.insert(memberVersionsTable).values({
-      memberId: member.id, name: member.name, hourlyRate: member.hourlyRate, recordedAt: member.createdAt,
+      businessId, memberId: member.id, name: member.name, hourlyRate: member.hourlyRate, recordedAt: member.createdAt,
     });
     return memberResponse(member);
   });
 }
 
-export async function updateEmployee(id: number, input: MemberUpdate, operationId?: string) {
+export async function updateEmployee(
+  id: number,
+  input: MemberUpdate,
+  operationId?: string,
+  businessId = "00000000-0000-4000-8000-000000000001",
+) {
   if (!Object.keys(input).length || (input.name !== undefined && !input.name.trim())) {
     throw new MassageError(400, "Cần thông tin cập nhật hợp lệ.");
   }
@@ -183,8 +208,8 @@ export async function updateEmployee(id: number, input: MemberUpdate, operationI
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi sửa nhân viên.");
     return withPartitionWriteMutex(`member:${id}`, async () => {
       const [members, versions] = await Promise.all([
-        readPartitionedTable("members"),
-        readPartitionedTable("member_versions"),
+        readPartitionedTable("members", { businessId }),
+        readPartitionedTable("member_versions", { businessId }),
       ]);
       const old = (members as unknown as (typeof membersTable.$inferSelect)[])
         .find((row) => row.id === id && row.deletedAt === null);
@@ -198,52 +223,59 @@ export async function updateEmployee(id: number, input: MemberUpdate, operationI
         operationId,
         lockName: `member:${id}`,
         action: "member.update",
-        request: { id, input },
+        request: { id, input, businessId },
         expectedEventCount: hasVersion ? 2 : 3,
         idAllocations: { member_versions: hasVersion ? 1 : 2 },
         alreadyLocked: true,
         build: (reserved) => {
           const versionIds = reserved.allocatedIds.member_versions ?? [];
           const changes = [
-            upsertMutation("members", id, { ...old, ...input, name: nextName, hourlyRate: nextRate }),
+            upsertMutation("members", id, { ...old, ...input, businessId, name: nextName, hourlyRate: nextRate }),
           ];
           let index = 0;
           if (!hasVersion) {
             const baselineId = versionIds[index++];
             if (!baselineId) throw new MassageError(503, "Không cấp được mã lịch sử nhân viên.");
             changes.push(upsertMutation("member_versions", baselineId, {
-              id: baselineId, memberId: id, name: old.name, hourlyRate: old.hourlyRate,
+              id: baselineId, businessId, memberId: id, name: old.name, hourlyRate: old.hourlyRate,
               isBaseline: true, recordedAt: now,
             }));
           }
           const versionId = versionIds[index];
           if (!versionId) throw new MassageError(503, "Không cấp được mã lịch sử nhân viên.");
           changes.push(upsertMutation("member_versions", versionId, {
-            id: versionId, memberId: id, name: nextName, hourlyRate: nextRate,
+            id: versionId, businessId, memberId: id, name: nextName, hourlyRate: nextRate,
             isBaseline: false, recordedAt: now,
           }));
           return changes;
         },
       });
-      const member = (await readPartitionedTable("members") as unknown as (typeof membersTable.$inferSelect)[])
+      const member = (await readPartitionedTable("members", { businessId }) as unknown as (typeof membersTable.$inferSelect)[])
         .find((row) => row.id === id);
       if (!member) throw new MassageError(503, "Không tải lại được nhân viên sau khi sửa.");
       return memberResponse(member);
     });
   }
-  return idempotentTransaction(operationId, "sửa nhân viên", "member.update", { id, input }, async (tx) => {
-    const [old] = await tx.select().from(membersTable).where(and(eq(membersTable.id, id), isNull(membersTable.deletedAt))).for("update");
+  return idempotentTransaction(operationId, "sửa nhân viên", "member.update", { id, input, businessId }, async (tx) => {
+    const [old] = await tx.select().from(membersTable).where(and(
+      eq(membersTable.id, id),
+      eq(membersTable.businessId, businessId),
+      isNull(membersTable.deletedAt),
+    )).for("update");
     if (!old) throw new MassageError(404, "Không tìm thấy nhân viên đang hoạt động.");
     // Older installations can lack versions. Capture only what is known now,
     // never backdate a current name into an unknown historical period.
-    const [existing] = await tx.select({ id: memberVersionsTable.id }).from(memberVersionsTable).where(eq(memberVersionsTable.memberId, id)).limit(1);
+    const [existing] = await tx.select({ id: memberVersionsTable.id }).from(memberVersionsTable).where(and(
+      eq(memberVersionsTable.memberId, id),
+      eq(memberVersionsTable.businessId, businessId),
+    )).limit(1);
     if (!existing) await tx.insert(memberVersionsTable).values({
-      memberId: id, name: old.name, hourlyRate: old.hourlyRate, isBaseline: true, recordedAt: sql`clock_timestamp()`,
+      businessId, memberId: id, name: old.name, hourlyRate: old.hourlyRate, isBaseline: true, recordedAt: sql`clock_timestamp()`,
     });
     const [member] = await tx.update(membersTable).set({ ...input, ...(input.name === undefined ? {} : { name: input.name.trim() }) })
-      .where(eq(membersTable.id, id)).returning();
+      .where(and(eq(membersTable.id, id), eq(membersTable.businessId, businessId))).returning();
     await tx.insert(memberVersionsTable).values({
-      memberId: id, name: member.name, hourlyRate: member.hourlyRate, recordedAt: sql`clock_timestamp()`,
+      businessId, memberId: id, name: member.name, hourlyRate: member.hourlyRate, recordedAt: sql`clock_timestamp()`,
     });
     return memberResponse(member);
   });

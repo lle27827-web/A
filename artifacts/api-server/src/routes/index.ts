@@ -12,6 +12,7 @@ import appointmentsRouter from "./appointments";
 import retentionRouter from "./retention";
 import databaseFailoverRouter from "./database-failover";
 import nightServicePricingRouter from "./night-service-pricing";
+import businessesRouter from "./businesses";
 
 const router: IRouter = Router();
 router.use(authRouter);
@@ -27,5 +28,6 @@ router.use(appointmentsRouter);
 router.use(retentionRouter);
 router.use(databaseFailoverRouter);
 router.use(nightServicePricingRouter);
+router.use(businessesRouter);
 
 export default router;

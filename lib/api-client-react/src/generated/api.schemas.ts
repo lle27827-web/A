@@ -135,6 +135,33 @@ export interface HealthStatus {
   status: string;
 }
 
+/**
+ * @nullable
+ */
+export type AuthStatusRole = typeof AuthStatusRole[keyof typeof AuthStatusRole] | null;
+
+
+export const AuthStatusRole = {
+  owner: 'owner',
+  employee: 'employee',
+  platform_admin: 'platform_admin',
+} as const;
+
+export type BusinessSummaryRole = typeof BusinessSummaryRole[keyof typeof BusinessSummaryRole];
+
+
+export const BusinessSummaryRole = {
+  owner: 'owner',
+  employee: 'employee',
+  platform_admin: 'platform_admin',
+} as const;
+
+export interface BusinessSummary {
+  id: string;
+  name: string;
+  role: BusinessSummaryRole;
+}
+
 export interface FacilityPermissions {
   allEmployees: boolean;
   /**
@@ -156,7 +183,41 @@ export interface AuthStatus {
   authConfigured: boolean;
   authenticated: boolean;
   isOwner: boolean;
+  isPlatformAdmin: boolean;
+  /** @nullable */
+  userId: string | null;
+  /** @nullable */
+  email: string | null;
+  /** @nullable */
+  businessId: string | null;
+  /** @nullable */
+  businessName: string | null;
+  /** @nullable */
+  role: AuthStatusRole;
+  businesses: BusinessSummary[];
   permissions: FacilityPermissions;
+}
+
+export interface CreateBusinessInput {
+  /**
+     * @minLength 2
+     * @maxLength 120
+     */
+  name: string;
+}
+
+export interface JoinBusinessInput {
+  /** @pattern ^[0-9]{10}$ */
+  code: string;
+}
+
+export interface BusinessAccessResult {
+  business: BusinessSummary;
+  /**
+     * @nullable
+     * @pattern ^[0-9]{10}$
+     */
+  joinCode: string | null;
 }
 
 export interface AccessGrantInput {

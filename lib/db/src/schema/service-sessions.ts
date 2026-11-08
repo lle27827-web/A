@@ -8,6 +8,7 @@ import { serviceTypesTable } from "./service-types";
 // Card history and employee payroll share a single service-visit record.
 export const serviceSessionsTable = pgTable("service_sessions", {
   id: serial("id").primaryKey(),
+  businessId: text("business_id").notNull().default("00000000-0000-4000-8000-000000000001"),
   cardId: integer("card_id").references(() => treatmentCardsTable.id, { onDelete: "restrict" }),
   memberId: integer("member_id").references(() => membersTable.id, { onDelete: "set null" }),
   employeeName: text("employee_name").notNull(),

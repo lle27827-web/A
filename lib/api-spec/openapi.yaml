@@ -430,6 +430,59 @@ paths:
                 $ref: "#/components/schemas/AuthStatus"
         "503":
           description: Không thể xác minh tài khoản với Clerk
+  /businesses:
+    post:
+      operationId: createBusiness
+      tags: [health]
+      summary: Tạo doanh nghiệp và bộ dữ liệu riêng
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateBusinessInput" }
+      responses:
+        "201":
+          description: Doanh nghiệp đã tạo; mã tham gia chỉ trả một lần
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BusinessAccessResult" }
+        "400": { description: Tên doanh nghiệp không hợp lệ }
+        "401": { description: Cần đăng nhập }
+  /businesses/join:
+    post:
+      operationId: joinBusiness
+      tags: [health]
+      summary: Tham gia bằng mã doanh nghiệp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/JoinBusinessInput" }
+      responses:
+        "200":
+          description: Đã tham gia; quyền cơ sở vẫn do chủ doanh nghiệp cấp
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BusinessAccessResult" }
+        "400": { description: Mã doanh nghiệp không hợp lệ }
+        "401": { description: Cần đăng nhập }
+  /businesses/{id}/join-code:
+    post:
+      operationId: rotateBusinessJoinCode
+      tags: [health]
+      summary: Tạo mã tham gia mới cho doanh nghiệp
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Mã mới chỉ được trả một lần
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BusinessAccessResult" }
+        "403": { description: Chỉ chủ doanh nghiệp được đổi mã }
   /access-grants:
     get:
       operationId: listAccessGrants
@@ -1050,9 +1103,49 @@ components:
           type: boolean
         isOwner:
           type: boolean
+        isPlatformAdmin:
+          type: boolean
+        userId:
+          type: [string, "null"]
+        email:
+          type: [string, "null"]
+        businessId:
+          type: [string, "null"]
+          format: uuid
+        businessName:
+          type: [string, "null"]
+        role:
+          type: [string, "null"]
+          enum: [owner, employee, platform_admin, null]
+        businesses:
+          type: array
+          items: { $ref: "#/components/schemas/BusinessSummary" }
         permissions:
           $ref: "#/components/schemas/FacilityPermissions"
-      required: [authConfigured, authenticated, isOwner, permissions]
+      required: [authConfigured, authenticated, isOwner, isPlatformAdmin, userId, email, businessId, businessName, role, businesses, permissions]
+    BusinessSummary:
+      type: object
+      required: [id, name, role]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        role: { type: string, enum: [owner, employee, platform_admin] }
+    CreateBusinessInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 120 }
+    JoinBusinessInput:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, pattern: "^[0-9]{10}$" }
+    BusinessAccessResult:
+      type: object
+      required: [business, joinCode]
+      properties:
+        business: { $ref: "#/components/schemas/BusinessSummary" }
+        joinCode: { type: [string, "null"], pattern: "^[0-9]{10}$" }
     FacilityPermissions:
       type: object
       required: [allEmployees, employeeIds, viewCards, viewRevenue, editEmployees, deleteEmployees, editCards, editServices, viewAppointments, editAppointments]

@@ -21,17 +21,20 @@ function currentStatus(res: Response): OwnerAuthStatus {
 
 router.get("/access-grants", massageHandler(async (_req, res) => {
   const status = currentStatus(res);
+  const businessId = status.businessId ?? "00000000-0000-4000-8000-000000000001";
   const rows = isPartitionedStorageEnabled()
     ? (status.isOwner
-      ? await readPartitionedTable("manager_grants") as unknown as (typeof managerGrantsTable.$inferSelect)[]
-      : await readPartitionedGrantsByGrantor<typeof managerGrantsTable.$inferSelect>(status.email ?? ""))
+      ? await readPartitionedTable("manager_grants", { businessId }) as unknown as (typeof managerGrantsTable.$inferSelect)[]
+      : await readPartitionedGrantsByGrantor<typeof managerGrantsTable.$inferSelect>(status.email ?? "", businessId))
       .sort((a, b) => a.email.localeCompare(b.email, "en"))
-    : await db.select().from(managerGrantsTable).orderBy(asc(managerGrantsTable.email));
+    : await db.select().from(managerGrantsTable).where(eq(managerGrantsTable.businessId, businessId))
+      .orderBy(asc(managerGrantsTable.email));
   const visible = status.isOwner ? rows : rows.filter((row) => canManageGrant(status, row, ownerEmail()));
   res.json(ListAccessGrantsResponse.parse(visible.map(output)));
 }));
 router.post("/access-grants", massageHandler(async (req, res) => {
   const status = currentStatus(res);
+  const businessId = status.businessId ?? "00000000-0000-4000-8000-000000000001";
   const input = parseInput(SaveAccessGrantBody, { ...req.body, email: typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : req.body?.email });
   if (input.email === ownerEmail()) throw new MassageError(400, "Chủ sở hữu luôn có đầy đủ quyền, không cần cấp quyền.");
   if (!status.isOwner && (!status.email || input.email === status.email)) {
@@ -51,30 +54,30 @@ router.post("/access-grants", massageHandler(async (req, res) => {
       throw new MassageError(403, "Chỉ được cấp quyền bằng hoặc thấp hơn phạm vi quyền của bạn.");
     }
     const existing = isPartitionedStorageEnabled()
-      ? await readPartitionedGrantByEmail<typeof managerGrantsTable.$inferSelect>(input.email)
+      ? await readPartitionedGrantByEmail<typeof managerGrantsTable.$inferSelect>(input.email, businessId)
       : (await db.select().from(managerGrantsTable)
-        .where(eq(managerGrantsTable.email, input.email)).limit(1))[0];
+        .where(and(eq(managerGrantsTable.businessId, businessId), eq(managerGrantsTable.email, input.email))).limit(1))[0];
     if (existing && !canManageGrant(status, existing, ownerEmail())) {
       throw new MassageError(403, "Bạn không thể sửa quyền đã được cấp vượt phạm vi của mình.");
     }
   }
   if (permissions.employeeIds.length) {
     const valid = isPartitionedStorageEnabled()
-      ? (await readPartitionedTable("members") as unknown as (typeof membersTable.$inferSelect)[])
+      ? (await readPartitionedTable("members", { businessId }) as unknown as (typeof membersTable.$inferSelect)[])
       : await db.select({ id: membersTable.id, deletedAt: membersTable.deletedAt }).from(membersTable)
-        .where(and(inArray(membersTable.id, permissions.employeeIds), isNull(membersTable.deletedAt)));
+        .where(and(inArray(membersTable.id, permissions.employeeIds), eq(membersTable.businessId, businessId), isNull(membersTable.deletedAt)));
     if (!hasOnlyActiveGrantEmployees(permissions.employeeIds, valid)) {
       throw new MassageError(400, "Danh sách nhân viên không hợp lệ hoặc đã bị xóa. Hãy tải lại.");
     }
   }
   let saved: typeof managerGrantsTable.$inferSelect | undefined;
   if (isPartitionedStorageEnabled()) {
-    const existing = await readPartitionedGrantByEmail<typeof managerGrantsTable.$inferSelect>(input.email);
+    const existing = await readPartitionedGrantByEmail<typeof managerGrantsTable.$inferSelect>(input.email, businessId);
     const operation = await commitPartitionedMutations({
       operationId,
       lockName: "access-grants",
       action: existing ? "access-grant.update" : "access-grant.create",
-      request: { email: input.email, permissions },
+      request: { email: input.email, permissions, businessId },
       expectedEventCount: 1,
       idAllocations: existing ? {} : { manager_grants: 1 },
       build: (reserved) => {
@@ -82,24 +85,24 @@ router.post("/access-grants", massageHandler(async (req, res) => {
         if (!id) throw new MassageError(503, "Không cấp được mã quyền.");
         return [upsertMutation("manager_grants", id, {
           id, email: input.email, permissions,
-          grantedBy: status.email,
+          businessId, grantedBy: status.email,
           createdAt: existing?.createdAt ?? new Date(),
         })];
       },
     });
     const id = existing?.id ?? operation.allocatedIds.manager_grants?.[0];
-    saved = (await readPartitionedTable("manager_grants") as unknown as (typeof managerGrantsTable.$inferSelect)[])
+    saved = (await readPartitionedTable("manager_grants", { businessId }) as unknown as (typeof managerGrantsTable.$inferSelect)[])
       .find((row) => row.id === id);
   } else {
     saved = await idempotentTransaction(
       operationId,
       "cấp quyền",
       "access-grant.save",
-      { email: input.email, permissions },
+      { email: input.email, permissions, businessId },
       async (tx) => (await tx.insert(managerGrantsTable)
-        .values({ email: input.email, permissions, grantedBy: status.email })
+        .values({ businessId, email: input.email, permissions, grantedBy: status.email })
         .onConflictDoUpdate({
-          target: managerGrantsTable.email,
+          target: [managerGrantsTable.businessId, managerGrantsTable.email],
           set: { permissions, grantedBy: status.email },
         }).returning())[0],
     );
@@ -109,10 +112,14 @@ router.post("/access-grants", massageHandler(async (req, res) => {
 }));
 router.delete("/access-grants/:id", massageHandler(async (req, res) => {
   const status = currentStatus(res);
+  const businessId = status.businessId ?? "00000000-0000-4000-8000-000000000001";
   const { id } = parseInput(DeleteAccessGrantParams, req.params);
   const existing = isPartitionedStorageEnabled()
-    ? await readPartitionedRowById<typeof managerGrantsTable.$inferSelect>("manager_grants", id)
-    : (await db.select().from(managerGrantsTable).where(eq(managerGrantsTable.id, id)).limit(1))[0];
+    ? await readPartitionedRowById<typeof managerGrantsTable.$inferSelect>("manager_grants", id, businessId)
+    : (await db.select().from(managerGrantsTable).where(and(
+      eq(managerGrantsTable.id, id),
+      eq(managerGrantsTable.businessId, businessId),
+    )).limit(1))[0];
   if (!existing) throw new MassageError(404, "Quyền đã được thu hồi hoặc không tồn tại.");
   if (!canManageGrant(status, existing, ownerEmail())) {
     throw new MassageError(403, "Bạn không thể thu hồi quyền vượt phạm vi của mình.");
@@ -127,7 +134,10 @@ router.delete("/access-grants/:id", massageHandler(async (req, res) => {
       build: () => [deleteMutation("manager_grants", id)],
     });
   } else {
-    const [deleted] = await db.delete(managerGrantsTable).where(eq(managerGrantsTable.id, id)).returning({ id: managerGrantsTable.id });
+    const [deleted] = await db.delete(managerGrantsTable).where(and(
+      eq(managerGrantsTable.id, id),
+      eq(managerGrantsTable.businessId, businessId),
+    )).returning({ id: managerGrantsTable.id });
     if (!deleted) throw new MassageError(404, "Quyền đã được thu hồi hoặc không tồn tại.");
   }
   res.sendStatus(204);

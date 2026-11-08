@@ -37,6 +37,8 @@ import type { OwnerAuthStatus } from "../lib/owner-auth";
 import { isMaskedCustomerPhone, maskCustomerPhone } from "../lib/customer-phone";
 
 const router: IRouter = Router();
+const businessIdFor = (res: Response) =>
+  (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.businessId ?? "00000000-0000-4000-8000-000000000001";
 
 function scheduledAtTime(value: Date | string): number {
   return value instanceof Date ? value.getTime() : new Date(value).getTime();
@@ -78,43 +80,50 @@ function normalizedInput(
   };
 }
 
-async function requireActiveMember(memberId: number | null) {
+async function requireActiveMember(memberId: number | null, businessId: string) {
   if (memberId === null) return;
-  const members = await listMembersForPeriod();
+  const members = await listMembersForPeriod(undefined, undefined, businessId);
   if (!members.some((member) => member.id === memberId)) {
     throw new MassageError(404, "Không tìm thấy nhân viên đang hoạt động.");
   }
 }
 
 router.get("/appointments", massageHandler(async (_req, res) => {
+  const businessId = businessIdFor(res);
   res.set("Cache-Control", "private, no-store");
   const now = new Date();
   const todayInVietnam = hoChiMinhDate(now);
   const startOfVietnamDay = new Date(`${todayInVietnam}T00:00:00.000+07:00`);
   const rows = isPartitionedStorageEnabled()
-    ? (await readPartitionedTable("appointments") as unknown as (typeof appointmentsTable.$inferSelect)[])
+    ? (await readPartitionedTable("appointments", { businessId }) as unknown as (typeof appointmentsTable.$inferSelect)[])
       .filter((row) => isAppointmentOnOrAfterHoChiMinhDate(row.scheduledAt, now))
       .sort((a, b) => scheduledAtTime(a.scheduledAt) - scheduledAtTime(b.scheduledAt))
     : await db.select().from(appointmentsTable)
-      .where(gte(appointmentsTable.scheduledAt, startOfVietnamDay))
+      .where(and(eq(appointmentsTable.businessId, businessId), gte(appointmentsTable.scheduledAt, startOfVietnamDay)))
       .orderBy(asc(appointmentsTable.scheduledAt));
   res.json(ListAppointmentsResponse.parse(rows.map((row) => output(row, isOwnerView(res)))));
 }));
 
-async function staffActivityRows() {
-  const membersPromise = listMembersForPeriod();
+async function staffActivityRows(businessId: string) {
+  const membersPromise = listMembersForPeriod(undefined, undefined, businessId);
   const [members, sessions, manualStatuses, appointments] = isPartitionedStorageEnabled()
     ? await Promise.all([
         membersPromise,
-        readPartitionedTable("service_sessions"),
-        readPartitionedTable("employee_availability"),
-        readPartitionedTable("appointments"),
+        readPartitionedTable("service_sessions", { businessId }),
+        readPartitionedTable("employee_availability", { businessId }),
+        readPartitionedTable("appointments", { businessId }),
       ])
     : await Promise.all([
         membersPromise,
-        db.select().from(serviceSessionsTable).where(gte(serviceSessionsTable.workDate, retentionCutoffDate())),
-        db.select().from(employeeAvailabilityTable),
-        db.select().from(appointmentsTable).where(eq(appointmentsTable.status, "scheduled")),
+        db.select().from(serviceSessionsTable).where(and(
+          eq(serviceSessionsTable.businessId, businessId),
+          gte(serviceSessionsTable.workDate, retentionCutoffDate()),
+        )),
+        db.select().from(employeeAvailabilityTable).where(eq(employeeAvailabilityTable.businessId, businessId)),
+        db.select().from(appointmentsTable).where(and(
+          eq(appointmentsTable.businessId, businessId),
+          eq(appointmentsTable.status, "scheduled"),
+        )),
       ]);
   return deriveStaffActivity(
     (members as unknown as (typeof membersTable.$inferSelect)[]).map(({ id, name }) => ({ id, name })),
@@ -127,22 +136,26 @@ async function staffActivityRows() {
 
 router.get("/appointments/staff-activity", massageHandler(async (_req, res) => {
   res.set("Cache-Control", "private, no-store");
-  res.json(ListAppointmentStaffActivityResponse.parse(await staffActivityRows()));
+  res.json(ListAppointmentStaffActivityResponse.parse(await staffActivityRows(businessIdFor(res))));
 }));
 
 router.patch("/appointments/staff-activity/:memberId", massageHandler(async (req, res) => {
+  const businessId = businessIdFor(res);
   const { memberId } = parseInput(UpdateAppointmentStaffActivityParams, req.params);
   const { state } = parseInput(UpdateAppointmentStaffActivityBody, req.body);
-  const members = await listMembersForPeriod();
+  const members = await listMembersForPeriod(undefined, undefined, businessId);
   const member = members.find((row) => row.id === memberId);
   if (!member) throw new MassageError(404, "Không tìm thấy nhân viên đang hoạt động.");
 
   const existing = isPartitionedStorageEnabled()
-    ? (await readPartitionedTable("employee_availability") as unknown as (typeof employeeAvailabilityTable.$inferSelect)[])
+    ? (await readPartitionedTable("employee_availability", { businessId }) as unknown as (typeof employeeAvailabilityTable.$inferSelect)[])
       .find((row) => row.memberId === memberId)
-    : (await db.select().from(employeeAvailabilityTable).where(eq(employeeAvailabilityTable.memberId, memberId)).limit(1))[0];
+    : (await db.select().from(employeeAvailabilityTable).where(and(
+      eq(employeeAvailabilityTable.memberId, memberId),
+      eq(employeeAvailabilityTable.businessId, businessId),
+    )).limit(1))[0];
   if (state === "off") {
-    const current = (await staffActivityRows()).find((row) => row.memberId === memberId);
+    const current = (await staffActivityRows(businessId)).find((row) => row.memberId === memberId);
     if (current?.state === "working") {
       throw new MassageError(409, "Nhân viên đang có ca làm. Có thể đánh dấu nghỉ sau khi ca kết thúc.");
     }
@@ -155,9 +168,10 @@ router.patch("/appointments/staff-activity/:memberId", massageHandler(async (req
         operationId,
         lockName: `employee-availability:${memberId}`,
         action: "employee-availability.update",
-        request: { memberId, state, statusDate: hoChiMinhDate() },
+        request: { memberId, state, statusDate: hoChiMinhDate(), businessId },
         expectedEventCount: 1,
         build: () => [upsertMutation("employee_availability", memberId, {
+          businessId,
           memberId,
           employeeName: member.name,
           statusDate: hoChiMinhDate(),
@@ -170,13 +184,14 @@ router.patch("/appointments/staff-activity/:memberId", massageHandler(async (req
         operationId,
         lockName: `employee-availability:${memberId}`,
         action: "employee-availability.update",
-        request: { memberId, state, statusDate: hoChiMinhDate() },
+        request: { memberId, state, statusDate: hoChiMinhDate(), businessId },
         expectedEventCount: 1,
         build: () => [deleteMutation("employee_availability", memberId)],
       });
     }
   } else if (state === "off") {
     await db.insert(employeeAvailabilityTable).values({
+      businessId,
       memberId,
       employeeName: member.name,
       statusDate: hoChiMinhDate(),
@@ -189,25 +204,28 @@ router.patch("/appointments/staff-activity/:memberId", massageHandler(async (req
   } else {
     await db.delete(employeeAvailabilityTable).where(and(
       eq(employeeAvailabilityTable.memberId, memberId),
+      eq(employeeAvailabilityTable.businessId, businessId),
       eq(employeeAvailabilityTable.statusDate, hoChiMinhDate()),
     ));
   }
 
-  const updated = (await staffActivityRows()).find((row) => row.memberId === memberId);
+  const updated = (await staffActivityRows(businessId)).find((row) => row.memberId === memberId);
   if (!updated) throw new MassageError(404, "Không tìm thấy nhân viên đang hoạt động.");
   res.json(UpdateAppointmentStaffActivityResponse.parse(updated));
 }));
 
 router.post("/appointments", massageHandler(async (req, res) => {
+  const businessId = businessIdFor(res);
   const input = normalizedInput(parseInput(CreateAppointmentBody, req.body));
-  await requireActiveMember(input.memberId);
+  await requireActiveMember(input.memberId, businessId);
+  const values = { ...input, businessId };
   if (isPartitionedStorageEnabled()) {
     const operationId = operationIdFromRequest(req.get("Idempotency-Key"), "lịch hẹn");
     const operation = await commitPartitionedMutations({
       operationId,
       lockName: "appointments",
       action: "appointment.create",
-      request: input,
+      request: values,
       expectedEventCount: 1,
       idAllocations: { appointments: 1 },
       build: (reserved) => {
@@ -215,12 +233,12 @@ router.post("/appointments", massageHandler(async (req, res) => {
         if (!id) throw new MassageError(503, "Không cấp được mã lịch hẹn.");
         const now = new Date();
         return [upsertMutation("appointments", id, {
-          ...input, id, status: "scheduled", createdAt: now, updatedAt: now,
+          ...values, id, status: "scheduled", createdAt: now, updatedAt: now,
         })];
       },
     });
     const id = operation.allocatedIds.appointments?.[0];
-    const row = (await readPartitionedTable("appointments") as unknown as (typeof appointmentsTable.$inferSelect)[])
+    const row = (await readPartitionedTable("appointments", { businessId }) as unknown as (typeof appointmentsTable.$inferSelect)[])
       .find((item) => item.id === id);
     if (!row) throw new MassageError(503, "Không tải lại được lịch hẹn sau khi lưu.");
     res.status(201).json(CreateAppointmentResponse.parse(output(row, isOwnerView(res))));
@@ -230,22 +248,26 @@ router.post("/appointments", massageHandler(async (req, res) => {
     operationIdFromRequest(req.get("Idempotency-Key"), "tạo lịch hẹn"),
     "tạo lịch hẹn",
     "appointment.create",
-    input,
-    async (tx) => (await tx.insert(appointmentsTable).values(input).returning())[0],
+    values,
+    async (tx) => (await tx.insert(appointmentsTable).values(values).returning())[0],
   );
   res.status(201).json(CreateAppointmentResponse.parse(output(row, isOwnerView(res))));
 }));
 
 router.patch("/appointments/:id", massageHandler(async (req, res) => {
+  const businessId = businessIdFor(res);
   const { id } = parseInput(UpdateAppointmentParams, req.params);
   const body = parseInput(UpdateAppointmentBody, req.body);
   const previous = isPartitionedStorageEnabled()
-    ? (await readPartitionedTable("appointments") as unknown as (typeof appointmentsTable.$inferSelect)[])
+    ? (await readPartitionedTable("appointments", { businessId }) as unknown as (typeof appointmentsTable.$inferSelect)[])
       .find((item) => item.id === id)
-    : (await db.select().from(appointmentsTable).where(eq(appointmentsTable.id, id)).limit(1))[0];
+    : (await db.select().from(appointmentsTable).where(and(
+      eq(appointmentsTable.id, id),
+      eq(appointmentsTable.businessId, businessId),
+    )).limit(1))[0];
   if (!previous) throw new MassageError(404, "Không tìm thấy lịch hẹn.");
   const normalized = normalizedInput(body, previous);
-  if (normalized.memberId !== previous.memberId) await requireActiveMember(normalized.memberId);
+  if (normalized.memberId !== previous.memberId) await requireActiveMember(normalized.memberId, businessId);
   const input = !isOwnerView(res) && isMaskedCustomerPhone(normalized.phone)
     ? (({ phone: _masked, ...fields }) => fields)(normalized)
     : normalized;
@@ -255,13 +277,13 @@ router.patch("/appointments/:id", massageHandler(async (req, res) => {
       operationId: operationIdFromRequest(req.get("Idempotency-Key"), "lịch hẹn"),
       lockName: `appointment:${id}`,
       action: "appointment.update",
-      request: { id, input },
+      request: { id, input, businessId },
       expectedEventCount: 1,
       build: () => [upsertMutation("appointments", id, {
         ...previous, ...input, updatedAt: new Date(),
       })],
     });
-    const row = (await readPartitionedTable("appointments") as unknown as (typeof appointmentsTable.$inferSelect)[])
+    const row = (await readPartitionedTable("appointments", { businessId }) as unknown as (typeof appointmentsTable.$inferSelect)[])
       .find((item) => item.id === id);
     if (!row) throw new MassageError(503, "Không tải lại được lịch hẹn sau khi sửa.");
     res.json(UpdateAppointmentResponse.parse(output(row, isOwnerView(res))));
@@ -271,10 +293,13 @@ router.patch("/appointments/:id", massageHandler(async (req, res) => {
     operationIdFromRequest(req.get("Idempotency-Key"), "sửa lịch hẹn"),
     "sửa lịch hẹn",
     "appointment.update",
-    { id, input },
+    { id, input, businessId },
     async (tx) => (await tx.update(appointmentsTable)
       .set({ ...input, updatedAt: new Date() })
-      .where(eq(appointmentsTable.id, id))
+      .where(and(
+        eq(appointmentsTable.id, id),
+        eq(appointmentsTable.businessId, businessId),
+      ))
       .returning())[0],
   );
   if (!row) throw new MassageError(404, "Không tìm thấy lịch hẹn.");
@@ -282,15 +307,16 @@ router.patch("/appointments/:id", massageHandler(async (req, res) => {
 }));
 
 router.delete("/appointments/:id", massageHandler(async (req, res) => {
+  const businessId = businessIdFor(res);
   const { id } = parseInput(DeleteAppointmentParams, req.params);
   if (isPartitionedStorageEnabled()) {
-    const rows = await readPartitionedTable("appointments") as unknown as (typeof appointmentsTable.$inferSelect)[];
+    const rows = await readPartitionedTable("appointments", { businessId }) as unknown as (typeof appointmentsTable.$inferSelect)[];
     if (!rows.some((item) => item.id === id)) throw new MassageError(404, "Không tìm thấy lịch hẹn.");
     await commitPartitionedMutations({
       operationId: operationIdFromRequest(req.get("Idempotency-Key"), "lịch hẹn"),
       lockName: `appointment:${id}`,
       action: "appointment.delete",
-      request: { id },
+      request: { id, businessId },
       expectedEventCount: 1,
       build: () => [deleteMutation("appointments", id)],
     });
@@ -301,9 +327,12 @@ router.delete("/appointments/:id", massageHandler(async (req, res) => {
     operationIdFromRequest(req.get("Idempotency-Key"), "xóa lịch hẹn"),
     "xóa lịch hẹn",
     "appointment.delete",
-    { id },
+    { id, businessId },
     async (tx) => (await tx.delete(appointmentsTable)
-      .where(eq(appointmentsTable.id, id))
+      .where(and(
+        eq(appointmentsTable.id, id),
+        eq(appointmentsTable.businessId, businessId),
+      ))
       .returning({ id: appointmentsTable.id }))[0],
   );
   if (!row) throw new MassageError(404, "Không tìm thấy lịch hẹn.");

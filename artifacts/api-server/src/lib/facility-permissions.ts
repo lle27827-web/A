@@ -1,7 +1,8 @@
 import type { FacilityPermissions } from "@workspace/api-zod";
 import { GetAuthStatusResponse } from "@workspace/api-zod";
 import { db, isPartitionedStorageEnabled, managerGrantsTable, readPartitionedGrantByEmail, readPartitionedTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { DEFAULT_BUSINESS_ID } from "./business-tenancy";
 
 // Old email-only grants deliberately default to no privileges.
 export const noPermissions = (): FacilityPermissions => ({
@@ -69,11 +70,17 @@ export function permissionsWithinDelegationScope(
   ] as const;
   return flags.every((flag) => !delegated[flag] || grantor[flag]);
 }
-export async function permissionsForEmail(email: string): Promise<FacilityPermissions> {
+export async function permissionsForEmail(
+  email: string,
+  businessId = DEFAULT_BUSINESS_ID,
+): Promise<FacilityPermissions> {
   const grant = isPartitionedStorageEnabled()
-    ? await readPartitionedGrantByEmail<typeof managerGrantsTable.$inferSelect>(email.trim().toLowerCase())
+    ? await readPartitionedGrantByEmail<typeof managerGrantsTable.$inferSelect>(email.trim().toLowerCase(), businessId)
     : (await db.select({ permissions: managerGrantsTable.permissions }).from(managerGrantsTable)
-      .where(eq(managerGrantsTable.email, email)).limit(1))[0];
+      .where(and(
+        eq(managerGrantsTable.businessId, businessId),
+        eq(managerGrantsTable.email, email.trim().toLowerCase()),
+      )).limit(1))[0];
   return safePermissions(grant?.permissions);
 }
 

@@ -793,6 +793,17 @@ export const GetAuthStatusResponse = zod.object({
   "authConfigured": zod.boolean(),
   "authenticated": zod.boolean(),
   "isOwner": zod.boolean(),
+  "isPlatformAdmin": zod.boolean(),
+  "userId": zod.string().nullable(),
+  "email": zod.string().nullable(),
+  "businessId": zod.string().uuid().nullable(),
+  "businessName": zod.string().nullable(),
+  "role": zod.union([zod.literal('owner'),zod.literal('employee'),zod.literal('platform_admin'),zod.literal(null)]).nullable(),
+  "businesses": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "role": zod.enum(['owner', 'employee', 'platform_admin'])
+})),
   "permissions": zod.object({
   "allEmployees": zod.boolean(),
   "employeeIds": zod.array(zod.number().int().min(1)).max(getAuthStatusResponsePermissionsEmployeeIdsMax),
@@ -805,6 +816,74 @@ export const GetAuthStatusResponse = zod.object({
   "viewAppointments": zod.boolean(),
   "editAppointments": zod.boolean()
 })
+})
+
+
+/**
+ * @summary Tạo doanh nghiệp và bộ dữ liệu riêng
+ */
+export const createBusinessBodyNameMin = 2;
+export const createBusinessBodyNameMax = 120;
+
+
+
+export const CreateBusinessBody = zod.object({
+  "name": zod.string().min(createBusinessBodyNameMin).max(createBusinessBodyNameMax)
+})
+
+export const createBusinessResponseJoinCodeRegExp = new RegExp('^[0-9]{10}$');
+
+
+export const CreateBusinessResponse = zod.object({
+  "business": zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "role": zod.enum(['owner', 'employee', 'platform_admin'])
+}),
+  "joinCode": zod.string().regex(createBusinessResponseJoinCodeRegExp).nullable()
+})
+
+
+/**
+ * @summary Tham gia bằng mã doanh nghiệp
+ */
+export const joinBusinessBodyCodeRegExp = new RegExp('^[0-9]{10}$');
+
+
+export const JoinBusinessBody = zod.object({
+  "code": zod.string().regex(joinBusinessBodyCodeRegExp)
+})
+
+export const joinBusinessResponseJoinCodeRegExp = new RegExp('^[0-9]{10}$');
+
+
+export const JoinBusinessResponse = zod.object({
+  "business": zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "role": zod.enum(['owner', 'employee', 'platform_admin'])
+}),
+  "joinCode": zod.string().regex(joinBusinessResponseJoinCodeRegExp).nullable()
+})
+
+
+/**
+ * @summary Tạo mã tham gia mới cho doanh nghiệp
+ */
+export const RotateBusinessJoinCodeParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const rotateBusinessJoinCodeResponseJoinCodeRegExp = new RegExp('^[0-9]{10}$');
+
+
+export const RotateBusinessJoinCodeResponse = zod.object({
+  "business": zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "role": zod.enum(['owner', 'employee', 'platform_admin'])
+}),
+  "joinCode": zod.string().regex(rotateBusinessJoinCodeResponseJoinCodeRegExp).nullable()
 })
 
 

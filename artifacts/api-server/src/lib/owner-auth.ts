@@ -1,12 +1,14 @@
 import { createClerkClient } from "@clerk/backend";
 import { getAuth } from "@clerk/express";
 import type { NextFunction, Request, Response } from "express";
-import { DatabaseFailoverInProgressError, db, attendanceTable, isPartitionedStorageEnabled, readPartitionedRowById, readPartitionedTable, serviceSessionsTable } from "@workspace/db";
+import { DatabaseFailoverInProgressError, db, attendanceTable, isPartitionedStorageEnabled, managerGrantsTable, readPartitionedGrantByEmail, readPartitionedRowById, readPartitionedTable, serviceSessionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { FacilityPermissions } from "@workspace/api-zod";
 import { canDeleteEmployee, canEditEmployee, canViewEmployee, noPermissions, ownerPermissions, permissionsForEmail } from "./facility-permissions";
 import { isValidRetentionCronAuthorization } from "./retention-auth";
 import { createAsyncTtlCache } from "./user-identity-cache";
+import { businessesByIds, DEFAULT_BUSINESS_ID, listBusinessesForIdentity, type BusinessRole, type BusinessSummary } from "./business-tenancy";
+import { and } from "drizzle-orm";
 
 const secretKey = process.env.APP_CLERK_SECRET_KEY?.trim();
 const publishableKey = process.env.APP_CLERK_PUBLISHABLE_KEY?.trim();
@@ -22,7 +24,13 @@ export type OwnerAuthStatus = {
   authConfigured: boolean;
   authenticated: boolean;
   isOwner: boolean;
+  isPlatformAdmin: boolean;
+  userId: string | null;
   email: string | null;
+  businessId: string | null;
+  businessName: string | null;
+  role: BusinessRole | "platform_admin" | null;
+  businesses: BusinessSummary[];
   permissions: FacilityPermissions;
 };
 
@@ -32,12 +40,20 @@ export function ownerAuthIsConfigured(): boolean {
 
 export async function getOwnerAuthStatus(req: Request): Promise<OwnerAuthStatus> {
   if (!ownerAuthIsConfigured() || !clerk) {
-    return { authConfigured: false, authenticated: false, isOwner: false, email: null, permissions: noPermissions() };
+    return {
+      authConfigured: false, authenticated: false, isOwner: false, isPlatformAdmin: false,
+      userId: null, email: null, businessId: null, businessName: null, role: null,
+      businesses: [], permissions: noPermissions(),
+    };
   }
 
   const userId = getAuth(req).userId;
   if (!userId) {
-    return { authConfigured: true, authenticated: false, isOwner: false, email: null, permissions: noPermissions() };
+    return {
+      authConfigured: true, authenticated: false, isOwner: false, isPlatformAdmin: false,
+      userId: null, email: null, businessId: null, businessName: null, role: null,
+      businesses: [], permissions: noPermissions(),
+    };
   }
 
   const identity = await clerkIdentityCache.get(userId, async () => {
@@ -50,9 +66,43 @@ export async function getOwnerAuthStatus(req: Request): Promise<OwnerAuthStatus>
     };
   });
   const email = identity.verified ? identity.email : null;
-  const isOwner = Boolean(email && email === ownerEmail);
-  const permissions = isOwner ? ownerPermissions() : email ? await permissionsForEmail(email) : noPermissions();
-  return { authConfigured: true, authenticated: true, isOwner, email, permissions };
+  const isPlatformAdmin = Boolean(email && email === ownerEmail);
+  let businesses = email
+    ? await listBusinessesForIdentity(userId, email, isPlatformAdmin)
+    : [];
+  if (email && !isPlatformAdmin) {
+    const legacyGrants = isPartitionedStorageEnabled()
+      ? await readPartitionedTable<typeof managerGrantsTable.$inferSelect>("manager_grants", { email: email.toLowerCase() })
+      : await db.select({ businessId: managerGrantsTable.businessId }).from(managerGrantsTable)
+        .where(eq(managerGrantsTable.email, email.toLowerCase()));
+    const existingIds = new Set(businesses.map((business) => business.id));
+    const grantBusinessIds = legacyGrants
+      .map((grant) => String(grant.businessId ?? ""))
+      .filter((id) => id && !existingIds.has(id));
+    businesses = [...businesses, ...await businessesByIds(grantBusinessIds)];
+  }
+  const requestedBusinessId = req.get("x-business-id")?.trim() || null;
+  let selectedBusinessId = requestedBusinessId;
+  if (!selectedBusinessId) {
+    selectedBusinessId = isPlatformAdmin
+      ? DEFAULT_BUSINESS_ID
+      : businesses.length === 1 ? businesses[0]!.id : null;
+  }
+  const selected = selectedBusinessId
+    ? businesses.find((business) => business.id === selectedBusinessId) ?? null
+    : null;
+  const businessId = selected?.id ?? null;
+  const role = selected?.role ?? null;
+  const isOwner = Boolean(businessId && (isPlatformAdmin || role === "owner"));
+  const permissions = isOwner
+    ? ownerPermissions()
+    : email && businessId
+      ? await permissionsForEmail(email, businessId)
+      : noPermissions();
+  return {
+    authConfigured: true, authenticated: true, isOwner, isPlatformAdmin, userId, email,
+    businessId, businessName: selected?.name ?? null, role, businesses, permissions,
+  };
 }
 
 function requestHasTrustedOrigin(req: Request): boolean {
@@ -168,8 +218,20 @@ export async function apiAuthorizationGate(
     const status = await getOwnerAuthStatus(req);
     if (!status.authenticated) { res.status(401).json({ error: "Vui lòng đăng nhập để sử dụng dịch vụ." }); return; }
     res.locals.facilityAuth = status;
+    if (req.path === "/businesses" || req.path === "/businesses/join" || /^\/businesses\/[0-9a-f-]{36}\/join-code$/i.test(req.path)) {
+      if (!status.email || !status.userId) {
+        res.status(403).json({ error: "Tài khoản cần có email đã xác minh để quản lý doanh nghiệp." });
+        return;
+      }
+      next();
+      return;
+    }
+    if (!status.businessId) {
+      res.status(409).json({ error: "Hãy chọn hoặc tham gia một doanh nghiệp trước khi mở dữ liệu cơ sở." });
+      return;
+    }
     if (status.isOwner) { next(); return; }
-    if (await managerRequestAllowed(req, status.permissions)) { next(); return; }
+    if (await managerRequestAllowed(req, status.permissions, status.businessId)) { next(); return; }
     res.status(403).json({ error: "Tài khoản chưa được cấp quyền thực hiện thao tác này." });
   } catch (error) {
     if (error instanceof DatabaseFailoverInProgressError) {
@@ -182,7 +244,11 @@ export async function apiAuthorizationGate(
 }
 
 /** Every unrecognized endpoint fails closed. Identity and grants never come from request bodies. */
-export async function managerRequestAllowed(req: Request, p: FacilityPermissions): Promise<boolean> {
+export async function managerRequestAllowed(
+  req: Request,
+  p: FacilityPermissions,
+  businessId = DEFAULT_BUSINESS_ID,
+): Promise<boolean> {
   const read = req.method === "GET" || req.method === "HEAD";
   const path = req.path;
   if (read) {
@@ -220,8 +286,11 @@ export async function managerRequestAllowed(req: Request, p: FacilityPermissions
     if (!["POST", "PATCH", "DELETE"].includes(req.method) || !p.editEmployees) return false;
     if (sessionId) {
       const old = isPartitionedStorageEnabled()
-        ? await readPartitionedRowById<typeof serviceSessionsTable.$inferSelect>("service_sessions", positiveId(sessionId[1]))
-        : (await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, positiveId(sessionId[1]))).limit(1))[0];
+        ? await readPartitionedRowById<typeof serviceSessionsTable.$inferSelect>("service_sessions", positiveId(sessionId[1]), businessId)
+        : (await db.select().from(serviceSessionsTable).where(and(
+          eq(serviceSessionsTable.id, positiveId(sessionId[1])),
+          eq(serviceSessionsTable.businessId, businessId),
+        )).limit(1))[0];
       if (!old || !(old.memberId === null && req.method === "DELETE" ? p.allEmployees : canEditEmployee(p, old.memberId ?? 0))
         || (old.cardId !== null && !(p.viewCards && p.editCards))) return false;
       if (req.method === "DELETE") return true;
@@ -233,8 +302,11 @@ export async function managerRequestAllowed(req: Request, p: FacilityPermissions
     if (!["POST", "PATCH", "DELETE"].includes(req.method) || !p.editEmployees) return false;
     if (attendanceId) {
       const old = isPartitionedStorageEnabled()
-        ? await readPartitionedRowById<typeof attendanceTable.$inferSelect>("attendance", positiveId(attendanceId[1]))
-        : (await db.select().from(attendanceTable).where(eq(attendanceTable.id, positiveId(attendanceId[1]))).limit(1))[0];
+        ? await readPartitionedRowById<typeof attendanceTable.$inferSelect>("attendance", positiveId(attendanceId[1]), businessId)
+        : (await db.select().from(attendanceTable).where(and(
+          eq(attendanceTable.id, positiveId(attendanceId[1])),
+          eq(attendanceTable.businessId, businessId),
+        )).limit(1))[0];
       if (!old || !canEditEmployee(p, old.memberId ?? 0)) return false;
       if (req.method === "DELETE") return true;
       if (!Object.hasOwn(req.body ?? {}, "memberId")) return true;

@@ -4,6 +4,7 @@ import { treatmentCardsTable } from "./treatment-cards";
 
 export const cardTopUpsTable = pgTable("card_top_ups", {
   id: serial("id").primaryKey(),
+  businessId: text("business_id").notNull().default("00000000-0000-4000-8000-000000000001"),
   cardId: integer("card_id").notNull().references(() => treatmentCardsTable.id, { onDelete: "cascade" }),
   minutes: integer("minutes").notNull(),
   amount: integer("amount").notNull(),

@@ -1732,7 +1732,7 @@ function normalizeEventPayload(value: unknown): unknown {
 
 export async function readPartitionedTable<T extends Record<string, unknown>>(
   tableName: string,
-  filter?: { ids?: number[]; email?: string; grantedBy?: string; userId?: string },
+  filter?: { ids?: number[]; email?: string; grantedBy?: string; userId?: string; businessId?: string },
 ): Promise<T[]> {
   requireConfiguredNodes();
   const keyColumn = TABLE_KEY_COLUMN[tableName];
@@ -1746,47 +1746,54 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
       !["personal_services", "personal_sessions", "personal_settings"].includes(tableName)) {
     throw new PartitionStorageError("User filters are supported only for personal notebook tables.", "partition_entity_invalid", 400);
   }
+  if (filter?.businessId !== undefined &&
+      ["personal_services", "personal_sessions", "personal_settings", "api_write_operations"].includes(tableName)) {
+    throw new PartitionStorageError("Business filters are supported only for facility tables.", "partition_entity_invalid", 400);
+  }
   if (filter?.ids && !["members", "service_sessions", "attendance", "manager_grants", "card_usage_history", "employee_availability"].includes(tableName)) {
     throw new PartitionStorageError("ID filters are not supported for this table.", "partition_entity_invalid", 400);
   }
   const filterKey = stableJson(filter ?? {});
   const cachedRows = partitionReadCache.get<T>(tableName, filterKey);
   if (cachedRows) return cachedRows;
-  const eventFilter = filter?.ids
-    ? "AND entity_key = ANY($2::text[])"
-    : filter?.email
-      ? `AND entity_key IN (SELECT entity_key FROM ${EVENT_TABLE}
-          WHERE committed = true AND entity_type = $1 AND payload->>'email' = $2)`
-      : filter?.grantedBy
-        ? `AND entity_key IN (SELECT entity_key FROM ${EVENT_TABLE}
-            WHERE committed = true AND entity_type = $1 AND payload->>'grantedBy' = $2)`
-        : filter?.userId !== undefined
-          ? personalTableReadPredicates(tableName).eventSql
-        : "";
+  const eventConditions: string[] = [];
   const eventParams: unknown[] = [tableName];
-  if (filter?.ids) eventParams.push(filter.ids.map((id) => partitionEntityKey(tableName, id)));
-  else if (filter?.email) eventParams.push(filter.email);
-  else if (filter?.grantedBy) eventParams.push(filter.grantedBy);
-  else if (filter?.userId) eventParams.push(filter.userId);
+  const addEventParam = (condition: (placeholder: string) => string, value: unknown) => {
+    eventParams.push(value);
+    eventConditions.push(condition(`$${eventParams.length}`));
+  };
+  if (filter?.ids) addEventParam((p) => `entity_key = ANY(${p}::text[])`,
+    filter.ids.map((id) => partitionEntityKey(tableName, id)));
+  if (filter?.email) addEventParam((p) => `entity_key IN (SELECT entity_key FROM ${EVENT_TABLE}
+    WHERE committed = true AND entity_type = $1 AND payload->>'email' = ${p})`, filter.email);
+  if (filter?.grantedBy) addEventParam((p) => `entity_key IN (SELECT entity_key FROM ${EVENT_TABLE}
+    WHERE committed = true AND entity_type = $1 AND payload->>'grantedBy' = ${p})`, filter.grantedBy);
+  if (filter?.userId !== undefined) addEventParam(
+    (p) => `entity_key IN (SELECT entity_key FROM ${EVENT_TABLE}
+      WHERE committed = true AND entity_type = $1 AND payload->>'userId' = ${p})`,
+    filter.userId,
+  );
+  if (filter?.businessId) addEventParam((p) => `entity_key IN (SELECT entity_key FROM ${EVENT_TABLE}
+    WHERE committed = true AND entity_type = $1 AND payload->>'businessId' = ${p})`, filter.businessId);
+  const eventFilter = eventConditions.map((condition) => `AND ${condition}`).join("\n");
   const dbKeyColumn = TABLE_DB_KEY_COLUMN[tableName]!;
-  const baseQuery = filter?.ids
-    ? `SELECT * FROM public."${tableName}" WHERE "${dbKeyColumn}" = ANY($1::integer[])`
-    : filter?.email
-      ? `SELECT * FROM public."${tableName}" WHERE email = $1`
-      : filter?.grantedBy
-        ? `SELECT * FROM public."${tableName}" WHERE granted_by = $1`
-        : filter?.userId !== undefined
-          ? `SELECT * FROM public."${tableName}" ${personalTableReadPredicates(tableName).baseSql}`
-    : `SELECT * FROM public."${tableName}"`;
-  const baseParams: (number[] | string)[] = filter?.ids
-    ? [filter.ids]
-    : filter?.email
-      ? [filter.email]
-      : filter?.grantedBy
-        ? [filter.grantedBy]
-        : filter?.userId !== undefined
-          ? [filter.userId]
-        : [];
+  const baseConditions: string[] = [];
+  const baseParams: unknown[] = [];
+  const addBaseParam = (column: string, value: unknown, cast = "") => {
+    baseParams.push(value);
+    baseConditions.push(`"${column}" = $${baseParams.length}${cast}`);
+  };
+  if (filter?.ids) {
+    baseParams.push(filter.ids);
+    baseConditions.push(`"${dbKeyColumn}" = ANY($${baseParams.length}::integer[])`);
+  }
+  if (filter?.email) addBaseParam("email", filter.email);
+  if (filter?.grantedBy) addBaseParam("granted_by", filter.grantedBy);
+  if (filter?.userId !== undefined) addBaseParam("user_id", filter.userId);
+  if (filter?.businessId) addBaseParam("business_id", filter.businessId);
+  const baseQuery = `SELECT * FROM public."${tableName}"${
+    baseConditions.length ? ` WHERE ${baseConditions.join(" AND ")}` : ""
+  }`;
   const availableNodes: RuntimeNode[] = [];
   const mutationsById = new Map<string, PartitionMutation>();
   const eventReads = await Promise.all(nodes.map(async (node) => {
@@ -1866,20 +1873,23 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
 export async function readPartitionedRowById<T extends Record<string, unknown>>(
   tableName: string,
   id: number,
+  businessId?: string,
 ): Promise<T | undefined> {
-  const rows = await readPartitionedTable<T>(tableName, { ids: [id] });
+  const rows = await readPartitionedTable<T>(tableName, { ids: [id], ...(businessId ? { businessId } : {}) });
   return rows[0];
 }
 
 export async function readPartitionedGrantByEmail<T extends Record<string, unknown>>(
   email: string,
+  businessId?: string,
 ): Promise<T | undefined> {
-  const rows = await readPartitionedTable<T>("manager_grants", { email });
+  const rows = await readPartitionedTable<T>("manager_grants", { email, ...(businessId ? { businessId } : {}) });
   return rows[0];
 }
 
 export async function readPartitionedGrantsByGrantor<T extends Record<string, unknown>>(
   email: string,
+  businessId?: string,
 ): Promise<T[]> {
-  return readPartitionedTable<T>("manager_grants", { grantedBy: email });
+  return readPartitionedTable<T>("manager_grants", { grantedBy: email, ...(businessId ? { businessId } : {}) });
 }

@@ -663,14 +663,18 @@ export async function deleteCard(id: number, operationId?: string) {
   });
 }
 
-export async function deleteMember(id: number, operationId?: string) {
+export async function deleteMember(
+  id: number,
+  operationId?: string,
+  businessId = "00000000-0000-4000-8000-000000000001",
+) {
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi xóa nhân viên.");
     await withPartitionWriteMutex(`member:${id}`, async () => {
       const [members, sessions, attendance] = await Promise.all([
-        readPartitionedTable("members"),
-        readPartitionedTable("service_sessions"),
-        readPartitionedTable("attendance"),
+        readPartitionedTable("members", { businessId }),
+        readPartitionedTable("service_sessions", { businessId }),
+        readPartitionedTable("attendance", { businessId }),
       ]);
       const member = (members as unknown as (typeof membersTable.$inferSelect)[])
         .find((row) => row.id === id && row.deletedAt === null);
@@ -687,7 +691,7 @@ export async function deleteMember(id: number, operationId?: string) {
         operationId,
         lockName: `member-delete:${id}`,
         action: "member.delete",
-        request: { id },
+        request: { id, businessId },
         expectedEventCount: 1 + cardUses.length + walkIns.length + currentAttendance.length,
         alreadyLocked: true,
         build: () => [
@@ -702,13 +706,20 @@ export async function deleteMember(id: number, operationId?: string) {
     });
     return;
   }
-  await idempotentTransaction(operationId, "xóa nhân viên", "member.delete", { id }, async (tx) => {
+  await idempotentTransaction(operationId, "xóa nhân viên", "member.delete", { id, businessId }, async (tx) => {
     // Follow saveSession's session-before-member lock order to avoid deadlocks
     // with an edit already holding a visit row.
     await tx.select({ id: serviceSessionsTable.id }).from(serviceSessionsTable)
-      .where(eq(serviceSessionsTable.memberId, id)).orderBy(asc(serviceSessionsTable.id)).for("update");
+      .where(and(
+        eq(serviceSessionsTable.memberId, id),
+        eq(serviceSessionsTable.businessId, businessId),
+      )).orderBy(asc(serviceSessionsTable.id)).for("update");
     const [member] = await tx.select({ id: membersTable.id }).from(membersTable)
-      .where(and(eq(membersTable.id, id), isNull(membersTable.deletedAt))).for("update");
+      .where(and(
+        eq(membersTable.id, id),
+        eq(membersTable.businessId, businessId),
+        isNull(membersTable.deletedAt),
+      )).for("update");
     if (!member) throw new MassageError(404, "Không tìm thấy nhân viên.");
     // Scope deletion to the current business month. Earlier months are immutable
     // history, including card usage, walk-in revenue, attendance and payroll.
@@ -721,23 +732,30 @@ export async function deleteMember(id: number, operationId?: string) {
       earnings: 0,
     }).where(and(
       eq(serviceSessionsTable.memberId, id),
+      eq(serviceSessionsTable.businessId, businessId),
       isNotNull(serviceSessionsTable.cardId),
       gte(serviceSessionsTable.workDate, currentMonthStart),
     ));
     // Remove only current-month walk-in sessions, preserving prior-month revenue.
     await tx.delete(serviceSessionsTable).where(and(
       eq(serviceSessionsTable.memberId, id),
+      eq(serviceSessionsTable.businessId, businessId),
       isNull(serviceSessionsTable.cardId),
       gte(serviceSessionsTable.workDate, currentMonthStart),
     ));
     await tx.delete(attendanceTable).where(and(
       eq(attendanceTable.memberId, id),
+      eq(attendanceTable.businessId, businessId),
       gte(attendanceTable.workDate, currentMonthStart),
     ));
     // Soft delete the profile so prior-month names, pay rates and visit details
     // remain available in historical views. No card totals or visit minutes change.
     await tx.update(membersTable).set({ deletedAt: new Date() })
-      .where(and(eq(membersTable.id, id), isNull(membersTable.deletedAt)));
+      .where(and(
+        eq(membersTable.id, id),
+        eq(membersTable.businessId, businessId),
+        isNull(membersTable.deletedAt),
+      ));
   });
 }
 
@@ -876,6 +894,7 @@ export async function saveSession(
   id?: number,
   permissions?: FacilityPermissions,
   operationId?: string,
+  businessId = "00000000-0000-4000-8000-000000000001",
 ) {
   const workDate = validDate(input.workDate);
   if (input.cardId == null && !isWithinRetention(workDate)) {
@@ -883,12 +902,15 @@ export async function saveSession(
   }
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng cho ca chấm công.");
-    return savePartitionedSession(input, id, permissions, operationId);
+    return savePartitionedSession(input, id, permissions, operationId, businessId);
   }
   return idempotentTransaction(operationId, id === undefined ? "chấm công" : "sửa ca", "service-session.save", {
     id: id ?? null, input,
   }, async (tx) => {
-    const [old] = id ? await tx.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, id)).for("update") : [];
+    const [old] = id ? await tx.select().from(serviceSessionsTable).where(and(
+      eq(serviceSessionsTable.id, id),
+      eq(serviceSessionsTable.businessId, businessId),
+    )).for("update") : [];
     if (id && !old) throw new MassageError(404, "Không tìm thấy lượt phục vụ.");
     const cardId = input.cardId ?? null;
     const paymentMethod: "cash" | "transfer" | null = cardId === null ? input.paymentMethod as "cash" | "transfer" : null;
@@ -903,7 +925,10 @@ export async function saveSession(
     const ids = [...new Set([old?.cardId, cardId].filter((n): n is number => n !== null && n !== undefined))].sort((a, b) => a - b);
     let card: typeof treatmentCardsTable.$inferSelect | undefined;
     for (const lockId of ids) {
-      const [row] = await tx.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, lockId)).for("update");
+      const [row] = await tx.select().from(treatmentCardsTable).where(and(
+        eq(treatmentCardsTable.id, lockId),
+        eq(treatmentCardsTable.businessId, businessId),
+      )).for("update");
       if (!row) throw new MassageError(404, "Không tìm thấy thẻ đã chọn.");
       if (lockId === cardId) card = row;
     }
@@ -912,7 +937,10 @@ export async function saveSession(
       .filter((memberId): memberId is number => memberId !== null && memberId !== undefined))]
       .sort((a, b) => a - b);
     const lockedMembers = await tx.select().from(membersTable)
-      .where(inArray(membersTable.id, lockedMemberIds))
+      .where(and(
+        inArray(membersTable.id, lockedMemberIds),
+        eq(membersTable.businessId, businessId),
+      ))
       .orderBy(asc(membersTable.id))
       .for("update");
     const member = lockedMembers.find((row) => row.id === input.memberId);
@@ -920,7 +948,10 @@ export async function saveSession(
     const sameEmployee = old?.memberId === member.id;
     const serviceTypeId = input.serviceTypeId ?? null;
     const [service] = serviceTypeId !== null
-      ? await tx.select().from(serviceTypesTable).where(eq(serviceTypesTable.id, serviceTypeId)).for("share")
+      ? await tx.select().from(serviceTypesTable).where(and(
+        eq(serviceTypesTable.id, serviceTypeId),
+        eq(serviceTypesTable.businessId, businessId),
+      )).for("share")
       : [];
     if (serviceTypeId !== null && !service) throw new MassageError(404, "Loại hình dịch vụ đã bị xóa. Hãy chọn dịch vụ khác.");
     if (!old && !service) throw new MassageError(400, "Hãy chọn loại hình dịch vụ để tính lương.");
@@ -928,7 +959,10 @@ export async function saveSession(
     const keepsRecordedRate = shouldKeepRecordedHourlyRate(old, member.id, serviceTypeId);
     const keepsCustomerRate = Boolean(sameService && old && old.customerHourlyRate > 0);
     const [nightSettings] = await tx.select().from(facilityNightSettingsTable)
-      .where(eq(facilityNightSettingsTable.id, 1)).limit(1);
+      .where(and(
+        eq(facilityNightSettingsTable.id, 1),
+        eq(facilityNightSettingsTable.businessId, businessId),
+      )).limit(1);
     const createdAt = old?.createdAt ?? new Date();
     const isNightShift = old
       ? old.isNightShift
@@ -966,10 +1000,14 @@ export async function saveSession(
       hourlyRate: rate,
       earnings: Math.round(input.minutes * rate / 60), note: input.note?.trim() ?? "",
       isNightShift,
+      businessId,
       createdAt,
     };
     const [row] = id
-      ? await tx.update(serviceSessionsTable).set(values).where(eq(serviceSessionsTable.id, id)).returning()
+      ? await tx.update(serviceSessionsTable).set(values).where(and(
+        eq(serviceSessionsTable.id, id),
+        eq(serviceSessionsTable.businessId, businessId),
+      )).returning()
       : await tx.insert(serviceSessionsTable).values(values).returning();
     if (card && !card.firstUsedAt) {
       await tx.update(treatmentCardsTable).set({ firstUsedAt: sql`clock_timestamp()` })
@@ -977,6 +1015,7 @@ export async function saveSession(
     }
     if (card) {
       const sameDayAppointments = await tx.select().from(appointmentsTable).where(and(
+        eq(appointmentsTable.businessId, businessId),
         eq(appointmentsTable.status, "scheduled"),
         sql`to_char(${appointmentsTable.scheduledAt} at time zone 'Asia/Ho_Chi_Minh', 'YYYY-MM-DD') = ${input.workDate}`,
       )).for("update");
@@ -995,15 +1034,16 @@ async function savePartitionedSession(
   id: number | undefined,
   permissions: FacilityPermissions | undefined,
   operationId: string,
+  businessId: string,
 ) {
   return withPartitionWriteMutex("card-ledger", async () => {
-    const requestHash = hashPartitionRequest({ action: "service-session.save", id: id ?? null, input });
+    const requestHash = hashPartitionRequest({ action: "service-session.save", id: id ?? null, input, businessId });
     const prior = await getReservedPartitionOperation(operationId, requestHash);
     if (prior) {
       const { operation: reconciled, rows: freshRows } = await reconcileAndReload(
         prior,
         reconcilePartitionOperation,
-        () => readPartitionedTable("service_sessions"),
+        () => readPartitionedTable("service_sessions", { businessId }),
       );
       if (reconciled.state === "committed") {
         if (!freshRows) throw new MassageError(503, "Không tải lại được ca sau khi lưu.");
@@ -1016,13 +1056,13 @@ async function savePartitionedSession(
     }
     const [sessionRowsRaw, cardRowsRaw, archivedRowsRaw, memberRowsRaw, serviceRowsRaw, appointmentRowsRaw, nightSettingsRaw] =
       await Promise.all([
-        readPartitionedTable("service_sessions"),
-        readPartitionedTable("treatment_cards"),
-        readPartitionedTable("card_usage_history"),
-        readPartitionedTable("members"),
-        readPartitionedTable("service_types"),
-        readPartitionedTable("appointments"),
-        readPartitionedTable("facility_night_settings"),
+        readPartitionedTable("service_sessions", { businessId }),
+        readPartitionedTable("treatment_cards", { businessId }),
+        readPartitionedTable("card_usage_history", { businessId }),
+        readPartitionedTable("members", { businessId }),
+        readPartitionedTable("service_types", { businessId }),
+        readPartitionedTable("appointments", { businessId }),
+        readPartitionedTable("facility_night_settings", { businessId }),
       ]);
     const sessionRows = sessionRowsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[];
     const cardRows = cardRowsRaw as unknown as (typeof treatmentCardsTable.$inferSelect)[];
@@ -1111,6 +1151,7 @@ async function savePartitionedSession(
       hourlyRate: rate,
       earnings: Math.round(input.minutes * rate / 60),
       isNightShift,
+      businessId,
       createdAt,
       note: input.note?.trim() ?? "",
     };
@@ -1138,7 +1179,7 @@ async function savePartitionedSession(
     const { operation: reconciled, rows: refreshedSessions } = await reconcileAndReload(
       operation,
       reconcilePartitionOperation,
-      () => readPartitionedTable("service_sessions"),
+      () => readPartitionedTable("service_sessions", { businessId }),
     );
     if (reconciled.state !== "committed") {
       const sessionId = id ?? reconciled.allocatedIds.service_sessions?.[0];

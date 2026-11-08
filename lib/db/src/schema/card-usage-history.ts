@@ -6,6 +6,7 @@ import { treatmentCardsTable } from "./treatment-cards";
  * retention window are copied here before they are removed from payroll/history.
  */
 export const cardUsageHistoryTable = pgTable("card_usage_history", {
+  businessId: text("business_id").notNull().default("00000000-0000-4000-8000-000000000001"),
   sourceSessionId: integer("source_session_id").primaryKey(),
   cardId: integer("card_id").notNull().references(() => treatmentCardsTable.id, { onDelete: "restrict" }),
   memberId: integer("member_id"),

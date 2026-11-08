@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { and, eq, gte, lt, sql } from "drizzle-orm";
 import {
   cardTopUpsTable,
   db,
@@ -44,13 +44,37 @@ function serviceBreakdown(rows: readonly { serviceType: string; minutes: number 
   );
 }
 
-async function getPartitionedFacilityRevenue(month: string, date: string, start: string, end: string) {
-  const [allCards, allTopUps, allSessions, nightSettings] = await Promise.all([
-    readPartitionedTable("treatment_cards"),
-    readPartitionedTable("card_top_ups"),
-    readPartitionedTable("service_sessions"),
-    readPartitionedTable("facility_night_settings"),
-  ]);
+async function getPartitionedFacilityRevenue(
+  month: string,
+  date: string,
+  start: string,
+  end: string,
+  businessId = "00000000-0000-4000-8000-000000000001",
+) {
+  const [allCards, allTopUps, allSessions, nightSettings] = isPartitionedStorageEnabled()
+    ? await Promise.all([
+      readPartitionedTable("treatment_cards", { businessId }),
+      readPartitionedTable("card_top_ups", { businessId }),
+      readPartitionedTable("service_sessions", { businessId }),
+      readPartitionedTable("facility_night_settings", { businessId }),
+    ])
+    : await Promise.all([
+      db.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.businessId, businessId)),
+      db.select().from(cardTopUpsTable).where(and(
+        eq(cardTopUpsTable.businessId, businessId),
+        gte(cardTopUpsTable.paymentDate, start),
+        lt(cardTopUpsTable.paymentDate, end),
+      )),
+      db.select().from(serviceSessionsTable).where(and(
+        eq(serviceSessionsTable.businessId, businessId),
+        gte(serviceSessionsTable.workDate, start),
+        lt(serviceSessionsTable.workDate, end),
+      )),
+      db.select().from(facilityNightSettingsTable).where(and(
+        eq(facilityNightSettingsTable.businessId, businessId),
+        eq(facilityNightSettingsTable.id, 1),
+      )),
+    ]);
   const cards = allCards as unknown as (typeof treatmentCardsTable.$inferSelect)[];
   const topUps = allTopUps as unknown as (typeof cardTopUpsTable.$inferSelect)[];
   const sessions = allSessions as unknown as (typeof serviceSessionsTable.$inferSelect)[];
@@ -62,9 +86,11 @@ async function getPartitionedFacilityRevenue(month: string, date: string, start:
   );
 }
 
-export async function getNightServiceEnabled(): Promise<boolean> {
+export async function getNightServiceEnabled(
+  businessId = "00000000-0000-4000-8000-000000000001",
+): Promise<boolean> {
   if (isPartitionedStorageEnabled()) {
-    const rows = await readPartitionedTable("facility_night_settings");
+    const rows = await readPartitionedTable("facility_night_settings", { businessId });
     const settings = (rows as unknown as (typeof facilityNightSettingsTable.$inferSelect)[])
       .filter((setting) => setting.id === 1)
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
@@ -72,7 +98,10 @@ export async function getNightServiceEnabled(): Promise<boolean> {
   }
   const [setting] = await db.select({ enabled: facilityNightSettingsTable.enabled })
     .from(facilityNightSettingsTable)
-    .where(sql`${facilityNightSettingsTable.id} = 1`)
+    .where(and(
+      eq(facilityNightSettingsTable.businessId, businessId),
+      eq(facilityNightSettingsTable.id, 1),
+    ))
     .limit(1);
   return setting?.enabled ?? false;
 }
@@ -330,15 +359,19 @@ async function getServiceBreakdown(
 }
 
 /** Gross revenue recognizes walk-in service charges and card sales, not card redemptions. */
-export async function getFacilityRevenue(month: string, requestedDate?: string) {
+export async function getFacilityRevenue(
+  month: string,
+  requestedDate?: string,
+  businessId = "00000000-0000-4000-8000-000000000001",
+) {
   const { start, end } = retainedMonthBounds(month);
   const date = retainedDate(requestedDate ?? new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(new Date()));
-  if (isPartitionedStorageEnabled()) {
-    return getPartitionedFacilityRevenue(month, date, start, end);
-  }
-  const nightServiceEnabled = await getNightServiceEnabled();
+  return getPartitionedFacilityRevenue(month, date, start, end, businessId);
+  /* Legacy SQL aggregation retained below temporarily for review; the scoped
+     aggregate above is used for both storage modes to enforce tenant isolation. */
+  const nightServiceEnabled = await getNightServiceEnabled(businessId);
   const topSoldCardServiceType = sql<string | null>`(
     select ${treatmentCardsTable.serviceType}
     from ${treatmentCardsTable}

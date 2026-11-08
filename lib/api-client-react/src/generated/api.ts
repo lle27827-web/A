@@ -31,7 +31,9 @@ import type {
   AttendanceSummary,
   AttendanceUpdate,
   AuthStatus,
+  BusinessAccessResult,
   CardHoursInput,
+  CreateBusinessInput,
   DatabaseFailoverInput,
   DatabaseFailoverResult,
   DatabaseFailoverStatus,
@@ -45,6 +47,7 @@ import type {
   GetPersonalComparisonParams,
   GetPersonalNotebookParams,
   HealthStatus,
+  JoinBusinessInput,
   ListAttendanceParams,
   ListMembersParams,
   ListServiceSessionsParams,
@@ -2406,6 +2409,256 @@ export function useGetAuthStatus<TData = Awaited<ReturnType<typeof getAuthStatus
 
 
 
+
+export const getCreateBusinessUrl = () => {
+
+
+
+
+  return `/api/businesses`
+}
+
+/**
+ * @summary Tạo doanh nghiệp và bộ dữ liệu riêng
+ */
+export const createBusiness = async (createBusinessInput: CreateBusinessInput, options?: Parameters<typeof customFetch>[1]): Promise<BusinessAccessResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<BusinessAccessResult>(getCreateBusinessUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(createBusinessInput)
+  }
+);}
+
+
+
+
+
+export const getCreateBusinessMutationKey = () => ['createBusiness'] as const;
+
+export const getCreateBusinessMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBusiness>>, TError,CreateBusinessMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createBusiness>>, TError,CreateBusinessMutationVariables, TContext> => {
+
+const mutationKey = getCreateBusinessMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBusiness>>, CreateBusinessMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createBusiness(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateBusinessMutationResult = NonNullable<Awaited<ReturnType<typeof createBusiness>>>
+    export type CreateBusinessMutationBody = BodyType<CreateBusinessInput>
+    export type CreateBusinessMutationError = ErrorType<void>
+    export type CreateBusinessMutationVariables = {data: BodyType<CreateBusinessInput>}
+
+    /**
+ * @summary Tạo doanh nghiệp và bộ dữ liệu riêng
+ */
+export const useCreateBusiness = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBusiness>>, TError,CreateBusinessMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createBusiness>>,
+        TError,
+        CreateBusinessMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateBusinessMutationOptions(options));
+    }
+
+export const getJoinBusinessUrl = () => {
+
+
+
+
+  return `/api/businesses/join`
+}
+
+/**
+ * @summary Tham gia bằng mã doanh nghiệp
+ */
+export const joinBusiness = async (joinBusinessInput: JoinBusinessInput, options?: Parameters<typeof customFetch>[1]): Promise<BusinessAccessResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<BusinessAccessResult>(getJoinBusinessUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(joinBusinessInput)
+  }
+);}
+
+
+
+
+
+export const getJoinBusinessMutationKey = () => ['joinBusiness'] as const;
+
+export const getJoinBusinessMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinBusiness>>, TError,JoinBusinessMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof joinBusiness>>, TError,JoinBusinessMutationVariables, TContext> => {
+
+const mutationKey = getJoinBusinessMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof joinBusiness>>, JoinBusinessMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  joinBusiness(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type JoinBusinessMutationResult = NonNullable<Awaited<ReturnType<typeof joinBusiness>>>
+    export type JoinBusinessMutationBody = BodyType<JoinBusinessInput>
+    export type JoinBusinessMutationError = ErrorType<void>
+    export type JoinBusinessMutationVariables = {data: BodyType<JoinBusinessInput>}
+
+    /**
+ * @summary Tham gia bằng mã doanh nghiệp
+ */
+export const useJoinBusiness = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinBusiness>>, TError,JoinBusinessMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof joinBusiness>>,
+        TError,
+        JoinBusinessMutationVariables,
+        TContext
+      > => {
+      return useMutation(getJoinBusinessMutationOptions(options));
+    }
+
+export const getRotateBusinessJoinCodeUrl = (id: string,) => {
+
+
+
+
+  return `/api/businesses/${id}/join-code`
+}
+
+/**
+ * @summary Tạo mã tham gia mới cho doanh nghiệp
+ */
+export const rotateBusinessJoinCode = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<BusinessAccessResult> => {
+
+  return customFetch<BusinessAccessResult>(getRotateBusinessJoinCodeUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRotateBusinessJoinCodeMutationKey = () => ['rotateBusinessJoinCode'] as const;
+
+export const getRotateBusinessJoinCodeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotateBusinessJoinCode>>, TError,RotateBusinessJoinCodeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rotateBusinessJoinCode>>, TError,RotateBusinessJoinCodeMutationVariables, TContext> => {
+
+const mutationKey = getRotateBusinessJoinCodeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rotateBusinessJoinCode>>, RotateBusinessJoinCodeMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  rotateBusinessJoinCode(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RotateBusinessJoinCodeMutationResult = NonNullable<Awaited<ReturnType<typeof rotateBusinessJoinCode>>>
+
+    export type RotateBusinessJoinCodeMutationError = ErrorType<void>
+    export type RotateBusinessJoinCodeMutationVariables = {id: string}
+
+    /**
+ * @summary Tạo mã tham gia mới cho doanh nghiệp
+ */
+export const useRotateBusinessJoinCode = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotateBusinessJoinCode>>, TError,RotateBusinessJoinCodeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rotateBusinessJoinCode>>,
+        TError,
+        RotateBusinessJoinCodeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRotateBusinessJoinCodeMutationOptions(options));
+    }
 
 export const getListAccessGrantsUrl = () => {
 

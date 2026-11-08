@@ -219,6 +219,26 @@ function failoverStatePool(): pg.Pool | undefined {
   return failoverCoordinatorPool ?? controlNode()?.pool;
 }
 
+/**
+ * Business identities and join-code hashes live on DB4, the project's chosen
+ * control plane. Keep this callback narrow so application data routes cannot
+ * accidentally use the registry as an unscoped query path.
+ */
+export async function withBusinessRegistryClient<T>(
+  operation: (client: pg.PoolClient) => Promise<T>,
+): Promise<T> {
+  const registryPool = nodeForBackend("database_url_4")?.pool;
+  if (!registryPool) {
+    throw new Error("Business registry requires the configured DB4 coordinator.");
+  }
+  const client = await registryPool.connect();
+  try {
+    return await operation(client);
+  } finally {
+    client.release();
+  }
+}
+
 function setActiveBackend(backend: PersistedDatabaseBackend): void {
   activeBackend = backend;
   if (backend === "switching") {

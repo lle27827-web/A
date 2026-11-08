@@ -5,11 +5,25 @@
  * API công khai để quản lý dữ liệu nhân viên, chấm công, dịch vụ và thẻ liệu trình.
  * OpenAPI spec version: 0.1.0
  */
+import type { AuthStatusRole } from './authStatusRole';
+import type { BusinessSummary } from './businessSummary';
 import type { FacilityPermissions } from './facilityPermissions';
 
 export interface AuthStatus {
   authConfigured: boolean;
   authenticated: boolean;
   isOwner: boolean;
+  isPlatformAdmin: boolean;
+  /** @nullable */
+  userId: string | null;
+  /** @nullable */
+  email: string | null;
+  /** @nullable */
+  businessId: string | null;
+  /** @nullable */
+  businessName: string | null;
+  /** @nullable */
+  role: AuthStatusRole;
+  businesses: BusinessSummary[];
   permissions: FacilityPermissions;
 }

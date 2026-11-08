@@ -1,10 +1,11 @@
-import { boolean, index, integer, pgTable, serial, timestamp, varchar } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { membersTable } from "./members";
 
 export const memberVersionsTable = pgTable("member_versions", {
   id: serial("id").primaryKey(),
+  businessId: text("business_id").notNull().default("00000000-0000-4000-8000-000000000001"),
   memberId: integer("member_id").notNull().references(() => membersTable.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 120 }).notNull(),
   hourlyRate: integer("hourly_rate").notNull(),
