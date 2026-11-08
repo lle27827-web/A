@@ -133,8 +133,6 @@ function activityDetails(activity: AppointmentStaffActivity) {
     if (activity.serviceType) details.push({ kind: 'detail', text: activity.serviceType });
     if (activity.endsAt) {
       details.push({ kind: 'completion', text: `Dự kiến hoàn thành lúc ${formatActivityEnd(activity.endsAt)}` });
-    } else {
-      details.push({ kind: 'detail', text: 'Chưa xác định giờ dự kiến xong' });
     }
   } else {
     details.push({ kind: 'state', text: activity.state === 'off' ? 'Đang nghỉ' : 'Đang rảnh' });
@@ -143,8 +141,6 @@ function activityDetails(activity: AppointmentStaffActivity) {
         kind: 'detail',
         text: `Ca gần nhất dự kiến xong lúc ${formatActivityEnd(activity.lastFinishedAt)}`,
       });
-    } else {
-      details.push({ kind: 'detail', text: 'Chưa có giờ kết thúc gần đây' });
     }
   }
   if (activity.nextAppointmentAt) {
@@ -431,23 +427,45 @@ export default function AppointmentsPage() {
                       <strong className="staff-activity-person-name">{activity.employeeName}</strong>
                     </div>
                   )}
-                  <div
-                    className={`staff-activity-state is-${activity.state}`}
-                    role="status"
-                    aria-label={details.map((detail) => detail.text).join('. ')}
-                  >
-                    {details.map((detail, index) => (
-                      <span
-                        className={`staff-activity-detail is-${detail.kind}`}
-                        key={`${detail.kind}-${index}`}
-                      >
-                        {detail.kind === 'completion' && <Clock3 size={14} aria-hidden="true" />}
-                        {index === 0 && activity.state === 'available' && <CheckCircle2 size={14} aria-hidden="true" />}
-                        {index === 0 && activity.state === 'off' && <Coffee size={14} aria-hidden="true" />}
-                        {detail.text}
-                      </span>
-                    ))}
-                  </div>
+                  {canOpenAttendance ? (
+                    <button
+                      type="button"
+                      className={`staff-activity-state staff-activity-state-button is-${activity.state}`}
+                      onClick={() => openAttendance(activity.memberId)}
+                      aria-haspopup="dialog"
+                      aria-label={`Chấm công cho ${activity.employeeName}. ${details.map((detail) => detail.text).join('. ')}`}
+                    >
+                      {details.map((detail, index) => (
+                        <span
+                          className={`staff-activity-detail is-${detail.kind}`}
+                          key={`${detail.kind}-${index}`}
+                        >
+                          {detail.kind === 'completion' && <Clock3 size={14} aria-hidden="true" />}
+                          {index === 0 && activity.state === 'available' && <CheckCircle2 size={14} aria-hidden="true" />}
+                          {index === 0 && activity.state === 'off' && <Coffee size={14} aria-hidden="true" />}
+                          {detail.text}
+                        </span>
+                      ))}
+                    </button>
+                  ) : (
+                    <div
+                      className={`staff-activity-state is-${activity.state}`}
+                      role="status"
+                      aria-label={details.map((detail) => detail.text).join('. ')}
+                    >
+                      {details.map((detail, index) => (
+                        <span
+                          className={`staff-activity-detail is-${detail.kind}`}
+                          key={`${detail.kind}-${index}`}
+                        >
+                          {detail.kind === 'completion' && <Clock3 size={14} aria-hidden="true" />}
+                          {index === 0 && activity.state === 'available' && <CheckCircle2 size={14} aria-hidden="true" />}
+                          {index === 0 && activity.state === 'off' && <Coffee size={14} aria-hidden="true" />}
+                          {detail.text}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   {canEdit && (
                     <button
                       type="button"

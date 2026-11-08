@@ -1319,14 +1319,19 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .staff-activity-row.is-working .staff-activity-icon { color: hsl(38 92% 68%); background: #777777; }
 .staff-activity-row.is-available .staff-activity-icon { color: hsl(130 65% 72%); background: #777777; }
 .staff-activity-row.is-off .staff-activity-icon { color: hsl(var(--muted-foreground)); }
-.staff-activity-state { display: flex; grid-column: 1; grid-row: 2; flex-wrap: wrap; align-items: center; gap: 5px 12px; min-width: 0; padding: 7px 10px 7px 39px; border-radius: 9px; background: #777777; color: hsl(0 0% 100%); font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+.staff-activity-state { display: flex; grid-column: 1; grid-row: 2; flex-wrap: wrap; align-items: center; gap: 5px 12px; min-width: 0; padding: 7px 10px 7px 39px; border-radius: 9px; background: #777777; color: hsl(0 0% 100%); font-size: 13px; font-weight: 900; overflow-wrap: anywhere; }
 .staff-activity-detail { display: inline-flex; align-items: center; gap: 5px; min-width: 0; line-height: 1.45; }
 .staff-activity-detail.is-completion { font-weight: 900; }
 .staff-activity-detail.is-appointment { flex-basis: 100%; padding-left: 19px; color: inherit; }
 .staff-activity-state.is-working,
 .staff-activity-state.is-available,
 .staff-activity-state.is-off { color: hsl(0 0% 100%); }
-.staff-activity-toggle { grid-column: 2; grid-row: 1 / span 2; align-self: center; min-width: 106px; background: #777777 !important; color: hsl(0 0% 100%) !important; }
+.staff-activity-state-button { width: 100%; border: 0; font: inherit; text-align: left; cursor: pointer; }
+.staff-activity-state-button:hover { filter: brightness(1.08); }
+.staff-activity-state-button:focus-visible { border-radius: 9px; outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
+.staff-activity-toggle { grid-column: 2; grid-row: 1 / span 2; align-self: center; min-width: 106px; padding: 8px 10px !important; border: 0 !important; border-radius: 9px !important; background: #777777 !important; color: hsl(0 0% 100%) !important; font-weight: 900 !important; }
+.staff-activity-row.is-available .staff-activity-toggle,
+.staff-activity-row.is-off .staff-activity-toggle { background: hsl(0 0% 100%) !important; color: hsl(25 20% 18%) !important; }
 .staff-activity-toggle:disabled { opacity: .65; cursor: not-allowed; }
 .staff-activity-empty { padding: 14px 4px 3px; color: hsl(var(--muted-foreground)); font-size: 13px; }
 
@@ -1338,7 +1343,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   .appointment-customer { grid-column: 1; grid-row: 2; }
   .appointment-detail-lines { grid-column: 1 / -1; grid-row: 3; padding-left: 22px; }
   .appointment-actions { grid-column: 2; grid-row: 1 / span 2; }
-  .staff-activity-row { gap: 8px 10px; padding: 12px 4px; }
+  .staff-activity-row { gap: 8px 10px; padding: 12px; }
   .staff-activity-state { font-size: 12px; }
   .staff-activity-detail.is-appointment { padding-left: 0; }
   .staff-activity-toggle { grid-column: 2; grid-row: 1 / span 2; min-width: 94px; }
