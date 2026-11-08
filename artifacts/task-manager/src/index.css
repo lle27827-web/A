@@ -3510,6 +3510,24 @@ body:has(.modal-backdrop) .screen-nav {
   color: hsl(0 0% 100%);
   background: hsl(var(--gray-panel));
 }
+.main .appointment-panel.staff-activity-panel {
+  --foreground: 30 42% 14%;
+  --muted-foreground: 30 35% 24%;
+  --card-foreground: 30 42% 14%;
+  padding: 8px 0;
+  border: 0 !important;
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+}
+.main .appointment-panel.staff-activity-panel .panel-head {
+  margin: 0 8px 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: hsl(var(--card));
+}
+.main .appointment-panel.staff-activity-panel .staff-activity-list {
+  margin-inline: 8px;
+}
 @media (max-width: 540px) {
   .night-service-settings {
     padding: 12px;
