@@ -21,11 +21,17 @@ Every signed-in account may keep a separate personal employee notebook: own atte
 
 **How to apply:** derive identity only from the verified session; scope all personal data by account, including owner accounts. Personal writes never change facility data. Comparison requires permission to view the selected central employee; it shows their daily/monthly **pay** and service/customer-name details, not facility cash revenue, phone numbers or another account's private notebook. Revoking facility rights must not erase the account's own notebook.
 
-New accounts default to the personal notebook until they choose a business role. Businesses are logical partitions by `business_id` in the existing four shared Neon stores, not separate physical databases. Joining with a business name and code creates membership but does not grant facility permissions by itself.
+Accounts that have not completed role onboarding see the personal, owner, and employee choices once; skipping defaults to the personal notebook. Businesses are logical partitions by `business_id` in the existing four shared Neon stores, not separate physical databases. Joining with the 10-digit code creates membership but does not grant facility permissions by itself.
 
 **Why:** the user chose personal as the default, selected shared four-database partitioning, and kept facility access under owner-managed permissions.
 
-**How to apply:** keep role and business setup in Settings; validate the name and join code together on the server. Preserve current business data and personal notebooks when changing the account's workspace choice.
+**How to apply:** keep role and business setup in Settings; identify the business from the verified 10-digit join code on the server. Preserve current business data and personal notebooks when changing the account's workspace choice.
+
+On the first authenticated session, offer personal, owner, and employee paths; skipping means personal. An employee may leave only the selected business, revoking that account's grant and membership while retaining login, personal data, all business records, and other memberships. Owners cannot leave before transferring ownership. Rejoining by a valid code restores membership only and never restores manager rights automatically.
+
+**Why:** the user requested first-login role selection, safe single-business departure, retained records, and a permission-free rejoin.
+
+**How to apply:** store the role choice as a user-scoped preference, but enforce all authority server-side. Revoke the employee's business grant before deactivating membership so partial failures remain fail-closed and retryable.
 
 Legacy access cleanup must revoke facility memberships/grants without deleting login identities or personal notebooks. Inspect the affected scope and obtain confirmation before changing production access.
 

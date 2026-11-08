@@ -5,6 +5,7 @@ import { AlertCircle, ArrowLeft, BookHeart, CalendarDays, Check, CreditCard, Han
 import { Link, useLocation, useSearch } from 'wouter';
 import { SearchResults } from '@/components/search-results';
 import { ViewSettings, useViewPrefs, type ViewPrefs } from '@/components/view-settings';
+import type { BusinessRolePreference } from '@/lib/business-role-preference';
 import type { KeyboardShortcutAction } from '@/lib/keyboard-shortcuts';
 import { submitActiveDialogForm, useDeviceKeyboardShortcuts } from '@/lib/keyboard-shortcuts';
 import { errorText, formatMonth, SESSION_FRESHNESS } from '@/lib/massage';
@@ -90,6 +91,7 @@ export function AppShell({
   onBusinessSelected,
   onContinuePersonal,
   onRefreshStatus,
+  onRoleSelected,
 }: {
   children: ReactNode;
   employeeView: ReactNode;
@@ -104,6 +106,7 @@ export function AppShell({
   onBusinessSelected: (id: string) => Promise<void>;
   onContinuePersonal: () => void;
   onRefreshStatus: () => Promise<AuthStatus | undefined>;
+  onRoleSelected: (role: BusinessRolePreference) => void;
 }) {
   const [location, navigate] = useLocation();
   const [desktopLayout, setDesktopLayout] = useState(() =>
@@ -331,7 +334,8 @@ export function AppShell({
                  businessStatus={businessStatus}
                  onBusinessSelected={onBusinessSelected}
                  onContinuePersonal={onContinuePersonal}
-                 onRefreshStatus={onRefreshStatus} />
+                  onRefreshStatus={onRefreshStatus}
+                  onRoleSelected={onRoleSelected} />
             </div>
           </div>
         </header>

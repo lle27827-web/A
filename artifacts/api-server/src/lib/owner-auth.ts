@@ -226,6 +226,27 @@ export async function apiAuthorizationGate(
       next();
       return;
     }
+    const leaveBusinessMatch = /^\/businesses\/([0-9a-f-]{36})\/leave$/i.exec(req.path);
+    if (req.method === "DELETE" && leaveBusinessMatch) {
+      if (!status.userId || !status.email) {
+        res.status(403).json({ error: "Tài khoản cần có email đã xác minh để rời cơ sở." });
+        return;
+      }
+      if (status.isOwner || status.role === "owner") {
+        res.status(409).json({ error: "Chủ cơ sở cần chuyển quyền sở hữu trước khi rời cơ sở." });
+        return;
+      }
+      if (status.isPlatformAdmin || status.role !== "employee") {
+        res.status(403).json({ error: "Chỉ nhân viên của cơ sở mới được rời cơ sở." });
+        return;
+      }
+      if (status.businessId !== leaveBusinessMatch[1]) {
+        res.status(403).json({ error: "Chỉ có thể rời cơ sở đang chọn." });
+        return;
+      }
+      next();
+      return;
+    }
     if (!status.businessId) {
       res.status(409).json({ error: "Hãy chọn hoặc tham gia một doanh nghiệp trước khi mở dữ liệu cơ sở." });
       return;

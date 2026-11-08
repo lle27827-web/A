@@ -1,11 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import {
   useCreateBusiness,
+  useLeaveBusiness,
   useJoinBusiness,
   useRotateBusinessJoinCode,
 } from '@workspace/api-client-react';
 import type { AuthStatus, BusinessAccessResult } from '@workspace/api-client-react';
 import { ArrowRight, BookHeart, Building2, Check, Copy, KeyRound, LoaderCircle, RefreshCw } from 'lucide-react';
+import { ConfirmDialog, type ConfirmState } from '@/components/modal';
+import { readBusinessRolePreference } from '@/lib/business-role-preference';
 
 type RoleChoice = 'personal' | 'owner' | 'employee';
 
@@ -15,6 +18,8 @@ type Props = {
   onContinuePersonal: () => void;
   onRefreshStatus: () => Promise<AuthStatus | undefined>;
   onCloseSettings?: () => void;
+  onRoleSelected?: (role: RoleChoice) => void;
+  onRoleFlowCompleted?: () => void;
 };
 
 function currentRole(status: AuthStatus): RoleChoice {
@@ -46,19 +51,32 @@ export function BusinessAccessSettings({
   onContinuePersonal,
   onRefreshStatus,
   onCloseSettings,
+  onRoleSelected,
+  onRoleFlowCompleted,
 }: Props) {
-  const [role, setRole] = useState<RoleChoice>(() => currentRole(status));
+  const [role, setRole] = useState<RoleChoice>(() =>
+    readBusinessRolePreference(status.userId) ?? currentRole(status),
+  );
   const [businessName, setBusinessName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [created, setCreated] = useState<BusinessAccessResult | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [copied, setCopied] = useState(false);
+  const [leaveConfirm, setLeaveConfirm] = useState<ConfirmState | null>(null);
   const createBusiness = useCreateBusiness();
   const joinBusiness = useJoinBusiness();
   const rotateJoinCode = useRotateBusinessJoinCode();
-  const busy = createBusiness.isPending || joinBusiness.isPending || rotateJoinCode.isPending;
+  const leaveBusiness = useLeaveBusiness();
+  const busy = createBusiness.isPending || joinBusiness.isPending || rotateJoinCode.isPending || leaveBusiness.isPending;
   const businesses = status.businesses ?? [];
+  const activeBusiness = businesses.find((business) => business.id === status.businessId);
+  const canLeaveActiveBusiness = Boolean(
+    activeBusiness &&
+    activeBusiness.role === 'employee' &&
+    status.role === 'employee' &&
+    !status.isPlatformAdmin,
+  );
 
   async function createWorkspace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -67,6 +85,7 @@ export function BusinessAccessSettings({
     setCreated(null);
     try {
       const result = await createBusiness.mutateAsync({ data: { name: businessName.trim() } });
+      onRoleSelected?.('owner');
       setCreated(result);
       setBusinessName('');
       await onRefreshStatus();
@@ -82,12 +101,13 @@ export function BusinessAccessSettings({
     setNotice('');
     try {
       const result = await joinBusiness.mutateAsync({
-        data: { businessName: businessName.trim(), code: joinCode },
+        data: { code: joinCode },
       });
-      setBusinessName('');
+      onRoleSelected?.('employee');
       setJoinCode('');
       await onRefreshStatus();
       setNotice(`Đã liên kết tài khoản với “${result.business.name}”. Chủ cơ sở cần cấp quyền trước khi bạn xem dữ liệu.`);
+      onRoleFlowCompleted?.();
     } catch {
       setError('Tên cơ sở và mã tham gia không khớp, hoặc mã đã bị đổi. Hãy kiểm tra lại.');
     }
@@ -97,10 +117,42 @@ export function BusinessAccessSettings({
     setError('');
     setNotice('');
     try {
+      const selected = businesses.find((business) => business.id === id);
+      if (selected) onRoleSelected?.(selected.role === 'owner' || selected.role === 'platform_admin' ? 'owner' : 'employee');
       await onBusinessSelected(id);
     } catch {
       setError('Máy chủ chưa xác nhận cơ sở được chọn. Quyền truy cập không thay đổi.');
     }
+  }
+
+  async function leaveSelectedBusiness() {
+    if (!activeBusiness || !canLeaveActiveBusiness || leaveBusiness.isPending) return;
+    setError('');
+    setNotice('');
+    try {
+      await leaveBusiness.mutateAsync({ id: activeBusiness.id });
+      setLeaveConfirm(null);
+      await onRefreshStatus();
+      setNotice(`Đã rời “${activeBusiness.name}”. Đăng nhập, sổ cá nhân, dữ liệu cơ sở và quyền ở cơ sở khác vẫn được giữ.`);
+    } catch {
+      setError('Chưa thể hoàn tất việc rời cơ sở. Hãy tải lại trạng thái và thử lại.');
+    }
+  }
+
+  function askLeaveSelectedBusiness() {
+    if (!activeBusiness || !canLeaveActiveBusiness) return;
+    setLeaveConfirm({
+      title: `Rời khỏi “${activeBusiness.name}”?`,
+      body: (
+        <p>
+          Thao tác này gỡ membership và quyền quản lý riêng của tài khoản ở cơ sở đang chọn.
+          Tài khoản đăng nhập, sổ cá nhân, dữ liệu và lịch sử của cơ sở, cùng các cơ sở khác sẽ không bị xóa.
+          Chủ cơ sở cần chuyển quyền sở hữu trước khi rời.
+        </p>
+      ),
+      confirmLabel: 'Rời khỏi cơ sở',
+      onConfirm: () => { void leaveSelectedBusiness(); },
+    });
   }
 
   async function rotateCode() {
@@ -135,15 +187,15 @@ export function BusinessAccessSettings({
 
       <div className="business-role-options" role="group" aria-label="Chọn vai trò">
         <button type="button" aria-pressed={role === 'personal'} className={role === 'personal' ? 'selected' : ''}
-          onClick={() => { setRole('personal'); setCreated(null); setError(''); setNotice(''); }}>
+          onClick={() => { setRole('personal'); onRoleSelected?.('personal'); setCreated(null); setError(''); setNotice(''); }}>
           <BookHeart size={16} aria-hidden="true" /><span>Sổ cá nhân</span>
         </button>
         <button type="button" aria-pressed={role === 'owner'} className={role === 'owner' ? 'selected' : ''}
-          onClick={() => { setRole('owner'); setCreated(null); setError(''); setNotice(''); }}>
+          onClick={() => { setRole('owner'); onRoleSelected?.('owner'); setCreated(null); setError(''); setNotice(''); }}>
           <Building2 size={16} aria-hidden="true" /><span>Chủ doanh nghiệp</span>
         </button>
         <button type="button" aria-pressed={role === 'employee'} className={role === 'employee' ? 'selected' : ''}
-          onClick={() => { setRole('employee'); setCreated(null); setError(''); setNotice(''); }}>
+          onClick={() => { setRole('employee'); onRoleSelected?.('employee'); setCreated(null); setError(''); setNotice(''); }}>
           <KeyRound size={16} aria-hidden="true" /><span>Nhân viên</span>
         </button>
       </div>
@@ -196,19 +248,15 @@ export function BusinessAccessSettings({
         </div>
       ) : (
         <div className="business-role-panel">
-          <p>Nhập đúng tên cơ sở và mã 10 chữ số. Chủ cơ sở vẫn cần cấp quyền trước khi tài khoản xem dữ liệu.</p>
+          <p>Nhập mã doanh nghiệp gồm 10 chữ số. Chủ cơ sở vẫn cần cấp quyền trước khi tài khoản xem dữ liệu.</p>
           <form className="business-access-form" onSubmit={(event) => void joinWorkspace(event)} aria-busy={busy}>
-            <label className="field" htmlFor="settings-business-join-name">Tên cơ sở
-              <input id="settings-business-join-name" value={businessName} onChange={(event) => setBusinessName(event.target.value)}
-                minLength={2} maxLength={120} required autoComplete="organization" placeholder="Nhập tên do chủ cơ sở cung cấp" />
-            </label>
             <label className="field" htmlFor="settings-business-join-code">Mã doanh nghiệp
               <input id="settings-business-join-code" value={joinCode}
                 onChange={(event) => setJoinCode(event.target.value.replace(/\D/g, '').slice(0, 10))}
                 inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{10}" required
                 placeholder="Mã gồm 10 chữ số" />
             </label>
-            <button type="submit" className="btn primary" disabled={busy || businessName.trim().length < 2 || joinCode.length !== 10}>
+            <button type="submit" className="btn primary" disabled={busy || joinCode.length !== 10}>
               {busy ? <LoaderCircle size={15} className="spin" aria-hidden="true" /> : <KeyRound size={15} aria-hidden="true" />}
               Tham gia cơ sở
             </button>
@@ -230,8 +278,18 @@ export function BusinessAccessSettings({
         </div>
       )}
 
+      {canLeaveActiveBusiness && activeBusiness && (
+        <div className="business-leave-action">
+          <p>Rời chỉ áp dụng cho “{activeBusiness.name}”; các cơ sở khác và sổ cá nhân vẫn giữ nguyên.</p>
+          <button type="button" className="btn danger" onClick={askLeaveSelectedBusiness} disabled={busy}>
+            Rời khỏi cơ sở đang chọn
+          </button>
+        </div>
+      )}
+
       {error && <p className="business-access-message error" role="alert">{error}</p>}
       {notice && <p className="business-access-message" role="status">{notice}</p>}
+      {leaveConfirm && <ConfirmDialog state={leaveConfirm} busy={leaveBusiness.isPending} onClose={() => setLeaveConfirm(null)} />}
     </section>
   );
 }

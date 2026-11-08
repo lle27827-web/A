@@ -37,7 +37,7 @@ export function BusinessOnboarding({ status, onBusinessSelected, onContinuePerso
     try {
       const access = mode === 'create'
         ? await createBusiness.mutateAsync({ data: { name: name.trim() } })
-        : await joinBusiness.mutateAsync({ data: { businessName: name.trim(), code: code.replace(/\D/g, '') } });
+        : await joinBusiness.mutateAsync({ data: { code: code.replace(/\D/g, '') } });
       if (mode === 'create') {
         setResult(access);
         setName('');
@@ -157,15 +157,11 @@ export function BusinessOnboarding({ status, onBusinessSelected, onContinuePerso
               </>
             ) : (
               <>
-                <label className="field" htmlFor="business-join-name">Tên cơ sở
-                  <input id="business-join-name" value={name} onChange={(event) => setName(event.target.value)}
-                    minLength={2} maxLength={120} required autoComplete="organization" placeholder="Nhập tên do chủ cơ sở cung cấp" />
-                </label>
                 <label className="field" htmlFor="business-code">Mã tham gia gồm 10 chữ số
                   <input id="business-code" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 10))} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{10}" required placeholder="Nhập mã do chủ cơ sở cung cấp" aria-describedby="business-code-help" />
                 </label>
                 <p id="business-code-help" className="workspace-form-note"><KeyRound size={15} aria-hidden="true" /> Mã chỉ dùng để yêu cầu tham gia. Quyền truy cập do máy chủ xác nhận.</p>
-                <button className="btn primary workspace-submit" type="submit" disabled={pending || name.trim().length < 2 || code.length !== 10}>
+                <button className="btn primary workspace-submit" type="submit" disabled={pending || code.length !== 10}>
                   {pending ? <><LoaderCircle size={16} className="spin" aria-hidden="true" /> Đang xác minh…</> : <>Tham gia cơ sở <ArrowRight size={16} aria-hidden="true" /></>}
                 </button>
               </>

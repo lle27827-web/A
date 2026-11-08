@@ -7,6 +7,7 @@ import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
 import { AccessGrantsDialog } from '@/components/access-grants';
 import { BusinessAccessSettings } from '@/components/business-access-settings';
+import type { BusinessRolePreference } from '@/lib/business-role-preference';
 import { MonthlyPayrollPrint } from '@/components/monthly-payroll-print';
 import { PrintPreview } from '@/components/print-preview';
 import { KeyboardShortcutsSettings } from '@/components/keyboard-shortcuts-settings';
@@ -49,7 +50,7 @@ export function useViewPrefs() {
   return [prefs, update] as const;
 }
 
-export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOwner, permissions, canManageGrants, homeHref, shortcutActions, printPreferences, onPrintPreferencesChange, businessStatus, onBusinessSelected, onContinuePersonal, onRefreshStatus }: {
+export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOwner, permissions, canManageGrants, homeHref, shortcutActions, printPreferences, onPrintPreferencesChange, businessStatus, onBusinessSelected, onContinuePersonal, onRefreshStatus, onRoleSelected }: {
   prefs: ViewPrefs;
   members: MemberRecord[];
   open: boolean;
@@ -66,6 +67,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   onBusinessSelected?: (id: string) => Promise<void>;
   onContinuePersonal?: () => void;
   onRefreshStatus?: () => Promise<AuthStatus | undefined>;
+  onRoleSelected?: (role: BusinessRolePreference) => void;
 }) {
   const canViewEmployees = permissions.allEmployees || permissions.employeeIds.length > 0;
   const canHistory = canViewEmployees || permissions.viewRevenue;
@@ -116,7 +118,8 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
               {businessAccessOpen && (
               <BusinessAccessSettings status={businessStatus} onBusinessSelected={onBusinessSelected}
                 onContinuePersonal={() => { onOpenChange(false); onContinuePersonal(); }}
-                onRefreshStatus={onRefreshStatus} onCloseSettings={() => onOpenChange(false)} />
+                onRefreshStatus={onRefreshStatus} onCloseSettings={() => onOpenChange(false)}
+                onRoleSelected={onRoleSelected} />
               )}
             </div>
           )}

@@ -4,9 +4,12 @@ import {
   CreateBusinessResponse,
   JoinBusinessBody,
   JoinBusinessResponse,
+  LeaveBusinessParams,
   RotateBusinessJoinCodeResponse,
 } from "@workspace/api-zod";
 import { createBusinessForOwner, joinBusinessByCode, rotateBusinessJoinCode } from "../lib/business-tenancy";
+import { BusinessLeaveError, leaveBusinessForEmployee } from "../lib/business-leave";
+import { operationIdFromRequest } from "../lib/partitioned-mutations";
 import type { OwnerAuthStatus } from "../lib/owner-auth";
 
 const router: IRouter = Router();
@@ -57,7 +60,6 @@ router.post("/businesses/join", async (req, res): Promise<void> => {
     const business = await joinBusinessByCode({
       userId: status.userId,
       email: status.email,
-      businessName: parsed.data.businessName,
       code: parsed.data.code,
     });
     if (!business) {
@@ -68,6 +70,51 @@ router.post("/businesses/join", async (req, res): Promise<void> => {
   } catch (error) {
     req.log?.error({ err: error }, "Unable to join business");
     res.status(503).json({ error: "Không thể tham gia doanh nghiệp. Hãy thử lại." });
+  }
+});
+
+router.delete("/businesses/:id/leave", async (req, res): Promise<void> => {
+  const status = currentStatus(res);
+  const params = LeaveBusinessParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!status?.userId || !status.email) {
+    res.status(403).json({ error: "Tài khoản cần có email đã xác minh để rời cơ sở." });
+    return;
+  }
+  if (status.isOwner || status.role === "owner") {
+    res.status(409).json({ error: "Chủ cơ sở cần chuyển quyền sở hữu trước khi rời cơ sở." });
+    return;
+  }
+  if (status.isPlatformAdmin || status.role !== "employee") {
+    res.status(403).json({ error: "Chỉ nhân viên của cơ sở mới được rời cơ sở." });
+    return;
+  }
+  if (status.businessId !== params.data.id) {
+    res.status(403).json({ error: "Chỉ có thể rời cơ sở đang chọn." });
+    return;
+  }
+  try {
+    await leaveBusinessForEmployee({
+      businessId: params.data.id,
+      selectedBusinessId: status.businessId,
+      userId: status.userId,
+      email: status.email,
+      role: status.role,
+      isOwner: status.isOwner,
+      isPlatformAdmin: status.isPlatformAdmin,
+      operationId: operationIdFromRequest(req.get("Idempotency-Key"), "rời cơ sở"),
+    });
+    res.sendStatus(204);
+  } catch (error) {
+    if (error instanceof BusinessLeaveError) {
+      res.status(error.statusCode).json({ error: error.message });
+      return;
+    }
+    req.log?.error({ err: error, businessId: params.data.id }, "Unable to leave business");
+    res.status(503).json({ error: "Chưa thể hoàn tất việc rời cơ sở. Hãy thử lại." });
   }
 });
 

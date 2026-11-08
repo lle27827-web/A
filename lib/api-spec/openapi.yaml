@@ -466,6 +466,22 @@ paths:
               schema: { $ref: "#/components/schemas/BusinessAccessResult" }
         "400": { description: Tên cơ sở hoặc mã doanh nghiệp không hợp lệ }
         "401": { description: Cần đăng nhập }
+  /businesses/{id}/leave:
+    delete:
+      operationId: leaveBusiness
+      tags: [health]
+      summary: Nhân viên rời cơ sở đang chọn
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204": { description: Đã gỡ membership và quyền riêng tại cơ sở này }
+        "403": { description: Chỉ nhân viên của cơ sở đang chọn mới được rời }
+        "404": { description: Không tìm thấy membership hoặc quyền tại cơ sở }
+        "409": { description: Chủ cơ sở cần chuyển quyền sở hữu trước khi rời }
+        "503": { description: Chưa thể hoàn tất việc rời cơ sở; có thể thử lại }
   /businesses/{id}/join-code:
     post:
       operationId: rotateBusinessJoinCode
@@ -1137,9 +1153,8 @@ components:
         name: { type: string, minLength: 2, maxLength: 120 }
     JoinBusinessInput:
       type: object
-      required: [businessName, code]
+      required: [code]
       properties:
-        businessName: { type: string, minLength: 2, maxLength: 120 }
         code: { type: string, pattern: "^[0-9]{10}$" }
     BusinessAccessResult:
       type: object

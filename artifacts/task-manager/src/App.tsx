@@ -22,6 +22,16 @@ import { postAuthPath, retrySessionCheck, sessionScreen, validateRestoredSession
 import { createWebSessionTokenGetter } from '@/lib/web-session-token';
 import { playSaveChime } from '@/lib/save-chime';
 import { BusinessSwitcher } from '@/components/business-switcher';
+import { BusinessAccessSettings } from '@/components/business-access-settings';
+import { Modal } from '@/components/modal';
+import {
+  completeBusinessRoleOnboarding,
+  decideBusinessRoleOnboarding,
+  hasCompletedBusinessRoleOnboarding,
+  readBusinessRolePreference,
+  saveBusinessRolePreference,
+  type BusinessRolePreference,
+} from '@/lib/business-role-preference';
 
 function createAppQueryClient() {
   return new QueryClient({
@@ -131,6 +141,10 @@ function SignedInApplication({
   onBusinessSelected,
   onContinuePersonal,
   onRefreshStatus,
+  showRoleOnboarding,
+  onRoleSelected,
+  onRoleFlowCompleted,
+  onFinishRoleOnboarding,
   userId,
 }: {
   isOwner: boolean;
@@ -141,6 +155,10 @@ function SignedInApplication({
   onBusinessSelected: (id: string) => Promise<void>;
   onContinuePersonal: () => void;
   onRefreshStatus: () => Promise<AuthStatus | undefined>;
+  showRoleOnboarding: boolean;
+  onRoleSelected: (role: BusinessRolePreference) => void;
+  onRoleFlowCompleted: () => void;
+  onFinishRoleOnboarding: () => void;
   userId?: string | null;
 }) {
   const search = useSearch();
@@ -156,7 +174,8 @@ function SignedInApplication({
         <Route path="/sign-up/*?"><Redirect to={signedInDestination} replace /></Route>
         <Route path="/personal"><PersonalPage onSignOut={onSignOut} homeHref={showFacility ? '/' : null}
           businessStatus={status} onBusinessSelected={onBusinessSelected}
-          onContinuePersonal={onContinuePersonal} onRefreshStatus={onRefreshStatus} /></Route>
+          onContinuePersonal={onContinuePersonal} onRefreshStatus={onRefreshStatus}
+          onRoleSelected={onRoleSelected} /></Route>
         <Route>
           {showFacility ? (
             <AppShell
@@ -172,12 +191,31 @@ function SignedInApplication({
               onBusinessSelected={onBusinessSelected}
               onContinuePersonal={onContinuePersonal}
               onRefreshStatus={onRefreshStatus}
+              onRoleSelected={onRoleSelected}
             >
               <FacilityRoutes permissions={permissions} />
             </AppShell>
           ) : <Redirect to="/personal" replace />}
         </Route>
       </Switch>
+      {showRoleOnboarding && (
+        <Modal
+          title="Chọn cách sử dụng Sổ Công"
+          description="Chọn sổ cá nhân, chủ doanh nghiệp hoặc nhân viên. Nếu bỏ qua, tài khoản sẽ dùng sổ cá nhân."
+          onClose={onFinishRoleOnboarding}
+          testId="dialog-first-role-choice"
+        >
+          <BusinessAccessSettings
+            status={status}
+            onBusinessSelected={onBusinessSelected}
+            onContinuePersonal={onFinishRoleOnboarding}
+            onRefreshStatus={onRefreshStatus}
+            onCloseSettings={() => {}}
+            onRoleSelected={onRoleSelected}
+            onRoleFlowCompleted={onRoleFlowCompleted}
+          />
+        </Modal>
+      )}
     </AppGestureProvider>
   );
 }
@@ -224,6 +262,31 @@ function AuthenticatedApplication() {
   });
 
   const data = status.data;
+  const roleOnboardingInitializedUserId = useRef<string | null>(null);
+  const [showRoleOnboarding, setShowRoleOnboarding] = useState(false);
+  useEffect(() => {
+    if (!userId) {
+      roleOnboardingInitializedUserId.current = null;
+      setShowRoleOnboarding(false);
+      return;
+    }
+    if (!data || roleOnboardingInitializedUserId.current === userId) return;
+    roleOnboardingInitializedUserId.current = userId;
+
+    const decision = decideBusinessRoleOnboarding({
+      completed: hasCompletedBusinessRoleOnboarding(userId),
+      savedRole: readBusinessRolePreference(userId),
+      hasExistingBusiness: data.isPlatformAdmin || (data.businesses?.length ?? 0) > 0,
+      hasOwnerWorkspace: data.isOwner || data.businesses?.some((business) =>
+        business.role === 'owner' || business.role === 'platform_admin',
+      ) === true,
+    });
+    if (decision.preferredRole && !readBusinessRolePreference(userId)) {
+      saveBusinessRolePreference(userId, decision.preferredRole);
+    }
+    if (decision.markComplete) completeBusinessRoleOnboarding(userId);
+    setShowRoleOnboarding(decision.showChooser);
+  }, [data, userId]);
   const isOwner = data?.isOwner === true;
   const permissions = isOwner ? ALL_PERMISSIONS : data?.permissions ?? NO_PERMISSIONS;
   const key = data ? permissionKey(permissions, isOwner, data.businessId) : null;
@@ -283,6 +346,13 @@ function AuthenticatedApplication() {
     });
     const refreshed = await onRefreshStatus();
     if (refreshed?.businessId === id) {
+      const selectedBusiness = refreshed.businesses?.find((business) => business.id === id);
+      saveBusinessRolePreference(
+        userId,
+        selectedBusiness?.role === 'owner' || selectedBusiness?.role === 'platform_admin' ? 'owner' : 'employee',
+      );
+      completeBusinessRoleOnboarding(userId);
+      setShowRoleOnboarding(false);
       setWorkspaceMode('business');
       if (workspaceModeStorageKey) {
         try { window.localStorage.setItem(workspaceModeStorageKey, 'business'); } catch { /* keep the current selection in memory */ }
@@ -296,11 +366,27 @@ function AuthenticatedApplication() {
     throw new Error('The server has not confirmed this workspace as active.');
   };
   const onContinuePersonal = () => {
+    saveBusinessRolePreference(userId, 'personal');
+    completeBusinessRoleOnboarding(userId);
+    setShowRoleOnboarding(false);
     setWorkspaceMode('personal');
     if (workspaceModeStorageKey) {
       try { window.localStorage.setItem(workspaceModeStorageKey, 'personal'); } catch { /* keep the current selection in memory */ }
     }
     setLocation('/personal');
+  };
+  const onRoleSelected = (role: BusinessRolePreference) => {
+    saveBusinessRolePreference(userId, role);
+  };
+  const onRoleFlowCompleted = () => {
+    completeBusinessRoleOnboarding(userId);
+  };
+  const onFinishRoleOnboarding = () => {
+    if (hasCompletedBusinessRoleOnboarding(userId)) {
+      setShowRoleOnboarding(false);
+      return;
+    }
+    onContinuePersonal();
   };
   return (
     <SignedInApplication
@@ -312,6 +398,10 @@ function AuthenticatedApplication() {
       onBusinessSelected={onBusinessSelected}
       onContinuePersonal={onContinuePersonal}
       onRefreshStatus={onRefreshStatus}
+      showRoleOnboarding={showRoleOnboarding}
+      onRoleSelected={onRoleSelected}
+      onRoleFlowCompleted={onRoleFlowCompleted}
+      onFinishRoleOnboarding={onFinishRoleOnboarding}
       userId={userId}
       onSignOut={() => { void signOut({ redirectUrl: basePath || '/' }); }}
     />

@@ -2586,6 +2586,80 @@ export const useJoinBusiness = <TError = ErrorType<void>,
       return useMutation(getJoinBusinessMutationOptions(options));
     }
 
+export const getLeaveBusinessUrl = (id: string,) => {
+
+
+
+
+  return `/api/businesses/${id}/leave`
+}
+
+/**
+ * @summary Nhân viên rời cơ sở đang chọn
+ */
+export const leaveBusiness = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getLeaveBusinessUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getLeaveBusinessMutationKey = () => ['leaveBusiness'] as const;
+
+export const getLeaveBusinessMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveBusiness>>, TError,LeaveBusinessMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof leaveBusiness>>, TError,LeaveBusinessMutationVariables, TContext> => {
+
+const mutationKey = getLeaveBusinessMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof leaveBusiness>>, LeaveBusinessMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  leaveBusiness(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LeaveBusinessMutationResult = NonNullable<Awaited<ReturnType<typeof leaveBusiness>>>
+
+    export type LeaveBusinessMutationError = ErrorType<void>
+    export type LeaveBusinessMutationVariables = {id: string}
+
+    /**
+ * @summary Nhân viên rời cơ sở đang chọn
+ */
+export const useLeaveBusiness = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveBusiness>>, TError,LeaveBusinessMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof leaveBusiness>>,
+        TError,
+        LeaveBusinessMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLeaveBusinessMutationOptions(options));
+    }
+
 export const getRotateBusinessJoinCodeUrl = (id: string,) => {
 
 

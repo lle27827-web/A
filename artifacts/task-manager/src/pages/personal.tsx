@@ -17,6 +17,7 @@ import { PersonalServiceDialog, PersonalShiftDialog } from '@/components/persona
 import { ServiceList, ShiftList } from '@/components/personal/personal-lists';
 import { KeyboardShortcutsSettings } from '@/components/keyboard-shortcuts-settings';
 import { BusinessAccessSettings } from '@/components/business-access-settings';
+import type { BusinessRolePreference } from '@/lib/business-role-preference';
 import { formatShortDate, formatShortDayMonth } from '@/lib/attendance';
 import { errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth } from '@/lib/massage';
 import { resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
@@ -85,13 +86,14 @@ function shiftDay(date: string, delta: number) {
   return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
 }
 
-export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus, onBusinessSelected, onContinuePersonal, onRefreshStatus }: {
+export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus, onBusinessSelected, onContinuePersonal, onRefreshStatus, onRoleSelected }: {
   onSignOut?: () => void;
   homeHref?: string | null;
   businessStatus: AuthStatus;
   onBusinessSelected: (id: string) => Promise<void>;
   onContinuePersonal: () => void;
   onRefreshStatus: () => Promise<AuthStatus | undefined>;
+  onRoleSelected: (role: BusinessRolePreference) => void;
 }) {
   const [, navigate] = useLocation();
   const search = useSearch();
@@ -343,7 +345,8 @@ export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus
         onClose={() => setShortcutSettingsOpen(false)} testId="dialog-personal-settings">
         <BusinessAccessSettings status={businessStatus} onBusinessSelected={onBusinessSelected}
           onContinuePersonal={() => { setShortcutSettingsOpen(false); onContinuePersonal(); }}
-          onRefreshStatus={onRefreshStatus} onCloseSettings={() => setShortcutSettingsOpen(false)} />
+          onRefreshStatus={onRefreshStatus} onCloseSettings={() => setShortcutSettingsOpen(false)}
+          onRoleSelected={onRoleSelected} />
         <h3 className="personal-settings-subheading">Phím tắt</h3>
         <KeyboardShortcutsSettings actions={shortcutActions} />
       </Modal>}

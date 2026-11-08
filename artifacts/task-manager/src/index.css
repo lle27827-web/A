@@ -479,6 +479,9 @@ option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
 .business-connected-row small { color: hsl(var(--muted-foreground)); font-size: 10px; }
 .business-connected-row[aria-current="true"] { border-color: hsl(var(--primary) / .6); background: hsl(var(--primary) / .06); }
 .business-connected-row:disabled { cursor: wait; opacity: .7; }
+.business-leave-action { display: grid; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid hsl(var(--border)); }
+.business-leave-action p { margin: 0; color: hsl(var(--muted-foreground)); font-size: 12px; line-height: 1.5; }
+.business-leave-action .btn { justify-self: start; }
 .business-access-message { margin: 10px 0 0; padding: 9px 10px; border-radius: 8px; color: hsl(var(--foreground)); background: hsl(var(--muted) / .45); font-size: 11px; line-height: 1.45; }
 .business-access-message.error { color: hsl(var(--destructive)); background: hsl(var(--destructive) / .08); }
 .personal-settings-subheading { margin: 18px 0 8px; font-size: 13px; font-weight: 800; }
