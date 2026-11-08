@@ -109,18 +109,22 @@ export async function createBusinessForOwner(input: {
 export async function joinBusinessByCode(input: {
   userId: string;
   email: string;
+  businessName: string;
   code: string;
 }): Promise<BusinessSummary | null> {
   const code = input.code.replace(/\s+/g, "");
-  if (!/^\d{10}$/.test(code)) return null;
+  const businessName = input.businessName.trim().replace(/\s+/g, " ");
+  if (!/^\d{10}$/.test(code) || businessName.length < 2 || businessName.length > 120) return null;
   return withBusinessRegistryClient(async (client) => {
     await client.query("BEGIN");
     try {
       const found = await client.query(
         `SELECT id::text, name FROM public.businesses
          WHERE active = true AND join_code_hash = $1
+           AND lower(regexp_replace(btrim(name), '[[:space:]]+', ' ', 'g')) =
+               lower(regexp_replace(btrim($2), '[[:space:]]+', ' ', 'g'))
          FOR SHARE`,
-        [hashJoinCode(code)],
+        [hashJoinCode(code), businessName],
       );
       const row = found.rows[0];
       if (!row) {

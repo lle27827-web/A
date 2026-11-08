@@ -409,6 +409,84 @@ option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
 .workspace-no-code { padding: 10px; border-radius: 8px; background: hsl(var(--warn) / .1); }
 .workspace-message { margin: 0 22px 18px; padding: 10px 12px; border: 1px solid hsl(var(--primary) / .3); border-radius: 8px; font-size: 12px; }
 .workspace-message.error { border-color: hsl(var(--destructive) / .42); color: hsl(var(--destructive)); background: hsl(var(--destructive) / .07); }
+.business-access-settings {
+  --workspace-ink: hsl(var(--foreground));
+  --workspace-muted: hsl(var(--muted-foreground));
+  --workspace-red: hsl(var(--primary));
+  margin: 4px 0 14px;
+  padding: 14px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--muted) / .22);
+}
+.business-access-heading h3 { margin: 0; font-size: 14px; font-weight: 800; }
+.business-access-heading p,
+.business-role-panel > p { margin: 5px 0 12px; color: hsl(var(--muted-foreground)); font-size: 12px; line-height: 1.5; }
+.business-role-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.business-role-options button {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 5px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 9px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--card));
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+.business-role-options button.selected {
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / .08);
+}
+.business-role-options button svg { flex: 0 0 auto; }
+.business-role-panel { margin-top: 12px; }
+.business-access-form { display: grid; gap: 10px; }
+.business-access-form .field { margin: 0; }
+.business-access-form .btn { justify-self: start; }
+.business-created { display: grid; gap: 8px; }
+.business-created > strong { font-size: 14px; }
+.business-created > p { margin: 0; color: hsl(var(--muted-foreground)); font-size: 12px; }
+.business-access-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.business-access-actions .btn { min-height: 36px; }
+.business-access-settings .workspace-code { margin: 8px 0; }
+.business-connected-list { display: grid; gap: 6px; margin-top: 14px; }
+.business-connected-list h4 { margin: 0 0 2px; font-size: 12px; }
+.business-connected-row {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 11px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 9px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--card));
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.business-connected-row > span { display: grid; min-width: 0; gap: 2px; }
+.business-connected-row strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.business-connected-row small { color: hsl(var(--muted-foreground)); font-size: 10px; }
+.business-connected-row[aria-current="true"] { border-color: hsl(var(--primary) / .6); background: hsl(var(--primary) / .06); }
+.business-connected-row:disabled { cursor: wait; opacity: .7; }
+.business-access-message { margin: 10px 0 0; padding: 9px 10px; border-radius: 8px; color: hsl(var(--foreground)); background: hsl(var(--muted) / .45); font-size: 11px; line-height: 1.45; }
+.business-access-message.error { color: hsl(var(--destructive)); background: hsl(var(--destructive) / .08); }
+.personal-settings-subheading { margin: 18px 0 8px; font-size: 13px; font-weight: 800; }
+@media (max-width: 480px) {
+  .business-access-settings { padding: 11px; }
+  .business-role-options { grid-template-columns: 1fr; }
+  .business-role-options button { justify-content: flex-start; min-height: 42px; padding-inline: 11px; }
+}
 .workspace-personal { box-sizing: border-box; display: flex; align-items: center; gap: 13px; padding: 15px 17px; border: 1px solid hsl(162 62% 28% / .35); border-radius: 12px; background: hsl(162 38% 94% / .87); }
 .workspace-personal-icon { flex: 0 0 auto; width: 39px; height: 39px; display: grid; place-items: center; border-radius: 12px 12px 12px 3px; color: hsl(0 0% 100%); background: hsl(var(--personal-accent)); }
 .workspace-personal-copy { flex: 1; min-width: 0; display: grid; gap: 2px; }

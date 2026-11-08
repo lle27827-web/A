@@ -21,6 +21,18 @@ Every signed-in account may keep a separate personal employee notebook: own atte
 
 **How to apply:** derive identity only from the verified session; scope all personal data by account, including owner accounts. Personal writes never change facility data. Comparison requires permission to view the selected central employee; it shows their daily/monthly **pay** and service/customer-name details, not facility cash revenue, phone numbers or another account's private notebook. Revoking facility rights must not erase the account's own notebook.
 
+New accounts default to the personal notebook until they choose a business role. Businesses are logical partitions by `business_id` in the existing four shared Neon stores, not separate physical databases. Joining with a business name and code creates membership but does not grant facility permissions by itself.
+
+**Why:** the user chose personal as the default, selected shared four-database partitioning, and kept facility access under owner-managed permissions.
+
+**How to apply:** keep role and business setup in Settings; validate the name and join code together on the server. Preserve current business data and personal notebooks when changing the account's workspace choice.
+
+Legacy access cleanup must revoke facility memberships/grants without deleting login identities or personal notebooks. Inspect the affected scope and obtain confirmation before changing production access.
+
+**Why:** the user chose revocation rather than account deletion and asked to retain personal data.
+
+**How to apply:** inventory first, then apply only the confirmed revocations; never clear business records or personal notebooks as part of account access cleanup.
+
 Do not offer the facility “Xem như nhân viên” view mode in Settings. Keep personal attendance as a separate account-scoped notebook.
 
 **Why:** the user explicitly asked to remove “Xem như nhân viên” from Settings while keeping multi-account facility grants.

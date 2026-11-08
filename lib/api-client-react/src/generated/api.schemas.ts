@@ -207,6 +207,11 @@ export interface CreateBusinessInput {
 }
 
 export interface JoinBusinessInput {
+  /**
+     * @minLength 2
+     * @maxLength 120
+     */
+  businessName: string;
   /** @pattern ^[0-9]{10}$ */
   code: string;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ClerkProvider, useAuth, useClerk } from '@clerk/react';
 import { viVN } from '@clerk/localizations';
 import { MutationCache, QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
@@ -21,7 +21,6 @@ import { AuthLoadingPage, AuthRestoreErrorPage, AuthSetupPage, clerkAppearance, 
 import { postAuthPath, retrySessionCheck, sessionScreen, validateRestoredSession } from '@/lib/auth-session';
 import { createWebSessionTokenGetter } from '@/lib/web-session-token';
 import { playSaveChime } from '@/lib/save-chime';
-import { BusinessOnboarding } from '@/components/business-onboarding';
 import { BusinessSwitcher } from '@/components/business-switcher';
 
 function createAppQueryClient() {
@@ -36,6 +35,19 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 const clerkPublishableKey = import.meta.env.VITE_APP_CLERK_PUBLISHABLE_KEY?.trim();
 const signInPath = `${basePath}/sign-in`;
 const signUpPath = `${basePath}/sign-up`;
+
+type WorkspaceMode = 'business' | 'personal';
+
+function readWorkspaceMode(userId: string | null | undefined): WorkspaceMode {
+  if (!userId || typeof window === 'undefined') return 'business';
+  try {
+    return window.localStorage.getItem(`so-cong:workspace-mode:${userId}`) === 'personal'
+      ? 'personal'
+      : 'business';
+  } catch {
+    return 'business';
+  }
+}
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
@@ -114,6 +126,7 @@ function SignedInApplication({
   isOwner,
   permissions,
   status,
+  workspaceMode,
   onSignOut,
   onBusinessSelected,
   onContinuePersonal,
@@ -124,6 +137,7 @@ function SignedInApplication({
   permissions: FacilityPermissions;
   onSignOut: () => void;
   status: AuthStatus;
+  workspaceMode: WorkspaceMode;
   onBusinessSelected: (id: string) => Promise<void>;
   onContinuePersonal: () => void;
   onRefreshStatus: () => Promise<AuthStatus | undefined>;
@@ -134,14 +148,17 @@ function SignedInApplication({
   const signedInDestination = postAuthPath(search);
   const facility = hasFacilityAccess(permissions);
   const hasSelectedFacility = Boolean(status.businessId && facility);
+  const showFacility = hasSelectedFacility && workspaceMode === 'business';
   return (
     <AppGestureProvider key={userId ?? 'account'} userId={userId ?? undefined}>
       <Switch>
         <Route path="/sign-in/*?"><Redirect to={signedInDestination} replace /></Route>
         <Route path="/sign-up/*?"><Redirect to={signedInDestination} replace /></Route>
-        <Route path="/personal"><PersonalPage onSignOut={onSignOut} homeHref={hasSelectedFacility ? '/' : null} /></Route>
+        <Route path="/personal"><PersonalPage onSignOut={onSignOut} homeHref={showFacility ? '/' : null}
+          businessStatus={status} onBusinessSelected={onBusinessSelected}
+          onContinuePersonal={onContinuePersonal} onRefreshStatus={onRefreshStatus} /></Route>
         <Route>
-          {hasSelectedFacility ? (
+          {showFacility ? (
             <AppShell
               key={`${userId ?? 'account'}:${status.businessId ?? 'none'}`}
               userId={userId}
@@ -151,17 +168,14 @@ function SignedInApplication({
               employeeView={<EmployeeModeView />}
               desktopLeftPanel={<HomePage revenueOnly />}
               businessSwitcher={<BusinessSwitcher businesses={status.businesses ?? []} businessId={status.businessId} onSelect={onBusinessSelected} />}
-            >
-              <FacilityRoutes permissions={permissions} />
-            </AppShell>
-          ) : location === '/' ? (
-            <BusinessOnboarding
-              status={status}
+              businessStatus={status}
               onBusinessSelected={onBusinessSelected}
               onContinuePersonal={onContinuePersonal}
               onRefreshStatus={onRefreshStatus}
-            />
-          ) : <Redirect to="/" replace />}
+            >
+              <FacilityRoutes permissions={permissions} />
+            </AppShell>
+          ) : <Redirect to="/personal" replace />}
         </Route>
       </Switch>
     </AppGestureProvider>
@@ -179,6 +193,8 @@ function AuthenticatedApplication() {
   const [, setLocation] = useLocation();
   const client = useQueryClient();
   const businessStorageKey = userId ? `so-cong:selected-business:${userId}` : null;
+  const workspaceModeStorageKey = userId ? `so-cong:workspace-mode:${userId}` : null;
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(() => readWorkspaceMode(userId));
   useLayoutEffect(() => {
     setBusinessIdGetter(() => {
       if (!businessStorageKey) return null;
@@ -267,6 +283,10 @@ function AuthenticatedApplication() {
     });
     const refreshed = await onRefreshStatus();
     if (refreshed?.businessId === id) {
+      setWorkspaceMode('business');
+      if (workspaceModeStorageKey) {
+        try { window.localStorage.setItem(workspaceModeStorageKey, 'business'); } catch { /* keep the current selection in memory */ }
+      }
       setLocation('/');
       return;
     }
@@ -275,13 +295,20 @@ function AuthenticatedApplication() {
     await onRefreshStatus();
     throw new Error('The server has not confirmed this workspace as active.');
   };
-  const onContinuePersonal = () => setLocation('/personal');
+  const onContinuePersonal = () => {
+    setWorkspaceMode('personal');
+    if (workspaceModeStorageKey) {
+      try { window.localStorage.setItem(workspaceModeStorageKey, 'personal'); } catch { /* keep the current selection in memory */ }
+    }
+    setLocation('/personal');
+  };
   return (
     <SignedInApplication
       key={key}
       isOwner={isOwner}
       permissions={permissions}
       status={data}
+      workspaceMode={workspaceMode}
       onBusinessSelected={onBusinessSelected}
       onContinuePersonal={onContinuePersonal}
       onRefreshStatus={onRefreshStatus}

@@ -5,7 +5,7 @@ import {
   useCreatePersonalService, useCreatePersonalSession, useDeletePersonalService, useDeletePersonalSession,
   useGetPersonalNotebook, useUpdatePersonalService, useUpdatePersonalSession, useUpdatePersonalSettings,
 } from '@workspace/api-client-react';
-import type { PersonalService, PersonalSession } from '@workspace/api-client-react';
+import type { AuthStatus, PersonalService, PersonalSession } from '@workspace/api-client-react';
 import { serviceAttendanceLabel, summarizeServiceAttendance } from '@/lib/service-duration-summary';
 import { AlertCircle, ArrowLeft, BookHeart, CalendarDays, Check, ChevronLeft, ChevronRight, Home, LogIn, Menu, Plus, Scale, X } from 'lucide-react';
 import { Link, useLocation, useSearch } from 'wouter';
@@ -16,6 +16,7 @@ import { ComparisonDialog } from '@/components/personal/comparison-dialog';
 import { PersonalServiceDialog, PersonalShiftDialog } from '@/components/personal/personal-dialogs';
 import { ServiceList, ShiftList } from '@/components/personal/personal-lists';
 import { KeyboardShortcutsSettings } from '@/components/keyboard-shortcuts-settings';
+import { BusinessAccessSettings } from '@/components/business-access-settings';
 import { formatShortDate, formatShortDayMonth } from '@/lib/attendance';
 import { errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth } from '@/lib/massage';
 import { resolveRevenuePeriod, vietnamToday } from '@/lib/revenue-period';
@@ -46,7 +47,7 @@ function PersonalFrame({ children, onSignOut, onOpenSettings, homeHref, onTouchS
         <div className="p-top-inner">
           <Link href="/personal" className="brand" data-testid="link-personal-brand"><span className="brand-mark p-mark"><BookHeart size={15} strokeWidth={2.4} aria-hidden="true" /></span><span>SỔ CỦA TÔI</span></Link>
           <span className="p-pill" data-testid="status-personal">Riêng tư · chỉ bạn thấy</span>
-          {onOpenSettings && <button type="button" className="gear-btn" aria-label="Cài đặt phím tắt" onClick={onOpenSettings} data-testid="button-personal-shortcuts"><Menu size={20} strokeWidth={2.5} aria-hidden="true" /></button>}
+          {onOpenSettings && <button type="button" className="gear-btn" aria-label="Cài đặt" onClick={onOpenSettings} data-testid="button-personal-settings"><Menu size={20} strokeWidth={2.5} aria-hidden="true" /></button>}
           {onSignOut && <button type="button" className="link-soft as-button p-logout" onClick={onSignOut} data-testid="button-personal-sign-out">Đăng xuất</button>}
         </div>
       </header>
@@ -84,7 +85,14 @@ function shiftDay(date: string, delta: number) {
   return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
 }
 
-export default function PersonalPage({ onSignOut, homeHref = '/' }: { onSignOut?: () => void; homeHref?: string | null }) {
+export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus, onBusinessSelected, onContinuePersonal, onRefreshStatus }: {
+  onSignOut?: () => void;
+  homeHref?: string | null;
+  businessStatus: AuthStatus;
+  onBusinessSelected: (id: string) => Promise<void>;
+  onContinuePersonal: () => void;
+  onRefreshStatus: () => Promise<AuthStatus | undefined>;
+}) {
   const [, navigate] = useLocation();
   const search = useSearch();
   const today = useMemo(() => vietnamToday(), []);
@@ -331,7 +339,12 @@ export default function PersonalPage({ onSignOut, homeHref = '/' }: { onSignOut?
       {dlg?.kind === 'compare' && <ComparisonDialog month={month} date={date} onClose={() => setDlg(null)} onUpdated={refresh} />}
       {dlg?.kind === 'date' && <DatePickerDialog value={date} title="Chọn ngày" immediate onClose={() => setDlg(null)} onSelect={(d) => { setDlg(null); goPeriod(monthOf(d), d); }} />}
       {confirm && <ConfirmDialog state={confirm} busy={deleteService.isPending || deleteShift.isPending} onClose={() => setConfirm(null)} />}
-      {shortcutSettingsOpen && <Modal title="Phím tắt" onClose={() => setShortcutSettingsOpen(false)} testId="dialog-personal-keyboard-shortcuts">
+      {shortcutSettingsOpen && <Modal title="Cài đặt" description="Chọn vai trò, cơ sở và phím tắt cho thiết bị này."
+        onClose={() => setShortcutSettingsOpen(false)} testId="dialog-personal-settings">
+        <BusinessAccessSettings status={businessStatus} onBusinessSelected={onBusinessSelected}
+          onContinuePersonal={() => { setShortcutSettingsOpen(false); onContinuePersonal(); }}
+          onRefreshStatus={onRefreshStatus} onCloseSettings={() => setShortcutSettingsOpen(false)} />
+        <h3 className="personal-settings-subheading">Phím tắt</h3>
         <KeyboardShortcutsSettings actions={shortcutActions} />
       </Modal>}
     </PersonalFrame>

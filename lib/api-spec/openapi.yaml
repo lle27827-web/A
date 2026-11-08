@@ -464,7 +464,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/BusinessAccessResult" }
-        "400": { description: Mã doanh nghiệp không hợp lệ }
+        "400": { description: Tên cơ sở hoặc mã doanh nghiệp không hợp lệ }
         "401": { description: Cần đăng nhập }
   /businesses/{id}/join-code:
     post:
@@ -1137,8 +1137,9 @@ components:
         name: { type: string, minLength: 2, maxLength: 120 }
     JoinBusinessInput:
       type: object
-      required: [code]
+      required: [businessName, code]
       properties:
+        businessName: { type: string, minLength: 2, maxLength: 120 }
         code: { type: string, pattern: "^[0-9]{10}$" }
     BusinessAccessResult:
       type: object

@@ -847,10 +847,14 @@ export const CreateBusinessResponse = zod.object({
 /**
  * @summary Tham gia bằng mã doanh nghiệp
  */
+export const joinBusinessBodyBusinessNameMin = 2;
+export const joinBusinessBodyBusinessNameMax = 120;
+
 export const joinBusinessBodyCodeRegExp = new RegExp('^[0-9]{10}$');
 
 
 export const JoinBusinessBody = zod.object({
+  "businessName": zod.string().min(joinBusinessBodyBusinessNameMin).max(joinBusinessBodyBusinessNameMax),
   "code": zod.string().regex(joinBusinessBodyCodeRegExp)
 })
 

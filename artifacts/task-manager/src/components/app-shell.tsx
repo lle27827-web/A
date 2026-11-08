@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { getListMembersQueryKey, useListMembers } from '@workspace/api-client-react';
-import type { FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
+import type { AuthStatus, FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
 import { AlertCircle, ArrowLeft, BookHeart, CalendarDays, Check, CreditCard, Hand, History, Home, Search, Sparkles, Users, X } from 'lucide-react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { SearchResults } from '@/components/search-results';
@@ -86,6 +86,10 @@ export function AppShell({
   userId,
   authStatusMessage,
   onSignOut,
+  businessStatus,
+  onBusinessSelected,
+  onContinuePersonal,
+  onRefreshStatus,
 }: {
   children: ReactNode;
   employeeView: ReactNode;
@@ -96,6 +100,10 @@ export function AppShell({
   userId?: string | null;
   authStatusMessage?: string;
   onSignOut?: () => void;
+  businessStatus: AuthStatus;
+  onBusinessSelected: (id: string) => Promise<void>;
+  onContinuePersonal: () => void;
+  onRefreshStatus: () => Promise<AuthStatus | undefined>;
 }) {
   const [location, navigate] = useLocation();
   const [desktopLayout, setDesktopLayout] = useState(() =>
@@ -319,7 +327,11 @@ export function AppShell({
                 homeHref={homeHref}
                 shortcutActions={shortcutActions}
                 printPreferences={printPreferences}
-                onPrintPreferencesChange={updatePrintPreferences} />
+                 onPrintPreferencesChange={updatePrintPreferences}
+                 businessStatus={businessStatus}
+                 onBusinessSelected={onBusinessSelected}
+                 onContinuePersonal={onContinuePersonal}
+                 onRefreshStatus={onRefreshStatus} />
             </div>
           </div>
         </header>

@@ -1,11 +1,12 @@
 import { useCallback, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import type { FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
-import { ArrowLeft, BookHeart, ChevronRight, History, Home, KeyRound, Menu, Printer, Trash2, X } from 'lucide-react';
+import type { AuthStatus, FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
+import { ArrowLeft, BookHeart, Building2, ChevronRight, History, Home, KeyRound, Menu, Printer, Trash2, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
 import { AccessGrantsDialog } from '@/components/access-grants';
+import { BusinessAccessSettings } from '@/components/business-access-settings';
 import { MonthlyPayrollPrint } from '@/components/monthly-payroll-print';
 import { PrintPreview } from '@/components/print-preview';
 import { KeyboardShortcutsSettings } from '@/components/keyboard-shortcuts-settings';
@@ -48,7 +49,7 @@ export function useViewPrefs() {
   return [prefs, update] as const;
 }
 
-export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOwner, permissions, canManageGrants, homeHref, shortcutActions, printPreferences, onPrintPreferencesChange }: {
+export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOwner, permissions, canManageGrants, homeHref, shortcutActions, printPreferences, onPrintPreferencesChange, businessStatus, onBusinessSelected, onContinuePersonal, onRefreshStatus }: {
   prefs: ViewPrefs;
   members: MemberRecord[];
   open: boolean;
@@ -61,6 +62,10 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   shortcutActions?: KeyboardShortcutAction[];
   printPreferences?: PrintPreferences;
   onPrintPreferencesChange?: (next: PrintPreferences) => void;
+  businessStatus?: AuthStatus;
+  onBusinessSelected?: (id: string) => Promise<void>;
+  onContinuePersonal?: () => void;
+  onRefreshStatus?: () => Promise<AuthStatus | undefined>;
 }) {
   const canViewEmployees = permissions.allEmployees || permissions.employeeIds.length > 0;
   const canHistory = canViewEmployees || permissions.viewRevenue;
@@ -68,6 +73,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   const [, navigate] = useLocation();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [deleteHistoryOpen, setDeleteHistoryOpen] = useState(false);
+  const [businessAccessOpen, setBusinessAccessOpen] = useState(false);
   const printPrefs = printPreferences ?? DEFAULT_PRINT_PREFERENCES;
 
   function pickHistory(month: string, date: string) {
@@ -98,6 +104,22 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
           <Link href="/personal" className="settings-link personal-entry" onClick={() => onOpenChange(false)} data-testid="link-personal-notebook">
             <BookHeart size={17} aria-hidden="true" /><span className="grow"><strong>Chấm công cá nhân</strong><span className="muted">Sổ riêng của tài khoản bạn</span></span><ChevronRight size={16} aria-hidden="true" />
           </Link>
+
+          {businessStatus && onBusinessSelected && onContinuePersonal && onRefreshStatus && (
+            <button type="button" className="settings-link" aria-expanded={businessAccessOpen} aria-controls="settings-business-access"
+              onClick={() => setBusinessAccessOpen((value) => !value)} data-testid="button-open-business-access">
+              <Building2 size={15} aria-hidden="true" /><span className="grow"><strong>Vai trò và cơ sở</strong><span className="muted">Chọn sổ cá nhân, chủ doanh nghiệp hoặc nhân viên</span></span><ChevronRight size={16} aria-hidden="true" />
+            </button>
+          )}
+          {businessStatus && onBusinessSelected && onContinuePersonal && onRefreshStatus && (
+            <div id="settings-business-access" hidden={!businessAccessOpen}>
+              {businessAccessOpen && (
+              <BusinessAccessSettings status={businessStatus} onBusinessSelected={onBusinessSelected}
+                onContinuePersonal={() => { onOpenChange(false); onContinuePersonal(); }}
+                onRefreshStatus={onRefreshStatus} onCloseSettings={() => onOpenChange(false)} />
+              )}
+            </div>
+          )}
 
           {canHistory && (
             <button type="button" className="settings-link" onClick={() => setHistoryOpen(true)} data-testid="button-open-history-months">

@@ -57,10 +57,11 @@ router.post("/businesses/join", async (req, res): Promise<void> => {
     const business = await joinBusinessByCode({
       userId: status.userId,
       email: status.email,
+      businessName: parsed.data.businessName,
       code: parsed.data.code,
     });
     if (!business) {
-      res.status(400).json({ error: "Mã doanh nghiệp không đúng hoặc đã bị thay đổi." });
+      res.status(400).json({ error: "Tên cơ sở hoặc mã doanh nghiệp không đúng." });
       return;
     }
     res.json(JoinBusinessResponse.parse({ business, joinCode: null }));
