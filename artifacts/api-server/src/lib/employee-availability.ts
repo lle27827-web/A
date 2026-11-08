@@ -101,7 +101,11 @@ export function deriveStaffActivity(
   for (const appointment of appointments) {
     if (appointment.memberId === null || appointment.status !== "scheduled") continue;
     const scheduledAt = new Date(appointment.scheduledAt).getTime();
-    if (!Number.isFinite(scheduledAt) || scheduledAt < nowMs) continue;
+    if (
+      !Number.isFinite(scheduledAt) ||
+      scheduledAt < nowMs ||
+      hoChiMinhDate(new Date(scheduledAt)) !== today
+    ) continue;
     const previous = nextAppointments.get(appointment.memberId);
     if (previous === undefined || scheduledAt < previous.scheduledAt) {
       nextAppointments.set(appointment.memberId, {

@@ -103,56 +103,30 @@ function formatAppointmentTime(value: string) {
   }).format(new Date(value));
 }
 
-function formatNextAppointment(value: string) {
-  const dateKey = (date: Date) => {
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Ho_Chi_Minh',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).formatToParts(date);
-    const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? '';
-    return `${part('year')}-${part('month')}-${part('day')}`;
-  };
-  const appointmentDate = dateKey(new Date(value));
-  const today = dateKey(new Date());
-  const time = formatAppointmentTime(value);
-  if (appointmentDate === today) return time;
-  const date = new Intl.DateTimeFormat('vi-VN', {
-    timeZone: 'Asia/Ho_Chi_Minh',
-    day: '2-digit',
-    month: '2-digit',
-  }).format(new Date(value));
-  return `${date} lúc ${time}`;
-}
-
 function activityDetails(activity: AppointmentStaffActivity) {
   const details: { kind: 'state' | 'detail' | 'completion' | 'appointment'; text: string }[] = [];
   if (activity.state === 'working') {
     details.push({ kind: 'state', text: 'Đang làm' });
     if (activity.serviceType) details.push({ kind: 'detail', text: activity.serviceType });
     if (activity.endsAt) {
-      details.push({ kind: 'completion', text: `Dự kiến hoàn thành lúc ${formatActivityEnd(activity.endsAt)}` });
+      details.push({ kind: 'completion', text: `Hoàn thành lúc ${formatActivityEnd(activity.endsAt)}` });
     }
   } else {
     details.push({ kind: 'state', text: activity.state === 'off' ? 'Đang nghỉ' : 'Đang rảnh' });
     if (activity.lastFinishedAt) {
       details.push({
         kind: 'detail',
-        text: `Ca gần nhất dự kiến xong lúc ${formatActivityEnd(activity.lastFinishedAt)}`,
+        text: `Hoàn thành gần nhất lúc ${formatActivityEnd(activity.lastFinishedAt)}`,
       });
     }
   }
   if (activity.nextAppointmentAt) {
-    const appointmentInfo = [
-      `Lịch hẹn lúc ${formatNextAppointment(activity.nextAppointmentAt)}`,
-      activity.nextAppointmentCustomerName ? `Khách: ${activity.nextAppointmentCustomerName}` : null,
-      activity.nextAppointmentRequest ? `Yêu cầu: ${activity.nextAppointmentRequest}` : null,
-      activity.nextAppointmentNote ? `Ghi chú: ${activity.nextAppointmentNote}` : null,
-    ].filter((value): value is string => value !== null);
     details.push({
       kind: 'appointment',
-      text: appointmentInfo.join(' · '),
+      text: [
+        `Lịch hẹn lúc ${formatAppointmentTime(activity.nextAppointmentAt)}`,
+        activity.nextAppointmentCustomerName ? `Khách: ${activity.nextAppointmentCustomerName}` : null,
+      ].filter((value): value is string => value !== null).join(' · '),
     });
   }
   return details;
