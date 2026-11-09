@@ -445,6 +445,13 @@ option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
   color: hsl(var(--primary));
   background: hsl(var(--primary) / .08);
 }
+[data-testid="dialog-first-role-choice"] .business-role-options button {
+  background: hsl(var(--muted));
+}
+[data-testid="dialog-first-role-choice"] .business-role-options button.selected {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--muted));
+}
 .business-role-options button svg { flex: 0 0 auto; }
 .business-role-panel { margin-top: 12px; }
 .business-access-form { display: grid; gap: 10px; }
