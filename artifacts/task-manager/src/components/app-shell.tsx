@@ -134,6 +134,9 @@ export function AppShell({
   const fullLocation = search ? `${location}?${search}` : location;
   const employeeRoute = /^\/employees(?:\/|$)/.test(location);
   const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
+  const activeBusinessName = businessStatus.businessName
+    ?? businessStatus.businesses.find((business) => business.id === businessStatus.businessId)?.name
+    ?? null;
   const [query, setQuery] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -322,20 +325,32 @@ export function AppShell({
               {employeeMode && <span className="mode-pill" data-testid="status-view-mode">Xem NV cơ sở · chỉ xem</span>}
               <span className={isOwner ? 'mode-pill' : 'mode-pill guest-pill'} data-testid={isOwner ? 'status-owner-role' : 'status-manager-role'}>{isOwner ? 'Chủ sở hữu' : 'Quản lý được cấp quyền'}</span>
               {businessSwitcher}
-              <button type="button" className="link-soft as-button" onClick={onSignOut} data-testid="button-sign-out">Đăng xuất</button>
-              <ViewSettings prefs={prefs} members={members}
-                open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView}
-                isOwner={isOwner} permissions={permissions}
-                canManageGrants={isOwner || hasFacilityAccess(permissions)}
-                homeHref={homeHref}
-                shortcutActions={shortcutActions}
-                printPreferences={printPreferences}
-                 onPrintPreferencesChange={updatePrintPreferences}
-                 businessStatus={businessStatus}
-                 onBusinessSelected={onBusinessSelected}
-                 onContinuePersonal={onContinuePersonal}
-                  onRefreshStatus={onRefreshStatus}
-                  onRoleSelected={onRoleSelected} />
+              <div className="account-business-actions">
+                {businessStatus.businessId && (
+                  <div className="active-business-context" role="group" aria-label="Cơ sở đang mở"
+                    data-testid="active-business-context">
+                    {activeBusinessName && <strong className="active-business-name" title={activeBusinessName}>{activeBusinessName}</strong>}
+                    <span className="active-business-code">
+                      <span>Mã cơ sở</span>
+                      <code title={businessStatus.businessId} data-testid="active-business-id">{businessStatus.businessId}</code>
+                    </span>
+                  </div>
+                )}
+                <button type="button" className="link-soft as-button" onClick={onSignOut} data-testid="button-sign-out">Đăng xuất</button>
+                <ViewSettings prefs={prefs} members={members}
+                  open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView}
+                  isOwner={isOwner} permissions={permissions}
+                  canManageGrants={isOwner || hasFacilityAccess(permissions)}
+                  homeHref={homeHref}
+                  shortcutActions={shortcutActions}
+                  printPreferences={printPreferences}
+                   onPrintPreferencesChange={updatePrintPreferences}
+                   businessStatus={businessStatus}
+                   onBusinessSelected={onBusinessSelected}
+                   onContinuePersonal={onContinuePersonal}
+                    onRefreshStatus={onRefreshStatus}
+                    onRoleSelected={onRoleSelected} />
+              </div>
             </div>
           </div>
         </header>
