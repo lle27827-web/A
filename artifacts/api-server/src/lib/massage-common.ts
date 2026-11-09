@@ -4,7 +4,6 @@ import { isWithinRetention, retentionCutoffDate } from "./retention-window";
 export class MassageError extends Error {
   constructor(public status: number, message: string, public details?: { mergeTargetId: number }) {
     super(message);
-    this.name = "MassageError";
   }
 }
 

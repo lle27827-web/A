@@ -1810,6 +1810,8 @@ export class DatabaseFailoverInProgressError extends Error {
   }
 }
 
+// Keep the stateful failover/partition runtimes structurally intact for now:
+// current tests cover routing policy, not every pooled callback and replay boundary.
 function installAvailabilityFailoverHandling(node: RuntimeNode): void {
   const pool = node.pool;
   const rawPoolQuery = pool.query.bind(pool);
@@ -1847,15 +1849,23 @@ function installAvailabilityFailoverHandling(node: RuntimeNode): void {
     });
   };
   const monitoredPool = pool as unknown as Queryable;
+  // Keep pg's full overload contract at the boundary; the wrapper only inspects
+  // query text and otherwise forwards the arguments unchanged.
   monitoredPool.query = ((...args: unknown[]) =>
     handleResult(Reflect.apply(rawPoolQuery, pool, args))) as pg.Pool["query"];
 
   const rawConnect = pool.connect.bind(pool) as PoolConnectMethod;
+  // Callback and promise forms have different return types, so preserve the
+  // overload surface while narrowing the callback branch explicitly below.
   const monitoredConnect = ((...args: unknown[]) => {
     if (typeof args[0] === "function") {
       const callback = args[0] as PoolConnectCallback;
       return rawConnect(
-        (error: unknown, client: pg.PoolClient, release: () => void) => {
+        (
+          error: Error | undefined,
+          client: pg.PoolClient | undefined,
+          release: (error?: Error | boolean) => void,
+        ) => {
           if (client) installClientHandler(client, node);
           if (!error) {
             callback(error, client, release);

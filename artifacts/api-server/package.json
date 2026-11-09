@@ -14,6 +14,7 @@
     "test:retention-integration": "esbuild src/lib/retention.integration.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-retention-integration.cjs && node --test /tmp/so-cong-retention-integration.cjs",
     "test:permissions": "esbuild src/lib/facility-permissions.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-permission-tests.cjs && node --test /tmp/so-cong-permission-tests.cjs",
     "test:massage": "esbuild src/lib/massage.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/cung-lam-massage-tests.cjs && node --test /tmp/cung-lam-massage-tests.cjs",
+    "test:massage-cards": "esbuild src/lib/massage-cards.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-massage-card-tests.cjs && node --test /tmp/so-cong-massage-card-tests.cjs",
     "test:massage-identity": "esbuild src/lib/massage-identity.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-massage-identity-tests.cjs && node --test /tmp/so-cong-massage-identity-tests.cjs",
     "test:customer-phone": "esbuild src/lib/customer-phone.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-customer-phone-tests.cjs && node --test /tmp/so-cong-customer-phone-tests.cjs",
     "test:partitioned-mutations": "esbuild src/lib/partitioned-mutations.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/so-cong-partitioned-mutation-tests.cjs && node --test /tmp/so-cong-partitioned-mutation-tests.cjs",
