@@ -14,3 +14,9 @@ The GitHub API connector's OAuth attachment may remain in `connect` state and do
 **Why:** A push attempt was rejected even after the API connector reported an attachment; the connector status stayed unready.
 
 **How to apply:** Check the actual Git remote push result. If rejected, reconnect the workspace's source-control GitHub authorization through its supported flow; do not request or expose a token.
+
+A push may update the remote successfully but return a nonzero exit while refreshing the local `origin/main` tracking ref. Verify the remote commit with `git ls-remote origin refs/heads/main` before retrying; do not treat that exit code alone as proof the push failed.
+
+**Why:** A successful push returned an error only because the local remote-tracking ref lock could not be updated.
+
+**How to apply:** Compare the remote SHA with the intended local commit. Retry only if they differ.

@@ -17,7 +17,7 @@
 - [Navigation placement](navigation-placement.md) — keep service pricing on the home screen; preserve its manager grant while keeping it out of Settings.
 - [Personal synchronization](personal-synchronization.md) — importing replaces only the confirmed day/month; optional facility rates use employee pay and preserve historical wages.
 - [Concise accessibility](concise-accessibility.md) — short titles and discrepancy summaries; keep controls, financial data, errors and destructive warnings accessible.
-- [GitHub push verification](github-push-verification.md) — a local main commit is not deployed until push authentication succeeds; verify the remote before claiming Vercel changed.
+- [GitHub push verification](github-push-verification.md) — verify the remote SHA after pushing, including when Git reports a local tracking-ref error.
 - [Touch save/back gestures](screen-reader-gestures.md) — allow 2-second holds to save active attendance forms; retain continuous save/back gestures and native screen readers.
 - [Service catalog deletion](service-catalog-deletion.md) — removing a service from choices must preserve recorded history; a same-name recreation is a new identity.
 - [Theme profiles](theme-profiles.md) — use one yellow default; do not expose dark/custom theme options unless requested.

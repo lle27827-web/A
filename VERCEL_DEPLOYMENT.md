@@ -24,7 +24,7 @@ Thêm các biến này trong Vercel Project Settings → Environment Variables. 
 | `DATABASE_URL_1` | API | DB1: kho chính của chấm công cơ sở/nhân viên. |
 | `DATABASE_URL_3` | API | DB3: kho chính của sổ chấm công cá nhân. |
 | `DATABASE_URL_4` | API | DB4: kho chính của dữ liệu dùng chung và bộ điều phối phân vùng. |
-| `NEON_DB1_DIRECT_URL`, `NEON_SOURCE_DIRECT_URL`, `MIGRATE_DATABASE_URL_3_DIRECT`, `MIGRATE_DATABASE_URL_4_DIRECT` | Migration trong build | URL direct tương ứng DB1–DB4; host không được chứa `-pooler`. Các bí danh `DATABASE_URL_1_DIRECT`, `DATABASE_URL_DIRECT`, `DATABASE_URL_3_DIRECT`, `DATABASE_URL_4_DIRECT` cũng được nhận diện. Cả bốn URL direct phải có trước khi migration bắt đầu; lỗi chỉ nêu tên DB/biến, không in giá trị URL. |
+| `NEON_DB1_DIRECT_URL`, `NEON_SOURCE_DIRECT_URL`, `MIGRATE_DATABASE_URL_3_DIRECT`, `MIGRATE_DATABASE_URL_4_DIRECT` | Migration trong build | Ưu tiên URL direct riêng cho DB1–DB4; host không được chứa `-pooler`. Các bí danh `DATABASE_URL_1_DIRECT`, `DATABASE_URL_DIRECT`, `DATABASE_URL_3_DIRECT`, `DATABASE_URL_4_DIRECT` cũng được nhận diện. Nếu thiếu bí danh direct, mã dùng lần lượt `DATABASE_URL_1`, `DATABASE_URL`, `DATABASE_URL_3`, `DATABASE_URL_4` chỉ khi URL đó là endpoint direct; URL qua pooler vẫn bị từ chối. |
 | `DATABASE_STORAGE_MODE` | API | Giữ `domain_partitioned` để dùng các cặp kho cố định theo loại dữ liệu; `partitioned` cũng được hiểu theo cùng cách. |
 | `APP_CLERK_SECRET_KEY` | API | Secret key của Clerk Production bên ngoài. Không dùng khóa Clerk do Replit quản lý hoặc khóa Development. |
 | `APP_CLERK_PUBLISHABLE_KEY` | API | Publishable key của cùng Clerk Production. |

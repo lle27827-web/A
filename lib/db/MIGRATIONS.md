@@ -95,10 +95,13 @@ code that requires its recovery fields. The retention-index step uses the single
 all store variables inside the per-store migration.
 
 The build migration requires direct endpoint values for DB1 through DB4. It
-accepts `NEON_DB1_DIRECT_URL` or `DATABASE_URL_1_DIRECT` for DB1,
+prefers `NEON_DB1_DIRECT_URL` or `DATABASE_URL_1_DIRECT` for DB1,
 `DATABASE_URL_DIRECT` or `NEON_SOURCE_DIRECT_URL` for DB2,
 `MIGRATE_DATABASE_URL_3_DIRECT` or `DATABASE_URL_3_DIRECT` for DB3, and
-`MIGRATE_DATABASE_URL_4_DIRECT` or `DATABASE_URL_4_DIRECT` for DB4. Preview
+`MIGRATE_DATABASE_URL_4_DIRECT` or `DATABASE_URL_4_DIRECT` for DB4. If a
+dedicated direct variable is absent, it can use the corresponding runtime
+variable (`DATABASE_URL_1`, `DATABASE_URL`, `DATABASE_URL_3`, or
+`DATABASE_URL_4`) only when its host is not a `-pooler` endpoint. Preview
 builds run the same migration sequence, so they must use isolated Preview
 databases rather than Production endpoints.
 Do not replace the Vercel compatibility path with general `migrate` on a
