@@ -144,6 +144,15 @@ test("four-database failover order preserves the existing DATABASE_URL slot", ()
     nodes.map((node) => node.backend),
     ["database_url_1", "database_url", "database_url_3", "database_url_4"],
   );
+  assert.deepEqual(
+    nodes.map(({ backend, url }) => [backend, url]),
+    [
+      ["database_url_1", "postgres://primary"],
+      ["database_url", "postgres://fallback"],
+      ["database_url_3", "postgres://replica3"],
+      ["database_url_4", "postgres://replica4"],
+    ],
+  );
   assert.equal(
     getNextBackend("database_url", nodes)?.backend,
     "database_url_3",
