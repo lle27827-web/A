@@ -46,10 +46,10 @@ function PersonalFrame({ children, onSignOut, onOpenSettings, homeHref, onTouchS
       <a className="skip-link" href="#main" data-testid="link-personal-skip-main">Bỏ qua đến nội dung chính</a>
       <header className="p-top">
         <div className="p-top-inner">
+          {onSignOut && <button type="button" className="link-soft as-button p-logout" onClick={onSignOut} data-testid="button-personal-sign-out">Đăng xuất</button>}
           <Link href="/personal" className="brand" data-testid="link-personal-brand"><span className="brand-mark p-mark"><BookHeart size={15} strokeWidth={2.4} aria-hidden="true" /></span><span>SỔ CỦA TÔI</span></Link>
           <span className="p-pill" data-testid="status-personal">Riêng tư · chỉ bạn thấy</span>
           {onOpenSettings && <button type="button" className="gear-btn" aria-label="Cài đặt" onClick={onOpenSettings} data-testid="button-personal-settings"><Menu size={20} strokeWidth={2.5} aria-hidden="true" /></button>}
-          {onSignOut && <button type="button" className="link-soft as-button p-logout" onClick={onSignOut} data-testid="button-personal-sign-out">Đăng xuất</button>}
         </div>
       </header>
       <main className="p-main" id="main" tabIndex={-1} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} onTouchCancel={onTouchCancel}>

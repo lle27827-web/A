@@ -1300,10 +1300,26 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 :root[data-color-theme="dark"] .personal { background: hsl(var(--detail-background)); color: hsl(var(--detail-foreground)); }
 :root[data-color-theme="dark"] .personal .p-top { border-bottom-color: hsl(var(--detail-border)); background: hsl(var(--detail-background) / .96); }
 :root[data-color-theme="dark"] .personal .p-top a:not(.brand) { color: hsl(var(--detail-foreground)); }
-.p-top-inner { width: min(1080px, 100% - 32px); margin: 0 auto; min-height: 60px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.p-top-inner { width: min(1080px, 100% - 32px); margin: 0 auto; min-height: 60px; display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: "logout brand status settings"; align-items: center; gap: 12px; }
+.p-top-inner > .brand { grid-area: brand; }
+.p-top-inner > .p-logout { grid-area: logout; justify-self: start; margin-left: 0; }
+.p-top-inner > .p-pill { grid-area: status; justify-self: center; }
+.p-top-inner > .gear-btn { grid-area: settings; justify-self: end; }
+@media (max-width: 640px) {
+  .personal .p-top-inner {
+    min-height: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "logout brand settings"
+      "status status status";
+    gap: 8px 10px;
+    padding: 8px 0;
+  }
+  .personal .p-top-inner > .brand { justify-self: center; }
+  .personal .p-top-inner > .p-pill { justify-self: start; }
+}
 .p-mark { background: hsl(var(--jade)); border-radius: 9px 9px 3px 9px; }
 .p-pill { padding: 4px 10px; border-radius: 99px; border: 1px solid hsl(var(--jade) / .5); color: hsl(var(--jade)); font-size: 12px; font-weight: 700; }
-.p-logout { margin-left: auto; }
 .p-main { width: min(1080px, 100% - 32px); margin: 0 auto; padding: 22px 0 36px; display: grid; gap: 16px; flex: 1; align-content: start; touch-action: pan-y; }
 .p-hero { padding: 22px; border-radius: 22px 22px 22px 6px; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--card-foreground)); animation: rise .3s ease both; }
 .p-totals { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; margin: 10px 0 16px; }
