@@ -39,33 +39,37 @@ import {
   MassageError,
   type Tx,
   validDate,
-  sameAppointmentCustomer,
-  resolveSessionCustomerHourlyRate,
-  resolveSessionHourlyRate,
-  buildPartitionedSessionDeleteMutations,
 } from "./massage-common";
 import { idempotentTransaction } from "./massage-idempotency";
+import {
+  buildPartitionedSessionDeleteMutations,
+  resolveSessionCustomerHourlyRate,
+  resolveSessionHourlyRate,
+  sameAppointmentCustomer,
+  sessionResponse,
+  serviceTypeHasHistory,
+} from "./massage-service-sessions";
 export {
   MassageError,
-  buildPartitionedSessionDeleteMutations,
   currentBusinessDate,
   escapeLikePattern,
   identityPhone,
   monthBounds,
   retainedDate,
   retainedMonthBounds,
+  validDate,
+} from "./massage-common";
+export {
+  buildPartitionedSessionDeleteMutations,
   resolveSessionCustomerHourlyRate,
   resolveSessionHourlyRate,
   sameAppointmentCustomer,
+  sessionResponse,
   serviceTypeHasHistory,
-  validDate,
-} from "./massage-common";
+} from "./massage-service-sessions";
 export { idempotentTransaction } from "./massage-idempotency";
 export { deleteMember } from "./massage-employees";
 
-export function sessionResponse(row: typeof serviceSessionsTable.$inferSelect) {
-  return { ...row, archived: false, createdAt: row.createdAt.toISOString() };
-}
 export function cardResponse(row: typeof treatmentCardsTable.$inferSelect, usedMinutes = 0, topUps: CardTopUpRow[] = []) {
   return {
     ...row,
