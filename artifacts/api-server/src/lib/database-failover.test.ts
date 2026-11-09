@@ -117,7 +117,7 @@ test("ordinary SQL and validation errors never trigger automatic failover", () =
 test("database labels retain their one-to-one environment mapping", () => {
   const nodes = resolveDatabaseNodes({
     DATABASE_URL_1: "postgres://user:pass@db1.example/app",
-    DATABASE_URL: "postgres://user:pass@db2.example/app",
+    DATABASE_URL_2: "postgres://user:pass@db2.example/app",
     DATABASE_URL_3: "postgres://user:pass@db3.example/app",
     DATABASE_URL_4: "postgres://user:pass@db4.example/app",
     NEON_DB1_DIRECT_URL: "postgres://user:pass@db1.example/app",
@@ -153,10 +153,10 @@ test("independent coordinator URLs cannot share a database failure domain", () =
   );
 });
 
-test("four-database failover order maps DATABASE_URL_1 to DB1 and DATABASE_URL to DB2", () => {
+test("four-database failover order maps DATABASE_URL_1 to DB1 and DATABASE_URL_2 to DB2", () => {
   const nodes = resolveDatabaseNodes({
     DATABASE_URL_1: "postgres://primary",
-    DATABASE_URL: "postgres://fallback",
+    DATABASE_URL_2: "postgres://fallback",
     NEON_DB1_DIRECT_URL: "postgres://primary-direct",
     DATABASE_URL_3: "postgres://replica3",
     DATABASE_URL_4: "postgres://replica4",
@@ -188,8 +188,8 @@ test("four-database failover order maps DATABASE_URL_1 to DB1 and DATABASE_URL t
 
 test("DB4 can be selected as the coordinator only when its node is configured", () => {
   const nodes = resolveDatabaseNodes({
-    DATABASE_URL: "postgres://primary",
     DATABASE_URL_1: "postgres://fallback",
+    DATABASE_URL_2: "postgres://primary",
     DATABASE_URL_3: "postgres://replica3",
     DATABASE_URL_4: "postgres://replica4",
   });
@@ -210,8 +210,8 @@ test("DB4 can be selected as the coordinator only when its node is configured", 
 
 test("manual switching is limited to adjacent configured databases in either direction", () => {
   const nodes = resolveDatabaseNodes({
-    DATABASE_URL: "postgres://primary",
     DATABASE_URL_1: "postgres://fallback",
+    DATABASE_URL_2: "postgres://primary",
     DATABASE_URL_3: "postgres://replica3",
     DATABASE_URL_4: "postgres://replica4",
   });
@@ -270,21 +270,34 @@ test("additional replica cannot skip a missing link in the failover order", () =
   assert.throws(
     () =>
       resolveDatabaseNodes({
-        DATABASE_URL: "postgres://primary",
         DATABASE_URL_1: "postgres://fallback",
+        DATABASE_URL_2: "postgres://primary",
         DATABASE_URL_4: "postgres://replica4",
       }),
     /requires DATABASE_URL_3/,
   );
 });
 
-test("DATABASE_URL alone resolves to the DB2 backend", () => {
+test("DATABASE_URL alone resolves to DB2 in local development", () => {
   const nodes = resolveDatabaseNodes({
     DATABASE_URL: "postgres://development",
   });
   assert.deepEqual(
     nodes.map((node) => node.backend),
     ["database_url"],
+  );
+});
+
+test("Vercel requires DATABASE_URL_2 and never falls back to DATABASE_URL", () => {
+  assert.throws(
+    () => resolveDatabaseNodes({
+      VERCEL: "1",
+      DATABASE_URL: "postgres://old-db2",
+      DATABASE_URL_1: "postgres://db1",
+      DATABASE_URL_3: "postgres://db3",
+      DATABASE_URL_4: "postgres://db4",
+    }),
+    /DATABASE_URL_2 as the second link/,
   );
 });
 
