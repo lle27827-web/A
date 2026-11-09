@@ -23,6 +23,8 @@ export * from './attendanceUpdate';
 export * from './authStatus';
 export * from './authStatusRole';
 export * from './businessAccessResult';
+export * from './businessMemberSummary';
+export * from './businessMemberSummaryRole';
 export * from './businessSummary';
 export * from './businessSummaryRole';
 export * from './cardHoursInput';

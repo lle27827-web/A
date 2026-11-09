@@ -866,6 +866,20 @@ export const JoinBusinessResponse = zod.object({
 
 
 /**
+ * @summary Chủ cơ sở xem các tài khoản đang tham gia cơ sở đã chọn
+ */
+export const listCurrentBusinessMembersResponseEmailMax = 254;
+
+
+
+export const ListCurrentBusinessMembersResponseItem = zod.object({
+  "email": zod.string().email().max(listCurrentBusinessMembersResponseEmailMax),
+  "role": zod.enum(['owner', 'employee'])
+})
+export const ListCurrentBusinessMembersResponse = zod.array(ListCurrentBusinessMembersResponseItem)
+
+
+/**
  * @summary Nhân viên rời cơ sở đang chọn
  */
 export const LeaveBusinessParams = zod.object({

@@ -5,10 +5,16 @@ import {
   CreateBusinessResponse,
   JoinBusinessBody,
   JoinBusinessResponse,
+  ListCurrentBusinessMembersResponse,
   LeaveBusinessParams,
   RotateBusinessJoinCodeResponse,
 } from "@workspace/api-zod";
-import { createBusinessForOwner, joinBusinessByCode, rotateBusinessJoinCode } from "../lib/business-tenancy";
+import {
+  createBusinessForOwner,
+  joinBusinessByCode,
+  listCurrentBusinessMembers,
+  rotateBusinessJoinCode,
+} from "../lib/business-tenancy";
 import { BusinessLeaveError, leaveBusinessForEmployee } from "../lib/business-leave";
 import { operationIdFromRequest } from "../lib/partitioned-mutations";
 import type { OwnerAuthStatus } from "../lib/owner-auth";
@@ -83,6 +89,34 @@ router.post("/businesses/join", async (req, res): Promise<void> => {
   } catch (error) {
     req.log?.error({ err: error }, "Unable to join business");
     res.status(503).json({ error: "Không thể tham gia doanh nghiệp. Hãy thử lại." });
+  }
+});
+
+router.get("/businesses/current/members", async (req, res): Promise<void> => {
+  const status = currentStatus(res);
+  if (!status?.authenticated || !status.userId) {
+    res.status(401).json({ error: "Vui lòng đăng nhập." });
+    return;
+  }
+  if (!status.businessId) {
+    res.status(409).json({ error: "Hãy chọn cơ sở trước khi xem thành viên." });
+    return;
+  }
+  if (!status.isOwner) {
+    res.status(403).json({ error: "Chỉ chủ cơ sở được xem danh sách tài khoản đã tham gia." });
+    return;
+  }
+
+  try {
+    const accounts = await listCurrentBusinessMembers({
+      businessId: status.businessId,
+      ownerUserId: status.userId,
+      isPlatformAdmin: status.isPlatformAdmin,
+    });
+    res.json(ListCurrentBusinessMembersResponse.parse(accounts));
+  } catch (error) {
+    req.log?.error({ err: error, businessId: status.businessId }, "Unable to list business members");
+    res.status(503).json({ error: "Không thể tải danh sách tài khoản đã tham gia cơ sở." });
   }
 });
 

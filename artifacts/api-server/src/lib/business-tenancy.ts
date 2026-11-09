@@ -9,6 +9,10 @@ export type BusinessSummary = {
   name: string;
   role: BusinessRole | "platform_admin";
 };
+export type BusinessMemberSummary = {
+  email: string;
+  role: BusinessRole;
+};
 
 export type JoinBusinessResult =
   | { kind: "joined"; business: BusinessSummary }
@@ -158,6 +162,44 @@ export async function listBusinessesForIdentityWithClient(
     name: String(row.name),
     role: row.role === "owner" ? "owner" : "employee",
   }));
+}
+
+export async function listCurrentBusinessMembers(input: {
+  businessId: string;
+  ownerUserId: string;
+  isPlatformAdmin: boolean;
+}): Promise<BusinessMemberSummary[]> {
+  return withBusinessRegistryClient((client) =>
+    listCurrentBusinessMembersWithClient(client, input),
+  );
+}
+
+export async function listCurrentBusinessMembersWithClient(
+  client: BusinessRegistryClient,
+  input: { businessId: string; ownerUserId: string; isPlatformAdmin: boolean },
+): Promise<BusinessMemberSummary[]> {
+  const result = await client.query(
+    `SELECT lower(m.email) AS email, m.role
+     FROM public.business_memberships AS m
+     JOIN public.businesses AS b ON b.id = m.business_id
+     WHERE m.business_id = $1::uuid
+       AND m.active = true
+       AND b.active = true
+       AND (b.owner_user_id = $2 OR $3::boolean = true)
+     ORDER BY CASE WHEN m.role = 'owner' THEN 0 ELSE 1 END, lower(m.email)`,
+    [input.businessId, input.ownerUserId, input.isPlatformAdmin],
+  );
+
+  return result.rows.map((row) => {
+    const role = String(row.role);
+    if (role !== "owner" && role !== "employee") {
+      throw new Error("Business registry returned an unsupported membership role.");
+    }
+    return {
+      email: String(row.email).trim().toLowerCase(),
+      role,
+    };
+  });
 }
 
 export async function restorePendingDefaultBusinessOwnership(input: {

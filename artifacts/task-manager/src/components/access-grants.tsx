@@ -1,7 +1,8 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  getListAccessGrantsQueryKey, useDeleteAccessGrant, useListAccessGrants, useSaveAccessGrant,
+  getListAccessGrantsQueryKey, getListCurrentBusinessMembersQueryKey, useDeleteAccessGrant, useListAccessGrants,
+  useListCurrentBusinessMembers, useSaveAccessGrant,
 } from '@workspace/api-client-react';
 import type { AccessGrant, FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
 import { AlertCircle, ChevronDown, ChevronRight, KeyRound, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react';
@@ -90,6 +91,13 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
 }) {
   const cache = useQueryClient();
   const grants = useListAccessGrants({ query: { queryKey: getListAccessGrantsQueryKey(), refetchOnWindowFocus: true } });
+  const joinedAccounts = useListCurrentBusinessMembers({
+    query: {
+      queryKey: getListCurrentBusinessMembersQueryKey(),
+      enabled: isOwner,
+      refetchOnWindowFocus: true,
+    },
+  });
   const save = useSaveAccessGrant();
   const remove = useDeleteAccessGrant();
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -296,6 +304,42 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
               </li>
             ))}
           </ul>
+        )}
+        {isOwner && (
+          <>
+            <h3 className="group-title">
+              Tài khoản đã tham gia cơ sở · {joinedAccounts.isLoading ? '…' : joinedAccounts.data?.length ?? 0}
+            </h3>
+            <p className="muted">Tham gia cơ sở không tự cấp quyền quản lý.</p>
+            {joinedAccounts.isLoading ? <Skeleton rows={2} label="Đang tải tài khoản đã tham gia" /> : joinedAccounts.isError ? (
+              <ErrorBanner text="Không tải được danh sách tài khoản đã tham gia." onRetry={() => void joinedAccounts.refetch()} />
+            ) : joinedAccounts.data?.length ? (
+              <ul className="grant-list">
+                {joinedAccounts.data.map((account) => {
+                  const hasGrant = grants.isSuccess
+                    ? list.some((grant) => grant.email.trim().toLowerCase() === account.email.trim().toLowerCase())
+                    : null;
+                  const status = account.role === 'owner'
+                    ? 'Chủ cơ sở'
+                    : hasGrant === null
+                      ? 'Chưa xác định quyền'
+                      : hasGrant ? 'Đã cấp quyền quản lý' : 'Chưa cấp quyền quản lý';
+                  return (
+                    <li key={account.email} className="grant-row" data-testid={`row-business-member-${account.email}`}>
+                      <div className="grant-account">
+                        <span className="grow">
+                          <strong>{account.email}</strong>
+                          <span className="muted">{status}</span>
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <div className="empty small"><KeyRound size={18} aria-hidden="true" /><p>Chưa có tài khoản nào tham gia cơ sở.</p></div>
+            )}
+          </>
         )}
         {!draft && list.map((g) => selectedGrantId === g.id && (
           <section key={g.id} className="grant-details" id={`grant-details-${g.id}`} aria-labelledby={`grant-details-title-${g.id}`} data-testid={`details-grant-${g.id}`}>

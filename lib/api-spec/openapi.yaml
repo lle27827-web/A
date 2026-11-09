@@ -466,6 +466,22 @@ paths:
               schema: { $ref: "#/components/schemas/BusinessAccessResult" }
         "400": { description: Tên cơ sở hoặc mã doanh nghiệp không hợp lệ }
         "401": { description: Cần đăng nhập }
+  /businesses/current/members:
+    get:
+      operationId: listCurrentBusinessMembers
+      tags: [health]
+      summary: Chủ cơ sở xem các tài khoản đang tham gia cơ sở đã chọn
+      responses:
+        "200":
+          description: Email các thành viên đang tham gia cơ sở hiện tại
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/BusinessMemberSummary" }
+        "403": { description: Chỉ chủ cơ sở được xem danh sách }
+        "409": { description: Chưa chọn cơ sở }
+        "503": { description: Không thể đọc danh sách thành viên }
   /businesses/{id}/leave:
     delete:
       operationId: leaveBusiness
@@ -1148,6 +1164,12 @@ components:
         id: { type: string, format: uuid }
         name: { type: string }
         role: { type: string, enum: [owner, employee, platform_admin] }
+    BusinessMemberSummary:
+      type: object
+      required: [email, role]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        role: { type: string, enum: [owner, employee] }
     CreateBusinessInput:
       type: object
       required: [name]

@@ -199,6 +199,20 @@ export interface AuthStatus {
   permissions: FacilityPermissions;
 }
 
+export type BusinessMemberSummaryRole = typeof BusinessMemberSummaryRole[keyof typeof BusinessMemberSummaryRole];
+
+
+export const BusinessMemberSummaryRole = {
+  owner: 'owner',
+  employee: 'employee',
+} as const;
+
+export interface BusinessMemberSummary {
+  /** @maxLength 254 */
+  email: string;
+  role: BusinessMemberSummaryRole;
+}
+
 export interface CreateBusinessInput {
   /**
      * @minLength 2

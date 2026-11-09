@@ -32,6 +32,7 @@ import type {
   AttendanceUpdate,
   AuthStatus,
   BusinessAccessResult,
+  BusinessMemberSummary,
   CardHoursInput,
   CreateBusinessInput,
   DatabaseFailoverInput,
@@ -2585,6 +2586,83 @@ export const useJoinBusiness = <TError = ErrorType<void>,
       > => {
       return useMutation(getJoinBusinessMutationOptions(options));
     }
+
+export const getListCurrentBusinessMembersUrl = () => {
+
+
+
+
+  return `/api/businesses/current/members`
+}
+
+/**
+ * @summary Chủ cơ sở xem các tài khoản đang tham gia cơ sở đã chọn
+ */
+export const listCurrentBusinessMembers = async ( options?: Parameters<typeof customFetch>[1]): Promise<BusinessMemberSummary[]> => {
+
+  return customFetch<BusinessMemberSummary[]>(getListCurrentBusinessMembersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCurrentBusinessMembersQueryKey = () => {
+    return [
+    `/api/businesses/current/members`
+    ] as const;
+    }
+
+
+export const getListCurrentBusinessMembersQueryOptions = <TData = Awaited<ReturnType<typeof listCurrentBusinessMembers>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCurrentBusinessMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCurrentBusinessMembersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCurrentBusinessMembers>>> = ({ signal }) => listCurrentBusinessMembers({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCurrentBusinessMembers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCurrentBusinessMembersQueryResult = NonNullable<Awaited<ReturnType<typeof listCurrentBusinessMembers>>>
+export type ListCurrentBusinessMembersQueryError = ErrorType<void>
+
+
+/**
+ * @summary Chủ cơ sở xem các tài khoản đang tham gia cơ sở đã chọn
+ */
+
+export function useListCurrentBusinessMembers<TData = Awaited<ReturnType<typeof listCurrentBusinessMembers>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCurrentBusinessMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCurrentBusinessMembersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getLeaveBusinessUrl = (id: string,) => {
 
