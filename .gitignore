@@ -47,7 +47,3 @@ Thumbs.db
 # Replit
 .cache/
 .local/
-
-# Local Expo EAS signing credentials (never commit or deploy these).
-/artifacts/socong-mobile/credentials.json
-/artifacts/socong-mobile/credentials/
