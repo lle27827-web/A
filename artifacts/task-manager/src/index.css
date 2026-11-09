@@ -3878,3 +3878,71 @@ body:has(.modal-backdrop) .screen-nav {
     display: none;
   }
 }
+
+/* Desktop workspaces use the full available viewport; phones keep their current gutters. */
+@media (min-width: 900px) {
+  .app:not(.attendance-app) {
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    margin: 0;
+  }
+
+  .app:not(.attendance-app) > .topbar .topbar-inner {
+    width: 100%;
+    padding-inline: clamp(14px, 1.5vw, 28px);
+  }
+
+  .app:not(.attendance-app) > .main {
+    width: auto;
+    max-width: none;
+    margin: 0;
+    padding: clamp(12px, 1.35vw, 22px);
+  }
+
+  .app:not(.attendance-app) > .main .page,
+  .app:not(.attendance-app) > .main .detail,
+  .app:not(.attendance-app) > .main .home,
+  .app:not(.attendance-app) > .main .content,
+  .app:not(.attendance-app) > .main .employee-wrap {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+  }
+
+  .app:not(.attendance-app) > .main .home {
+    min-height: 100%;
+  }
+
+  .app.desktop-revenue-layout {
+    grid-template-columns: minmax(0, 42fr) minmax(0, 58fr);
+  }
+
+  .app.desktop-revenue-layout > .desktop-revenue-panel {
+    padding: 16px;
+  }
+
+  .app.desktop-revenue-layout > .main {
+    padding: 16px;
+  }
+
+  .app.desktop-revenue-layout > .main .home {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+  }
+
+  .personal .p-top-inner {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding-inline: clamp(14px, 1.5vw, 28px);
+  }
+
+  .personal .p-main {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: clamp(12px, 1.35vw, 22px);
+  }
+}

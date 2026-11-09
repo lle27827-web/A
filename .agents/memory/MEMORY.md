@@ -16,6 +16,7 @@
 - [Employee history](employee-history.md) — retain facility/personal work history five years; archive older card uses permanently without refunding hours.
 - [Navigation placement](navigation-placement.md) — keep service pricing on the home screen; preserve its manager grant while keeping it out of Settings.
 - [Personal synchronization](personal-synchronization.md) — importing replaces only the confirmed day/month; optional facility rates use employee pay and preserve historical wages.
+- [Desktop full-bleed layout](desktop-full-bleed-layout.md) — let signed-in desktop workspaces fill the viewport while leaving phone layouts unchanged.
 - [Concise accessibility](concise-accessibility.md) — short titles and discrepancy summaries; keep controls, financial data, errors and destructive warnings accessible.
 - [GitHub push verification](github-push-verification.md) — verify the remote SHA after pushing, including when Git reports a local tracking-ref error.
 - [Touch save/back gestures](screen-reader-gestures.md) — allow 2-second holds to save active attendance forms; retain continuous save/back gestures and native screen readers.
