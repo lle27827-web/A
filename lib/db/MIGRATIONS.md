@@ -95,15 +95,17 @@ code that requires its recovery fields. The retention-index step uses the single
 all store variables inside the per-store migration.
 
 The build migration requires direct endpoint values for DB1 through DB4. It
-prefers `NEON_DB1_DIRECT_URL` or `DATABASE_URL_1_DIRECT` for DB1,
-`DATABASE_URL_DIRECT` or `NEON_SOURCE_DIRECT_URL` for DB2,
-`MIGRATE_DATABASE_URL_3_DIRECT` or `DATABASE_URL_3_DIRECT` for DB3, and
-`MIGRATE_DATABASE_URL_4_DIRECT` or `DATABASE_URL_4_DIRECT` for DB4. If a
-dedicated direct variable is absent, it can use the corresponding runtime
-variable (`DATABASE_URL_1`, `DATABASE_URL`, `DATABASE_URL_3`, or
-`DATABASE_URL_4`) only when its host is not a `-pooler` endpoint. Preview
-builds run the same migration sequence, so they must use isolated Preview
-databases rather than Production endpoints.
+prefers the uniform aliases `NEON_DB1_DIRECT_URL` through
+`NEON_DB4_DIRECT_URL`; legacy aliases such as `DATABASE_URL_1_DIRECT`,
+`DATABASE_URL_DIRECT`, `NEON_SOURCE_DIRECT_URL`,
+`MIGRATE_DATABASE_URL_3_DIRECT`, and `MIGRATE_DATABASE_URL_4_DIRECT` are also
+accepted. If a dedicated direct variable is absent, it can use the
+corresponding runtime variable (`DATABASE_URL_1`, `DATABASE_URL`,
+`DATABASE_URL_3`, or `DATABASE_URL_4`) only when it is a PostgreSQL URL whose
+host is not a `-pooler` endpoint. Validation errors identify the selected
+variable name but never print its value. Preview builds run the same migration
+sequence, so they must use isolated Preview databases rather than Production
+endpoints.
 Do not replace the Vercel compatibility path with general `migrate` on a
 populated database until that Vercel target has been audited and its baseline
 explicitly authorized and recorded.
@@ -208,8 +210,9 @@ all four distinct projects:
 pnpm --filter @workspace/db run migrate:storage-partitioning
 ```
 
-The script prefers `NEON_DB1_DIRECT_URL`, `NEON_SOURCE_DIRECT_URL`,
-`MIGRATE_DATABASE_URL_3_DIRECT`, and `MIGRATE_DATABASE_URL_4_DIRECT`, falling
+The script prefers `NEON_DB1_DIRECT_URL` through `NEON_DB4_DIRECT_URL` and
+supports the legacy DB2–DB4 aliases `NEON_SOURCE_DIRECT_URL`,
+`MIGRATE_DATABASE_URL_3_DIRECT`, and `MIGRATE_DATABASE_URL_4_DIRECT`. It falls
 back to the corresponding `DATABASE_URL_1`, `DATABASE_URL`, `DATABASE_URL_3`,
 and `DATABASE_URL_4` values. It refuses pooler endpoints and repeated Neon
 hosts. A missing historical table or an exhausted integer ID range stops before
