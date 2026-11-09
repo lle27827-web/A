@@ -35,7 +35,16 @@ import {
   getForcedFailoverBlocker,
 } from "./failover-recovery";
 
-type Queryable = { query: (...args: any[]) => any };
+type Queryable = { query: pg.Pool["query"] };
+type PoolConnectCallback = (
+  error: Error | undefined,
+  client: pg.PoolClient | undefined,
+  release: (error?: Error | boolean) => void,
+) => void;
+type PoolConnectMethod = {
+  (): Promise<pg.PoolClient>;
+  (callback: PoolConnectCallback): void;
+};
 type RuntimeNode = DatabaseNodeConfig & {
   pool: pg.Pool;
   subscriptionPool: pg.Pool;
@@ -222,10 +231,12 @@ function isPromiseLike(value: unknown): value is Promise<unknown> {
   );
 }
 
-function queryText(args: any[]): string {
+function queryText(args: readonly unknown[]): string {
   const first = args[0];
   if (typeof first === "string") return first;
-  if (first && typeof first.text === "string") return first.text;
+  if (first && typeof first === "object" && "text" in first && typeof first.text === "string") {
+    return first.text;
+  }
   return "";
 }
 
@@ -1801,9 +1812,7 @@ export class DatabaseFailoverInProgressError extends Error {
 
 function installAvailabilityFailoverHandling(node: RuntimeNode): void {
   const pool = node.pool;
-  const rawPoolQuery = pool.query.bind(pool) as (
-    ...args: any[]
-  ) => any;
+  const rawPoolQuery = pool.query.bind(pool);
   const handleConnectionFailure = async (error: unknown): Promise<void> => {
     if (
       !isDatabaseFailoverTriggerError(error) ||
@@ -1821,7 +1830,7 @@ function installAvailabilityFailoverHandling(node: RuntimeNode): void {
       // Keep the original connection error; later requests will re-check readiness.
     }
   };
-  const handleResult = (result: any): any => {
+  const handleResult = (result: unknown): unknown => {
     if (!isPromiseLike(result)) return result;
     return result.catch(async (error: unknown) => {
       if (
@@ -1838,13 +1847,13 @@ function installAvailabilityFailoverHandling(node: RuntimeNode): void {
     });
   };
   const monitoredPool = pool as unknown as Queryable;
-  monitoredPool.query = (...args: any[]) =>
-    handleResult(rawPoolQuery(...args));
+  monitoredPool.query = ((...args: unknown[]) =>
+    handleResult(Reflect.apply(rawPoolQuery, pool, args))) as pg.Pool["query"];
 
-  const rawConnect = pool.connect.bind(pool) as (...args: any[]) => any;
-  const monitoredConnect = (...args: any[]) => {
-    const callback = args[0];
-    if (typeof callback === "function") {
+  const rawConnect = pool.connect.bind(pool) as PoolConnectMethod;
+  const monitoredConnect = ((...args: unknown[]) => {
+    if (typeof args[0] === "function") {
+      const callback = args[0] as PoolConnectCallback;
       return rawConnect(
         (error: unknown, client: pg.PoolClient, release: () => void) => {
           if (client) installClientHandler(client, node);
@@ -1865,9 +1874,8 @@ function installAvailabilityFailoverHandling(node: RuntimeNode): void {
       await handleConnectionFailure(error);
       throw error;
     });
-  };
-  (pool as unknown as { connect: (...args: any[]) => any }).connect =
-    monitoredConnect;
+  }) as pg.Pool["connect"];
+  (pool as unknown as { connect: pg.Pool["connect"] }).connect = monitoredConnect;
 }
 
 const monitoredClients = new WeakSet<object>();
@@ -1876,13 +1884,11 @@ function installClientHandler(client: pg.PoolClient, node: RuntimeNode): void {
   if (monitoredClients.has(client)) return;
   monitoredClients.add(client);
   let inTransaction = false;
-  const rawQuery = client.query.bind(client) as (
-    ...args: any[]
-  ) => any;
+  const rawQuery = client.query.bind(client);
 
-  (client as unknown as Queryable).query = (...args: any[]) => {
+  (client as unknown as Queryable).query = ((...args: unknown[]) => {
     const text = queryText(args);
-    const result = rawQuery(...args);
+    const result = Reflect.apply(rawQuery, client, args);
     if (!isPromiseLike(result)) return result;
     return result
       .then((value) => {
@@ -1910,7 +1916,7 @@ function installClientHandler(client: pg.PoolClient, node: RuntimeNode): void {
         }
         throw error;
       });
-  };
+  }) as pg.PoolClient["query"];
 }
 
 for (const node of nodes) {

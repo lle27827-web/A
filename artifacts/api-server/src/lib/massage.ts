@@ -1,9 +1,7 @@
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import {
   appendReservedPartitionOperation,
   appointmentsTable,
-  apiWriteOperationsTable,
-  attendanceTable,
   cardTopUpsTable,
   cardUsageHistoryTable,
   db,
@@ -12,7 +10,6 @@ import {
   hashPartitionRequest,
   isPartitionedStorageEnabled,
   membersTable,
-  memberVersionsTable,
   type MutationDraft,
   partitionEntityKey,
   readPartitionedTable,
@@ -29,80 +26,42 @@ import type { FacilityPermissions, ServiceSessionInput, TreatmentCardInput, Trea
 import { canEditEmployee } from "./facility-permissions";
 import { shouldKeepRecordedHourlyRate } from "./employee-bonus-pay";
 import { isWithinNightWindow } from "./night-service-pricing";
-import { isWithinRetention, retentionCutoffDate } from "./retention-window";
+import { isWithinRetention } from "./retention-window";
 import {
   commitPartitionedMutations,
-  deleteMutation,
-  operationIdFromRequest,
   reconcileAndReload,
   upsertMutation,
 } from "./partitioned-mutations";
-
-export class MassageError extends Error {
-  constructor(public status: number, message: string, public details?: { mergeTargetId: number }) { super(message); }
-}
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
-export async function idempotentTransaction<T>(
-  operationId: string | undefined,
-  label: string,
-  action: string,
-  request: unknown,
-  callback: (tx: Tx) => Promise<T>,
-): Promise<T> {
-  if (!operationId) return db.transaction(callback);
-  const key = operationIdFromRequest(operationId, label);
-  const requestHash = hashPartitionRequest({ action, request });
-  return db.transaction(async (tx) => {
-    const [inserted] = await tx.insert(apiWriteOperationsTable).values({
-      operationId: key,
-      requestHash,
-      result: { value: null },
-    }).onConflictDoNothing().returning({ operationId: apiWriteOperationsTable.operationId });
-    const [record] = await tx.select().from(apiWriteOperationsTable)
-      .where(eq(apiWriteOperationsTable.operationId, key)).for("update");
-    if (!record) throw new MassageError(503, "Không lưu được trạng thái chống ghi trùng.");
-    if (record.requestHash !== requestHash) {
-      throw new MassageError(409, "Mã yêu cầu đã được dùng cho nội dung khác. Hãy tải lại và thử lại.");
-    }
-    if (!inserted) return record.result.value as T;
-
-    const result = await callback(tx);
-    await tx.update(apiWriteOperationsTable).set({
-      result: { value: result === undefined ? null : result },
-    }).where(eq(apiWriteOperationsTable.operationId, key));
-    return result;
-  });
-}
-
-export function validDate(value: string) {
-  const d = new Date(`${value}T00:00:00Z`);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isFinite(d.getTime()) ||
-      d.toISOString().slice(0, 10) !== value || d.getUTCFullYear() < 1 || d.getUTCFullYear() > 9998) {
-    throw new MassageError(400, "Ngày không hợp lệ.");
-  }
-  return value;
-}
-
-export function monthBounds(month: string) {
-  const start = validDate(`${month}-01`);
-  const d = new Date(`${start}T00:00:00Z`);
-  d.setUTCMonth(d.getUTCMonth() + 1);
-  return { start, end: d.toISOString().slice(0, 10) };
-}
-
-export function retainedDate(value: string) {
-  const date = validDate(value);
-  if (!isWithinRetention(date)) throw new MassageError(400, "Chỉ xem và ghi lịch sử trong 5 năm gần nhất.");
-  return date;
-}
-
-export function retainedMonthBounds(month: string) {
-  const bounds = monthBounds(month);
-  const cutoff = retentionCutoffDate();
-  if (bounds.end <= cutoff) throw new MassageError(400, "Chỉ xem lịch sử trong 5 năm gần nhất.");
-  return { ...bounds, start: bounds.start < cutoff ? cutoff : bounds.start };
-}
+import {
+  currentBusinessDate,
+  identityPhone,
+  identityText,
+  MassageError,
+  type Tx,
+  validDate,
+  sameAppointmentCustomer,
+  resolveSessionCustomerHourlyRate,
+  resolveSessionHourlyRate,
+  buildPartitionedSessionDeleteMutations,
+} from "./massage-common";
+import { idempotentTransaction } from "./massage-idempotency";
+export {
+  MassageError,
+  buildPartitionedSessionDeleteMutations,
+  currentBusinessDate,
+  escapeLikePattern,
+  identityPhone,
+  monthBounds,
+  retainedDate,
+  retainedMonthBounds,
+  resolveSessionCustomerHourlyRate,
+  resolveSessionHourlyRate,
+  sameAppointmentCustomer,
+  serviceTypeHasHistory,
+  validDate,
+} from "./massage-common";
+export { idempotentTransaction } from "./massage-idempotency";
+export { deleteMember } from "./massage-employees";
 
 export function sessionResponse(row: typeof serviceSessionsTable.$inferSelect) {
   return { ...row, archived: false, createdAt: row.createdAt.toISOString() };
@@ -126,68 +85,6 @@ async function cardWithHistory(tx: Tx, row: typeof treatmentCardsTable.$inferSel
   ))
     .orderBy(desc(cardTopUpsTable.paymentDate), desc(cardTopUpsTable.id));
   return cardResponse(row, used, topUps);
-}
-export function currentBusinessDate() {
-  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit",
-  }).formatToParts(new Date()).map((part) => [part.type, part.value]));
-  return `${parts.year}-${parts.month}-${parts.day}`;
-}
-const identityText = (value: string) => value.normalize("NFC").trim().replace(/\s+/g, " ").toLowerCase();
-const validIdentityPhone = (value: string) => {
-  let digits = value.replace(/\D/g, "");
-  if (digits.startsWith("0084") && digits.length === 13) digits = `0${digits.slice(4)}`;
-  else if (digits.startsWith("84") && digits.length === 11) digits = `0${digits.slice(2)}`;
-  return digits.length >= 8 && digits.length <= 15 ? digits : null;
-};
-export const identityPhone = (value: string) =>
-  validIdentityPhone(value) ?? (value.replace(/\D/g, "") || identityText(value));
-
-export function resolveSessionHourlyRate(
-  oldRate: number | undefined,
-  currentServiceRate: number | undefined,
-  sameService: boolean,
-): number {
-  if (sameService && oldRate !== undefined && oldRate > 0) return oldRate;
-  return currentServiceRate ?? 0;
-}
-
-export function resolveSessionCustomerHourlyRate(
-  oldRate: number | undefined,
-  currentServiceRate: number | undefined,
-  sameService: boolean,
-): number {
-  if (sameService && oldRate !== undefined && oldRate > 0) return oldRate;
-  return currentServiceRate ?? 0;
-}
-
-export function buildPartitionedSessionDeleteMutations(id: number): MutationDraft[] {
-  return [deleteMutation("service_sessions", id)];
-}
-
-export function serviceTypeHasHistory(
-  serviceTypeId: number,
-  sessions: readonly { serviceTypeId: number | null }[],
-  archivedUses: readonly { serviceTypeId: number | null }[],
-): boolean {
-  return sessions.some((row) => row.serviceTypeId === serviceTypeId) ||
-    archivedUses.some((row) => row.serviceTypeId === serviceTypeId);
-}
-export function sameAppointmentCustomer(
-  appointment: Pick<typeof appointmentsTable.$inferSelect, "customerName" | "phone">,
-  card: Pick<typeof treatmentCardsTable.$inferSelect, "customerName" | "phone">,
-) {
-  const appointmentName = identityText(appointment.customerName);
-  const cardName = identityText(card.customerName);
-  const appointmentPhone = validIdentityPhone(appointment.phone);
-  const cardPhone = validIdentityPhone(card.phone);
-  const nameMatches = Boolean(appointmentName && cardName && appointmentName === cardName);
-  const phoneMatches = Boolean(appointmentPhone && cardPhone && appointmentPhone === cardPhone);
-  return nameMatches || phoneMatches;
-}
-
-export function escapeLikePattern(value: string): string {
-  return value.replace(/[\\%_]/g, "\\$&");
 }
 
 async function creditCard(tx: Tx, card: typeof treatmentCardsTable.$inferSelect, minutes: number, amount: number,
@@ -736,102 +633,6 @@ export async function deleteCard(
       eq(treatmentCardsTable.id, id),
       eq(treatmentCardsTable.businessId, businessId),
     ));
-  });
-}
-
-export async function deleteMember(
-  id: number,
-  operationId?: string,
-  businessId = "00000000-0000-4000-8000-000000000001",
-) {
-  if (isPartitionedStorageEnabled()) {
-    if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi xóa nhân viên.");
-    await withPartitionWriteMutex(`member:${id}`, async () => {
-      const [members, sessions, attendance] = await Promise.all([
-        readPartitionedTable("members", { businessId }),
-        readPartitionedTable("service_sessions", { businessId }),
-        readPartitionedTable("attendance", { businessId }),
-      ]);
-      const member = (members as unknown as (typeof membersTable.$inferSelect)[])
-        .find((row) => row.id === id && row.deletedAt === null);
-      if (!member) throw new MassageError(404, "Không tìm thấy nhân viên.");
-      const currentMonthStart = `${currentBusinessDate().slice(0, 7)}-01`;
-      const currentSessions = (sessions as unknown as (typeof serviceSessionsTable.$inferSelect)[])
-        .filter((row) => row.memberId === id && row.workDate >= currentMonthStart);
-      const currentAttendance = (attendance as unknown as (typeof attendanceTable.$inferSelect)[])
-        .filter((row) => row.memberId === id && row.workDate >= currentMonthStart);
-      const cardUses = currentSessions.filter((row) => row.cardId !== null);
-      const walkIns = currentSessions.filter((row) => row.cardId === null);
-      const deletedAt = new Date();
-      await commitPartitionedMutations({
-        operationId,
-        lockName: `member-delete:${id}`,
-        action: "member.delete",
-        request: { id, businessId },
-        expectedEventCount: 1 + cardUses.length + walkIns.length + currentAttendance.length,
-        alreadyLocked: true,
-        build: () => [
-          ...cardUses.map((row) => upsertMutation("service_sessions", row.id, {
-            ...row, memberId: null, hourlyRate: 0, earnings: 0,
-          })),
-          ...walkIns.map((row) => deleteMutation("service_sessions", row.id)),
-          ...currentAttendance.map((row) => deleteMutation("attendance", row.id)),
-          upsertMutation("members", id, { ...member, deletedAt }),
-        ],
-      });
-    });
-    return;
-  }
-  await idempotentTransaction(operationId, "xóa nhân viên", "member.delete", { id, businessId }, async (tx) => {
-    // Follow saveSession's session-before-member lock order to avoid deadlocks
-    // with an edit already holding a visit row.
-    await tx.select({ id: serviceSessionsTable.id }).from(serviceSessionsTable)
-      .where(and(
-        eq(serviceSessionsTable.memberId, id),
-        eq(serviceSessionsTable.businessId, businessId),
-      )).orderBy(asc(serviceSessionsTable.id)).for("update");
-    const [member] = await tx.select({ id: membersTable.id }).from(membersTable)
-      .where(and(
-        eq(membersTable.id, id),
-        eq(membersTable.businessId, businessId),
-        isNull(membersTable.deletedAt),
-      )).for("update");
-    if (!member) throw new MassageError(404, "Không tìm thấy nhân viên.");
-    // Scope deletion to the current business month. Earlier months are immutable
-    // history, including card usage, walk-in revenue, attendance and payroll.
-    const currentMonthStart = `${currentBusinessDate().slice(0, 7)}-01`;
-    // Keep current-month customer card-use history and its consumed minutes, but
-    // detach the deleted employee and remove current-month wage associations.
-    await tx.update(serviceSessionsTable).set({
-      memberId: null,
-      hourlyRate: 0,
-      earnings: 0,
-    }).where(and(
-      eq(serviceSessionsTable.memberId, id),
-      eq(serviceSessionsTable.businessId, businessId),
-      isNotNull(serviceSessionsTable.cardId),
-      gte(serviceSessionsTable.workDate, currentMonthStart),
-    ));
-    // Remove only current-month walk-in sessions, preserving prior-month revenue.
-    await tx.delete(serviceSessionsTable).where(and(
-      eq(serviceSessionsTable.memberId, id),
-      eq(serviceSessionsTable.businessId, businessId),
-      isNull(serviceSessionsTable.cardId),
-      gte(serviceSessionsTable.workDate, currentMonthStart),
-    ));
-    await tx.delete(attendanceTable).where(and(
-      eq(attendanceTable.memberId, id),
-      eq(attendanceTable.businessId, businessId),
-      gte(attendanceTable.workDate, currentMonthStart),
-    ));
-    // Soft delete the profile so prior-month names, pay rates and visit details
-    // remain available in historical views. No card totals or visit minutes change.
-    await tx.update(membersTable).set({ deletedAt: new Date() })
-      .where(and(
-        eq(membersTable.id, id),
-        eq(membersTable.businessId, businessId),
-        isNull(membersTable.deletedAt),
-      ));
   });
 }
 
