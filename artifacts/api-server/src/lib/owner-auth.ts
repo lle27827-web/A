@@ -7,7 +7,14 @@ import type { FacilityPermissions } from "@workspace/api-zod";
 import { canDeleteEmployee, canEditEmployee, canViewEmployee, noPermissions, ownerPermissions, permissionsForEmail } from "./facility-permissions";
 import { isValidRetentionCronAuthorization } from "./retention-auth";
 import { createAsyncTtlCache } from "./user-identity-cache";
-import { DEFAULT_BUSINESS_ID, listBusinessesForIdentity, type BusinessRole, type BusinessSummary } from "./business-tenancy";
+import {
+  DEFAULT_BUSINESS_ID,
+  isVerifiedAdminIdentity,
+  listBusinessesForIdentity,
+  restorePendingDefaultBusinessOwnership,
+  type BusinessRole,
+  type BusinessSummary,
+} from "./business-tenancy";
 import { and } from "drizzle-orm";
 import { personalOnlyBusinessAccess } from "./business-access-policy";
 
@@ -20,6 +27,23 @@ const clerk = hasClerkKeys
   ? createClerkClient({ secretKey, publishableKey })
   : null;
 const clerkIdentityCache = createAsyncTtlCache<{ email: string | null; verified: boolean }>(45_000, 1_000);
+const defaultOwnerRecoveryCache = createAsyncTtlCache<boolean>(60_000, 100);
+let missingAdminEmailWarningLogged = false;
+
+export function warnIfAdminEmailMissing(
+  adminEmail: string | null | undefined,
+  warn: (message: string) => void = console.warn,
+): boolean {
+  if (adminEmail?.trim()) return false;
+  warn("[auth-config] ADMIN_EMAIL is missing; owner access is disabled.");
+  return true;
+}
+
+function warnMissingAdminEmailOnce(): void {
+  if (ownerEmail || missingAdminEmailWarningLogged) return;
+  missingAdminEmailWarningLogged = true;
+  warnIfAdminEmailMissing(ownerEmail);
+}
 
 export type OwnerAuthStatus = {
   authConfigured: boolean;
@@ -37,6 +61,7 @@ export type OwnerAuthStatus = {
 };
 
 export function ownerAuthIsConfigured(): boolean {
+  warnMissingAdminEmailOnce();
   return hasClerkKeys && Boolean(ownerEmail);
 }
 
@@ -68,7 +93,7 @@ export async function getOwnerAuthStatus(req: Request): Promise<OwnerAuthStatus>
     };
   });
   const email = identity.verified ? identity.email : null;
-  const isPlatformAdmin = Boolean(email && email === ownerEmail);
+  const isPlatformAdmin = isVerifiedAdminIdentity(identity, ownerEmail);
   let businesses: BusinessSummary[] = [];
   let businessAccessAvailable = true;
   let businessId: string | null = null;
@@ -79,6 +104,11 @@ export async function getOwnerAuthStatus(req: Request): Promise<OwnerAuthStatus>
 
   if (email) {
     try {
+      if (isPlatformAdmin) {
+        await defaultOwnerRecoveryCache.get(userId, () =>
+          restorePendingDefaultBusinessOwnership({ userId, verifiedEmail: email }),
+        );
+      }
       businesses = await listBusinessesForIdentity(userId, isPlatformAdmin);
       let selectedBusinessId = req.get("x-business-id")?.trim() || null;
       if (!selectedBusinessId) {
