@@ -131,11 +131,11 @@ test("independent coordinator URLs cannot share a database failure domain", () =
   );
 });
 
-test("four-database failover order preserves the existing DATABASE_URL slot", () => {
+test("four-database failover order maps DATABASE_URL to DB1 and DATABASE_URL_1 to DB2", () => {
   const nodes = resolveDatabaseNodes({
-    DATABASE_URL_1: "postgres://primary",
-    DATABASE_URL: "postgres://fallback",
-    DATABASE_URL_DIRECT: "postgres://fallback-direct",
+    DATABASE_URL: "postgres://primary",
+    DATABASE_URL_1: "postgres://fallback",
+    NEON_DB1_DIRECT_URL: "postgres://primary-direct",
     DATABASE_URL_3: "postgres://replica3",
     DATABASE_URL_4: "postgres://replica4",
   });
@@ -161,13 +161,13 @@ test("four-database failover order preserves the existing DATABASE_URL slot", ()
     getNextBackend("database_url_3", nodes)?.backend,
     "database_url_4",
   );
-  assert.equal(nodes[1]?.adminUrl, "postgres://fallback-direct");
+  assert.equal(nodes[0]?.adminUrl, "postgres://primary-direct");
 });
 
 test("DB4 can be selected as the coordinator only when its node is configured", () => {
   const nodes = resolveDatabaseNodes({
-    DATABASE_URL_1: "postgres://primary",
-    DATABASE_URL: "postgres://fallback",
+    DATABASE_URL: "postgres://primary",
+    DATABASE_URL_1: "postgres://fallback",
     DATABASE_URL_3: "postgres://replica3",
     DATABASE_URL_4: "postgres://replica4",
   });
@@ -188,8 +188,8 @@ test("DB4 can be selected as the coordinator only when its node is configured", 
 
 test("manual switching is limited to adjacent configured databases in either direction", () => {
   const nodes = resolveDatabaseNodes({
-    DATABASE_URL_1: "postgres://primary",
-    DATABASE_URL: "postgres://fallback",
+    DATABASE_URL: "postgres://primary",
+    DATABASE_URL_1: "postgres://fallback",
     DATABASE_URL_3: "postgres://replica3",
     DATABASE_URL_4: "postgres://replica4",
   });
@@ -248,21 +248,21 @@ test("additional replica cannot skip a missing link in the failover order", () =
   assert.throws(
     () =>
       resolveDatabaseNodes({
-        DATABASE_URL_1: "postgres://primary",
-        DATABASE_URL: "postgres://fallback",
+        DATABASE_URL: "postgres://primary",
+        DATABASE_URL_1: "postgres://fallback",
         DATABASE_URL_4: "postgres://replica4",
       }),
     /requires DATABASE_URL_3/,
   );
 });
 
-test("development with only DATABASE_URL keeps its existing database", () => {
+test("DATABASE_URL alone resolves to the DB1 backend", () => {
   const nodes = resolveDatabaseNodes({
     DATABASE_URL: "postgres://development",
   });
   assert.deepEqual(
     nodes.map((node) => node.backend),
-    ["database_url"],
+    ["database_url_1"],
   );
 });
 

@@ -21,7 +21,13 @@ On 2026-10-22, after read-only hashes and schemas matched across all 14 business
 
 **How to apply:** Before cutover, recheck data parity and schemas, deploy the matching runtime, and obtain separate authorization to enable partition mode.
 
-The four Neon stores are ordered DB1=`DATABASE_URL_1`, DB2=`DATABASE_URL`, DB3=`DATABASE_URL_3`, DB4=`DATABASE_URL_4`. DB4 is the chosen routing coordinator; the user accepts it as a single point of failure.
+The four Neon stores are DB1=`DATABASE_URL` + `NEON_DB1_DIRECT_URL`, DB2=`DATABASE_URL_1` + `NEON_DB2_DIRECT_URL`, DB3=`DATABASE_URL_3` + `NEON_DB3_DIRECT_URL`, and DB4=`DATABASE_URL_4` + `NEON_DB4_DIRECT_URL`. Keep the runtime URL and direct URL for each label on the same Neon database.
+
+**Why:** the user explicitly switched DB1 and DB2's environment-variable slots while preserving the four logical data partitions.
+
+**How to apply:** `DATABASE_URL` now names DB1, not DB2. Keep backend labels and data-domain assignments stable; do not infer the store from the suffix alone.
+
+DB4 is the chosen routing coordinator; the user accepts it as a single point of failure.
 
 **Why:** the user explicitly selected DB4 rather than creating a fifth database.
 

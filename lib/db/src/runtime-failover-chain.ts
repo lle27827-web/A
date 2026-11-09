@@ -86,12 +86,6 @@ if (!databaseUrl) {
   );
 }
 
-if (isVercel && process.env.DATABASE_URL_1?.trim() && !databaseUrl) {
-  throw new Error(
-    "DATABASE_URL must remain set as the fallback for DATABASE_URL_1.",
-  );
-}
-
 const nodes: RuntimeNode[] = configuredNodes.map((node) => {
   const pool = new pg.Pool({
     connectionString: node.url,

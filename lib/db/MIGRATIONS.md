@@ -161,7 +161,7 @@ runtime fails closed if the coordinator state table is missing.
 
 ### Independent failover coordinator
 
-For failover to remain coordinatable when DB2 (`DATABASE_URL`) is unavailable,
+For failover to remain coordinatable when DB2 (`DATABASE_URL_1`) is unavailable,
 provision a separate PostgreSQL database that is not one of the four data
 stores. It stores only the single `public.db_failover_state` coordination row.
 The application continues using the legacy DB2 state table until
