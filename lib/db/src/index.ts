@@ -10,33 +10,21 @@ export {
   withBusinessRegistryClient,
 } from "./runtime-failover-chain";
 export {
-  hasReachedDatabaseCapacity,
   isDatabaseCapacityError,
   isDatabaseAvailabilityError,
   isDatabaseFailoverTriggerError,
   isSameDatabaseFailureDomain,
-  parseDatabaseCapacityLimit,
 } from "./failover-utils";
 export {
   applyPartitionMutations,
   buildPartitionEventInsertBatch,
   comparePartitionRevisions,
   makePartitionEntityKey,
-  nextPartitionWriteBackend,
-  resolvePartitionWritePair,
-  resolvePartitionWriteBackend,
-  resolvePartitionComputeState,
-  type PartitionComputeSnapshot,
-  shouldAdvancePartitionCursor,
-  PartitionRoutingError,
   type PartitionMutation,
   type PartitionMutationAction,
-  type PartitionCapacityState,
-  type PartitionReplicaPair,
 } from "./storage-partitioning";
 export { normalizePartitionDatabaseRow, personalTableReadPredicates } from "./partitioned-row";
 export { PartitionReadCache } from "./partition-read-cache";
-export { FailoverCapacityCache, FAILOVER_COMPUTE_CACHE_TTL_MS } from "./failover-capacity-cache";
 export {
   evaluateStaleFailoverRecovery,
   FAILOVER_SWITCH_STALE_AFTER_MS,

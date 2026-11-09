@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Response } from "express";
+import { ipKeyGenerator } from "express-rate-limit";
 import {
   CreateBusinessBody,
   CreateBusinessResponse,
@@ -57,16 +58,28 @@ router.post("/businesses/join", async (req, res): Promise<void> => {
     return;
   }
   try {
-    const business = await joinBusinessByCode({
+    const result = await joinBusinessByCode({
       userId: status.userId,
       email: status.email,
       code: parsed.data.code,
+      ipAddress: req.ip || req.socket.remoteAddress
+        ? ipKeyGenerator(req.ip || req.socket.remoteAddress!)
+        : "unknown",
     });
-    if (!business) {
-      res.status(400).json({ error: "Tên cơ sở hoặc mã doanh nghiệp không đúng." });
+    if (result.kind === "rate-limited") {
+      res.set("Retry-After", String(result.retryAfterSeconds));
+      res.status(429).json({
+        error: "Bạn đã nhập sai mã quá nhiều lần. Hãy thử lại sau 15 phút.",
+      });
       return;
     }
-    res.json(JoinBusinessResponse.parse({ business, joinCode: null }));
+    if (result.kind === "invalid-code") {
+      res.status(400).json({
+        error: "Mã tham gia không đúng. Hãy kiểm tra đủ 10 chữ số hoặc hỏi lại chủ cơ sở.",
+      });
+      return;
+    }
+    res.json(JoinBusinessResponse.parse({ business: result.business, joinCode: null }));
   } catch (error) {
     req.log?.error({ err: error }, "Unable to join business");
     res.status(503).json({ error: "Không thể tham gia doanh nghiệp. Hãy thử lại." });

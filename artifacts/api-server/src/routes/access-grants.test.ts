@@ -12,6 +12,7 @@ test("normal SQL access-grant creation rejects a missing idempotency key before 
     res.locals.facilityAuth = {
       authenticated: true,
       isOwner: true,
+      businessId: "00000000-0000-4000-8000-000000000001",
       email: `owner-${Date.now()}@example.test`,
       permissions: ownerPermissions(),
     };

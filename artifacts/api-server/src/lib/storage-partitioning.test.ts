@@ -9,26 +9,12 @@ import {
   getPartitionDataDomain,
   hashPartitionRequest,
   makePartitionEntityKey,
-  nextPartitionWriteBackend,
   resolveDomainWriteRoutes,
-  resolvePartitionWritePair,
-  resolvePartitionWriteBackend,
-  shouldAdvancePartitionCursor,
   normalizePartitionDatabaseRow,
   personalTableReadPredicates,
-  resolvePartitionComputeState,
   readWithMinimumReplicaCount,
-  PartitionRoutingError,
-  type PartitionCapacityState,
   type PartitionMutation,
 } from "@workspace/db";
-
-const fourShards = [
-  { backend: "database_url_1" as const },
-  { backend: "database_url" as const },
-  { backend: "database_url_3" as const },
-  { backend: "database_url_4" as const },
-];
 
 test("partition domains assign each application table to the requested store group", () => {
   assert.equal(getPartitionDataDomain("attendance"), "facility");
@@ -266,142 +252,6 @@ test("partition event batch maps each mutation into aligned PostgreSQL arrays", 
   ]);
   assert.deepEqual(batch.payloads, [null, JSON.stringify({ id: 2, name: "An" })]);
   for (const values of Object.values(batch)) assert.equal(values.length, 2);
-});
-
-test("write routing advances only to the next configured store", () => {
-  assert.equal(nextPartitionWriteBackend("database_url_1", fourShards), "database_url");
-  assert.equal(nextPartitionWriteBackend("database_url", fourShards), "database_url_3");
-  assert.equal(nextPartitionWriteBackend("database_url_3", fourShards), "database_url_4");
-  assert.equal(nextPartitionWriteBackend("database_url_4", fourShards), undefined);
-  assert.equal(nextPartitionWriteBackend("database_url", fourShards.slice(0, 2)), undefined);
-});
-
-test("partition routing skips full or unavailable stores and never wraps", () => {
-  const capacity = new Map([
-    ["database_url_1", "full"],
-    ["database_url", "unavailable"],
-    ["database_url_3", "available"],
-    ["database_url_4", "available"],
-  ]) as Map<"database_url_1" | "database_url" | "database_url_3" | "database_url_4", PartitionCapacityState>;
-  assert.equal(
-    resolvePartitionWriteBackend("database_url_1", fourShards.map(({ backend }) => backend), capacity),
-    "database_url_3",
-  );
-  const allRemainingFull = new Map(capacity);
-  allRemainingFull.set("database_url_4", "full");
-  assert.throws(
-    () => resolvePartitionWriteBackend(
-      "database_url_4",
-      fourShards.map(({ backend }) => backend),
-      allRemainingFull,
-    ),
-    (error) => error instanceof PartitionRoutingError && error.code === "no_writable_store",
-  );
-});
-
-test("partition routing fails closed when candidate capacity is unknown", () => {
-  const capacity = new Map([
-    ["database_url_1", "full"],
-    ["database_url", "unknown"],
-    ["database_url_3", "available"],
-    ["database_url_4", "available"],
-  ]) as Map<"database_url_1" | "database_url" | "database_url_3" | "database_url_4", PartitionCapacityState>;
-  assert.throws(
-    () => resolvePartitionWriteBackend("database_url_1", fourShards.map(({ backend }) => backend), capacity),
-    (error) => error instanceof PartitionRoutingError && error.code === "capacity_unknown",
-  );
-});
-
-test("two-copy routing selects a forward primary and a distinct writable replica", () => {
-  const capacity = new Map([
-    ["database_url_1", "available"],
-    ["database_url", "available"],
-    ["database_url_3", "available"],
-    ["database_url_4", "available"],
-  ]) as Map<"database_url_1" | "database_url" | "database_url_3" | "database_url_4", PartitionCapacityState>;
-  assert.deepEqual(
-    resolvePartitionWritePair("database_url_1", fourShards.map(({ backend }) => backend), capacity),
-    { primary: "database_url_1", replica: "database_url" },
-  );
-});
-
-test("two-copy routing moves forward when full and can wrap only for the replica", () => {
-  const capacity = new Map([
-    ["database_url_1", "full"],
-    ["database_url", "unavailable"],
-    ["database_url_3", "available"],
-    ["database_url_4", "available"],
-  ]) as Map<"database_url_1" | "database_url" | "database_url_3" | "database_url_4", PartitionCapacityState>;
-  const order = fourShards.map(({ backend }) => backend);
-  assert.deepEqual(resolvePartitionWritePair("database_url_1", order, capacity), {
-    primary: "database_url_3",
-    replica: "database_url_4",
-  });
-
-  const edgeCapacity = new Map([
-    ["database_url_1", "available"],
-    ["database_url", "unavailable"],
-    ["database_url_3", "unavailable"],
-    ["database_url_4", "available"],
-  ]) as Map<"database_url_1" | "database_url" | "database_url_3" | "database_url_4", PartitionCapacityState>;
-  assert.deepEqual(resolvePartitionWritePair("database_url_4", order, edgeCapacity), {
-    primary: "database_url_4",
-    replica: "database_url_1",
-  });
-});
-
-test("the persisted cursor advances only for a genuinely full store", () => {
-  const order = fourShards.map(({ backend }) => backend);
-  assert.equal(shouldAdvancePartitionCursor("full", "database_url_1", "database_url", order), true);
-  assert.equal(shouldAdvancePartitionCursor("unavailable", "database_url_1", "database_url", order), false);
-  assert.equal(shouldAdvancePartitionCursor("full", "database_url_1", "database_url_1", order), false);
-});
-
-test("partition CU checks reuse a recent value and fail open only when configured", () => {
-  const cached = { seconds: 1_000, checkedAt: 10_000 };
-  assert.equal(resolvePartitionComputeState({
-    now: 11_000, cached, requireCheck: true, limitSeconds: 3_600,
-  }), "available");
-  assert.equal(resolvePartitionComputeState({
-    now: 11_000, cached: { seconds: 4_000, checkedAt: 10_000 },
-    requireCheck: false, limitSeconds: 3_600,
-  }), "unavailable");
-  assert.equal(resolvePartitionComputeState({
-    now: 30_000_000, cached, requireCheck: true, limitSeconds: 3_600,
-  }), "unknown");
-  assert.equal(resolvePartitionComputeState({
-    now: 30_000_000, requireCheck: false, limitSeconds: 3_600,
-  }), "available");
-});
-
-test("two-copy routing blocks when fewer than two stores are verified writable", () => {
-  const capacity = new Map([
-    ["database_url_1", "available"],
-    ["database_url", "full"],
-    ["database_url_3", "unknown"],
-    ["database_url_4", "unavailable"],
-  ]) as Map<"database_url_1" | "database_url" | "database_url_3" | "database_url_4", PartitionCapacityState>;
-  assert.throws(
-    () => resolvePartitionWritePair(
-      "database_url_1",
-      fourShards.map(({ backend }) => backend),
-      capacity,
-    ),
-    (error) => error instanceof PartitionRoutingError && error.code === "capacity_unknown",
-  );
-});
-
-test("two-copy routing does not advance past an unknown store", () => {
-  const capacity = new Map([
-    ["database_url_1", "available"],
-    ["database_url", "unknown"],
-    ["database_url_3", "available"],
-    ["database_url_4", "available"],
-  ]) as Map<"database_url_1" | "database_url" | "database_url_3" | "database_url_4", PartitionCapacityState>;
-  assert.throws(
-    () => resolvePartitionWritePair("database_url_1", fourShards.map(({ backend }) => backend), capacity),
-    (error) => error instanceof PartitionRoutingError && error.code === "capacity_unknown",
-  );
 });
 
 test("partition revisions compare as integers, not lexicographic strings", () => {

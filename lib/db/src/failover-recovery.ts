@@ -21,7 +21,6 @@ export function getForcedFailoverBlocker(input: {
   coordinatorBackend: DatabaseBackend;
   sourceReachable: boolean;
   targetReachable: boolean;
-  targetHasCapacity: boolean;
 }): string | null {
   if (!input.enabled || !input.production) {
     return "Chuyển cưỡng bức chưa được bật trên môi trường production.";
@@ -46,9 +45,6 @@ export function getForcedFailoverBlocker(input: {
   }
   if (!input.targetReachable) {
     return "Kho đích không vượt qua kiểm tra kết nối mới.";
-  }
-  if (!input.targetHasCapacity) {
-    return "Không xác minh được dung lượng và CU còn trống của kho đích.";
   }
   return null;
 }

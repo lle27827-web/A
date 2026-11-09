@@ -52,7 +52,6 @@ test("forced promotion requires explicit production enablement, a failed source 
     coordinatorBackend: "database_url_4" as const,
     sourceReachable: false,
     targetReachable: true,
-    targetHasCapacity: true,
   };
   assert.equal(getForcedFailoverBlocker(preflight), null);
   assert.match(
@@ -66,9 +65,5 @@ test("forced promotion requires explicit production enablement, a failed source 
   assert.match(
     getForcedFailoverBlocker({ ...preflight, coordinatorBackend: "database_url" }) ?? "",
     /bộ điều phối/,
-  );
-  assert.match(
-    getForcedFailoverBlocker({ ...preflight, targetHasCapacity: false }) ?? "",
-    /dung lượng và CU/,
   );
 });

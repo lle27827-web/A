@@ -22,7 +22,7 @@ import {
   type DatabaseNodeConfig,
 } from "./failover-topology";
 
-type RuntimeNode = Omit<DatabaseNodeConfig, "maxBytes"> & { pool: pg.Pool };
+type RuntimeNode = DatabaseNodeConfig & { pool: pg.Pool };
 type IdAllocation = Record<string, number[]>;
 export type ReservedOperation = {
   operationId: string;

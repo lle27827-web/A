@@ -1,4 +1,4 @@
-import { createHash, randomInt, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomInt, randomUUID } from "node:crypto";
 import { withBusinessRegistryClient } from "@workspace/db";
 
 export const DEFAULT_BUSINESS_ID = "00000000-0000-4000-8000-000000000001";
@@ -10,8 +10,96 @@ export type BusinessSummary = {
   role: BusinessRole | "platform_admin";
 };
 
+export type JoinBusinessResult =
+  | { kind: "joined"; business: BusinessSummary }
+  | { kind: "invalid-code" }
+  | { kind: "rate-limited"; retryAfterSeconds: number };
+
+type BusinessRegistryClient = {
+  query: (text: string, values?: unknown[]) => Promise<{
+    rows: Array<Record<string, unknown>>;
+    rowCount?: number | null;
+  }>;
+};
+
+const JOIN_FAILURE_LIMIT = 5;
+const JOIN_FAILURE_WINDOW = "15 minutes";
+
 const hashJoinCode = (code: string) =>
   createHash("sha256").update(code, "utf8").digest("hex");
+
+function hashJoinAttemptKey(secret: string, kind: "user" | "ip", value: string): string {
+  return createHmac("sha256", secret)
+    .update(`so-cong:business-join-rate-limit:v1\0${kind}\0${value}`, "utf8")
+    .digest("hex");
+}
+
+function getJoinAttemptKeys(
+  input: { userId: string; ipAddress: string },
+  secret: string,
+): string[] {
+  return [
+    hashJoinAttemptKey(secret, "user", input.userId),
+    hashJoinAttemptKey(secret, "ip", input.ipAddress),
+  ].sort();
+}
+
+async function lockJoinAttemptKeys(client: BusinessRegistryClient, keys: string[]): Promise<void> {
+  for (const key of keys) {
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+      [key],
+    );
+  }
+}
+
+async function getJoinRateLimitRetryAfter(
+  client: BusinessRegistryClient,
+  keys: string[],
+): Promise<number | null> {
+  const result = await client.query(
+    `SELECT GREATEST(
+       1,
+       CEIL(EXTRACT(EPOCH FROM (
+         oldest_attempt_at + interval '${JOIN_FAILURE_WINDOW}' - now()
+       )))::int
+     ) AS retry_after_seconds
+     FROM (
+       SELECT MIN(attempted_at) AS oldest_attempt_at
+       FROM public.business_join_attempts
+       WHERE key_hash = ANY($1::text[])
+         AND attempted_at > now() - interval '${JOIN_FAILURE_WINDOW}'
+       GROUP BY key_hash
+       HAVING COUNT(*) >= $2
+     ) AS blocked_keys`,
+    [keys, JOIN_FAILURE_LIMIT],
+  );
+  if (!result.rows.length) return null;
+  return Math.max(...result.rows.map((row) => Number(row.retry_after_seconds) || 1));
+}
+
+async function recordJoinFailure(client: BusinessRegistryClient, keys: string[]): Promise<void> {
+  const values = keys.flatMap((key) => [randomUUID(), key]);
+  const valueRows = keys.map((_, index) =>
+    `($${index * 2 + 1}::uuid, $${index * 2 + 2}, now())`,
+  );
+  await client.query(
+    `WITH expired AS (
+       DELETE FROM public.business_join_attempts AS attempts
+       WHERE attempts.id IN (
+         SELECT id
+         FROM public.business_join_attempts
+         WHERE attempted_at <= now() - interval '${JOIN_FAILURE_WINDOW}'
+         ORDER BY attempted_at
+         LIMIT 100
+       )
+       RETURNING id
+     )
+     INSERT INTO public.business_join_attempts (id, key_hash, attempted_at)
+     VALUES ${valueRows.join(", ")}`,
+    values,
+  );
+}
 
 function makeJoinCode(): string {
   return String(randomInt(1_000_000_000, 10_000_000_000));
@@ -97,47 +185,72 @@ export async function joinBusinessByCode(input: {
   userId: string;
   email: string;
   code: string;
-}): Promise<BusinessSummary | null> {
+  ipAddress: string;
+}): Promise<JoinBusinessResult> {
+  const secret = process.env.APP_CLERK_SECRET_KEY?.trim();
+  if (!secret) throw new Error("Business join rate-limit key is not configured.");
+  return withBusinessRegistryClient((client) =>
+    joinBusinessByCodeWithClient(client, input, secret),
+  );
+}
+
+export async function joinBusinessByCodeWithClient(
+  client: BusinessRegistryClient,
+  input: { userId: string; email: string; code: string; ipAddress: string },
+  hashSecret: string,
+): Promise<JoinBusinessResult> {
   const code = input.code.replace(/\s+/g, "");
-  if (!/^\d{10}$/.test(code)) return null;
-  return withBusinessRegistryClient(async (client) => {
-    await client.query("BEGIN");
-    try {
-      const found = await client.query(
-        `SELECT id::text, name FROM public.businesses
-         WHERE active = true AND join_code_hash = $1
-         FOR SHARE`,
-        [hashJoinCode(code)],
-      );
-      const row = found.rows[0];
-      if (!row) {
-        await client.query("ROLLBACK");
-        return null;
-      }
-      const email = input.email.trim().toLowerCase();
-      await client.query(
-        `INSERT INTO public.business_users (user_id, email)
-         VALUES ($1, $2)
-         ON CONFLICT (user_id) DO UPDATE SET email = EXCLUDED.email, updated_at = now()`,
-        [input.userId, email],
-      );
-      // Rejoining restores only the employee membership; this path never creates manager grants.
-      await client.query(
-        `INSERT INTO public.business_memberships
-          (id, business_id, user_id, email, role, active)
-         VALUES ($1::uuid, $2::uuid, $3, $4, 'employee', true)
-         ON CONFLICT (business_id, user_id) DO UPDATE
-           SET email = EXCLUDED.email, active = true
-         WHERE business_memberships.role = 'employee'`,
-        [randomUUID(), String(row.id), input.userId, email],
-      );
-      await client.query("COMMIT");
-      return { id: String(row.id), name: String(row.name), role: "employee" };
-    } catch (error) {
-      await client.query("ROLLBACK").catch(() => undefined);
-      throw error;
+  if (!/^\d{10}$/.test(code)) return { kind: "invalid-code" };
+  const attemptKeys = getJoinAttemptKeys(input, hashSecret);
+
+  await client.query("BEGIN");
+  try {
+    await lockJoinAttemptKeys(client, attemptKeys);
+    const retryAfterSeconds = await getJoinRateLimitRetryAfter(client, attemptKeys);
+    if (retryAfterSeconds !== null) {
+      await client.query("ROLLBACK");
+      return { kind: "rate-limited", retryAfterSeconds };
     }
-  });
+
+    const found = await client.query(
+      `SELECT id::text, name FROM public.businesses
+       WHERE active = true AND join_code_hash = $1
+       FOR SHARE`,
+      [hashJoinCode(code)],
+    );
+    const row = found.rows[0];
+    if (!row) {
+      await recordJoinFailure(client, attemptKeys);
+      await client.query("COMMIT");
+      return { kind: "invalid-code" };
+    }
+
+    const email = input.email.trim().toLowerCase();
+    await client.query(
+      `INSERT INTO public.business_users (user_id, email)
+       VALUES ($1, $2)
+       ON CONFLICT (user_id) DO UPDATE SET email = EXCLUDED.email, updated_at = now()`,
+      [input.userId, email],
+    );
+    // Rejoining restores only the employee membership; this path never creates manager grants.
+    await client.query(
+      `INSERT INTO public.business_memberships
+        (id, business_id, user_id, email, role, active)
+       VALUES ($1::uuid, $2::uuid, $3, $4, 'employee', true)
+       ON CONFLICT (business_id, user_id) DO UPDATE
+         SET email = EXCLUDED.email, active = true
+       WHERE business_memberships.role = 'employee'`,
+      [randomUUID(), String(row.id), input.userId, email],
+    );
+    await client.query("COMMIT");
+    return {
+      kind: "joined",
+      business: { id: String(row.id), name: String(row.name), role: "employee" },
+    };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  }
 }
 
 export async function rotateBusinessJoinCode(input: {

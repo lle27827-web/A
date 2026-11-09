@@ -1,18 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  DATABASE_COMPUTE_LIMIT_SECONDS,
-  DATABASE_STORAGE_LIMIT_BYTES,
-  hasReachedDatabaseCapacity,
-  hasReachedComputeTimeLimit,
   isDatabaseAvailabilityError,
   isDatabaseCapacityError,
   isDatabaseFailoverTriggerError,
   isDatabasePoolExhaustionError,
   hasAvailabilityFailureThreshold,
   isSameDatabaseFailureDomain,
-  parseNeonComputeTimeSeconds,
-  parseDatabaseCapacityLimit,
 } from "../../../../lib/db/src/failover-utils";
 import {
   areAdjacentBackends,
@@ -60,11 +54,11 @@ test("disk-full messages are recognized without exposing details", () => {
     isDatabaseCapacityError(new Error("No space left on device")),
     true,
   );
-  assert.equal(isDatabaseFailoverTriggerError({ code: "53100" }), true);
+  assert.equal(isDatabaseFailoverTriggerError({ code: "53100" }), false);
   assert.equal(isDatabaseCapacityError({ code: "53300" }), false);
 });
 
-test("database connectivity failures are recognized as failover triggers", () => {
+test("only database connectivity failures are recognized as failover triggers", () => {
   for (const code of ["08006", "57P01", "57P02", "57P03", "ECONNRESET", "ETIMEDOUT"]) {
     assert.equal(isDatabaseAvailabilityError({ code }), true, code);
     assert.equal(isDatabaseFailoverTriggerError({ code }), true, code);
@@ -88,6 +82,7 @@ test("capacity, I/O, and configuration-limit errors are not connection fallback 
     { code: "25006" },
   ]) {
     assert.equal(isDatabaseAvailabilityError(error), false);
+    assert.equal(isDatabaseFailoverTriggerError(error), false);
   }
 });
 
@@ -136,32 +131,6 @@ test("independent coordinator URLs cannot share a database failure domain", () =
   );
 });
 
-test("capacity limit is optional and must be a positive integer", () => {
-  assert.equal(parseDatabaseCapacityLimit(undefined), null);
-  assert.equal(parseDatabaseCapacityLimit("1048576"), 1_048_576n);
-  assert.throws(() => parseDatabaseCapacityLimit("0", "DATABASE_URL_3_MAX_BYTES"), /DATABASE_URL_3_MAX_BYTES/);
-  assert.throws(() => parseDatabaseCapacityLimit("1GB"));
-});
-
-test("database usage triggers at or above the configured limit", () => {
-  assert.equal(hasReachedDatabaseCapacity("1024", 1024n), true);
-  assert.equal(hasReachedDatabaseCapacity("1023", 1024n), false);
-  assert.equal(DATABASE_STORAGE_LIMIT_BYTES, 1_000_000_000n);
-});
-
-test("Neon compute usage uses the 100 CU-hour threshold", () => {
-  assert.equal(DATABASE_COMPUTE_LIMIT_SECONDS, 360_000);
-  assert.equal(
-    parseNeonComputeTimeSeconds({
-      project: { compute_time_seconds: 360_000 },
-    }),
-    360_000,
-  );
-  assert.equal(hasReachedComputeTimeLimit(360_000), true);
-  assert.equal(hasReachedComputeTimeLimit(359_999), false);
-  assert.throws(() => parseNeonComputeTimeSeconds({ project: {} }));
-});
-
 test("four-database failover order preserves the existing DATABASE_URL slot", () => {
   const nodes = resolveDatabaseNodes({
     DATABASE_URL_1: "postgres://primary",
@@ -169,8 +138,6 @@ test("four-database failover order preserves the existing DATABASE_URL slot", ()
     DATABASE_URL_DIRECT: "postgres://fallback-direct",
     DATABASE_URL_3: "postgres://replica3",
     DATABASE_URL_4: "postgres://replica4",
-    NEON_PROJECT_ID_3: "project-3",
-    NEON_PROJECT_ID_4: "project-4",
   });
 
   assert.deepEqual(
@@ -186,8 +153,6 @@ test("four-database failover order preserves the existing DATABASE_URL slot", ()
     "database_url_4",
   );
   assert.equal(nodes[1]?.adminUrl, "postgres://fallback-direct");
-  assert.equal(nodes[2]?.projectId, "project-3");
-  assert.equal(nodes[3]?.projectId, "project-4");
 });
 
 test("DB4 can be selected as the coordinator only when its node is configured", () => {

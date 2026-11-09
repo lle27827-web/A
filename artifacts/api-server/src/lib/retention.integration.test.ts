@@ -18,7 +18,6 @@ test("retention archives card use atomically and never refunds used minutes", {
   process.env.VERCEL = "";
   delete process.env.DATABASE_STORAGE_MODE;
   delete process.env.DATABASE_URL_1;
-  delete process.env.DATABASE_URL_1_MAX_BYTES;
   delete process.env.NEON_DB1_DIRECT_URL;
   delete process.env.NEON_SOURCE_DIRECT_URL;
 

@@ -2,20 +2,12 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "./schema";
 import {
-  DATABASE_COMPUTE_LIMIT_SECONDS,
-  DATABASE_STORAGE_LIMIT_BYTES,
-  hasReachedComputeTimeLimit,
-  hasReachedDatabaseCapacity,
   isDatabaseAvailabilityError,
-  isDatabaseCapacityError,
   isDatabaseFailoverTriggerError,
   isDatabasePoolExhaustionError,
   hasAvailabilityFailureThreshold,
   isSameDatabaseFailureDomain,
-  parseDatabaseCapacityLimit,
-  parseNeonComputeTimeSeconds,
 } from "./failover-utils";
-import { FailoverCapacityCache } from "./failover-capacity-cache";
 import {
   areAdjacentBackends,
   failoverStateConstraintSupports,
@@ -44,14 +36,13 @@ import {
 } from "./failover-recovery";
 
 type Queryable = { query: (...args: any[]) => any };
-type RuntimeNode = Omit<DatabaseNodeConfig, "maxBytes"> & {
+type RuntimeNode = DatabaseNodeConfig & {
   pool: pg.Pool;
   subscriptionPool: pg.Pool;
   canManageSubscription: boolean;
   database: ReturnType<typeof drizzle<typeof schema>>;
-  maxBytes: bigint;
 };
-type FailoverReason = "availability" | "compute" | "storage" | "manual";
+type FailoverReason = "availability" | "manual";
 
 const isVercel = process.env.VERCEL === "1";
 const configuredNodes = resolveDatabaseNodes(process.env);
@@ -65,7 +56,6 @@ const stateBackend = resolveFailoverCoordinatorBackend(
 // The application now uses fixed data-domain partitions. Whole-database
 // promotion is disabled; domain writes have their own connection-only fallback.
 const failoverEnabled = false;
-const neonApiKey = process.env.NEON_API_KEY?.trim();
 
 if (failoverEnabled && failoverCoordinatorUrl && process.env.DATABASE_FAILOVER_COORDINATOR_BACKEND) {
   throw new Error(
@@ -94,9 +84,6 @@ if (isVercel && process.env.DATABASE_URL_1?.trim() && !databaseUrl) {
 }
 
 const nodes: RuntimeNode[] = configuredNodes.map((node) => {
-  // Capacity thresholds are no longer part of active routing. Keep this
-  // compatibility value for dormant failover helpers without reading env limits.
-  const maxBytes = DATABASE_STORAGE_LIMIT_BYTES;
   const pool = new pg.Pool({
     connectionString: node.url,
     application_name: node.applicationName,
@@ -120,7 +107,6 @@ const nodes: RuntimeNode[] = configuredNodes.map((node) => {
     canManageSubscription: failoverEnabled &&
       (Boolean(node.adminUrl) || !usesNeonPooler(node.url)),
     database: drizzle(pool, { schema }),
-    maxBytes,
   };
 });
 
@@ -157,21 +143,11 @@ if (failoverEnabled) {
     );
   }
   for (const node of nodes) {
-    if (!node.projectId) {
-      console.warn(
-        `[db-failover] ${node.backend} is configured without its Neon project ID; it cannot be promoted automatically.`,
-      );
-    }
     if (node !== nodes[0] && !node.canManageSubscription) {
       console.warn(
         `[db-failover] ${node.backend} uses a Neon pooler URL without a direct subscription-admin URL; promotion is blocked.`,
       );
     }
-  }
-  if (!neonApiKey) {
-    console.warn(
-      "[db-failover] Neon CU-hour monitoring is unavailable until NEON_API_KEY and every configured project ID are set; CU-based switching is skipped unless FAILOVER_REQUIRE_CU_CHECK=1.",
-    );
   }
 }
 
@@ -182,12 +158,8 @@ let activeDatabase: RuntimeNode["database"] | undefined =
   (failoverEnabled
     ? nodeForBackend(activeBackend as DatabaseBackend)?.database
     : nodeForBackend("database_url")?.database) ?? nodes[0]?.database;
-let lastCapacityCheckAt = 0;
-let lastCapacityCheckBackend: DatabaseBackend | null = null;
-let capacityCheckPromise: Promise<void> | null = null;
 let failoverPromise: Promise<boolean> | null = null;
 let lastAvailabilityFailoverAttemptAt = 0;
-const failoverCapacityCache = new FailoverCapacityCache();
 const availabilityFailureTimes = new Map<DatabaseBackend, number[]>();
 const availabilityProbePromises = new Map<DatabaseBackend, Promise<boolean>>();
 
@@ -974,55 +946,8 @@ async function waitForTransactionsToDrain(node: RuntimeNode): Promise<boolean> {
   return false;
 }
 
-async function readComputeUsageSeconds(node: RuntimeNode): Promise<number> {
-  const retryAfterMs = failoverCapacityCache.retryAfterMs(node.backend);
-  if (retryAfterMs > 0) {
-    throw new Error(`Neon usage API is in backoff for ${node.backend}.`);
-  }
-  try {
-    if (!neonApiKey || !node.projectId) {
-      throw new Error(`Neon project ID is missing for ${node.backend}.`);
-    }
-    const response = await fetch(
-      `https://console.neon.tech/api/v2/projects/${encodeURIComponent(node.projectId)}`,
-      {
-        headers: { Authorization: `Bearer ${neonApiKey}` },
-        signal: AbortSignal.timeout(5_000),
-      },
-    );
-    if (!response.ok) {
-      throw new Error(`Neon usage API returned HTTP ${response.status}.`);
-    }
-    const seconds = parseNeonComputeTimeSeconds(await response.json());
-    failoverCapacityCache.setComputeSeconds(node.backend, seconds);
-    return seconds;
-  } catch (error) {
-    failoverCapacityCache.recordApiFailure(node.backend);
-    throw error;
-  }
-}
-
-async function nodeHasCapacity(node: RuntimeNode): Promise<boolean> {
-  try {
-    const size = await node.pool.query(
-      "SELECT pg_database_size(current_database())::text AS bytes",
-    );
-    const usedBytes = size.rows[0]?.bytes as string | undefined;
-    if (!usedBytes || hasReachedDatabaseCapacity(usedBytes, node.maxBytes)) {
-      return false;
-    }
-    let usedComputeSeconds: number;
-    try {
-      usedComputeSeconds = await readComputeUsageSeconds(node);
-    } catch {
-      const cached = failoverCapacityCache.getComputeSeconds(node.backend);
-      if (cached === undefined) return false;
-      usedComputeSeconds = cached;
-    }
-    return !hasReachedComputeTimeLimit(usedComputeSeconds);
-  } catch {
-    return false;
-  }
+async function nodeIsReachable(node: RuntimeNode): Promise<boolean> {
+  return probeNodeWithFreshConnection(node);
 }
 
 async function probeNodeWithFreshConnection(node: RuntimeNode): Promise<boolean> {
@@ -1138,9 +1063,7 @@ async function restoreBackendAfterBlockedFailover(
 
 function failoverReasonMessage(reason: FailoverReason, backend: DatabaseBackend): string {
   if (reason === "manual") return `Owner requested a controlled switch from ${backend}.`;
-  if (reason === "compute") return `100 CU-hour limit reached on ${backend}.`;
-  if (reason === "availability") return `Database connection or write availability failed on ${backend}.`;
-  return `Storage limit reached on ${backend}.`;
+  return `Database connection availability failed on ${backend}.`;
 }
 
 type ReplicationFlipResult = {
@@ -1307,9 +1230,9 @@ async function performFailover(
     );
     return false;
   }
-  if (!(await nodeHasCapacity(targetNode))) {
+  if (!(await nodeIsReachable(targetNode))) {
     console.warn(
-      `[db-failover] Kept ${current.backend} active because ${target.backend} has no verified storage and CU capacity.`,
+      `[db-failover] Kept ${current.backend} active because ${target.backend} is not reachable.`,
     );
     return false;
   }
@@ -1338,11 +1261,11 @@ async function performFailover(
   const caughtUpAgain =
     drained && (await waitForReplicationCatchup(current, targetNode));
   const targetStillHealthy =
-    caughtUpAgain && (await nodeHasCapacity(targetNode));
+    caughtUpAgain && (await nodeIsReachable(targetNode));
   if (!drained || !caughtUpAgain || !targetStillHealthy) {
     await restoreBackendAfterBlockedFailover(
       current.backend,
-      "Automatic switch paused: standby lag, capacity, or active requests.",
+      "Database switch paused: standby lag, target connection, or active requests.",
     );
     return false;
   }
@@ -1435,7 +1358,7 @@ async function performFailover(
     );
   }
   console.warn(
-    `[db-failover] Switched from ${current.backend} to ${target.backend} after synchronization and capacity checks.`,
+    `[db-failover] Switched from ${current.backend} to ${target.backend} after synchronization and connection checks.`,
   );
   return true;
 }
@@ -1469,130 +1392,6 @@ async function requestAvailabilityFailover(): Promise<boolean> {
   return switched;
 }
 
-async function checkCurrentCapacity(): Promise<void> {
-  if (!failoverEnabled) return;
-  const current = activeNode();
-  if (!current) return;
-
-  if (capacityCheckPromise) {
-    await capacityCheckPromise;
-    return;
-  }
-
-  const now = Date.now();
-  if (
-    lastCapacityCheckBackend === current.backend &&
-    now - lastCapacityCheckAt < 30_000
-  ) {
-    return;
-  }
-
-  const checkPromise = (async () => {
-    let usedBytes: string | undefined;
-    try {
-      const result = await current.pool.query(
-        "SELECT pg_database_size(current_database())::text AS bytes",
-      );
-      usedBytes = result.rows[0]?.bytes as string | undefined;
-    } catch (error) {
-      if (isDatabaseCapacityError(error)) {
-        const switched = await requestFailover("storage").catch(() => false);
-        if (!switched) {
-          throw new Error(
-            `The active database ${current.backend} is full and no synchronized standby with verified capacity is available.`,
-          );
-        }
-        return;
-      }
-      if (isDatabasePoolExhaustionError(error)) {
-        console.warn(
-          `[db-failover] Capacity probe could not get a pooled connection for ${current.backend}; failover was not triggered.`,
-        );
-        return;
-      }
-      if (!isDatabaseAvailabilityError(error)) throw error;
-      if (!(await shouldFailoverAfterAvailabilityErrors(current, error))) {
-        console.warn(
-          `[db-failover] Capacity probe failed temporarily for ${current.backend}; waiting for repeated errors and a failed fresh-connection probe.`,
-        );
-        return;
-      }
-      const switched = await requestAvailabilityFailover();
-      if (!switched) {
-        throw new Error(
-          `The active database ${current.backend} is unavailable; no adjacent standby could be safely activated.`,
-        );
-      }
-      return;
-    }
-
-    if (!usedBytes) {
-      throw new Error(
-        `Storage usage could not be verified for ${current.backend}.`,
-      );
-    }
-    if (hasReachedDatabaseCapacity(usedBytes, current.maxBytes)) {
-      const switched = await requestFailover("storage");
-      if (!switched) {
-        throw new Error(
-          `The active database ${current.backend} reached its storage threshold and failover was blocked.`,
-        );
-      }
-      return;
-    }
-
-    let usedComputeSeconds: number;
-    try {
-      usedComputeSeconds = await readComputeUsageSeconds(current);
-    } catch (error) {
-      const cachedCompute = failoverCapacityCache.getComputeSeconds(current.backend);
-      if (cachedCompute !== undefined) {
-        usedComputeSeconds = cachedCompute;
-        console.warn(
-          `[db-failover] Using a recent cached Neon CU reading for ${current.backend}; the usage API is temporarily unavailable.`,
-        );
-      } else if (process.env.FAILOVER_REQUIRE_CU_CHECK === "1") {
-        console.warn(
-          `[db-failover] Neon CU usage could not be verified for ${current.backend}; strict checking is enabled.`,
-        );
-        throw error;
-      } else {
-        console.warn(
-          `[db-failover] Neon CU usage could not be verified for ${current.backend}; continuing without CU-based failover until the API recovers.`,
-        );
-        return;
-      }
-    }
-    if (
-      !hasReachedComputeTimeLimit(
-        usedComputeSeconds,
-        DATABASE_COMPUTE_LIMIT_SECONDS,
-      )
-    ) {
-      return;
-    }
-    const switched = await requestFailover("compute");
-    if (!switched) {
-      throw new Error(
-        `The active database ${current.backend} reached 100 CU-hours and failover was blocked.`,
-      );
-    }
-  })();
-
-  capacityCheckPromise = checkPromise;
-  try {
-    await checkPromise;
-    lastCapacityCheckAt = Date.now();
-    lastCapacityCheckBackend = current.backend;
-  } catch (error) {
-    lastCapacityCheckAt = 0;
-    lastCapacityCheckBackend = null;
-    throw error;
-  } finally {
-    if (capacityCheckPromise === checkPromise) capacityCheckPromise = null;
-  }
-}
-
 export async function refreshDatabaseBackend(): Promise<PersistedDatabaseBackend> {
   if (!failoverEnabled) return "database_url";
   const storedBackend = await readBackendState();
@@ -1602,7 +1401,6 @@ export async function refreshDatabaseBackend(): Promise<PersistedDatabaseBackend
       : storedBackend;
   setActiveBackend(backend);
   if (backend === "switching") return backend;
-  await checkCurrentCapacity();
   return activeBackend;
 }
 
@@ -1679,20 +1477,6 @@ async function getSwitchTargetStatus(
       message: "Cần kết nối trực tiếp để quản lý replication.",
     };
   }
-  if (!neonApiKey) {
-    return {
-      ...base,
-      canSwitch: false,
-      message: "Thiếu NEON_API_KEY để kiểm tra giới hạn CU.",
-    };
-  }
-  if (!target.projectId) {
-    return {
-      ...base,
-      canSwitch: false,
-      message: "Thiếu mã project Neon để kiểm tra giới hạn CU.",
-    };
-  }
   if (!(await stateConstraintAllows(target.backend))) {
     return {
       ...base,
@@ -1726,11 +1510,11 @@ async function getSwitchTargetStatus(
       message: "Không xác minh được chiều replication ngược; chuyển bị khóa.",
     };
   }
-  if (!(await nodeHasCapacity(target))) {
+  if (!(await nodeIsReachable(target))) {
     return {
       ...base,
       canSwitch: false,
-      message: "Chưa xác nhận được dung lượng và CU còn trống.",
+      message: "Không kết nối được tới kho đích.",
     };
   }
   return {
@@ -1884,8 +1668,6 @@ export async function requestOwnerForcedDatabaseFailover(
     probeNodeWithFreshConnection(source),
     probeNodeWithFreshConnection(target),
   ]);
-  const targetHasCapacity =
-    targetReachable && (await nodeHasCapacity(target));
   const blocker = getForcedFailoverBlocker({
     enabled: process.env.ALLOW_FORCE_FAILOVER === "1",
     production: isVercel && process.env.VERCEL_ENV === "production",
@@ -1897,7 +1679,6 @@ export async function requestOwnerForcedDatabaseFailover(
     coordinatorBackend: stateBackend,
     sourceReachable,
     targetReachable,
-    targetHasCapacity,
   });
   if (blocker) return blocked(currentBackend, blocker);
   if (!(await stateConstraintAllows(targetBackend))) {
@@ -2018,7 +1799,7 @@ export class DatabaseFailoverInProgressError extends Error {
   }
 }
 
-function installCapacityErrorHandling(node: RuntimeNode): void {
+function installAvailabilityFailoverHandling(node: RuntimeNode): void {
   const pool = node.pool;
   const rawPoolQuery = pool.query.bind(pool) as (
     ...args: any[]
@@ -2033,29 +1814,22 @@ function installCapacityErrorHandling(node: RuntimeNode): void {
     }
 
     try {
-      if (isDatabaseCapacityError(error)) {
-        await requestFailover("storage");
-      } else {
-        if (await shouldFailoverAfterAvailabilityErrors(node, error)) {
-          await requestAvailabilityFailover();
-        }
+      if (await shouldFailoverAfterAvailabilityErrors(node, error)) {
+        await requestAvailabilityFailover();
       }
     } catch {
       // Keep the original connection error; later requests will re-check readiness.
     }
   };
-  const handleResult = (result: any, isCapacityProbe: boolean): any => {
+  const handleResult = (result: any): any => {
     if (!isPromiseLike(result)) return result;
     return result.catch(async (error: unknown) => {
       if (
         isDatabaseFailoverTriggerError(error) &&
         activeBackend === node.backend &&
-        !failoverPromise &&
-        !isCapacityProbe
+        !failoverPromise
       ) {
-        if (isDatabaseCapacityError(error)) {
-          await requestFailover("storage").catch(() => false);
-        } else if (await shouldFailoverAfterAvailabilityErrors(node, error)) {
+        if (await shouldFailoverAfterAvailabilityErrors(node, error)) {
           // Do not replay the failed query: a lost response can mean COMMIT succeeded.
           await requestAvailabilityFailover();
         }
@@ -2065,10 +1839,7 @@ function installCapacityErrorHandling(node: RuntimeNode): void {
   };
   const monitoredPool = pool as unknown as Queryable;
   monitoredPool.query = (...args: any[]) =>
-    handleResult(
-      rawPoolQuery(...args),
-      /pg_database_size\s*\(/i.test(queryText(args)),
-    );
+    handleResult(rawPoolQuery(...args));
 
   const rawConnect = pool.connect.bind(pool) as (...args: any[]) => any;
   const monitoredConnect = (...args: any[]) => {
@@ -2128,13 +1899,11 @@ function installClientHandler(client: pg.PoolClient, node: RuntimeNode): void {
           activeBackend === node.backend &&
           !failoverPromise
         ) {
-          if (inTransaction && (isDatabaseCapacityError(error) || isDatabaseAvailabilityError(error))) {
+          if (inTransaction && isDatabaseAvailabilityError(error)) {
             await rawQuery("ROLLBACK").catch(() => undefined);
             inTransaction = false;
           }
-          if (isDatabaseCapacityError(error)) {
-            await requestFailover("storage").catch(() => false);
-          } else if (await shouldFailoverAfterAvailabilityErrors(node, error)) {
+          if (await shouldFailoverAfterAvailabilityErrors(node, error)) {
             // Future requests may use the promoted node; this failed statement is never retried.
             await requestAvailabilityFailover();
           }
@@ -2145,7 +1914,7 @@ function installClientHandler(client: pg.PoolClient, node: RuntimeNode): void {
 }
 
 for (const node of nodes) {
-  if (failoverEnabled) installCapacityErrorHandling(node);
+  if (failoverEnabled) installAvailabilityFailoverHandling(node);
 }
 
 const defaultPool = nodeForBackend("database_url")?.pool ?? nodes[0]?.pool;

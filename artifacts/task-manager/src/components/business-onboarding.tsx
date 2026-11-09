@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useCreateBusiness, useJoinBusiness, useRotateBusinessJoinCode } from '@workspace/api-client-react';
 import type { AuthStatus, BusinessAccessResult, BusinessSummary } from '@workspace/api-client-react';
 import { ArrowRight, BookHeart, Building2, Check, KeyRound, LoaderCircle, RefreshCw, ShieldCheck } from 'lucide-react';
+import { getApiErrorMessage } from '../lib/api-error-message';
 
 type Props = {
   status: AuthStatus;
@@ -45,10 +46,10 @@ export function BusinessOnboarding({ status, onBusinessSelected, onContinuePerso
         await onRefreshStatus();
         await onBusinessSelected(access.business.id);
       }
-    } catch {
-      setError(mode === 'create'
+    } catch (caught) {
+      setError(getApiErrorMessage(caught) ?? (mode === 'create'
         ? 'Chưa thể tạo không gian làm việc. Hãy kiểm tra tên cơ sở và thử lại.'
-        : 'Mã tham gia không hợp lệ hoặc đã hết hạn. Hãy kiểm tra đủ 10 chữ số.');
+        : 'Chưa thể tham gia cơ sở. Hãy kiểm tra mã và thử lại.'));
     }
   }
 

@@ -40,5 +40,14 @@ export const businessMembershipsTable = pgTable("business_memberships", {
   index("business_memberships_user_active_idx").on(table.userId, table.active),
 ]);
 
+export const businessJoinAttemptsTable = pgTable("business_join_attempts", {
+  id: uuid("id").primaryKey(),
+  keyHash: text("key_hash").notNull(),
+  attemptedAt: timestamp("attempted_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("business_join_attempts_key_time_idx").on(table.keyHash, table.attemptedAt),
+  index("business_join_attempts_time_idx").on(table.attemptedAt),
+]);
+
 export type Business = typeof businessesTable.$inferSelect;
 export type BusinessMembership = typeof businessMembershipsTable.$inferSelect;

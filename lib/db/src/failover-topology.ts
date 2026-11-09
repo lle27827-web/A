@@ -11,8 +11,6 @@ export type DatabaseNodeConfig = {
   backend: DatabaseBackend;
   url: string;
   adminUrl?: string;
-  projectId?: string;
-  maxBytes: string | undefined;
   applicationName: string;
 };
 
@@ -33,32 +31,24 @@ const DATABASE_ENV = [
     backend: "database_url_1",
     urlKey: "DATABASE_URL_1",
     adminUrlKey: "DATABASE_URL_1_DIRECT",
-    projectIdKey: "NEON_PROJECT_ID_1",
-    maxBytesKey: "DATABASE_URL_1_MAX_BYTES",
     applicationName: "so-cong-db-primary",
   },
   {
     backend: "database_url",
     urlKey: "DATABASE_URL",
     adminUrlKey: "DATABASE_URL_DIRECT",
-    projectIdKey: "NEON_PROJECT_ID",
-    maxBytesKey: "DATABASE_URL_MAX_BYTES",
     applicationName: "so-cong-db-fallback",
   },
   {
     backend: "database_url_3",
     urlKey: "DATABASE_URL_3",
     adminUrlKey: "DATABASE_URL_3_DIRECT",
-    projectIdKey: "NEON_PROJECT_ID_3",
-    maxBytesKey: "DATABASE_URL_3_MAX_BYTES",
     applicationName: "so-cong-db-replica-3",
   },
   {
     backend: "database_url_4",
     urlKey: "DATABASE_URL_4",
     adminUrlKey: "DATABASE_URL_4_DIRECT",
-    projectIdKey: "NEON_PROJECT_ID_4",
-    maxBytesKey: "DATABASE_URL_4_MAX_BYTES",
     applicationName: "so-cong-db-replica-4",
   },
 ] as const;
@@ -109,8 +99,6 @@ export function resolveDatabaseNodes(
     backend: entry.backend,
     url: env[entry.urlKey]?.trim() ?? "",
     adminUrl: env[entry.adminUrlKey]?.trim() || undefined,
-    projectId: env[entry.projectIdKey]?.trim() || undefined,
-    maxBytes: env[entry.maxBytesKey],
     applicationName: entry.applicationName,
   }));
 

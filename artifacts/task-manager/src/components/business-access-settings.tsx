@@ -8,6 +8,7 @@ import {
 import type { AuthStatus, BusinessAccessResult } from '@workspace/api-client-react';
 import { ArrowRight, BookHeart, Building2, Check, Copy, KeyRound, LoaderCircle, RefreshCw } from 'lucide-react';
 import { ConfirmDialog, type ConfirmState } from '@/components/modal';
+import { getApiErrorMessage } from '@/lib/api-error-message';
 import { readBusinessRolePreference } from '@/lib/business-role-preference';
 
 type RoleChoice = 'personal' | 'owner' | 'employee';
@@ -108,8 +109,8 @@ export function BusinessAccessSettings({
       await onRefreshStatus();
       setNotice(`Đã liên kết tài khoản với “${result.business.name}”. Chủ cơ sở cần cấp quyền trước khi bạn xem dữ liệu.`);
       onRoleFlowCompleted?.();
-    } catch {
-      setError('Tên cơ sở và mã tham gia không khớp, hoặc mã đã bị đổi. Hãy kiểm tra lại.');
+    } catch (caught) {
+      setError(getApiErrorMessage(caught) ?? 'Chưa thể tham gia cơ sở. Hãy kiểm tra mã và thử lại.');
     }
   }
 
