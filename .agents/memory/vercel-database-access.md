@@ -39,6 +39,12 @@ The user wants all four Neon databases kept in fixed data-domain partitions, but
 
 **How to apply:** Do not call Neon CU APIs or query database size during ordinary requests. Do not reroute on capacity, I/O, or configuration-limit errors. Keep DB1–DB4 URLs and migration URLs; remove capacity/failover-only environment variables only after the matching code is deployed. Verify Neon logical replication consumers before disabling old subscriptions.
 
+Partitioned reads query three of the four event journals on the healthy path and query the fourth only when needed to replace an unavailable store. The base snapshot is read from the first event-readable store, trying another only if that read fails. Each committed event is copied to two distinct stores, so any three of the four contain at least one copy of every event.
+
+**Why:** reading all four journals and fanning the base query out to every store used extra Neon compute without adding single-store-outage coverage.
+
+**How to apply:** Preserve a minimum of three successful journal reads while each event has two copies. Revisit this coverage proof before changing the replica count or the fallback routing; do not restore all-store base-read fan-out.
+
 All four production Neon stores have PostgreSQL's default TOAST compression set to LZ4. This changes compression for future TOAST values; it does not rewrite existing rows.
 
 **Why:** the user requested storage savings while preserving ordinary reads, and the four stores were verified to support LZ4.

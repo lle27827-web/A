@@ -4,6 +4,7 @@ import { AdvisoryLockReleaseError, withReentrantAdvisoryLock } from "./reentrant
 import { createAsyncMutex } from "./async-mutex";
 import { normalizePartitionDatabaseRow, personalTableReadPredicates } from "./partitioned-row";
 import { PartitionReadCache } from "./partition-read-cache";
+import { readWithMinimumReplicaCount } from "./partition-read-plan";
 import { isDatabaseAvailabilityError, isDatabaseCapacityError } from "./failover-utils";
 import {
   buildPartitionEventInsertBatch,
@@ -128,6 +129,7 @@ const nodes: RuntimeNode[] = configuredNodes.map((node) => ({
 const nodesByBackend = new Map(nodes.map((node) => [node.backend, node]));
 
 const partitionReadCache = new PartitionReadCache(3_000);
+const COORDINATOR_SCHEMA_CACHE_MS = 60_000;
 let coordinatorSchemaReadyUntil = 0;
 const withLocalPartitionWriteMutex = createAsyncMutex();
 
@@ -421,7 +423,7 @@ async function verifyCoordinatorSchema(): Promise<void> {
         "partition_schema_missing",
       );
     }
-    coordinatorSchemaReadyUntil = now + 5_000;
+    coordinatorSchemaReadyUntil = now + COORDINATOR_SCHEMA_CACHE_MS;
   } catch (error) {
     if (error instanceof PartitionStorageError) throw error;
     throw new PartitionStorageError(
@@ -1450,27 +1452,24 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
   const baseQuery = `SELECT * FROM public."${tableName}"${
     baseConditions.length ? ` WHERE ${baseConditions.join(" AND ")}` : ""
   }`;
+  // Every committed event has two copies. Three readable stores cover any
+  // two-store copy pair while tolerating one store outage, so avoid querying
+  // DB4 on the healthy path.
+  const eventReads = await readWithMinimumReplicaCount(
+    nodes,
+    3,
+    (node) => node.pool.query(
+      `SELECT event_id, operation_id, revision::text, entity_type, entity_key, action, payload
+       FROM ${EVENT_TABLE}
+       WHERE committed = true AND entity_type = $1
+       ${eventFilter}
+       ORDER BY revision ASC, event_id ASC`,
+      eventParams,
+    ),
+  );
   const availableNodes: RuntimeNode[] = [];
   const mutationsById = new Map<string, PartitionMutation>();
-  const eventReads = await Promise.all(nodes.map(async (node) => {
-    try {
-      return {
-        node,
-        result: await node.pool.query(
-          `SELECT event_id, operation_id, revision::text, entity_type, entity_key, action, payload
-           FROM ${EVENT_TABLE}
-           WHERE committed = true AND entity_type = $1
-           ${eventFilter}
-           ORDER BY revision ASC, event_id ASC`,
-          eventParams,
-        ),
-      };
-    } catch {
-      return null;
-    }
-  }));
   for (const read of eventReads) {
-    if (!read) continue;
     availableNodes.push(read.node);
     for (const row of read.result.rows) {
         const mutation: PartitionMutation = {
@@ -1499,14 +1498,15 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
     );
   }
 
-  const baseReads = await Promise.all(availableNodes.map(async (node) => {
+  let rows: pg.QueryResult | undefined;
+  for (const node of availableNodes) {
     try {
-      return await node.pool.query(baseQuery, baseParams);
+      rows = await node.pool.query(baseQuery, baseParams);
+      break;
     } catch {
-      return null;
+      // Try the next readable replica only when the preferred base copy fails.
     }
-  }));
-  const rows = baseReads.find((result): result is pg.QueryResult => result !== null);
+  }
   if (!rows) {
     throw new PartitionStorageError(
       "No healthy store can provide the canonical base data.",

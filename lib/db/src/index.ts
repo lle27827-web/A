@@ -67,5 +67,6 @@ export {
   getPartitionDataDomain,
   resolveDomainWriteRoutes,
 } from "./domain-partitioning";
+export { readWithMinimumReplicaCount } from "./partition-read-plan";
 export type { DomainWriteRoute, PartitionDataDomain } from "./domain-partitioning";
 export * from "./schema";

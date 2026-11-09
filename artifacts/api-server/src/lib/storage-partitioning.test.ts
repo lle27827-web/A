@@ -17,6 +17,7 @@ import {
   normalizePartitionDatabaseRow,
   personalTableReadPredicates,
   resolvePartitionComputeState,
+  readWithMinimumReplicaCount,
   PartitionRoutingError,
   type PartitionCapacityState,
   type PartitionMutation,
@@ -148,6 +149,59 @@ test("only a failed connection may move a domain operation to a fixed alternate 
     primary: "database_url_3",
     replica: "database_url_4",
   });
+});
+
+test("partition reads query only three stores when all are healthy", async () => {
+  const queried: string[] = [];
+  const reads = await readWithMinimumReplicaCount(
+    ["db1", "db2", "db3", "db4"],
+    3,
+    async (node) => {
+      queried.push(node);
+      return node;
+    },
+  );
+
+  assert.deepEqual(queried, ["db1", "db2", "db3"]);
+  assert.deepEqual(reads.map((entry) => entry.result), ["db1", "db2", "db3"]);
+  for (const pair of [
+    ["db1", "db2"], ["db1", "db3"], ["db1", "db4"],
+    ["db2", "db3"], ["db2", "db4"], ["db3", "db4"],
+  ]) {
+    assert.ok(reads.some((entry) => pair.includes(entry.node)));
+  }
+});
+
+test("partition reads try the fourth store only to replace an unavailable replica", async () => {
+  for (const failedNode of ["db1", "db2", "db3", "db4"]) {
+    const queried: string[] = [];
+    const reads = await readWithMinimumReplicaCount(
+      ["db1", "db2", "db3", "db4"],
+      3,
+      async (node) => {
+        queried.push(node);
+        if (node === failedNode) throw new Error("store unavailable");
+        return node;
+      },
+    );
+
+    assert.equal(reads.length, 3, `Expected three healthy replicas when ${failedNode} is unavailable.`);
+    assert.ok(!reads.some((entry) => entry.node === failedNode));
+    assert.equal(queried.includes("db4"), failedNode !== "db4");
+  }
+});
+
+test("partition reads return fewer than three replicas when multiple stores fail", async () => {
+  const reads = await readWithMinimumReplicaCount(
+    ["db1", "db2", "db3", "db4"],
+    3,
+    async (node) => {
+      if (node === "db1" || node === "db2") throw new Error("store unavailable");
+      return node;
+    },
+  );
+
+  assert.deepEqual(reads.map((entry) => entry.result), ["db3", "db4"]);
 });
 
 test("partition keys keep equal local IDs distinct across stores", () => {
