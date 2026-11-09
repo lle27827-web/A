@@ -13,13 +13,13 @@ The user chose two copies per new data segment. A write must persist the complet
 
 **Why:** the user chose two copies per data segment to preserve full reads if one store is unavailable, while using less capacity than four full replicas.
 
-**How to apply:** Use a per-event commit marker so incomplete writes remain hidden. Before activating partition routing, compare all four stores read-only, apply the additive event schema, verify Neon capacity-monitoring configuration on every store, deploy the matching runtime, then explicitly enable partition mode. Do not claim one-store write availability while DB4 remains the sole coordinator.
+**How to apply:** Use a per-event commit marker so incomplete writes remain hidden. Before activating partition routing, compare all four stores read-only and apply the additive event schema. Do not claim one-store write availability while DB4 remains the sole coordinator.
 
 On 2026-10-22, after read-only hashes and schemas matched across all 14 business tables on DB1–DB4, the additive partition journal/coordinator schema was applied to all four production stores. DB4 starts routing from DB1 and has 12 initialized ID counters; the migration copied, changed, and deleted no business rows. This did not deploy or enable partition mode.
 
 **Why:** the user approved the schema migration only after a fresh all-store parity check, while keeping the application cutover separate.
 
-**How to apply:** Before cutover, recheck data parity and capacity-monitoring project IDs on Vercel, deploy the matching runtime, and obtain separate authorization to enable partition mode.
+**How to apply:** Before cutover, recheck data parity and schemas, deploy the matching runtime, and obtain separate authorization to enable partition mode.
 
 The four Neon stores are ordered DB1=`DATABASE_URL_1`, DB2=`DATABASE_URL`, DB3=`DATABASE_URL_3`, DB4=`DATABASE_URL_4`. DB4 is the chosen routing coordinator; the user accepts it as a single point of failure.
 
@@ -33,11 +33,11 @@ The live logical replication topology is directional: DB1 → DB2 → DB3 → DB
 
 **How to apply:** For an authorized full purge, pause application writes, verify the active subscription chain and matching row counts, delete only on DB1 in a foreign-key-safe transaction, then wait for and verify the same result on DB2–DB4. Preserve the subscriptions and explicitly verify any tables that must remain.
 
-The user confirmed all four database URLs, Neon project IDs/API setup, and that DB3/DB4 pooling is disabled. Capacity checking is request-triggered, with 1 GB and 100 CU-hour thresholds, and previously cached successful checks for 30 seconds.
+The user wants all four Neon databases kept in fixed data-domain partitions, but removed the 100 CU-hour/1 GB capacity checks and capacity-triggered routing. When a store is full, the owner will upgrade it; only a genuine connection failure may retry the affected domain write on one alternate two-store pair. Whole-database promotion is disabled because it can mix domains.
 
-**Why:** these are the user's confirmed production topology and monitoring limits.
+**Why:** the user explicitly chose to keep all four partitioned stores and handle capacity by upgrading, not by moving writes when a limit is reached.
 
-**How to apply:** Check each candidate's capacity before routing; keep capacity uncertainty fail-closed. Neon usage metrics may lag, so do not promise an exact-instant transition at the provider limit.
+**How to apply:** Do not call Neon CU APIs or query database size during ordinary requests. Do not reroute on capacity, I/O, or configuration-limit errors. Keep DB1–DB4 URLs and migration URLs; remove capacity/failover-only environment variables only after the matching code is deployed. Verify Neon logical replication consumers before disabling old subscriptions.
 
 All four production Neon stores have PostgreSQL's default TOAST compression set to LZ4. This changes compression for future TOAST values; it does not rewrite existing rows.
 
@@ -61,10 +61,10 @@ The user requested removal of the 1,000-employee sample generator and production
 
 **Why:** the user asked to remove the sample-employee creation feature and the tools that run database tests, while preserving the actual storage system.
 
-**How to apply:** Keep automatic capacity monitoring, partition routing, and manual failover behavior intact. Remove production routes and UI that create synthetic test data. Ordinary developer unit tests are not user-facing test tools and may remain.
+**How to apply:** Keep fixed data-domain routing, but do not restore capacity thresholds or whole-database failover. Remove production routes and UI that create synthetic test data. Ordinary developer unit tests are not user-facing test tools and may remain.
 
 The user asked to remove the database-switching/status lines from the Settings UI; this removes the visible manual failover and CU-probe entry points, not the backend's automatic routing logic or database data.
 
-**Why:** the request was to clean up the displayed controls without asking to disable automatic storage routing or alter the four stores.
+**Why:** the earlier UI request removed the visible controls; the later storage decision also disabled global capacity/failover behavior while preserving all four partitioned stores.
 
-**How to apply:** Keep database status/probe dialogs out of Settings unless the user explicitly asks to restore them; do not change production routing or storage state as part of UI cleanup.
+**How to apply:** Keep database status/probe dialogs out of Settings unless the user explicitly asks to restore them. Do not change production routing or storage state as part of UI cleanup.

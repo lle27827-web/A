@@ -14,9 +14,6 @@ const CONNECTION_ERROR_CODES = new Set([
 ]);
 
 const DATABASE_UNAVAILABLE_SQLSTATES = new Set([
-  "25006", // read_only_sql_transaction
-  "53400", // configuration_limit_exceeded
-  "58030", // io_error
   "57P01", // admin_shutdown
   "57P02", // crash_shutdown
   "57P03", // cannot_connect_now
@@ -44,7 +41,6 @@ export function isDatabaseAvailabilityError(error: unknown): boolean {
     if (typeof value.code === "string") {
       if (
         value.code.startsWith("08") ||
-        value.code.startsWith("58") ||
         CONNECTION_ERROR_CODES.has(value.code)
       ) return true;
       if (DATABASE_UNAVAILABLE_SQLSTATES.has(value.code)) return true;

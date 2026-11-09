@@ -42,7 +42,6 @@ export * from './databaseStorageStatus';
 export * from './databaseStorageStatusCoordinatorBackend';
 export * from './databaseStorageStatusStrategy';
 export * from './databaseStorageStore';
-export * from './databaseStorageStoreCapacity';
 export * from './employeeBonusConfig';
 export * from './employeeBonusConfigUpdate';
 export * from './employeeBonusMember';

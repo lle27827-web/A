@@ -5,6 +5,7 @@ import {
   buildPartitionEventInsertBatch,
   comparePartitionRevisions,
   getPartitionActionEntityTypes,
+  getDomainAvailabilityFallbackRoutes,
   getPartitionDataDomain,
   hashPartitionRequest,
   makePartitionEntityKey,
@@ -97,19 +98,13 @@ test("partition actions declare all data groups they can update", () => {
   }
 });
 
-test("domain routing starts each data group at its assigned store and keeps two copies", () => {
-  const available = new Map([
-    ["database_url_1", "available"],
-    ["database_url", "available"],
-    ["database_url_3", "available"],
-    ["database_url_4", "available"],
-  ]) as Map<"database_url_1" | "database_url" | "database_url_3" | "database_url_4", PartitionCapacityState>;
+test("domain routing keeps each data group on its fixed store pair", () => {
   const routes = resolveDomainWriteRoutes([
     "attendance",
     "treatment_cards",
     "personal_sessions",
     "appointments",
-  ], available);
+  ]);
   assert.deepEqual(routes.attendance, {
     domain: "facility",
     primary: "database_url_1",
@@ -132,15 +127,23 @@ test("domain routing starts each data group at its assigned store and keeps two 
   });
 });
 
-test("domain routing advances within the same four-store ring when a primary is full", () => {
-  const capacity = new Map([
-    ["database_url_1", "available"],
-    ["database_url", "full"],
-    ["database_url_3", "available"],
-    ["database_url_4", "available"],
-  ]) as Map<"database_url_1" | "database_url" | "database_url_3" | "database_url_4", PartitionCapacityState>;
-  const routes = resolveDomainWriteRoutes(["treatment_cards"], capacity);
+test("domain routing does not choose a different pair based on capacity", () => {
+  const routes = resolveDomainWriteRoutes(["treatment_cards"]);
   assert.deepEqual(routes.treatment_cards, {
+    domain: "cards",
+    primary: "database_url",
+    replica: "database_url_3",
+  });
+});
+
+test("only a failed connection may move a domain operation to a fixed alternate pair", () => {
+  const preferred = resolveDomainWriteRoutes(["treatment_cards"]);
+  const fallback = getDomainAvailabilityFallbackRoutes(
+    ["treatment_cards"],
+    "database_url",
+    preferred,
+  );
+  assert.deepEqual(fallback.treatment_cards, {
     domain: "cards",
     primary: "database_url_3",
     replica: "database_url_4",

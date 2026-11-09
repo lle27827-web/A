@@ -11,5 +11,5 @@ export type DatabaseStorageStatusStrategy = typeof DatabaseStorageStatusStrategy
 
 export const DatabaseStorageStatusStrategy = {
   replication_failover: 'replication_failover',
-  partitioned_forward_only: 'partitioned_forward_only',
+  partitioned_by_domain: 'partitioned_by_domain',
 } as const;

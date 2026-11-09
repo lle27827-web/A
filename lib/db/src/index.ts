@@ -61,6 +61,7 @@ export {
 } from "./partitioned-storage-runtime";
 export type { MutationDraft } from "./partitioned-storage-runtime";
 export {
+  getDomainAvailabilityFallbackRoutes,
   getPreferredDomainWriteRoutes,
   getPartitionActionEntityTypes,
   getPartitionDataDomain,

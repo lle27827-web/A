@@ -23,8 +23,6 @@ export interface DatabaseStorageStatus {
   eventSchemasReady: boolean | null;
   readsRequireDb1: boolean;
   readsRequireAllStores: boolean;
-  storageLimitBytes: string;
-  computeLimitHours: number;
   stores: DatabaseStorageStore[];
   blockers: string[];
 }

@@ -4,28 +4,15 @@ import { AdvisoryLockReleaseError, withReentrantAdvisoryLock } from "./reentrant
 import { createAsyncMutex } from "./async-mutex";
 import { normalizePartitionDatabaseRow, personalTableReadPredicates } from "./partitioned-row";
 import { PartitionReadCache } from "./partition-read-cache";
+import { isDatabaseAvailabilityError, isDatabaseCapacityError } from "./failover-utils";
 import {
-  DATABASE_COMPUTE_LIMIT_SECONDS,
-  DATABASE_STORAGE_LIMIT_BYTES,
-  hasReachedDatabaseCapacity,
-  isDatabaseAvailabilityError,
-  isDatabaseCapacityError,
-  parseDatabaseCapacityLimit,
-  parseNeonComputeTimeSeconds,
-} from "./failover-utils";
-import {
-  resolvePartitionWritePair,
   buildPartitionEventInsertBatch,
-  resolvePartitionComputeState,
-  shouldAdvancePartitionCursor,
-  type PartitionCapacityState,
-  type PartitionComputeSnapshot,
   type PartitionMutation,
 } from "./storage-partitioning";
 import {
+  getDomainAvailabilityFallbackRoutes,
   getPartitionActionEntityTypes,
   getPreferredDomainWriteRoutes,
-  resolveDomainWriteRoutes,
   type DomainWriteRoute,
 } from "./domain-partitioning";
 import {
@@ -34,7 +21,7 @@ import {
   type DatabaseNodeConfig,
 } from "./failover-topology";
 
-type RuntimeNode = Omit<DatabaseNodeConfig, "maxBytes"> & { pool: pg.Pool; maxBytes: bigint };
+type RuntimeNode = Omit<DatabaseNodeConfig, "maxBytes"> & { pool: pg.Pool };
 type IdAllocation = Record<string, number[]>;
 export type ReservedOperation = {
   operationId: string;
@@ -122,18 +109,10 @@ const EVENT_TABLE = "public.storage_partition_events";
 const STATE_TABLE = "public.storage_partition_state";
 const OPERATIONS_TABLE = "public.storage_partition_operations";
 const ID_SEQUENCES_TABLE = "public.storage_partition_id_sequences";
-const neonApiKey = process.env.NEON_API_KEY?.trim();
-const isDomainPartitionedMode = process.env.DATABASE_STORAGE_MODE === "domain_partitioned";
-const isPartitionedMode = isDomainPartitionedMode || process.env.DATABASE_STORAGE_MODE === "partitioned";
-const PARTITION_DEFAULT_STORAGE_LIMIT_BYTES = 460_000_000n;
-const CAPACITY_CHECK_TIMEOUT_MS = 15_000;
-const COMPUTE_CACHE_MAX_AGE_MS = 6 * 60 * 60_000;
-const CAPACITY_ENV_NAMES: Record<DatabaseBackend, string> = {
-  database_url_1: "DATABASE_URL_1_MAX_BYTES",
-  database_url: "DATABASE_URL_MAX_BYTES",
-  database_url_3: "DATABASE_URL_3_MAX_BYTES",
-  database_url_4: "DATABASE_URL_4_MAX_BYTES",
-};
+const isDomainPartitionedMode = ["domain_partitioned", "partitioned"].includes(
+  process.env.DATABASE_STORAGE_MODE ?? "",
+);
+const isPartitionedMode = isDomainPartitionedMode;
 
 const configuredNodes = resolveDatabaseNodes(process.env);
 const nodes: RuntimeNode[] = configuredNodes.map((node) => ({
@@ -145,25 +124,9 @@ const nodes: RuntimeNode[] = configuredNodes.map((node) => ({
     connectionTimeoutMillis: 10_000,
     idleTimeoutMillis: 10_000,
   }),
-  maxBytes: parseDatabaseCapacityLimit(node.maxBytes, CAPACITY_ENV_NAMES[node.backend])
-    ?? PARTITION_DEFAULT_STORAGE_LIMIT_BYTES,
 }));
-if (isPartitionedMode) {
-  for (const node of nodes) {
-    if (!process.env[CAPACITY_ENV_NAMES[node.backend]]?.trim()) {
-      console.warn(JSON.stringify({
-        event: "partition_storage_limit_defaulted",
-        backend: node.backend,
-        setting: CAPACITY_ENV_NAMES[node.backend],
-        limitBytes: PARTITION_DEFAULT_STORAGE_LIMIT_BYTES.toString(),
-      }));
-    }
-  }
-}
 const nodesByBackend = new Map(nodes.map((node) => [node.backend, node]));
 
-let capacityCache = new Map<DatabaseBackend, { expiresAt: number; state: PartitionCapacityState }>();
-const computeUsageCache = new Map<DatabaseBackend, PartitionComputeSnapshot>();
 const partitionReadCache = new PartitionReadCache(3_000);
 let coordinatorSchemaReadyUntil = 0;
 const withLocalPartitionWriteMutex = createAsyncMutex();
@@ -192,7 +155,7 @@ export function isPartitionedStorageEnabled(): boolean {
 
 export type PartitionedStorageStatus = {
   enabled: boolean;
-  strategy: "replication_failover" | "partitioned_forward_only" | "partitioned_by_domain";
+  strategy: "replication_failover" | "partitioned_by_domain";
   coordinatorBackend: "database_url_4";
   coordinatorReady: boolean | null;
   writeCursor: DatabaseBackend | null;
@@ -200,12 +163,9 @@ export type PartitionedStorageStatus = {
   eventSchemasReady: boolean | null;
   readsRequireDb1: boolean;
   readsRequireAllStores: boolean;
-  storageLimitBytes: string;
-  computeLimitHours: number;
   stores: Array<{
     backend: DatabaseBackend;
     configured: boolean;
-    capacity: PartitionCapacityState | "not_checked";
     eventJournalReady: boolean | null;
   }>;
   blockers: string[];
@@ -269,27 +229,14 @@ export async function getPartitionedStorageStatus(): Promise<PartitionedStorageS
     blockers.push("Chế độ phân vùng chưa bật; ứng dụng đang dùng cơ chế failover replication hiện có.");
   }
 
-  const stores = await Promise.all(BACKEND_ORDER.map(async (backend) => {
+  const stores = BACKEND_ORDER.map((backend) => {
     const configured = configuredBackends.has(backend);
-    const node = nodesByBackend.get(backend);
-    let capacity: PartitionCapacityState | "not_checked" = "not_checked";
-    if (isPartitionedMode && node) {
-      capacity = await checkCapacity(node);
-      if (capacity !== "available") {
-        blockers.push(capacity === "full"
-          ? `${backend} đã đạt giới hạn dung lượng hoặc CU.`
-          : capacity === "unavailable"
-            ? `${backend} hiện không truy cập được.`
-            : `Không xác minh được dung lượng hoặc CU của ${backend}.`);
-      }
-    }
     return {
       backend,
       configured,
-      capacity,
       eventJournalReady: journalReadyByBackend.get(backend) ?? null,
     };
-  }));
+  });
 
   if (isPartitionedMode) {
     blockers.push(
@@ -305,11 +252,7 @@ export async function getPartitionedStorageStatus(): Promise<PartitionedStorageS
 
   return {
     enabled: isPartitionedMode,
-    strategy: isDomainPartitionedMode
-      ? "partitioned_by_domain"
-      : isPartitionedMode
-        ? "partitioned_forward_only"
-        : "replication_failover",
+    strategy: isPartitionedMode ? "partitioned_by_domain" : "replication_failover",
     coordinatorBackend: "database_url_4",
     coordinatorReady,
     writeCursor,
@@ -317,10 +260,6 @@ export async function getPartitionedStorageStatus(): Promise<PartitionedStorageS
     eventSchemasReady,
     readsRequireDb1: false,
     readsRequireAllStores: false,
-    storageLimitBytes: nodes.length
-      ? nodes.reduce((limit, node) => node.maxBytes < limit ? node.maxBytes : limit, nodes[0]!.maxBytes).toString()
-      : PARTITION_DEFAULT_STORAGE_LIMIT_BYTES.toString(),
-    computeLimitHours: DATABASE_COMPUTE_LIMIT_SECONDS / 3600,
     stores,
     blockers,
   };
@@ -492,99 +431,6 @@ async function verifyCoordinatorSchema(): Promise<void> {
   }
 }
 
-async function readComputeTime(node: RuntimeNode): Promise<number> {
-  if (!neonApiKey || !node.projectId) {
-    throw new Error(`Neon usage monitoring is not configured for ${node.backend}.`);
-  }
-  const response = await fetch(
-    `https://console.neon.tech/api/v2/projects/${encodeURIComponent(node.projectId)}`,
-    {
-      headers: { Authorization: `Bearer ${neonApiKey}` },
-      signal: AbortSignal.timeout(5_000),
-    },
-  );
-  if (!response.ok) throw new Error("Neon usage API did not return a successful response.");
-  return parseNeonComputeTimeSeconds(await response.json());
-}
-
-async function checkCapacity(node: RuntimeNode): Promise<PartitionCapacityState> {
-  const cached = capacityCache.get(node.backend);
-  if (cached && cached.expiresAt > Date.now()) return cached.state;
-  let state: PartitionCapacityState = "unknown";
-  try {
-    const size = await node.pool.query(
-      "SELECT pg_database_size(current_database())::text AS bytes",
-    );
-    const usedBytes = size.rows[0]?.bytes as string | undefined;
-    if (!usedBytes) throw new Error("Storage usage is unavailable.");
-    if (hasReachedDatabaseCapacity(usedBytes, node.maxBytes)) {
-      state = "full";
-    } else {
-      let freshSeconds: number | undefined;
-      try {
-        freshSeconds = await readComputeTime(node);
-        computeUsageCache.set(node.backend, { seconds: freshSeconds, checkedAt: Date.now() });
-      } catch (error) {
-        const cachedUsage = computeUsageCache.get(node.backend);
-        if (!cachedUsage) {
-          console.warn(JSON.stringify({
-            event: "partition_compute_usage_unavailable",
-            backend: node.backend,
-            strict: process.env.PARTITION_REQUIRE_CU_CHECK === "1",
-            message: error instanceof Error ? error.message : "Unknown usage API failure",
-          }));
-        } else {
-          console.warn(JSON.stringify({
-            event: "partition_compute_usage_stale",
-            backend: node.backend,
-            ageMs: Date.now() - cachedUsage.checkedAt,
-          }));
-        }
-      }
-      state = resolvePartitionComputeState({
-        now: Date.now(),
-        freshSeconds,
-        cached: computeUsageCache.get(node.backend),
-        requireCheck: process.env.PARTITION_REQUIRE_CU_CHECK === "1",
-        limitSeconds: DATABASE_COMPUTE_LIMIT_SECONDS,
-        maxCacheAgeMs: COMPUTE_CACHE_MAX_AGE_MS,
-      });
-    }
-  } catch (error) {
-    state = isDatabaseAvailabilityError(error) ? "unavailable" : "unknown";
-  }
-  capacityCache.set(node.backend, { expiresAt: Date.now() + 30_000, state });
-  return state;
-}
-
-async function checkAllCapacities(): Promise<Map<DatabaseBackend, PartitionCapacityState>> {
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      Promise.all(nodes.map(async (node) => {
-        let state = await checkCapacity(node);
-        if (state === "available") {
-          try {
-            await verifyEventSchema(node);
-          } catch {
-            state = "unavailable";
-          }
-        }
-        return [node.backend, state] as const;
-      }))
-        .then((entries) => new Map(entries)),
-      new Promise<never>((_resolve, reject) => {
-        timeout = setTimeout(
-          () => reject(new PartitionStorageError("Capacity checks timed out; database writes are paused.", "partition_operation_incomplete")),
-          CAPACITY_CHECK_TIMEOUT_MS,
-        );
-      }),
-    ]);
-  } finally {
-    if (timeout) clearTimeout(timeout);
-  }
-}
-
 function parseReservedOperation(row: Record<string, unknown>): ReservedOperation {
   let result = row.result as {
     allocatedIds?: IdAllocation;
@@ -666,8 +512,6 @@ export async function reservePartitionOperation(input: {
 
   const coordinator = nodesByBackend.get("database_url_4")!;
 
-  const capacity = await checkAllCapacities();
-
   const client = await coordinator.pool.connect();
   try {
     await client.query("BEGIN");
@@ -696,7 +540,7 @@ export async function reservePartitionOperation(input: {
     }
 
     const stateResult = await client.query(
-      `SELECT write_backend, next_revision::text
+      `SELECT next_revision::text
        FROM ${STATE_TABLE} WHERE id = 1 FOR UPDATE`,
     );
     const state = stateResult.rows[0];
@@ -706,40 +550,26 @@ export async function reservePartitionOperation(input: {
         "partition_schema_missing",
       );
     }
-    let domainRoutes: Record<string, DomainWriteRoute> | undefined;
-    let routeEntityTypes: string[] | undefined;
-    let targetBackend: DatabaseBackend;
-    let replicaBackend: DatabaseBackend;
-    if (isDomainPartitionedMode) {
-      const actionEntityTypes = input.action ? getPartitionActionEntityTypes(input.action) : undefined;
-      if (!actionEntityTypes?.length) {
-        throw new PartitionStorageError(
-          "The operation has no approved data-domain route.",
-          "partition_entity_invalid",
-          400,
-        );
-      }
-      routeEntityTypes = [...new Set(actionEntityTypes)];
-      domainRoutes = getPreferredDomainWriteRoutes(routeEntityTypes);
-      const firstRoute = domainRoutes[routeEntityTypes[0]!];
-      if (!firstRoute) {
-        throw new PartitionStorageError(
-          "The operation has no approved data-domain route.",
-          "partition_entity_invalid",
-          400,
-        );
-      }
-      targetBackend = firstRoute.primary;
-      replicaBackend = firstRoute.replica;
-    } else {
-      const pair = resolvePartitionWritePair(
-        state.write_backend as DatabaseBackend,
-        BACKEND_ORDER,
-        capacity,
+    const actionEntityTypes = input.action ? getPartitionActionEntityTypes(input.action) : undefined;
+    if (!actionEntityTypes?.length) {
+      throw new PartitionStorageError(
+        "The operation has no approved data-domain route.",
+        "partition_entity_invalid",
+        400,
       );
-      targetBackend = pair.primary;
-      replicaBackend = pair.replica;
     }
+    const routeEntityTypes = [...new Set(actionEntityTypes)];
+    const domainRoutes = getPreferredDomainWriteRoutes(routeEntityTypes);
+    const firstRoute = domainRoutes[routeEntityTypes[0]!];
+    if (!firstRoute) {
+      throw new PartitionStorageError(
+        "The operation has no approved data-domain route.",
+        "partition_entity_invalid",
+        400,
+      );
+    }
+    const targetBackend = firstRoute.primary;
+    const replicaBackend = firstRoute.replica;
     const allocatedIds: IdAllocation = {};
     for (const [entityType, count] of Object.entries(input.idAllocations)) {
       if (count === 0) {
@@ -1058,7 +888,9 @@ export async function reconcilePartitionOperation(
   operation: ReservedOperation,
 ): Promise<ReservedOperation> {
   if (operation.state === "committed") return operation;
-  if (isDomainPartitionedMode) return reconcileDomainPartitionOperation(operation);
+  if (isDomainPartitionedMode && operation.domainRoutes && operation.domainEntityTypes) {
+    return reconcileDomainPartitionOperation(operation);
+  }
   const target = nodesByBackend.get(operation.targetBackend);
   const replica = nodesByBackend.get(operation.replicaBackend);
   const coordinator = nodesByBackend.get("database_url_4");
@@ -1167,6 +999,7 @@ async function appendDomainPartitionOperation(
   originalOperation: ReservedOperation,
   events: readonly PartitionMutation[],
   mutations: readonly MutationDraft[],
+  fallbackDepth = 0,
 ): Promise<void> {
   const actionTypes = new Set(originalOperation.routeEntityTypes ?? []);
   const entityTypes = [...new Set(events.map((event) => event.entityType))].sort();
@@ -1192,40 +1025,11 @@ async function appendDomainPartitionOperation(
     );
   }
 
-  const capacity = await checkAllCapacities();
   let operation = originalOperation;
   let routes = originalOperation.domainRoutes ?? {};
   if (!originalOperation.domainEntityTypes) {
-    try {
-      routes = resolveDomainWriteRoutes(entityTypes, capacity);
-    } catch {
-      throw new PartitionStorageError(
-        "Two verified writable databases are required for each affected data group.",
-        "partition_operation_incomplete",
-      );
-    }
+    routes = getPreferredDomainWriteRoutes(entityTypes);
     operation = await persistDomainRoutePlan(operation, entityTypes, routes);
-  } else {
-    const groups = groupDomainEntityTypes(entityTypes, routes);
-    const failedRoute = groups
-      .flatMap((group) => [group.primary, group.replica])
-      .find((backend) => capacity.get(backend) !== "available");
-    if (failedRoute) {
-      const failedState = capacity.get(failedRoute);
-      if (failedState === "unknown") {
-        throw new PartitionStorageError(
-          `Capacity for ${failedRoute} is unknown; the write is paused.`,
-          "partition_operation_incomplete",
-        );
-      }
-      operation = await rerouteDomainPartitionOperation(
-        operation,
-        entityTypes,
-        failedRoute,
-        failedState === "full" ? "full" : "unavailable",
-      );
-      routes = operation.domainRoutes ?? {};
-    }
   }
 
   const nodeEvents = new Map<DatabaseBackend, PartitionMutation[]>();
@@ -1255,20 +1059,21 @@ async function appendDomainPartitionOperation(
       await writeDomainEventsToNode(node, operation, nodeEventsForBackend);
     }
   } catch (error) {
-    const failedState = isDatabaseCapacityError(error)
-      ? "full"
-      : isDatabaseAvailabilityError(error)
-        ? "unavailable"
-        : undefined;
-    if (failedState) {
-      if (failedBackend) {
+    if (
+      failedBackend &&
+      fallbackDepth === 0 &&
+      !isDatabaseCapacityError(error) &&
+      isDatabaseAvailabilityError(error)
+    ) {
+      try {
         const rerouted = await rerouteDomainPartitionOperation(
           operation,
           entityTypes,
           failedBackend,
-          failedState,
         );
-        return appendDomainPartitionOperation(rerouted, events, mutations);
+        return appendDomainPartitionOperation(rerouted, events, mutations, 1);
+      } catch (rerouteError) {
+        if (rerouteError instanceof PartitionStorageError) error = rerouteError;
       }
     }
     const coordinator = nodesByBackend.get("database_url_4")!;
@@ -1282,8 +1087,14 @@ async function appendDomainPartitionOperation(
       ],
     ).catch(() => undefined);
     if (error instanceof PartitionStorageError) throw error;
+    if (isDatabaseCapacityError(error)) {
+      throw new PartitionStorageError(
+        "Kho đã hết dung lượng. Dữ liệu chưa được xác nhận và không tự chuyển sang kho khác; hãy nâng cấp kho này rồi thử lại bằng cùng thao tác.",
+        "partition_operation_incomplete",
+      );
+    }
     throw new PartitionStorageError(
-      "A data-domain copy could not be confirmed; retry using the same operation ID.",
+      "Không thể xác nhận bản sao của phân vùng. Chỉ lỗi kết nối thật mới thử cặp dự phòng một lần; nếu kho đầy, không tự chuyển kho. Khắc phục rồi thử lại bằng cùng mã thao tác.",
       "partition_operation_incomplete",
     );
   }
@@ -1323,17 +1134,17 @@ async function rerouteDomainPartitionOperation(
   operation: ReservedOperation,
   entityTypes: string[],
   failedBackend: DatabaseBackend,
-  failedState: "full" | "unavailable",
 ): Promise<ReservedOperation> {
-  capacityCache.delete(failedBackend);
-  const capacity = await checkAllCapacities();
-  capacity.set(failedBackend, failedState);
   let routes: Record<string, DomainWriteRoute>;
   try {
-    routes = resolveDomainWriteRoutes(entityTypes, capacity);
+    routes = getDomainAvailabilityFallbackRoutes(
+      entityTypes,
+      failedBackend,
+      operation.domainRoutes,
+    );
   } catch {
     throw new PartitionStorageError(
-      "Two verified writable databases are not available for every affected data group.",
+      "Không tìm được cặp kho dự phòng cho lỗi kết nối; thao tác được giữ lại để thử lại.",
       "partition_operation_incomplete",
     );
   }
@@ -1344,7 +1155,7 @@ async function rerouteDomainPartitionOperation(
     return previous?.primary === next?.primary && previous?.replica === next?.replica;
   })) {
     throw new PartitionStorageError(
-      "No alternate two-database route is available for this data group.",
+      "Cặp kho hiện tại vẫn được giữ; không có tuyến thay thế cho lỗi kết nối này.",
       "partition_operation_incomplete",
     );
   }
@@ -1401,91 +1212,6 @@ export async function appendReservedPartitionOperation(
       );
     }
   };
-  const reroute = async (
-    failedBackend: DatabaseBackend,
-    failedState: "full" | "unavailable",
-    errorCode: string,
-  ): Promise<ReservedOperation> => {
-    capacityCache.delete(failedBackend);
-    const capacity = await checkAllCapacities();
-    capacity.set(failedBackend, failedState);
-    let nextPair: ReturnType<typeof resolvePartitionWritePair>;
-    try {
-      nextPair = resolvePartitionWritePair(
-      operation.targetBackend,
-      BACKEND_ORDER,
-      capacity,
-      );
-    } catch {
-      throw new PartitionStorageError(
-        "Two verified writable stores are not available for this operation.",
-        "partition_operation_incomplete",
-      );
-    }
-    if (nextPair.primary === operation.targetBackend &&
-        nextPair.replica === operation.replicaBackend) {
-      throw new PartitionStorageError(
-        "No alternate two-store route is available for this operation.",
-        "partition_operation_incomplete",
-      );
-    }
-    const client = await coordinator.pool.connect();
-    try {
-      await client.query("BEGIN");
-      await client.query("SET LOCAL lock_timeout = '5s'");
-      await client.query(
-        "SELECT pg_advisory_xact_lock(hashtextextended('so-cong:partition-coordinator', 0))",
-      );
-      const current = await client.query(
-        `SELECT state, target_backend, request_hash
-         FROM ${OPERATIONS_TABLE} WHERE operation_id = $1 FOR UPDATE`,
-        [operation.operationId],
-      );
-      const row = current.rows[0];
-      if (!row || row.request_hash !== operation.requestHash || row.state === "committed") {
-        throw new PartitionStorageError(
-          "Partition operation state changed; retry the same operation ID.",
-          "partition_operation_conflict",
-          409,
-        );
-      }
-      await client.query(
-        `UPDATE ${OPERATIONS_TABLE}
-         SET target_backend = $2,
-             result = coalesce(result, '{}'::jsonb) || jsonb_build_object('replicaBackend', $3),
-             state = 'pending', error_code = $4, updated_at = now()
-         WHERE operation_id = $1`,
-        [operation.operationId, nextPair.primary, nextPair.replica, errorCode],
-      );
-      const stateResult = await client.query(
-        `SELECT write_backend FROM ${STATE_TABLE} WHERE id = 1 FOR UPDATE`,
-      );
-      const cursor = stateResult.rows[0]?.write_backend as DatabaseBackend | undefined;
-      if (cursor && shouldAdvancePartitionCursor(failedState, cursor, nextPair.primary, BACKEND_ORDER)) {
-        await client.query(
-          `UPDATE ${STATE_TABLE} SET write_backend = $1, updated_at = now() WHERE id = 1`,
-          [nextPair.primary],
-        );
-      }
-      await client.query("COMMIT");
-      return {
-        ...operation,
-        targetBackend: nextPair.primary,
-        replicaBackend: nextPair.replica,
-        state: "pending",
-      };
-    } catch (error) {
-      await client.query("ROLLBACK").catch(() => undefined);
-      if (error instanceof PartitionStorageError) throw error;
-      throw new PartitionStorageError(
-        "DB4 could not safely route this operation to the next store.",
-        "partition_coordinator_unavailable",
-      );
-    } finally {
-      client.release();
-    }
-  };
-
   const events: PartitionMutation[] = mutations.map((mutation, index) => {
     if (!BASE_TABLES.has(mutation.entityType)) {
       throw new PartitionStorageError("Unsupported partition entity type.", "partition_entity_invalid", 400);
@@ -1520,41 +1246,8 @@ export async function appendReservedPartitionOperation(
       revision: operation.revision,
     };
   });
-  if (isDomainPartitionedMode) {
+  if (isDomainPartitionedMode && operation.routeEntityTypes?.length) {
     return appendDomainPartitionOperation(operation, events, mutations);
-  }
-
-  const writableState = async (node: RuntimeNode): Promise<PartitionCapacityState> => {
-    const state = await checkCapacity(node);
-    if (state !== "available") return state;
-    try {
-      await verifyEventSchema(node);
-      return "available";
-    } catch {
-      return "unavailable";
-    }
-  };
-  const targetCapacity = await writableState(target);
-  if (targetCapacity === "full" || targetCapacity === "unavailable") {
-    const next = await reroute(target.backend, targetCapacity, `target_${targetCapacity}`);
-    return appendReservedPartitionOperation(next, mutations);
-  }
-  if (targetCapacity === "unknown") {
-    throw new PartitionStorageError(
-      `Capacity for ${target.backend} could not be verified; writes are blocked.`,
-      "partition_operation_incomplete",
-    );
-  }
-  const replicaCapacity = await writableState(replica);
-  if (replicaCapacity === "full" || replicaCapacity === "unavailable") {
-    const next = await reroute(replica.backend, replicaCapacity, `replica_${replicaCapacity}`);
-    return appendReservedPartitionOperation(next, mutations);
-  }
-  if (replicaCapacity === "unknown") {
-    throw new PartitionStorageError(
-      `Capacity for ${replica.backend} could not be verified; a second copy cannot be confirmed.`,
-      "partition_operation_incomplete",
-    );
   }
 
   let existingCount: number;
@@ -1571,20 +1264,7 @@ export async function appendReservedPartitionOperation(
     );
   }
   if (existingCount === operation.expectedEventCount) {
-    try {
-      await writePendingEventsToNode(replica, operation, events);
-    } catch (error) {
-      const failedState = isDatabaseCapacityError(error)
-        ? "full"
-        : isDatabaseAvailabilityError(error)
-          ? "unavailable"
-          : undefined;
-      if (failedState) {
-        const next = await reroute(replica.backend, failedState, `replica_${failedState}`);
-        return appendReservedPartitionOperation(next, mutations);
-      }
-      throw error;
-    }
+    await writePendingEventsToNode(replica, operation, events);
     await persistCommitted();
     return;
   }
@@ -1658,31 +1338,9 @@ export async function appendReservedPartitionOperation(
       // An unreachable target might have committed; moving it would risk duplication.
     }
     if (postFailureCount === operation.expectedEventCount) {
-      try {
-        await writePendingEventsToNode(replica, operation, events);
-      } catch (error) {
-        const failedState = isDatabaseCapacityError(error)
-          ? "full"
-          : isDatabaseAvailabilityError(error)
-            ? "unavailable"
-            : undefined;
-        if (failedState) {
-          const next = await reroute(replica.backend, failedState, `replica_${failedState}`);
-          return appendReservedPartitionOperation(next, mutations);
-        }
-        throw error;
-      }
+      await writePendingEventsToNode(replica, operation, events);
       await persistCommitted();
       return;
-    }
-    const failedState = isDatabaseCapacityError(writeError)
-      ? "full"
-      : isDatabaseAvailabilityError(writeError)
-        ? "unavailable"
-        : undefined;
-    if (postFailureCount === 0 && failedState) {
-      const next = await reroute(target.backend, failedState, `target_${failedState}`);
-      return appendReservedPartitionOperation(next, mutations);
     }
     const client = await coordinator.pool.connect();
     try {
@@ -1701,20 +1359,7 @@ export async function appendReservedPartitionOperation(
   }
 
   if (!targetCommitted) return;
-  try {
-    await writePendingEventsToNode(replica, operation, events);
-  } catch (error) {
-    const failedState = isDatabaseCapacityError(error)
-      ? "full"
-      : isDatabaseAvailabilityError(error)
-        ? "unavailable"
-        : undefined;
-    if (failedState) {
-      const next = await reroute(replica.backend, failedState, `replica_${failedState}`);
-      return appendReservedPartitionOperation(next, mutations);
-    }
-    throw error;
-  }
+  await writePendingEventsToNode(replica, operation, events);
   await persistCommitted();
 }
 

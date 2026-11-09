@@ -95,11 +95,11 @@ export const DeleteRetentionDateRangeResponse = zod.object({
 
 
 /**
- * @summary Chủ sở hữu xem trạng thái định tuyến và dung lượng bốn kho
+ * @summary Chủ sở hữu xem trạng thái phân vùng cố định của bốn kho
  */
 export const GetDatabaseStorageStatusResponse = zod.object({
   "enabled": zod.boolean(),
-  "strategy": zod.enum(['replication_failover', 'partitioned_forward_only']),
+  "strategy": zod.enum(['replication_failover', 'partitioned_by_domain']),
   "coordinatorBackend": zod.enum(['database_url_4']),
   "coordinatorReady": zod.boolean().nullable(),
   "writeCursor": zod.string().nullable(),
@@ -107,12 +107,9 @@ export const GetDatabaseStorageStatusResponse = zod.object({
   "eventSchemasReady": zod.boolean().nullable(),
   "readsRequireDb1": zod.boolean(),
   "readsRequireAllStores": zod.boolean(),
-  "storageLimitBytes": zod.string(),
-  "computeLimitHours": zod.number(),
   "stores": zod.array(zod.object({
   "backend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4']),
   "configured": zod.boolean(),
-  "capacity": zod.enum(['available', 'full', 'unavailable', 'unknown', 'not_checked']),
   "eventJournalReady": zod.boolean().nullable()
 })),
   "blockers": zod.array(zod.string())

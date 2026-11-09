@@ -62,14 +62,12 @@ const stateBackend = resolveFailoverCoordinatorBackend(
   process.env.DATABASE_FAILOVER_COORDINATOR_BACKEND,
   configuredNodes,
 );
-const failoverEnabled =
-  isVercel &&
-  process.env.DATABASE_STORAGE_MODE !== "partitioned" &&
-  Boolean(process.env.DATABASE_URL_1?.trim() && databaseUrl) &&
-  configuredNodes.length >= 2;
+// The application now uses fixed data-domain partitions. Whole-database
+// promotion is disabled; domain writes have their own connection-only fallback.
+const failoverEnabled = false;
 const neonApiKey = process.env.NEON_API_KEY?.trim();
 
-if (failoverCoordinatorUrl && process.env.DATABASE_FAILOVER_COORDINATOR_BACKEND) {
+if (failoverEnabled && failoverCoordinatorUrl && process.env.DATABASE_FAILOVER_COORDINATOR_BACKEND) {
   throw new Error(
     "Configure either DATABASE_FAILOVER_COORDINATOR_URL or DATABASE_FAILOVER_COORDINATOR_BACKEND, not both.",
   );
@@ -89,12 +87,6 @@ if (!databaseUrl) {
   );
 }
 
-if (!isVercel && process.env.DATABASE_URL_1?.trim()) {
-  console.warn(
-    "[db-failover] DATABASE_URL_1 is configured, but automatic failover is disabled because VERCEL is not set to '1'.",
-  );
-}
-
 if (isVercel && process.env.DATABASE_URL_1?.trim() && !databaseUrl) {
   throw new Error(
     "DATABASE_URL must remain set as the fallback for DATABASE_URL_1.",
@@ -102,9 +94,9 @@ if (isVercel && process.env.DATABASE_URL_1?.trim() && !databaseUrl) {
 }
 
 const nodes: RuntimeNode[] = configuredNodes.map((node) => {
-  const maxBytes =
-    parseDatabaseCapacityLimit(node.maxBytes) ??
-    DATABASE_STORAGE_LIMIT_BYTES;
+  // Capacity thresholds are no longer part of active routing. Keep this
+  // compatibility value for dormant failover helpers without reading env limits.
+  const maxBytes = DATABASE_STORAGE_LIMIT_BYTES;
   const pool = new pg.Pool({
     connectionString: node.url,
     application_name: node.applicationName,
@@ -112,7 +104,7 @@ const nodes: RuntimeNode[] = configuredNodes.map((node) => {
     connectionTimeoutMillis: 15_000,
     idleTimeoutMillis: 10_000,
   });
-  const subscriptionPool = node.adminUrl
+  const subscriptionPool = failoverEnabled && node.adminUrl
     ? new pg.Pool({
         connectionString: node.adminUrl,
         application_name: `${node.applicationName}-subscription-admin`,
@@ -125,14 +117,15 @@ const nodes: RuntimeNode[] = configuredNodes.map((node) => {
     ...node,
     pool,
     subscriptionPool,
-    canManageSubscription:
-      Boolean(node.adminUrl) || !usesNeonPooler(node.url),
+    canManageSubscription: failoverEnabled &&
+      (Boolean(node.adminUrl) || !usesNeonPooler(node.url)),
     database: drizzle(pool, { schema }),
     maxBytes,
   };
 });
 
 if (
+  failoverEnabled &&
   failoverCoordinatorUrl &&
   nodes.some((node) =>
     isSameDatabaseFailureDomain(failoverCoordinatorUrl, node.url),
@@ -143,7 +136,7 @@ if (
   );
 }
 
-const failoverCoordinatorPool = failoverCoordinatorUrl
+const failoverCoordinatorPool = failoverEnabled && failoverCoordinatorUrl
   ? new pg.Pool({
       connectionString: failoverCoordinatorUrl,
       application_name: "so-cong-failover-coordinator",
@@ -1654,7 +1647,7 @@ async function getSwitchTargetStatus(
     return {
       ...base,
       canSwitch: false,
-      message: "Chưa bật failover: cần cấu hình DATABASE_URL_1 và DATABASE_URL.",
+      message: "Chuyển kho toàn cục đã tắt; dữ liệu tiếp tục theo phân vùng cố định.",
     };
   }
   if (active === "switching") {
@@ -1792,7 +1785,7 @@ export async function requestOwnerDatabaseFailover(
   activeBackend: PersistedDatabaseBackend;
 }> {
   if (!isVercel || process.env.VERCEL_ENV !== "production" || !failoverEnabled) {
-    return { switched: false, activeBackend: await readBackendState() };
+    return { switched: false, activeBackend: "database_url" };
   }
 
   const currentBackend = await readBackendState();
@@ -1817,7 +1810,7 @@ export async function requestOwnerDatabaseFailoverRecovery(
   targetBackend: DatabaseBackend,
 ): Promise<{ recovered: boolean; activeBackend: PersistedDatabaseBackend }> {
   if (!isVercel || process.env.VERCEL_ENV !== "production" || !failoverEnabled) {
-    return { recovered: false, activeBackend: await readBackendState() };
+    return { recovered: false, activeBackend: "database_url" };
   }
   const currentBackend = await readBackendState();
   if (
@@ -2180,7 +2173,7 @@ export const pool = new Proxy(defaultPool, {
 }) as pg.Pool;
 export const db = new Proxy(nodes[0]?.database, {
   get(_target, property) {
-    if (process.env.DATABASE_STORAGE_MODE === "partitioned") {
+    if (["partitioned", "domain_partitioned"].includes(process.env.DATABASE_STORAGE_MODE ?? "")) {
       throw new Error(
         "Partitioned storage is not fully integrated with this application's API routes; legacy database queries are blocked.",
       );

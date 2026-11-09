@@ -6,12 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DatabaseFailoverTarget } from './databaseFailoverTarget';
-import type { DatabaseStorageStoreCapacity } from './databaseStorageStoreCapacity';
 
 export interface DatabaseStorageStore {
   backend: DatabaseFailoverTarget;
   configured: boolean;
-  capacity: DatabaseStorageStoreCapacity;
   /** @nullable */
   eventJournalReady: boolean | null;
 }

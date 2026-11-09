@@ -6,7 +6,6 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { apiAuthorizationGate } from "./lib/owner-auth";
-import { DatabaseFailoverInProgressError, refreshDatabaseBackend } from "@workspace/db";
 import type { OwnerAuthStatus } from "./lib/owner-auth";
 import { writeRateLimitKey } from "./lib/write-rate-limit-key";
 
@@ -67,27 +66,6 @@ if (clerkSecretKey && clerkPublishableKey) {
 }
 
 app.use("/api", apiRateLimit);
-app.use("/api", async (req, res, next) => {
-  if (req.path === "/healthz") return next();
-  try {
-    const backend = await refreshDatabaseBackend();
-    if (backend === "switching") {
-      return res.status(503).json({
-        message: "Đang chuyển database, vui lòng thử lại sau.",
-      });
-    }
-    return next();
-  } catch (error) {
-    const code =
-      error && typeof error === "object" && "code" in error
-        ? String(error.code)
-        : undefined;
-    logger.error({ code }, "Database route check failed");
-    return res.status(503).json({
-      message: "Chưa thể xác nhận database đang hoạt động, vui lòng thử lại.",
-    });
-  }
-});
 app.use("/api", apiAuthorizationGate);
 app.use("/api", (req, res, next) => {
   if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {

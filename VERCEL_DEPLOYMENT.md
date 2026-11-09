@@ -20,16 +20,13 @@ Thêm các biến này trong Vercel Project Settings → Environment Variables. 
 
 | Biến | Dùng ở đâu | Lưu ý |
 | --- | --- | --- |
-| `DATABASE_URL` | API | Chuỗi kết nối Neon PostgreSQL dành cho deployment Vercel. Dùng connection string dạng pooled của Neon và giữ giá trị này bí mật. |
-| `DATABASE_URL_1` | API | Database thứ nhất trong chuỗi failover; giữ nguyên vai trò hiện tại. |
-| `DATABASE_URL_3` | API | Bản sao thứ ba; yêu cầu đồng bộ từ `DATABASE_URL` trước khi được phép promote. |
-| `DATABASE_URL_4` | API | Bản sao thứ tư; yêu cầu đồng bộ từ `DATABASE_URL_3`. Không thể bỏ qua database thứ ba. |
+| `DATABASE_URL` | API | DB2: kho chính của thẻ và lịch sử thẻ; giữ kín chuỗi kết nối. |
+| `DATABASE_URL_1` | API | DB1: kho chính của chấm công cơ sở/nhân viên. |
+| `DATABASE_URL_3` | API | DB3: kho chính của sổ chấm công cá nhân. |
+| `DATABASE_URL_4` | API | DB4: kho chính của dữ liệu dùng chung và bộ điều phối phân vùng. |
 | `NEON_DB1_DIRECT_URL`, `DATABASE_URL_DIRECT`, `DATABASE_URL_3_DIRECT`, `DATABASE_URL_4_DIRECT` | API/migration | URL Neon direct, không qua pooler. `DATABASE_URL_DIRECT` và các biến `_3_DIRECT`/`_4_DIRECT` tương ứng DB2/3/4; `NEON_DB1_DIRECT_URL` dùng cho DB1. Các biến direct được ưu tiên khi có; nếu không, bước tạo index ngày dùng URL pooled với DDL giao dịch an toàn. |
 | `NEON_SOURCE_DIRECT_URL`, `MIGRATE_DATABASE_URL_3_DIRECT`, `MIGRATE_DATABASE_URL_4_DIRECT` | Migration | Tên direct URL tương thích cho DB2/3/4 nếu không dùng các biến `DATABASE_URL_*_DIRECT`. Không in giá trị connection string vào log. |
-| `NEON_API_KEY` | API | Secret dùng đọc mức CU của từng project; không đưa vào mã nguồn. |
-| `NEON_PROJECT_ID_1`, `NEON_PROJECT_ID`, `NEON_PROJECT_ID_3`, `NEON_PROJECT_ID_4` | API | Project ID tương ứng với từng URL; cần project ID cho mọi database có thể được promote để xác nhận còn hạn mức CU. |
-| `FAILOVER_REQUIRE_CU_CHECK` | API | Mặc định để trống: khi Neon API tạm lỗi, dùng số CU tốt gần nhất tối đa 10 phút hoặc tiếp tục phục vụ nhưng không chuyển kho theo CU. Đặt `1` để chặn request nếu không xác minh được CU. |
-| `ALLOW_FORCE_FAILOVER` | API | Mặc định để trống, tắt chuyển cưỡng bức. Chỉ đặt `1` khi chủ sở hữu chủ động chấp nhận nguy cơ mất dữ liệu chưa đồng bộ. |
+| `DATABASE_STORAGE_MODE` | API | Giữ `domain_partitioned` để dùng các cặp kho cố định theo loại dữ liệu; `partitioned` cũng được hiểu theo cùng cách. |
 | `APP_CLERK_SECRET_KEY` | API | Secret key của Clerk Production bên ngoài. Không dùng khóa Clerk do Replit quản lý hoặc khóa Development. |
 | `APP_CLERK_PUBLISHABLE_KEY` | API | Publishable key của cùng Clerk Production. |
 | `VITE_APP_CLERK_PUBLISHABLE_KEY` | Web build | Cùng publishable key Production, được dùng ở giao diện trình duyệt. |
@@ -52,31 +49,20 @@ API được truy cập cùng domain qua `/api/*`; không bật CORS cho mọi d
 
 ## Neon PostgreSQL cho Vercel
 
-API dùng `pg` và Drizzle. Thứ tự failover là `DATABASE_URL_1` → `DATABASE_URL` → `DATABASE_URL_3` → `DATABASE_URL_4`; `DATABASE_URL` vẫn là database điều khiển trạng thái failover. Không có biến `DATABASE_URL_2` trong cấu hình này.
+API dùng `pg` và Drizzle. Bốn kho giữ phân vùng dữ liệu cố định; không tự chuyển toàn bộ ứng dụng hay di chuyển dữ liệu cũ:
 
-1. Cả bốn database phải có cùng schema và cùng cấu trúc sequence. Áp dụng các migration cho database mới trước khi tạo subscription; logical replication đồng bộ hàng dữ liệu, không đồng bộ DDL. Mã sẽ đồng bộ bộ đếm `serial`/identity trước khi promote; nếu thiếu hoặc khác sequence thì không promote.
-2. Bật logical replication trên các publisher: `DATABASE_URL_1`, `DATABASE_URL` và `DATABASE_URL_3`. `DATABASE_URL_3` vừa nhận dữ liệu từ database 2 vừa phát dữ liệu sang database 4. `DATABASE_URL_4` là subscriber cuối cùng. Dùng direct/unpooled endpoint khi tạo hoặc quản lý replication.
-3. Đặt các tên publication/subscription như sau: `socong_db1_to_source_v1` / `socong_source_from_db1_v1` (database 1 → `DATABASE_URL`, hiện có); `socong_source_to_db3_v1` / `socong_db3_from_source_v1` (`DATABASE_URL` → database 3); `socong_db3_to_db4_v1` / `socong_db4_from_db3_v1` (database 3 → database 4). Publication phải chứa đúng các bảng ứng dụng hiện tại: `appointments`, `attendance`, `card_top_ups`, `card_usage_history`, `manager_grants`, `member_versions`, `members`, `personal_services`, `personal_sessions`, `personal_settings`, `service_sessions`, `service_types`, `tasks`, `treatment_cards`. Không đưa `db_failover_state` vào publication; đó là bảng điều khiển nằm trên `DATABASE_URL`, không phải dữ liệu ứng dụng cần sao chép. Runtime kiểm tra đúng tên bảng, trạng thái đồng bộ và LSN; thiếu/thừa bảng hoặc bị trễ thì không promote.
-4. Đảm bảo `DATABASE_URL_3` và `DATABASE_URL_4` trỏ direct, không pooler như anh đã cấu hình. `DATABASE_URL` hiện dùng cho state/control và thường là pooled; nếu hostname có `-pooler`, thêm `DATABASE_URL_DIRECT` trỏ direct tới **cùng database**. Nếu URL ứng dụng của database 3 hoặc 4 là pooled thì thêm `_3_DIRECT` hoặc `_4_DIRECT` tương ứng. Runtime cần direct connection để tắt subscription lúc promote.
-5. Thêm các project ID tương ứng (`NEON_PROJECT_ID_3`, `NEON_PROJECT_ID_4`) vào Vercel Production. URL và tắt pooling chưa đủ để kiểm tra CU hoặc xác nhận replication.
-6. Trước khi triển khai mã mới, chạy `pnpm --filter @workspace/db run migrate:database-failover-state` với `DATABASE_URL` tạm thời đặt bằng direct connection string của database điều khiển failover. Migration thêm metadata để phát hiện và xử lý an toàn lần chuyển bị gián đoạn; nếu trạng thái cũ đã kẹt mà không biết kho nguồn/đích, migration đánh dấu cần chủ sở hữu xử lý và giữ khóa ghi. Không chạy migration này với database Replit hoặc database khác.
-7. Build API Vercel chạy `migrate:all-vercel-stores` tuần tự trên từng database đã cấu hình, ưu tiên URL direct, bỏ qua URL trùng, rồi chạy `migrate:verify-stores`. Bước tạo index ngày dùng `CREATE INDEX` trong giao dịch để tương thích URL pooled; thao tác có thể khóa ghi ngắn trên bảng đang lập index. Database hoàn toàn trống được khởi tạo bằng migration đã duyệt; database có schema chưa đầy đủ sẽ làm build dừng. Các migration nghiệp vụ lặp lại an toàn. Build chỉ kiểm tra trạng thái failover; migration bảng điều phối vẫn phải chạy tường minh trước khi triển khai.
-8. Vercel gọi `/api/retention/cleanup` mỗi Chủ nhật lúc 03:00 UTC. Đặt `CRON_SECRET` trong Production và Preview mà anh muốn chạy; không mở endpoint này cho yêu cầu không có Bearer token.
+1. Cặp kho cố định: cơ sở/chấm công `DB1 → DB2`; thẻ và nhật ký thẻ `DB2 → DB3`; sổ cá nhân `DB3 → DB4`; dữ liệu dùng chung `DB4 → DB3`. Mỗi thao tác được ghi vào đúng hai kho của cặp, còn DB4 điều phối thứ tự thao tác.
+2. Không còn ngưỡng 100 CU-giờ/1 GB hoặc truy vấn dung lượng/CU trên từng API request. Nếu ghi nhận lỗi đầy dung lượng, thao tác dừng ở cặp kho đã gán để anh tự nâng cấp. Chỉ lỗi kết nối thật mới được thử một cặp khác; không đổi kho vì CU/dung lượng và không di chuyển dữ liệu cũ.
+3. Cả bốn database cần schema ứng dụng và schema nhật ký phân vùng. Build Vercel tiếp tục chạy `migrate:all-vercel-stores` rồi `migrate:verify-stores`; giữ đủ bốn URL database và URL direct migration.
+4. Không đưa `storage_partition_events` vào publication/subscription Neon. Ứng dụng ghi hai bản sao theo cặp cố định. Các subscription failover cũ không còn được dùng để chuyển toàn bộ database. Nếu không còn hệ thống nào khác cần replication cũ, có thể dừng các subscription `socong_source_from_db1_v1` (DB2), `socong_db3_from_source_v1` (DB3), `socong_db4_from_db3_v1` (DB4), `socong_db1_from_db2_v1` (DB1), `socong_db2_from_db3_v1` (DB2), `socong_db3_from_db4_v1` (DB3) để giảm công việc replication. Kiểm tra dữ liệu nền cũ và đối soát trước; gỡ subscription trước publication.
+5. Vercel gọi `/api/retention/cleanup` mỗi Chủ nhật lúc 03:00 UTC. Giữ `CRON_SECRET` trong Production và Preview mà anh muốn chạy; không mở endpoint này cho yêu cầu không có Bearer token.
 
-Ngưỡng mặc định cho từng database là 100 CU-giờ và 1.000.000.000 byte. Có thể đặt ngưỡng dung lượng riêng qua `DATABASE_URL_1_MAX_BYTES`, `DATABASE_URL_MAX_BYTES`, `DATABASE_URL_3_MAX_BYTES` và `DATABASE_URL_4_MAX_BYTES`. Bản sao đầy đủ không cộng dồn dung lượng; nếu tất cả cùng chứa một dữ liệu, chuyển dự phòng không giải quyết được khi chúng cùng chạm ngưỡng lưu trữ.
-
-Trước các API route, runtime kiểm tra dung lượng và CU khi có request, không chạy khi ứng dụng nhàn rỗi; kết quả thành công được dùng lại tối đa 30 giây. Khi Neon API tạm lỗi, runtime dùng số CU tốt gần nhất tối đa 10 phút; nếu không có số gần đây thì mặc định tiếp tục phục vụ nhưng bỏ qua chuyển kho dựa trên CU và ghi cảnh báo. `FAILOVER_REQUIRE_CU_CHECK=1` bật chế độ chặn request khi không xác minh được CU. API Neon có backoff tối đa 60 giây.
-
-Lỗi hết kết nối PostgreSQL (`53300`, pool-acquisition timeout) không tự kích hoạt failover. Với lỗi kết nối thực sự, runtime cần ít nhất 3 lỗi trong 30 giây và một kết nối mới `SELECT 1` thất bại; sau một lần thử chuyển, có cooldown 60 giây. Chuyển cưỡng bức qua `POST /api/database/failover` cần chủ sở hữu, `force: true`, xác nhận `FORCE_<nguồn>_TO_<đích>`, `ALLOW_FORCE_FAILOVER=1`, kho nguồn không kết nối được và kho đích vượt kiểm tra sức khỏe/công suất/sequence. Thao tác này có thể làm mất dữ liệu chưa đồng bộ và cần rà soát lại replication.
-
-Nếu lần chuyển bị gián đoạn, hệ thống đợi 3 phút rồi chỉ tự quay lại kho nguồn khi kho nguồn khỏe, replication nguồn→đích còn bật và chiều ngược đã tắt. Nếu không xác minh được, hệ thống giữ khóa ghi và đưa cảnh báo cho chủ sở hữu; endpoint `POST /api/database/failover/recover` yêu cầu xác nhận nguồn/đích và vẫn chỉ khôi phục khi kiểm tra an toàn đạt.
-
-Nếu không cấu hình `DATABASE_FAILOVER_COORDINATOR_URL`, bảng trạng thái chuyển kho vẫn nằm trên `DATABASE_URL` (DB2). Khi DB2 không truy cập được, runtime có thể không ghi được trạng thái để chuyển tiếp sang DB3/DB4. Muốn bảo đảm chuỗi failover vẫn điều khiển được khi DB2 hỏng, cần một PostgreSQL điều phối độc lập nằm ngoài bốn kho dữ liệu.
+Sau khi bản mã này được triển khai thành công lên Vercel, có thể xóa các biến **chỉ phục vụ đo CU/ngưỡng/failover**: `NEON_API_KEY`, `NEON_PROJECT_ID_1`, `NEON_PROJECT_ID`, `NEON_PROJECT_ID_3`, `NEON_PROJECT_ID_4`, `DATABASE_URL_1_MAX_BYTES`, `DATABASE_URL_MAX_BYTES`, `DATABASE_URL_3_MAX_BYTES`, `DATABASE_URL_4_MAX_BYTES`, `FAILOVER_REQUIRE_CU_CHECK`, `PARTITION_REQUIRE_CU_CHECK`, `ALLOW_FORCE_FAILOVER`, `DATABASE_FAILOVER_COORDINATOR_URL` và `DATABASE_FAILOVER_COORDINATOR_BACKEND`. Xóa chúng sau khi redeploy; không xóa `DATABASE_URL`, `DATABASE_URL_1`, `DATABASE_URL_3`, `DATABASE_URL_4`, `DATABASE_STORAGE_MODE`, các URL direct dùng cho migration, `CRON_SECRET` hoặc khóa Clerk.
 
 Các biến này là cấu hình Vercel; không thay `DATABASE_URL` do Replit quản lý trong môi trường Replit.
 
 Đổi `DATABASE_URL` không sao chép dữ liệu. Database Neon mới phải được áp dụng schema trước khi ứng dụng đọc/ghi được. Dự án có migration ban đầu trong `lib/db/drizzle/0000_initial.sql` và lệnh `pnpm --filter @workspace/db run migrate` để tạo các bảng, bao gồm `members`. Chạy lệnh trong môi trường an toàn mà `DATABASE_URL` đang trỏ chính xác tới database Neon mới; không chạy với `DATABASE_URL` mặc định của Replit. Migration tạo cấu trúc bảng nhưng không sao chép dữ liệu Replit.
 
-Không cấu hình migration để tự chạy trong mỗi lần build Vercel. Nếu database đã có bảng hoặc chứa dữ liệu cần giữ, hãy kiểm tra trạng thái schema trước khi chạy migration.
+Build Vercel hiện áp dụng và xác minh schema trên bốn kho bằng hai lệnh ở trên. Không thêm migration baseline khác vào build; nếu thay đổi quy trình build, phải kiểm tra đúng môi trường và đúng bốn URL trước để tránh ghi nhầm database.
 
 Không dán connection string hoặc thông tin đăng nhập vào chat hay mã nguồn.

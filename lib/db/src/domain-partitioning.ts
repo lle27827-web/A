@@ -1,9 +1,5 @@
 import type { DatabaseBackend } from "./failover-topology";
-import {
-  resolvePartitionWritePair,
-  type PartitionCapacityState,
-  type PartitionReplicaPair,
-} from "./storage-partitioning";
+import type { PartitionReplicaPair } from "./storage-partitioning";
 
 export type PartitionDataDomain = "facility" | "cards" | "personal" | "shared";
 
@@ -68,13 +64,6 @@ const DOMAIN_BY_TABLE = new Map(
     tables.map((table) => [table, domain as PartitionDataDomain] as const),
   ),
 );
-const ALL_AVAILABLE: ReadonlyMap<DatabaseBackend, PartitionCapacityState> = new Map([
-  ["database_url_1", "available"],
-  ["database_url", "available"],
-  ["database_url_3", "available"],
-  ["database_url_4", "available"],
-]);
-
 export function getPartitionDataDomain(table: string): PartitionDataDomain | undefined {
   return DOMAIN_BY_TABLE.get(table);
 }
@@ -86,21 +75,48 @@ export function getPartitionActionEntityTypes(action: string): readonly string[]
 
 export function resolveDomainWriteRoutes(
   entityTypes: readonly string[],
-  capacity: ReadonlyMap<DatabaseBackend, PartitionCapacityState>,
 ): Record<string, DomainWriteRoute> {
   const routes: Record<string, DomainWriteRoute> = {};
   for (const table of new Set(entityTypes)) {
     const domain = getPartitionDataDomain(table);
     if (!domain) throw new Error(`No storage domain is defined for ${table}.`);
-    const pair = resolvePartitionWritePair(DOMAIN_ORDER[domain][0]!, DOMAIN_ORDER[domain], capacity);
-    routes[table] = { ...pair, domain };
+    const [primary, replica] = DOMAIN_ORDER[domain];
+    if (!primary || !replica) {
+      throw new Error(`The fixed storage pair is incomplete for ${domain}.`);
+    }
+    routes[table] = { primary, replica, domain };
   }
   return routes;
 }
 
-/** Initial owner + neighboring copy, used before the operation's exact rows exist. */
+/** Resolve the fixed primary and copy for each data domain. No capacity-based rerouting. */
 export function getPreferredDomainWriteRoutes(
   entityTypes: readonly string[],
 ): Record<string, DomainWriteRoute> {
-  return resolveDomainWriteRoutes(entityTypes, ALL_AVAILABLE);
+  return resolveDomainWriteRoutes(entityTypes);
+}
+
+/** Use an alternate pair only after a real connection failure on the current pair. */
+export function getDomainAvailabilityFallbackRoutes(
+  entityTypes: readonly string[],
+  failedBackend: DatabaseBackend,
+  currentRoutes: Readonly<Record<string, DomainWriteRoute>> = {},
+): Record<string, DomainWriteRoute> {
+  const routes: Record<string, DomainWriteRoute> = {};
+  for (const table of new Set(entityTypes)) {
+    const domain = getPartitionDataDomain(table);
+    if (!domain) throw new Error(`No storage domain is defined for ${table}.`);
+    const current = currentRoutes[table];
+    if (current && current.primary !== failedBackend && current.replica !== failedBackend) {
+      routes[table] = current;
+      continue;
+    }
+    const alternatives = DOMAIN_ORDER[domain].filter((backend) => backend !== failedBackend);
+    const [primary, replica] = alternatives;
+    if (!primary || !replica) {
+      throw new Error(`No alternate two-store route is available for ${domain}.`);
+    }
+    routes[table] = { primary, replica, domain };
+  }
+  return routes;
 }

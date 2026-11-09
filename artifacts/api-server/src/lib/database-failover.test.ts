@@ -65,7 +65,7 @@ test("disk-full messages are recognized without exposing details", () => {
 });
 
 test("database connectivity failures are recognized as failover triggers", () => {
-  for (const code of ["08006", "25006", "57P01", "57P03", "58030", "ECONNRESET", "ETIMEDOUT"]) {
+  for (const code of ["08006", "57P01", "57P02", "57P03", "ECONNRESET", "ETIMEDOUT"]) {
     assert.equal(isDatabaseAvailabilityError({ code }), true, code);
     assert.equal(isDatabaseFailoverTriggerError({ code }), true, code);
   }
@@ -77,6 +77,18 @@ test("database connectivity failures are recognized as failover triggers", () =>
     isDatabaseAvailabilityError(new Error("server closed the connection unexpectedly")),
     true,
   );
+});
+
+test("capacity, I/O, and configuration-limit errors are not connection fallback triggers", () => {
+  for (const error of [
+    { code: "53100" },
+    new Error("database is full"),
+    { code: "58030" },
+    { code: "53400" },
+    { code: "25006" },
+  ]) {
+    assert.equal(isDatabaseAvailabilityError(error), false);
+  }
 });
 
 test("pool exhaustion never triggers failover and availability needs three recent failures", () => {

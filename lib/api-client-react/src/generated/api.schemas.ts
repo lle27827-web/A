@@ -513,7 +513,7 @@ export type DatabaseStorageStatusStrategy = typeof DatabaseStorageStatusStrategy
 
 export const DatabaseStorageStatusStrategy = {
   replication_failover: 'replication_failover',
-  partitioned_forward_only: 'partitioned_forward_only',
+  partitioned_by_domain: 'partitioned_by_domain',
 } as const;
 
 export type DatabaseStorageStatusCoordinatorBackend = typeof DatabaseStorageStatusCoordinatorBackend[keyof typeof DatabaseStorageStatusCoordinatorBackend];
@@ -523,21 +523,9 @@ export const DatabaseStorageStatusCoordinatorBackend = {
   database_url_4: 'database_url_4',
 } as const;
 
-export type DatabaseStorageStoreCapacity = typeof DatabaseStorageStoreCapacity[keyof typeof DatabaseStorageStoreCapacity];
-
-
-export const DatabaseStorageStoreCapacity = {
-  available: 'available',
-  full: 'full',
-  unavailable: 'unavailable',
-  unknown: 'unknown',
-  not_checked: 'not_checked',
-} as const;
-
 export interface DatabaseStorageStore {
   backend: DatabaseFailoverTarget;
   configured: boolean;
-  capacity: DatabaseStorageStoreCapacity;
   /** @nullable */
   eventJournalReady: boolean | null;
 }
@@ -556,8 +544,6 @@ export interface DatabaseStorageStatus {
   eventSchemasReady: boolean | null;
   readsRequireDb1: boolean;
   readsRequireAllStores: boolean;
-  storageLimitBytes: string;
-  computeLimitHours: number;
   stores: DatabaseStorageStore[];
   blockers: string[];
 }

@@ -514,7 +514,7 @@ export const getGetDatabaseStorageStatusUrl = () => {
 }
 
 /**
- * @summary Chủ sở hữu xem trạng thái định tuyến và dung lượng bốn kho
+ * @summary Chủ sở hữu xem trạng thái phân vùng cố định của bốn kho
  */
 export const getDatabaseStorageStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<DatabaseStorageStatus> => {
 
@@ -561,7 +561,7 @@ export type GetDatabaseStorageStatusQueryError = ErrorType<void>
 
 
 /**
- * @summary Chủ sở hữu xem trạng thái định tuyến và dung lượng bốn kho
+ * @summary Chủ sở hữu xem trạng thái phân vùng cố định của bốn kho
  */
 
 export function useGetDatabaseStorageStatus<TData = Awaited<ReturnType<typeof getDatabaseStorageStatus>>, TError = ErrorType<void>>(
