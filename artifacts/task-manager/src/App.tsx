@@ -21,7 +21,6 @@ import { AuthLoadingPage, AuthRestoreErrorPage, AuthSetupPage, clerkAppearance, 
 import { postAuthPath, retrySessionCheck, sessionScreen, validateRestoredSession } from '@/lib/auth-session';
 import { createWebSessionTokenGetter } from '@/lib/web-session-token';
 import { playSaveChime } from '@/lib/save-chime';
-import { BusinessSwitcher } from '@/components/business-switcher';
 import { BusinessAccessSettings } from '@/components/business-access-settings';
 import { Modal } from '@/components/modal';
 import {
@@ -186,7 +185,6 @@ function SignedInApplication({
               onSignOut={onSignOut}
               employeeView={<EmployeeModeView />}
               desktopLeftPanel={<HomePage revenueOnly />}
-              businessSwitcher={<BusinessSwitcher businesses={status.businesses ?? []} businessId={status.businessId} onSelect={onBusinessSelected} />}
               businessStatus={status}
               onBusinessSelected={onBusinessSelected}
               onContinuePersonal={onContinuePersonal}

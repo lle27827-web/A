@@ -72,6 +72,7 @@ export function BusinessAccessSettings({
   const busy = createBusiness.isPending || joinBusiness.isPending || rotateJoinCode.isPending || leaveBusiness.isPending;
   const businesses = status.businesses ?? [];
   const activeBusiness = businesses.find((business) => business.id === status.businessId);
+  const activeOwnerBusiness = activeBusiness?.role === 'owner' ? activeBusiness : null;
   const canLeaveActiveBusiness = Boolean(
     activeBusiness &&
     activeBusiness.role === 'employee' &&
@@ -117,6 +118,7 @@ export function BusinessAccessSettings({
   async function activateBusiness(id: string) {
     setError('');
     setNotice('');
+    if (created?.business.id !== id) setCreated(null);
     try {
       const selected = businesses.find((business) => business.id === id);
       if (selected) onRoleSelected?.(selected.role === 'owner' || selected.role === 'platform_admin' ? 'owner' : 'employee');
@@ -156,12 +158,11 @@ export function BusinessAccessSettings({
     });
   }
 
-  async function rotateCode() {
-    if (!created) return;
+  async function rotateCode(businessId: string) {
     setError('');
     setNotice('');
     try {
-      setCreated(await rotateJoinCode.mutateAsync({ id: created.business.id }));
+      setCreated(await rotateJoinCode.mutateAsync({ id: businessId }));
       setNotice('Mã mới đã tạo. Mã cũ không còn hiệu lực.');
     } catch {
       setError('Chưa thể đổi mã. Mã hiện tại vẫn còn hiệu lực.');
@@ -215,29 +216,54 @@ export function BusinessAccessSettings({
         </div>
       ) : role === 'owner' ? (
         <div className="business-role-panel">
-          <p>Mỗi cơ sở được phân vùng riêng theo mã doanh nghiệp trong bốn database hiện có.</p>
+          <p>Mỗi doanh nghiệp có dữ liệu riêng. Mã tham gia chỉ dùng để kết nối tài khoản nhân viên.</p>
           {created ? (
             <div className="business-created" role="status">
-              <strong>{created.business.name}</strong>
               {created.joinCode ? (
                 <>
-                  <div className="workspace-code" aria-label={`Mã tham gia ${created.joinCode}`}>
-                    {created.joinCode.split('').map((digit, index) => <span key={`${index}-${digit}`}>{digit}</span>)}
+                  <div className="business-owner-summary">
+                    <div>
+                      <span className="business-access-label">DOANH NGHIỆP</span>
+                      <strong>{created.business.name}</strong>
+                    </div>
+                    <div>
+                      <span className="business-access-label">MÃ THAM GIA</span>
+                      <div className="workspace-code" aria-label={`Mã tham gia ${created.joinCode}`}>
+                        {created.joinCode.split('').map((digit, index) => <span key={`${index}-${digit}`}>{digit}</span>)}
+                      </div>
+                    </div>
                   </div>
+                  <p>Tạo mã khác sẽ vô hiệu mã đang hiển thị; nhân viên đã liên kết vẫn giữ nguyên quyền.</p>
                   <div className="business-access-actions">
                     <button type="button" className="btn small" onClick={() => void copyCode()}>
                       {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
                       {copied ? 'Đã sao chép' : 'Sao chép mã'}
                     </button>
-                    <button type="button" className="btn small" onClick={() => void rotateCode()} disabled={busy}>
-                      <RefreshCw size={14} aria-hidden="true" />Đổi mã
+                    <button type="button" className="btn small" onClick={() => void rotateCode(created.business.id)} disabled={busy}>
+                      <RefreshCw size={14} aria-hidden="true" />Tạo mã mới
                     </button>
                     <button type="button" className="btn primary small" onClick={() => void activateBusiness(created.business.id)}>
                       Mở cơ sở<ArrowRight size={14} aria-hidden="true" />
                     </button>
                   </div>
                 </>
-              ) : <p>Mã tham gia chưa được máy chủ trả về. Hãy thử tạo mã mới.</p>}
+              ) : (
+                <>
+                  <span className="business-access-label">DOANH NGHIỆP</span>
+                  <strong>{created.business.name}</strong>
+                  <p>Mã tham gia chưa được máy chủ trả về. Hãy thử tạo mã mới.</p>
+                </>
+              )}
+            </div>
+          ) : activeOwnerBusiness ? (
+            <div className="business-created" data-testid="active-business-settings">
+              <span className="business-access-label">DOANH NGHIỆP</span>
+              <strong>{activeOwnerBusiness.name}</strong>
+              <p>Mã hiện tại không thể xem lại. Tạo mã mới sẽ vô hiệu mã tham gia cũ nhưng không ảnh hưởng nhân viên đã liên kết.</p>
+              <button type="button" className="btn primary small" onClick={() => void rotateCode(activeOwnerBusiness.id)} disabled={busy}>
+                {busy ? <LoaderCircle size={14} className="spin" aria-hidden="true" /> : <RefreshCw size={14} aria-hidden="true" />}
+                Tạo mã mới
+              </button>
             </div>
           ) : (
             <form className="business-access-form" onSubmit={(event) => void createWorkspace(event)} aria-busy={busy}>
@@ -254,6 +280,12 @@ export function BusinessAccessSettings({
         </div>
       ) : (
         <div className="business-role-panel">
+          {activeBusiness?.role === 'employee' && (
+            <div className="business-current" data-testid="active-employee-business">
+              <span className="business-access-label">DOANH NGHIỆP ĐANG THAM GIA</span>
+              <strong>{activeBusiness.name}</strong>
+            </div>
+          )}
           <p>Nhập mã doanh nghiệp gồm 10 chữ số. Chủ cơ sở vẫn cần cấp quyền trước khi tài khoản xem dữ liệu.</p>
           <form className="business-access-form" onSubmit={(event) => void joinWorkspace(event)} aria-busy={busy}>
             <label className="field" htmlFor="settings-business-join-code">Mã doanh nghiệp

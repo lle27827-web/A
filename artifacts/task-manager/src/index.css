@@ -172,10 +172,6 @@ html.app-long-press-save-pending * {
 .search input::placeholder { color: hsl(var(--search-foreground) / .72); opacity: 1; }
 .account { margin-left: auto; display: flex; align-items: center; gap: 12px; white-space: nowrap; }
 .account-business-actions { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.active-business-context { display: flex; flex-direction: column; gap: 2px; min-width: 0; max-width: 230px; line-height: 1.15; color: hsl(var(--foreground)); }
-.active-business-name { overflow: hidden; max-width: 100%; color: hsl(var(--foreground)); font-size: 13px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
-.active-business-code { display: flex; align-items: baseline; gap: 5px; min-width: 0; color: hsl(var(--muted-foreground)); font-size: 10px; font-weight: 700; }
-.active-business-code code { min-width: 0; color: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; font-weight: 600; overflow-wrap: anywhere; }
 .link-strong, .link-soft { display: inline-flex; align-items: center; gap: 4px; color: hsl(var(--primary)); font-size: 13px; font-weight: 700; text-decoration: none; }
 .link-soft { font-weight: 600; color: hsl(var(--muted-foreground)); }
 .link-strong:hover, .link-soft:hover { text-decoration: underline; }
@@ -465,6 +461,13 @@ option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
 .business-created { display: grid; gap: 8px; }
 .business-created > strong { font-size: 14px; }
 .business-created > p { margin: 0; color: hsl(var(--muted-foreground)); font-size: 12px; }
+.business-access-label { color: hsl(var(--muted-foreground)); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.business-owner-summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 10px 12px; border: 1px solid hsl(var(--border)); border-radius: 9px; background: hsl(var(--card)); }
+.business-owner-summary > div { display: grid; min-width: 0; gap: 5px; }
+.business-owner-summary strong { overflow-wrap: anywhere; font-size: 14px; }
+.business-owner-summary .workspace-code { margin: 0; }
+.business-current { display: grid; gap: 4px; margin: 0 0 12px; padding: 10px 12px; border: 1px solid hsl(var(--border)); border-radius: 9px; background: hsl(var(--card)); }
+.business-current strong { color: hsl(var(--foreground)); font-size: 14px; }
 .business-access-actions { display: flex; flex-wrap: wrap; gap: 7px; }
 .business-access-actions .btn { min-height: 36px; }
 .business-access-settings .workspace-code { margin: 8px 0; }
@@ -931,11 +934,10 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 .time-cell time { font-variant-numeric: tabular-nums; }
 @media (max-width: 760px) { .reports { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 640px) {
-  .account { flex-wrap: wrap; gap: 6px; white-space: normal; }
-  .account-business-actions { flex: 1 1 100%; justify-content: space-between; gap: 8px; }
-  .active-business-context { flex: 1 1 auto; max-width: min(220px, calc(100% - 100px)); }
-  .active-business-code { flex-wrap: wrap; gap: 3px 5px; }
-  .active-business-code code { font-size: 9px; }
+  .account { flex-wrap: nowrap; gap: 6px; white-space: nowrap; }
+  .account-business-actions { flex: 0 0 auto; justify-content: flex-end; gap: 6px; }
+  .account .mode-pill { padding: 5px 7px; font-size: 11px; }
+  .business-owner-summary { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Small screens: keep content inside the viewport instead of squeezing the report rows. */
@@ -972,7 +974,7 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
   .topbar-inner, .main, .footer { width: calc(100% - 20px); }
   .topbar-inner { gap: 8px; }
   .brand { flex-shrink: 0; }
-  .account { flex-wrap: wrap; }
+  .account { flex-wrap: nowrap; }
   .tiles { grid-template-columns: minmax(0, 1fr); }
   .panel { padding: 12px; }
   .settings-dialog { width: calc(100vw - 16px); max-height: calc(var(--visible-viewport-height, 100dvh) - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); padding: 12px; }

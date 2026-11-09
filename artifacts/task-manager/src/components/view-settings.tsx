@@ -110,7 +110,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
           {businessStatus && onBusinessSelected && onContinuePersonal && onRefreshStatus && (
             <button type="button" className="settings-link" aria-expanded={businessAccessOpen} aria-controls="settings-business-access"
               onClick={() => setBusinessAccessOpen((value) => !value)} data-testid="button-open-business-access">
-              <Building2 size={15} aria-hidden="true" /><span className="grow"><strong>Vai trò và cơ sở</strong><span className="muted">Chọn sổ cá nhân, chủ doanh nghiệp hoặc nhân viên</span></span><ChevronRight size={16} aria-hidden="true" />
+              <Building2 size={15} aria-hidden="true" /><span className="grow"><strong>Doanh nghiệp và mã tham gia</strong><span className="muted">Tên doanh nghiệp, mã tham gia và chuyển cơ sở</span></span><ChevronRight size={16} aria-hidden="true" />
             </button>
           )}
           {businessStatus && onBusinessSelected && onContinuePersonal && onRefreshStatus && (
