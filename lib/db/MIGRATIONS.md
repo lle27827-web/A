@@ -77,18 +77,30 @@ advance on rolled-back inserts; gaps in IDs are normal, not lost records.
 
 ## Vercel and Replit
 
-The Vercel API build runs `migrate:all-vercel-stores` and then the read-only
-`migrate:verify-stores`. It applies the existing idempotent compatibility
-updates sequentially to each unique configured database, preferring configured
-direct URLs. A completely empty database is initialized with the reviewed
-append-only migration sequence. A partially populated schema is not baselined or
-reset; verification fails the build if required tables/columns are absent. These
-commands do not migrate the failover control table, whose migration remains
-explicit and must be run before deploying code that requires its recovery fields.
-Before changing schemas, the migration command requires four distinct resolved
-stores. The retention-index step then uses the single `DATABASE_URL` target
-supplied by each loop iteration; it must not re-resolve all store variables
-inside the per-store migration.
+The Vercel API build runs `migrate:all-vercel-stores`, then the read-only
+`migrate:verify-stores`, then the API build. The migration command preflights the
+runtime store configuration and all four distinct direct Neon URLs before
+opening database connections. It then applies the existing idempotent
+compatibility updates sequentially in DB1, DB2, DB3, DB4 order. A completely
+empty database is initialized with the reviewed append-only migration sequence.
+A partially populated schema is not baselined or reset; verification fails the
+build if required tables/columns are absent. Migration steps are not a
+distributed transaction: if a later step fails, earlier successful schema
+changes remain, and Vercel skips verification and the API build. Correct the
+reported environment/schema issue and rerun the build; do not reset or baseline
+a populated database to recover. These commands do not migrate the failover
+control table, whose migration remains explicit and must be run before deploying
+code that requires its recovery fields. The retention-index step uses the single
+`DATABASE_URL` target supplied by each loop iteration; it must not re-resolve
+all store variables inside the per-store migration.
+
+The build migration requires direct endpoint values for DB1 through DB4. It
+accepts `NEON_DB1_DIRECT_URL` or `DATABASE_URL_1_DIRECT` for DB1,
+`DATABASE_URL_DIRECT` or `NEON_SOURCE_DIRECT_URL` for DB2,
+`MIGRATE_DATABASE_URL_3_DIRECT` or `DATABASE_URL_3_DIRECT` for DB3, and
+`MIGRATE_DATABASE_URL_4_DIRECT` or `DATABASE_URL_4_DIRECT` for DB4. Preview
+builds run the same migration sequence, so they must use isolated Preview
+databases rather than Production endpoints.
 Do not replace the Vercel compatibility path with general `migrate` on a
 populated database until that Vercel target has been audited and its baseline
 explicitly authorized and recorded.
@@ -114,7 +126,9 @@ adds idempotent interrupted-switch recovery fields; the runtime refuses
 promotion to a new node until the schema accepts that node. Existing stale
 `switching` rows without source/target metadata are marked for manual review and
 remain write-locked.
-Do not add the migration to a Vercel build hook.
+Do not add `migrate:database-failover-state` to a Vercel build hook. This is a
+separate, explicit migration; the automatic four-store schema pipeline described
+above does not apply it.
 
 ### DB4 as the failover coordinator
 

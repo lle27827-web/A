@@ -24,8 +24,7 @@ Thêm các biến này trong Vercel Project Settings → Environment Variables. 
 | `DATABASE_URL_1` | API | DB1: kho chính của chấm công cơ sở/nhân viên. |
 | `DATABASE_URL_3` | API | DB3: kho chính của sổ chấm công cá nhân. |
 | `DATABASE_URL_4` | API | DB4: kho chính của dữ liệu dùng chung và bộ điều phối phân vùng. |
-| `NEON_DB1_DIRECT_URL`, `DATABASE_URL_DIRECT`, `DATABASE_URL_3_DIRECT`, `DATABASE_URL_4_DIRECT` | API/migration | URL Neon direct, không qua pooler. `DATABASE_URL_DIRECT` và các biến `_3_DIRECT`/`_4_DIRECT` tương ứng DB2/3/4; `NEON_DB1_DIRECT_URL` dùng cho DB1. Các biến direct được ưu tiên khi có; nếu không, bước tạo index ngày dùng URL pooled với DDL giao dịch an toàn. |
-| `NEON_SOURCE_DIRECT_URL`, `MIGRATE_DATABASE_URL_3_DIRECT`, `MIGRATE_DATABASE_URL_4_DIRECT` | Migration | Tên direct URL tương thích cho DB2/3/4 nếu không dùng các biến `DATABASE_URL_*_DIRECT`. Không in giá trị connection string vào log. |
+| `NEON_DB1_DIRECT_URL`, `NEON_SOURCE_DIRECT_URL`, `MIGRATE_DATABASE_URL_3_DIRECT`, `MIGRATE_DATABASE_URL_4_DIRECT` | Migration trong build | URL direct tương ứng DB1–DB4; host không được chứa `-pooler`. Các bí danh `DATABASE_URL_1_DIRECT`, `DATABASE_URL_DIRECT`, `DATABASE_URL_3_DIRECT`, `DATABASE_URL_4_DIRECT` cũng được nhận diện. Cả bốn URL direct phải có trước khi migration bắt đầu; lỗi chỉ nêu tên DB/biến, không in giá trị URL. |
 | `DATABASE_STORAGE_MODE` | API | Giữ `domain_partitioned` để dùng các cặp kho cố định theo loại dữ liệu; `partitioned` cũng được hiểu theo cùng cách. |
 | `APP_CLERK_SECRET_KEY` | API | Secret key của Clerk Production bên ngoài. Không dùng khóa Clerk do Replit quản lý hoặc khóa Development. |
 | `APP_CLERK_PUBLISHABLE_KEY` | API | Publishable key của cùng Clerk Production. |
@@ -47,13 +46,29 @@ Nếu thiếu biến xác thực hoặc khóa không hợp lệ, khách vẫn xe
 
 API được truy cập cùng domain qua `/api/*`; không bật CORS cho mọi domain. Với các bản Preview, hãy dùng database riêng nếu không muốn chúng ghi vào dữ liệu production.
 
+## Migration tự động trong build Vercel
+
+Chủ dự án đã chọn giữ migration tự động. Build của service `api-server` chạy đúng thứ tự trong `vercel.json`:
+
+1. `pnpm --filter @workspace/db run migrate:all-vercel-stores`
+2. `pnpm --filter @workspace/db run migrate:verify-stores`
+3. `pnpm -r --filter @workspace/api-server... --if-present run build`
+
+Chuỗi này chạy ở mỗi build của `api-server`; không nằm trong build của `task-manager` hay `mockup-sandbox`. `migrate:all-vercel-stores` kiểm tra cấu hình runtime và bốn URL migration direct hợp lệ, khác nhau trước khi mở kết nối hay thay đổi schema. Sau đó script xử lý theo thứ tự DB1 → DB2 → DB3 → DB4. Với kho trống, script áp dụng migration nền đã duyệt; với kho đã có bảng, script không tạo baseline hoặc reset dữ liệu mà chạy các migration tương thích. Sau khi cả bốn kho chạy xong mới bắt đầu bước xác minh; API chỉ build nếu xác minh thành công.
+
+Migration không phải một giao dịch phân tán giữa bốn database. Nếu một script lỗi, build dừng tại đó nhưng các bước schema đã hoàn tất trước lỗi có thể vẫn còn. Các migration tương thích được thiết kế để chạy lại; sau khi sửa nguyên nhân, chạy lại build trên đúng môi trường để hoàn tất các bước còn thiếu và xác minh. Không xóa bảng, tạo baseline mới hoặc hoàn tác thủ công chỉ vì build dừng giữa chừng. Nếu lỗi là sai cấu trúc/dữ liệu, cần đối chiếu database và thông báo lỗi cụ thể trước khi chạy lại.
+
+`apply-business-tenancy.mjs` bắt buộc cả bốn endpoint là PostgreSQL direct, không qua pooler. Nếu thiếu, lặp lại, sai định dạng hoặc trỏ qua pooler, bước preflight dừng build trước khi mở database; thông báo nêu DB và tên biến cần sửa nhưng không in URL. Hãy cấu hình các biến direct trong đúng môi trường Vercel đang build. Preview cũng chạy cùng chuỗi migration; dùng bốn database riêng cho Preview để tránh migration Preview chạm vào Production.
+
+Trước khi phát hành Production, xác nhận bốn URL của môi trường Production trỏ tới bốn database khác nhau, bốn endpoint direct hợp lệ, và log build hoàn tất migration trên đủ bốn kho rồi xác minh schema. Không chạy một lệnh migration thủ công song song với build tự động.
+
 ## Neon PostgreSQL cho Vercel
 
 API dùng `pg` và Drizzle. Bốn kho giữ phân vùng dữ liệu cố định; không tự chuyển toàn bộ ứng dụng hay di chuyển dữ liệu cũ:
 
 1. Cặp kho cố định: cơ sở/chấm công `DB1 → DB2`; thẻ và nhật ký thẻ `DB2 → DB3`; sổ cá nhân `DB3 → DB4`; dữ liệu dùng chung `DB4 → DB3`. Mỗi thao tác được ghi vào đúng hai kho của cặp, còn DB4 điều phối thứ tự thao tác.
 2. Không còn ngưỡng 100 CU-giờ/1 GB hoặc truy vấn dung lượng/CU trên từng API request. Nếu ghi nhận lỗi đầy dung lượng, thao tác dừng ở cặp kho đã gán để anh tự nâng cấp. Chỉ lỗi kết nối thật mới được thử một cặp khác; không đổi kho vì CU/dung lượng và không di chuyển dữ liệu cũ.
-3. Cả bốn database cần schema ứng dụng và schema nhật ký phân vùng. Build Vercel tiếp tục chạy `migrate:all-vercel-stores` rồi `migrate:verify-stores`; giữ đủ bốn URL database và URL direct migration.
+3. Cả bốn database cần schema ứng dụng và schema nhật ký phân vùng. Build tự động áp dụng rồi xác minh schema theo quy trình ở mục “Migration tự động trong build Vercel”; giữ đủ bốn URL runtime và bốn URL direct migration.
 4. Không đưa `storage_partition_events` vào publication/subscription Neon. Ứng dụng ghi hai bản sao theo cặp cố định. Các subscription failover cũ không còn được dùng để chuyển toàn bộ database. Nếu không còn hệ thống nào khác cần replication cũ, có thể dừng các subscription `socong_source_from_db1_v1` (DB2), `socong_db3_from_source_v1` (DB3), `socong_db4_from_db3_v1` (DB4), `socong_db1_from_db2_v1` (DB1), `socong_db2_from_db3_v1` (DB2), `socong_db3_from_db4_v1` (DB3) để giảm công việc replication. Kiểm tra dữ liệu nền cũ và đối soát trước; gỡ subscription trước publication.
 5. Vercel gọi `/api/retention/cleanup` mỗi Chủ nhật lúc 03:00 UTC. Giữ `CRON_SECRET` trong Production và Preview mà anh muốn chạy; không mở endpoint này cho yêu cầu không có Bearer token.
 
@@ -63,8 +78,8 @@ API dùng `pg` và Drizzle. Bốn kho giữ phân vùng dữ liệu cố định
 
 Các biến này là cấu hình Vercel; không thay `DATABASE_URL` do Replit quản lý trong môi trường Replit.
 
-Đổi `DATABASE_URL` không sao chép dữ liệu. Database Neon mới phải được áp dụng schema trước khi ứng dụng đọc/ghi được. Dự án có migration ban đầu trong `lib/db/drizzle/0000_initial.sql` và lệnh `pnpm --filter @workspace/db run migrate` để tạo các bảng, bao gồm `members`. Chạy lệnh trong môi trường an toàn mà `DATABASE_URL` đang trỏ chính xác tới database Neon mới; không chạy với `DATABASE_URL` mặc định của Replit. Migration tạo cấu trúc bảng nhưng không sao chép dữ liệu Replit.
+Đổi `DATABASE_URL` không sao chép dữ liệu. Lệnh đơn kho `pnpm --filter @workspace/db run migrate` dùng cho thao tác chủ động trên một database đã chọn; không thay thế chuỗi build Vercel tự động nhiều kho. Chỉ chạy lệnh này trong môi trường an toàn mà `DATABASE_URL` trỏ chính xác tới database đích; không chạy với `DATABASE_URL` mặc định của Replit. Migration tạo cấu trúc bảng nhưng không sao chép dữ liệu Replit.
 
-Build Vercel hiện áp dụng và xác minh schema trên bốn kho bằng hai lệnh ở trên. Không thêm migration baseline khác vào build; nếu thay đổi quy trình build, phải kiểm tra đúng môi trường và đúng bốn URL trước để tránh ghi nhầm database.
+Build Vercel áp dụng và xác minh schema trên bốn kho bằng hai lệnh ở trên. Không thêm migration baseline khác vào build; nếu thay đổi quy trình build, cần có lựa chọn rõ ràng của chủ dự án và kiểm tra đúng môi trường cùng bốn URL trước để tránh ghi nhầm database.
 
 Không dán connection string hoặc thông tin đăng nhập vào chat hay mã nguồn.
