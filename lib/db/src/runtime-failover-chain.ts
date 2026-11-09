@@ -55,7 +55,9 @@ type FailoverReason = "availability" | "manual";
 
 const isVercel = process.env.VERCEL === "1";
 const configuredNodes = resolveDatabaseNodes(process.env);
-const databaseUrl = process.env.DATABASE_URL?.trim();
+const databaseUrl =
+  process.env.DATABASE_URL_2?.trim() ||
+  (!isVercel ? process.env.DATABASE_URL?.trim() : undefined);
 const failoverCoordinatorUrl =
   process.env.DATABASE_FAILOVER_COORDINATOR_URL?.trim();
 const stateBackend = resolveFailoverCoordinatorBackend(
@@ -82,7 +84,9 @@ function usesNeonPooler(connectionString: string): boolean {
 
 if (!databaseUrl) {
   throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
+    isVercel
+      ? "DATABASE_URL_2 must be set for DB2 on Vercel."
+      : "DATABASE_URL_2 or the local DATABASE_URL must be set.",
   );
 }
 
@@ -1930,7 +1934,9 @@ for (const node of nodes) {
 const defaultPool = nodeForBackend("database_url")?.pool ?? nodes[0]?.pool;
 if (!defaultPool) {
   throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
+    isVercel
+      ? "DATABASE_URL_2 must be set for DB2 on Vercel."
+      : "DATABASE_URL_2 or the local DATABASE_URL must be set.",
   );
 }
 

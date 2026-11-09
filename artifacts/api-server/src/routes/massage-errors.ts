@@ -58,7 +58,7 @@ function knownDatabaseFailure(error: unknown): { status: number; message: string
   if (code === "42P01" || code === "42703") {
     return {
       status: 503,
-      message: "Cấu trúc database Vercel chưa được cập nhật. Cần chạy migration trên đúng DATABASE_URL của Vercel.",
+      message: "Cấu trúc database Vercel chưa được cập nhật. Cần chạy migration trên đúng các kho DATABASE_URL_1–DATABASE_URL_4.",
     };
   }
 
@@ -68,7 +68,7 @@ function knownDatabaseFailure(error: unknown): { status: number; message: string
   ) {
     return {
       status: 503,
-      message: "Không thể kết nối database Vercel. Kiểm tra DATABASE_URL trong môi trường Production.",
+      message: "Không thể kết nối database Vercel. Kiểm tra các biến DATABASE_URL_1–DATABASE_URL_4 trong môi trường Production.",
     };
   }
 

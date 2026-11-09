@@ -21,10 +21,10 @@ Thêm các biến này trong Vercel Project Settings → Environment Variables. 
 | Biến | Dùng ở đâu | Lưu ý |
 | --- | --- | --- |
 | `DATABASE_URL_1` | API | DB1: kho chính của chấm công cơ sở/nhân viên. |
-| `DATABASE_URL` | API | DB2: kho chính của thẻ và lịch sử thẻ; giữ kín chuỗi kết nối. |
+| `DATABASE_URL_2` | API | DB2: kho chính của thẻ và lịch sử thẻ; giữ kín chuỗi kết nối. |
 | `DATABASE_URL_3` | API | DB3: kho chính của sổ chấm công cá nhân. |
 | `DATABASE_URL_4` | API | DB4: kho chính của dữ liệu dùng chung và bộ điều phối phân vùng. |
-| `NEON_DB1_DIRECT_URL`, `NEON_DB2_DIRECT_URL`, `NEON_DB3_DIRECT_URL`, `NEON_DB4_DIRECT_URL` | Migration trong build | Bí danh direct tương ứng lần lượt với `DATABASE_URL_1`, `DATABASE_URL`, `DATABASE_URL_3`, `DATABASE_URL_4`; mỗi URL phải dùng `postgres://` hoặc `postgresql://` và hostname không có `-pooler`. Nếu không có biến direct, mã thử URL runtime tương ứng nhưng chỉ chấp nhận endpoint direct. |
+| `NEON_DB1_DIRECT_URL`, `NEON_DB2_DIRECT_URL`, `NEON_DB3_DIRECT_URL`, `NEON_DB4_DIRECT_URL` | Migration trong build | Bí danh direct tương ứng lần lượt với `DATABASE_URL_1`, `DATABASE_URL_2`, `DATABASE_URL_3`, `DATABASE_URL_4`; mỗi URL phải dùng `postgres://` hoặc `postgresql://` và hostname không có `-pooler`. Nếu không có biến direct, mã thử URL runtime tương ứng nhưng chỉ chấp nhận endpoint direct. |
 | `DATABASE_STORAGE_MODE` | API | Giữ `domain_partitioned` để dùng các cặp kho cố định theo loại dữ liệu; `partitioned` cũng được hiểu theo cùng cách. |
 | `APP_CLERK_SECRET_KEY` | API | Secret key của Clerk Production bên ngoài. Không dùng khóa Clerk do Replit quản lý hoặc khóa Development. |
 | `APP_CLERK_PUBLISHABLE_KEY` | API | Publishable key của cùng Clerk Production. |
@@ -74,11 +74,11 @@ API dùng `pg` và Drizzle. Bốn kho giữ phân vùng dữ liệu cố định
 
 Để giảm CU khi đọc, mỗi lần đọc không có cache chỉ truy vấn nhật ký ở ba kho trước; kho thứ tư chỉ được hỏi nếu cần thay thế một kho không đọc được. Vì mỗi sự kiện đã có hai bản sao trên hai kho khác nhau, ba kho bất kỳ vẫn chứa ít nhất một bản sao của mọi sự kiện. Bản dữ liệu nền được đọc từ kho đầu tiên đọc được, chỉ thử kho kế tiếp nếu truy vấn đó lỗi. Kiểm tra schema điều phối DB4 được cache 60 giây; cache kết quả đọc vẫn là 3 giây. Đường ghi tiếp tục xác nhận hai bản sao và trạng thái thao tác trên DB4 để giữ khả năng khôi phục/idempotency.
 
-Ứng dụng không còn gọi Neon Usage API, truy vấn ngưỡng CU/dung lượng, hay tự chuyển kho theo các ngưỡng đó. Sau khi triển khai bản này, có thể xóa các biến cũ chỉ phục vụ việc đo ngưỡng và failover toàn cục: `NEON_API_KEY`, `NEON_PROJECT_ID_1`, `NEON_PROJECT_ID`, `NEON_PROJECT_ID_3`, `NEON_PROJECT_ID_4`, `DATABASE_URL_1_MAX_BYTES`, `DATABASE_URL_MAX_BYTES`, `DATABASE_URL_3_MAX_BYTES`, `DATABASE_URL_4_MAX_BYTES`, `FAILOVER_REQUIRE_CU_CHECK`, `PARTITION_REQUIRE_CU_CHECK`, `ALLOW_FORCE_FAILOVER`, `DATABASE_FAILOVER_COORDINATOR_URL` và `DATABASE_FAILOVER_COORDINATOR_BACKEND`. Việc xóa các biến này không xóa dữ liệu và không đổi phân vùng DB1–DB4. Không xóa `DATABASE_URL`, `DATABASE_URL_1`, `DATABASE_URL_3`, `DATABASE_URL_4`, `DATABASE_STORAGE_MODE`, các URL direct dùng cho migration, `CRON_SECRET` hoặc khóa Clerk.
+Ứng dụng không còn gọi Neon Usage API, truy vấn ngưỡng CU/dung lượng, hay tự chuyển kho theo các ngưỡng đó. Sau khi triển khai bản này, có thể xóa các biến cũ chỉ phục vụ việc đo ngưỡng và failover toàn cục: `NEON_API_KEY`, `NEON_PROJECT_ID_1`, `NEON_PROJECT_ID`, `NEON_PROJECT_ID_3`, `NEON_PROJECT_ID_4`, `DATABASE_URL_1_MAX_BYTES`, `DATABASE_URL_MAX_BYTES`, `DATABASE_URL_3_MAX_BYTES`, `DATABASE_URL_4_MAX_BYTES`, `FAILOVER_REQUIRE_CU_CHECK`, `PARTITION_REQUIRE_CU_CHECK`, `ALLOW_FORCE_FAILOVER`, `DATABASE_FAILOVER_COORDINATOR_URL` và `DATABASE_FAILOVER_COORDINATOR_BACKEND`. Việc xóa các biến này không xóa dữ liệu và không đổi phân vùng DB1–DB4. Không xóa `DATABASE_URL_1`, `DATABASE_URL_2`, `DATABASE_URL_3`, `DATABASE_URL_4`, `DATABASE_STORAGE_MODE`, các URL direct dùng cho migration, `CRON_SECRET` hoặc khóa Clerk.
 
-Các biến này là cấu hình Vercel; không thay `DATABASE_URL` do Replit quản lý trong môi trường Replit.
+Các biến `DATABASE_URL_1` đến `DATABASE_URL_4` là cấu hình Vercel; không thay `DATABASE_URL` do Replit quản lý trong môi trường Replit. `DATABASE_URL` vẫn có thể được dùng làm đích tạm thời bởi script migration đơn kho, nhưng không còn là URL runtime DB2 trên Vercel.
 
-Đổi `DATABASE_URL` không sao chép dữ liệu. Lệnh đơn kho `pnpm --filter @workspace/db run migrate` dùng cho thao tác chủ động trên một database đã chọn; không thay thế chuỗi build Vercel tự động nhiều kho. Chỉ chạy lệnh này trong môi trường an toàn mà `DATABASE_URL` trỏ chính xác tới database đích; không chạy với `DATABASE_URL` mặc định của Replit. Migration tạo cấu trúc bảng nhưng không sao chép dữ liệu Replit.
+Đổi `DATABASE_URL_2` không sao chép dữ liệu. Lệnh đơn kho `pnpm --filter @workspace/db run migrate` dùng cho thao tác chủ động trên một database đã chọn; không thay thế chuỗi build Vercel tự động nhiều kho. Lệnh này dùng `DATABASE_URL` làm đích migration tạm thời; chỉ chạy trong môi trường an toàn mà biến đó trỏ chính xác tới database đích, không chạy với `DATABASE_URL` mặc định của Replit. Migration tạo cấu trúc bảng nhưng không sao chép dữ liệu Replit.
 
 Build Vercel áp dụng và xác minh schema trên bốn kho bằng hai lệnh ở trên. Không thêm migration baseline khác vào build; nếu thay đổi quy trình build, cần có lựa chọn rõ ràng của chủ dự án và kiểm tra đúng môi trường cùng bốn URL trước để tránh ghi nhầm database.
 

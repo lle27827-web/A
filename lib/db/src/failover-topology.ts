@@ -35,7 +35,7 @@ const DATABASE_ENV = [
   },
   {
     backend: "database_url",
-    urlKey: "DATABASE_URL",
+    urlKey: "DATABASE_URL_2",
     adminUrlKey: "NEON_DB2_DIRECT_URL",
     applicationName: "so-cong-db-fallback",
   },
@@ -97,7 +97,10 @@ export function resolveDatabaseNodes(
 ): DatabaseNodeConfig[] {
   const configured = DATABASE_ENV.map((entry) => ({
     backend: entry.backend,
-    url: env[entry.urlKey]?.trim() ?? "",
+    url:
+      entry.backend === "database_url" && env.VERCEL !== "1"
+        ? env.DATABASE_URL_2?.trim() || env.DATABASE_URL?.trim() || ""
+        : env[entry.urlKey]?.trim() ?? "",
     adminUrl: env[entry.adminUrlKey]?.trim() || undefined,
     applicationName: entry.applicationName,
   }));
@@ -111,7 +114,7 @@ export function resolveDatabaseNodes(
   if (!configured[0].url) {
     if (configured[2].url || configured[3].url) {
       throw new Error(
-        "DATABASE_URL_3 and DATABASE_URL_4 require DATABASE_URL_1 and DATABASE_URL to preserve the failover chain.",
+        "DATABASE_URL_3 and DATABASE_URL_4 require DATABASE_URL_1 and DATABASE_URL_2 to preserve the failover chain.",
       );
     }
     return configured[1].url ? [configured[1]] : [];
@@ -119,7 +122,7 @@ export function resolveDatabaseNodes(
 
   if ((configured[2].url || configured[3].url) && !configured[1].url) {
     throw new Error(
-      "DATABASE_URL_3 and DATABASE_URL_4 require DATABASE_URL as the second link in the failover chain.",
+      "DATABASE_URL_3 and DATABASE_URL_4 require DATABASE_URL_2 as the second link in the failover chain.",
     );
   }
 

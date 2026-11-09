@@ -21,11 +21,11 @@ On 2026-10-22, after read-only hashes and schemas matched across all 14 business
 
 **How to apply:** Before cutover, recheck data parity and schemas, deploy the matching runtime, and obtain separate authorization to enable partition mode.
 
-The four Neon stores are DB1=`DATABASE_URL_1` + `NEON_DB1_DIRECT_URL`, DB2=`DATABASE_URL` + `NEON_DB2_DIRECT_URL`, DB3=`DATABASE_URL_3` + `NEON_DB3_DIRECT_URL`, and DB4=`DATABASE_URL_4` + `NEON_DB4_DIRECT_URL`. Keep the runtime URL and direct URL for each label on the same Neon database.
+The four Neon stores are DB1=`DATABASE_URL_1` + `NEON_DB1_DIRECT_URL`, DB2=`DATABASE_URL_2` + `NEON_DB2_DIRECT_URL`, DB3=`DATABASE_URL_3` + `NEON_DB3_DIRECT_URL`, and DB4=`DATABASE_URL_4` + `NEON_DB4_DIRECT_URL`. Keep the runtime URL and direct URL for each label on the same Neon database. `DATABASE_URL` remains the Replit-managed database variable and a generic one-off migration target, not Vercel DB2's runtime URL.
 
 **Why:** the user asked to restore one-to-one matching between each numbered database and its connection variables.
 
-**How to apply:** DB1 is `DATABASE_URL_1`, DB2 is `DATABASE_URL`, and DB3/DB4 retain their numbered variables. Keep backend labels and data-domain assignments stable.
+**How to apply:** DB1 is `DATABASE_URL_1`, DB2 is `DATABASE_URL_2`, and DB3/DB4 retain their numbered variables. Keep backend labels and data-domain assignments stable.
 
 DB4 is the chosen routing coordinator; the user accepts it as a single point of failure.
 
