@@ -103,6 +103,7 @@
 .print-preview-area {
   display: grid;
   gap: 8px;
+  grid-column: 1 / -1;
   border-top: 1px solid hsl(var(--border));
   padding-top: 12px;
 }
@@ -126,11 +127,80 @@
   text-align: right;
 }
 
-.print-preview-grid {
+.print-preview-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 175px), 1fr));
-  align-items: start;
+  min-width: 0;
+  gap: 6px;
+}
+
+.print-template-row {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 9px;
+  background: hsl(var(--background));
+}
+
+.print-template-row > summary {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
+  padding: 8px 11px;
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  list-style: none;
+}
+
+.print-template-row > summary::-webkit-details-marker {
+  display: none;
+}
+
+.print-template-row > summary > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.print-template-row > summary > span,
+.print-template-row > summary > span strong {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.print-template-row > summary small {
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.print-template-row > summary > svg {
+  flex: 0 0 auto;
+  color: hsl(var(--muted-foreground));
+  transition: transform .15s ease;
+}
+
+.print-template-row[open] > summary {
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.print-template-row[open] > summary > svg {
+  transform: rotate(180deg);
+}
+
+.print-template-row > summary:focus-visible {
+  outline: 3px solid hsl(var(--primary) / .65);
+  outline-offset: -3px;
+}
+
+.print-preview-figure {
+  padding: 12px;
+}
+
+.print-template-row--payroll > .payroll-print-report {
+  padding: 12px;
+  border-top: 0;
 }
 
 .print-preview-figure {

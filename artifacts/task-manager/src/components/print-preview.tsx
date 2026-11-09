@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Printer } from 'lucide-react';
+import { ChevronDown, Printer } from 'lucide-react';
 import {
   CARD_CHECKBOX_COUNT,
   getPrintPageLayout,
@@ -71,17 +71,22 @@ export function PrintPreview({
   return (
     <section className="print-preview-area" aria-labelledby="print-preview-title">
       <div className="print-preview-heading">
-        <h4 id="print-preview-title">Xem trước phiếu in</h4>
+        <h4 id="print-preview-title">Mẫu in</h4>
         <span>{paperLabel}</span>
       </div>
-      <div className="print-preview-grid">
+      <div className="print-preview-list">
       {previews.map((preview) => {
           const sampleKind = preview.kind;
           const sampleCaption = preview.caption;
           const isCard = sampleKind !== 'session';
           const figureCaption = preview.caption;
           return (
-            <figure className="print-preview-figure" key={preview.kind}>
+            <details className="print-template-row" key={preview.kind} data-testid={`details-print-preview-${sampleKind}`}>
+              <summary>
+                <span>{figureCaption}</span>
+                <ChevronDown size={16} aria-hidden="true" />
+              </summary>
+              <figure className="print-preview-figure">
             <article
               className={`print-preview-sheet print-preview-sheet--${paperSize}`}
               style={{
@@ -124,7 +129,6 @@ export function PrintPreview({
               </p>
               <footer>Cảm ơn quý khách đã sử dụng dịch vụ</footer>
             </article>
-            <figcaption>{figureCaption}</figcaption>
             <button
               type="button"
               className="btn ghost small print-preview-test"
@@ -135,6 +139,7 @@ export function PrintPreview({
               <Printer size={14} aria-hidden="true" /> In thử {sampleCaption.toLocaleLowerCase('vi')}
             </button>
           </figure>
+            </details>
           );
         })}
       </div>

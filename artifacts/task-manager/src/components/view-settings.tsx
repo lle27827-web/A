@@ -1,7 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { AuthStatus, FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
-import { ArrowLeft, BookHeart, Building2, ChevronRight, History, Home, KeyRound, Menu, Printer, Trash2, X } from 'lucide-react';
+import { ArrowLeft, BookHeart, Building2, ChevronDown, ChevronRight, History, Home, KeyRound, Menu, Printer, Trash2, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
@@ -76,7 +76,12 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   const [historyOpen, setHistoryOpen] = useState(false);
   const [deleteHistoryOpen, setDeleteHistoryOpen] = useState(false);
   const [businessAccessOpen, setBusinessAccessOpen] = useState(false);
+  const [payrollPrintOpen, setPayrollPrintOpen] = useState(false);
   const printPrefs = printPreferences ?? DEFAULT_PRINT_PREFERENCES;
+
+  useEffect(() => {
+    if (!open) setPayrollPrintOpen(false);
+  }, [open]);
 
   function pickHistory(month: string, date: string) {
     setHistoryOpen(false);
@@ -229,11 +234,22 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
                   placeholder="Nhập số điện thoại cơ sở"
                   data-testid="input-print-facility-phone" />
               </label>
-              <PrintPreview paperSize={printPrefs.paperSize} customWidthMm={printPrefs.customWidthMm}
+              <PrintPreview key={open ? 'settings-open' : 'settings-closed'}
+                paperSize={printPrefs.paperSize} customWidthMm={printPrefs.customWidthMm}
                 customHeightMm={printPrefs.customHeightMm} facilityName={printPrefs.facilityName}
                 facilityAddress={printPrefs.facilityAddress} facilityTaxCode={printPrefs.facilityTaxCode}
                 facilityPhone={printPrefs.facilityPhone} />
-              <MonthlyPayrollPrint enabled={canViewEmployees} />
+              {canViewEmployees && (
+                <details className="print-template-row print-template-row--payroll" open={payrollPrintOpen}
+                  onToggle={(event) => setPayrollPrintOpen(event.currentTarget.open)}
+                  data-testid="details-print-preview-payroll">
+                  <summary>
+                    <span><strong>Tổng công nhân viên</strong><small>Mẫu in và tải Excel theo tháng</small></span>
+                    <ChevronDown size={16} aria-hidden="true" />
+                  </summary>
+                  {payrollPrintOpen && <MonthlyPayrollPrint enabled={canViewEmployees} />}
+                </details>
+              )}
             </section>
           )}
 
