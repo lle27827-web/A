@@ -198,12 +198,13 @@ function SignedInApplication({
       </Switch>
       {showRoleOnboarding && (
         <Modal
-          title="Chọn cách sử dụng Sổ Công"
-          description="Chọn sổ cá nhân, chủ doanh nghiệp hoặc nhân viên. Nếu bỏ qua, tài khoản sẽ dùng sổ cá nhân."
+          title="Chọn vai trò"
+          description="Chọn chủ doanh nghiệp, nhân viên hoặc sổ cá nhân."
           onClose={onFinishRoleOnboarding}
           testId="dialog-first-role-choice"
         >
           <BusinessAccessSettings
+            mode="onboarding"
             status={status}
             onBusinessSelected={onBusinessSelected}
             onContinuePersonal={onFinishRoleOnboarding}

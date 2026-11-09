@@ -14,6 +14,7 @@ import { readBusinessRolePreference } from '@/lib/business-role-preference';
 type RoleChoice = 'personal' | 'owner' | 'employee';
 
 type Props = {
+  mode?: 'settings' | 'onboarding';
   status: AuthStatus;
   onBusinessSelected: (id: string) => Promise<void> | void;
   onContinuePersonal: () => void;
@@ -47,6 +48,7 @@ function hasFacilityPermission(status: AuthStatus) {
 }
 
 export function BusinessAccessSettings({
+  mode = 'settings',
   status,
   onBusinessSelected,
   onContinuePersonal,
@@ -55,9 +57,11 @@ export function BusinessAccessSettings({
   onRoleSelected,
   onRoleFlowCompleted,
 }: Props) {
+  const isOnboarding = mode === 'onboarding';
   const [role, setRole] = useState<RoleChoice>(() =>
     readBusinessRolePreference(status.userId) ?? currentRole(status),
   );
+  const [setupRole, setSetupRole] = useState<RoleChoice | null>(null);
   const [businessName, setBusinessName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [created, setCreated] = useState<BusinessAccessResult | null>(null);
@@ -73,6 +77,7 @@ export function BusinessAccessSettings({
   const businesses = status.businesses ?? [];
   const activeBusiness = businesses.find((business) => business.id === status.businessId);
   const activeOwnerBusiness = activeBusiness?.role === 'owner' ? activeBusiness : null;
+  const selectedRole = isOnboarding ? setupRole : role;
   const canLeaveActiveBusiness = Boolean(
     activeBusiness &&
     activeBusiness.role === 'employee' &&
@@ -107,6 +112,10 @@ export function BusinessAccessSettings({
       });
       onRoleSelected?.('employee');
       setJoinCode('');
+      if (isOnboarding) {
+        await onBusinessSelected(result.business.id);
+        return;
+      }
       await onRefreshStatus();
       setNotice(`Đã liên kết tài khoản với “${result.business.name}”. Chủ cơ sở cần cấp quyền trước khi bạn xem dữ liệu.`);
       onRoleFlowCompleted?.();
@@ -180,41 +189,75 @@ export function BusinessAccessSettings({
     }
   }
 
+  function selectRole(nextRole: RoleChoice) {
+    setRole(nextRole);
+    setError('');
+    setNotice('');
+    setCreated(null);
+    onRoleSelected?.(nextRole);
+    if (isOnboarding) {
+      setSetupRole(nextRole);
+      if (nextRole === 'personal') onContinuePersonal();
+    }
+  }
+
+  function returnToRoleChoices() {
+    setSetupRole(null);
+    setError('');
+    setNotice('');
+    setCreated(null);
+  }
+
+  const roleChoices: RoleChoice[] = isOnboarding
+    ? ['owner', 'employee', 'personal']
+    : ['personal', 'owner', 'employee'];
+
   return (
-    <section className="business-access-settings" aria-labelledby="business-access-title">
-      <div className="business-access-heading">
-        <h3 id="business-access-title">Vai trò và cơ sở</h3>
-        <p>Chưa chọn vai trò thì mặc định sử dụng sổ cá nhân. Quyền cơ sở do máy chủ xác minh.</p>
-      </div>
+    <section className="business-access-settings" aria-labelledby={isOnboarding ? undefined : 'business-access-title'}
+      aria-label={isOnboarding ? 'Chọn vai trò' : undefined}>
+      {!isOnboarding && (
+        <div className="business-access-heading">
+          <h3 id="business-access-title">Vai trò và cơ sở</h3>
+          <p>Chưa chọn vai trò thì mặc định sử dụng sổ cá nhân. Quyền cơ sở do máy chủ xác minh.</p>
+        </div>
+      )}
       {status.businessAccessAvailable === false && (
         <div className="banner danger" role="status" data-testid="status-business-access-unavailable">
           Kho doanh nghiệp chưa sẵn sàng. Sổ cá nhân vẫn dùng được; chưa thể mở, tạo hoặc tham gia cơ sở.
         </div>
       )}
 
-      <div className="business-role-options" role="group" aria-label="Chọn vai trò">
-        <button type="button" aria-pressed={role === 'personal'} className={role === 'personal' ? 'selected' : ''}
-          onClick={() => { setRole('personal'); onRoleSelected?.('personal'); setCreated(null); setError(''); setNotice(''); }}>
-          <BookHeart size={16} aria-hidden="true" /><span>Sổ cá nhân</span>
-        </button>
-        <button type="button" aria-pressed={role === 'owner'} className={role === 'owner' ? 'selected' : ''}
-          onClick={() => { setRole('owner'); onRoleSelected?.('owner'); setCreated(null); setError(''); setNotice(''); }}>
-          <Building2 size={16} aria-hidden="true" /><span>Chủ doanh nghiệp</span>
-        </button>
-        <button type="button" aria-pressed={role === 'employee'} className={role === 'employee' ? 'selected' : ''}
-          onClick={() => { setRole('employee'); onRoleSelected?.('employee'); setCreated(null); setError(''); setNotice(''); }}>
-          <KeyRound size={16} aria-hidden="true" /><span>Nhân viên</span>
-        </button>
-      </div>
+      {isOnboarding && selectedRole ? (
+        <div className="business-role-selected">
+          <button type="button" className="link-soft as-button" onClick={returnToRoleChoices}>
+            <ArrowRight size={14} aria-hidden="true" className="back-arrow" />Chọn vai trò khác
+          </button>
+          <strong>{selectedRole === 'owner' ? 'Chủ doanh nghiệp' : selectedRole === 'employee' ? 'Nhân viên' : 'Sổ cá nhân'}</strong>
+        </div>
+      ) : (
+        <div className={`business-role-options${isOnboarding ? ' onboarding-role-options' : ''}`} role="group" aria-label="Chọn vai trò">
+          {roleChoices.map((choice) => (
+            <button key={choice} type="button" aria-pressed={!isOnboarding ? role === choice : undefined}
+              className={!isOnboarding && role === choice ? 'selected' : ''}
+              onClick={() => selectRole(choice)}>
+              {choice === 'owner' ? <Building2 size={16} aria-hidden="true" /> :
+                choice === 'employee' ? <KeyRound size={16} aria-hidden="true" /> :
+                  <BookHeart size={16} aria-hidden="true" />}
+              <span>{choice === 'owner' ? 'Chủ doanh nghiệp' : choice === 'employee' ? 'Nhân viên' : 'Sổ cá nhân'}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
-      {role === 'personal' ? (
+      {selectedRole === 'personal' ? (
+        isOnboarding ? null : (
         <div className="business-role-panel">
           <p>Sổ cá nhân là lựa chọn mặc định và chỉ lưu dữ liệu của tài khoản này.</p>
           <button type="button" className="btn small" onClick={() => { onCloseSettings?.(); onContinuePersonal(); }}>
             <BookHeart size={15} aria-hidden="true" />Mở sổ cá nhân
           </button>
-        </div>
-      ) : role === 'owner' ? (
+        </div>)
+      ) : selectedRole === 'owner' ? (
         <div className="business-role-panel">
           <p>Mỗi doanh nghiệp có dữ liệu riêng. Mã tham gia chỉ dùng để kết nối tài khoản nhân viên.</p>
           {created ? (
@@ -243,7 +286,7 @@ export function BusinessAccessSettings({
                       <RefreshCw size={14} aria-hidden="true" />Tạo mã mới
                     </button>
                     <button type="button" className="btn primary small" onClick={() => void activateBusiness(created.business.id)}>
-                      Mở cơ sở<ArrowRight size={14} aria-hidden="true" />
+                      {isOnboarding ? 'Tiếp tục' : 'Mở cơ sở'}<ArrowRight size={14} aria-hidden="true" />
                     </button>
                   </div>
                 </>
@@ -267,7 +310,7 @@ export function BusinessAccessSettings({
             </div>
           ) : (
             <form className="business-access-form" onSubmit={(event) => void createWorkspace(event)} aria-busy={busy}>
-              <label className="field" htmlFor="settings-business-create-name">Tên cơ sở
+              <label className="field" htmlFor="settings-business-create-name">Tên doanh nghiệp
                 <input id="settings-business-create-name" value={businessName} onChange={(event) => setBusinessName(event.target.value)}
                   minLength={2} maxLength={120} required autoComplete="organization" placeholder="Nhập tên doanh nghiệp" />
               </label>
@@ -278,7 +321,7 @@ export function BusinessAccessSettings({
             </form>
           )}
         </div>
-      ) : (
+      ) : selectedRole === 'employee' ? (
         <div className="business-role-panel">
           {activeBusiness?.role === 'employee' && (
             <div className="business-current" data-testid="active-employee-business">
@@ -296,11 +339,11 @@ export function BusinessAccessSettings({
             </label>
             <button type="submit" className="btn primary" disabled={busy || joinCode.length !== 10}>
               {busy ? <LoaderCircle size={15} className="spin" aria-hidden="true" /> : <KeyRound size={15} aria-hidden="true" />}
-              Tham gia cơ sở
+              {isOnboarding ? 'Tiếp tục' : 'Tham gia cơ sở'}
             </button>
           </form>
         </div>
-      )}
+      ) : null}
 
       {businesses.length > 0 && (
         <div className="business-connected-list">

@@ -446,6 +446,11 @@ option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
   color: hsl(var(--primary));
   background: hsl(var(--primary) / .08);
 }
+.onboarding-role-options { grid-template-columns: minmax(0, 1fr); }
+.onboarding-role-options button { justify-content: flex-start; min-height: 48px; padding-inline: 12px; background: hsl(var(--muted)); }
+.business-role-selected { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 4px 0 10px; }
+.business-role-selected strong { color: hsl(var(--foreground)); font-size: 14px; }
+.business-role-selected .back-arrow { transform: rotate(180deg); }
 [data-testid="dialog-first-role-choice"] .business-role-options button {
   background: hsl(var(--muted));
 }
