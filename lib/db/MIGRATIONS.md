@@ -100,7 +100,7 @@ prefers the uniform aliases `NEON_DB1_DIRECT_URL` through
 `DATABASE_URL_DIRECT`, `NEON_SOURCE_DIRECT_URL`,
 `MIGRATE_DATABASE_URL_3_DIRECT`, and `MIGRATE_DATABASE_URL_4_DIRECT` are also
 accepted. If a dedicated direct variable is absent, it can use the
-corresponding runtime variable (`DATABASE_URL`, `DATABASE_URL_1`,
+corresponding runtime variable (`DATABASE_URL_1`, `DATABASE_URL`,
 `DATABASE_URL_3`, or `DATABASE_URL_4`) only when it is a PostgreSQL URL whose
 host is not a `-pooler` endpoint. Validation errors identify the selected
 variable name but never print its value. Preview builds run the same migration
@@ -161,7 +161,7 @@ runtime fails closed if the coordinator state table is missing.
 
 ### Independent failover coordinator
 
-For failover to remain coordinatable when DB2 (`DATABASE_URL_1`) is unavailable,
+For failover to remain coordinatable when DB2 (`DATABASE_URL`) is unavailable,
 provision a separate PostgreSQL database that is not one of the four data
 stores. It stores only the single `public.db_failover_state` coordination row.
 The application continues using the legacy DB2 state table until
@@ -213,7 +213,7 @@ pnpm --filter @workspace/db run migrate:storage-partitioning
 The script prefers `NEON_DB1_DIRECT_URL` through `NEON_DB4_DIRECT_URL` and
 supports the legacy DB2–DB4 aliases `NEON_SOURCE_DIRECT_URL`,
 `MIGRATE_DATABASE_URL_3_DIRECT`, and `MIGRATE_DATABASE_URL_4_DIRECT`. It falls
-back to the corresponding `DATABASE_URL`, `DATABASE_URL_1`, `DATABASE_URL_3`,
+back to the corresponding `DATABASE_URL_1`, `DATABASE_URL`, `DATABASE_URL_3`,
 and `DATABASE_URL_4` values. It refuses pooler endpoints and repeated Neon
 hosts. A missing historical table or an exhausted integer ID range stops before
 creating any partition schema.

@@ -114,6 +114,28 @@ test("ordinary SQL and validation errors never trigger automatic failover", () =
   }
 });
 
+test("database labels retain their one-to-one environment mapping", () => {
+  const nodes = resolveDatabaseNodes({
+    DATABASE_URL_1: "postgres://user:pass@db1.example/app",
+    DATABASE_URL: "postgres://user:pass@db2.example/app",
+    DATABASE_URL_3: "postgres://user:pass@db3.example/app",
+    DATABASE_URL_4: "postgres://user:pass@db4.example/app",
+    NEON_DB1_DIRECT_URL: "postgres://user:pass@db1.example/app",
+    NEON_DB2_DIRECT_URL: "postgres://user:pass@db2.example/app",
+    NEON_DB3_DIRECT_URL: "postgres://user:pass@db3.example/app",
+    NEON_DB4_DIRECT_URL: "postgres://user:pass@db4.example/app",
+  });
+  assert.deepEqual(
+    nodes.map(({ backend, url, adminUrl }) => [backend, url, adminUrl]),
+    [
+      ["database_url_1", "postgres://user:pass@db1.example/app", "postgres://user:pass@db1.example/app"],
+      ["database_url", "postgres://user:pass@db2.example/app", "postgres://user:pass@db2.example/app"],
+      ["database_url_3", "postgres://user:pass@db3.example/app", "postgres://user:pass@db3.example/app"],
+      ["database_url_4", "postgres://user:pass@db4.example/app", "postgres://user:pass@db4.example/app"],
+    ],
+  );
+});
+
 test("independent coordinator URLs cannot share a database failure domain", () => {
   assert.equal(
     isSameDatabaseFailureDomain(
@@ -131,10 +153,10 @@ test("independent coordinator URLs cannot share a database failure domain", () =
   );
 });
 
-test("four-database failover order maps DATABASE_URL to DB1 and DATABASE_URL_1 to DB2", () => {
+test("four-database failover order maps DATABASE_URL_1 to DB1 and DATABASE_URL to DB2", () => {
   const nodes = resolveDatabaseNodes({
-    DATABASE_URL: "postgres://primary",
-    DATABASE_URL_1: "postgres://fallback",
+    DATABASE_URL_1: "postgres://primary",
+    DATABASE_URL: "postgres://fallback",
     NEON_DB1_DIRECT_URL: "postgres://primary-direct",
     DATABASE_URL_3: "postgres://replica3",
     DATABASE_URL_4: "postgres://replica4",
@@ -256,13 +278,13 @@ test("additional replica cannot skip a missing link in the failover order", () =
   );
 });
 
-test("DATABASE_URL alone resolves to the DB1 backend", () => {
+test("DATABASE_URL alone resolves to the DB2 backend", () => {
   const nodes = resolveDatabaseNodes({
     DATABASE_URL: "postgres://development",
   });
   assert.deepEqual(
     nodes.map((node) => node.backend),
-    ["database_url_1"],
+    ["database_url"],
   );
 });
 
