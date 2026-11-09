@@ -29,14 +29,14 @@ export type ReplicationTableIdentity = {
 const DATABASE_ENV = [
   {
     backend: "database_url_1",
-    urlKey: "DATABASE_URL_1",
-    adminUrlKey: "DATABASE_URL_1_DIRECT",
+    urlKey: "DATABASE_URL",
+    adminUrlKey: "NEON_DB1_DIRECT_URL",
     applicationName: "so-cong-db-primary",
   },
   {
     backend: "database_url",
-    urlKey: "DATABASE_URL",
-    adminUrlKey: "DATABASE_URL_DIRECT",
+    urlKey: "DATABASE_URL_1",
+    adminUrlKey: "NEON_DB2_DIRECT_URL",
     applicationName: "so-cong-db-fallback",
   },
   {
@@ -111,7 +111,7 @@ export function resolveDatabaseNodes(
   if (!configured[0].url) {
     if (configured[2].url || configured[3].url) {
       throw new Error(
-        "DATABASE_URL_3 and DATABASE_URL_4 require DATABASE_URL_1 and DATABASE_URL to preserve the failover chain.",
+        "DATABASE_URL_3 and DATABASE_URL_4 require DATABASE_URL and DATABASE_URL_1 to preserve the failover chain.",
       );
     }
     return configured[1].url ? [configured[1]] : [];
@@ -119,7 +119,7 @@ export function resolveDatabaseNodes(
 
   if ((configured[2].url || configured[3].url) && !configured[1].url) {
     throw new Error(
-      "DATABASE_URL_3 and DATABASE_URL_4 require DATABASE_URL as the second link in the failover chain.",
+        "DATABASE_URL_3 and DATABASE_URL_4 require DATABASE_URL_1 as the second link in the failover chain.",
     );
   }
 

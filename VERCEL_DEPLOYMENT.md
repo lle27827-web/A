@@ -20,11 +20,11 @@ Thêm các biến này trong Vercel Project Settings → Environment Variables. 
 
 | Biến | Dùng ở đâu | Lưu ý |
 | --- | --- | --- |
-| `DATABASE_URL` | API | DB2: kho chính của thẻ và lịch sử thẻ; giữ kín chuỗi kết nối. |
-| `DATABASE_URL_1` | API | DB1: kho chính của chấm công cơ sở/nhân viên. |
+| `DATABASE_URL` | API | DB1: kho chính của chấm công cơ sở/nhân viên. |
+| `DATABASE_URL_1` | API | DB2: kho chính của thẻ và lịch sử thẻ; giữ kín chuỗi kết nối. |
 | `DATABASE_URL_3` | API | DB3: kho chính của sổ chấm công cá nhân. |
 | `DATABASE_URL_4` | API | DB4: kho chính của dữ liệu dùng chung và bộ điều phối phân vùng. |
-| `NEON_DB1_DIRECT_URL`, `NEON_DB2_DIRECT_URL`, `NEON_DB3_DIRECT_URL`, `NEON_DB4_DIRECT_URL` | Migration trong build | Bí danh direct thống nhất cho DB1–DB4; mỗi URL phải dùng `postgres://` hoặc `postgresql://` và hostname không có `-pooler`. Các bí danh cũ `DATABASE_URL_1_DIRECT`, `DATABASE_URL_DIRECT`, `NEON_SOURCE_DIRECT_URL`, `MIGRATE_DATABASE_URL_3_DIRECT`, `DATABASE_URL_3_DIRECT`, `MIGRATE_DATABASE_URL_4_DIRECT`, `DATABASE_URL_4_DIRECT` vẫn được nhận diện. Nếu không có bí danh direct, mã thử URL runtime tương ứng nhưng chỉ chấp nhận endpoint direct. |
+| `NEON_DB1_DIRECT_URL`, `NEON_DB2_DIRECT_URL`, `NEON_DB3_DIRECT_URL`, `NEON_DB4_DIRECT_URL` | Migration trong build | Bí danh direct tương ứng lần lượt với `DATABASE_URL`, `DATABASE_URL_1`, `DATABASE_URL_3`, `DATABASE_URL_4`; mỗi URL phải dùng `postgres://` hoặc `postgresql://` và hostname không có `-pooler`. Nếu không có biến direct, mã thử URL runtime tương ứng nhưng chỉ chấp nhận endpoint direct. |
 | `DATABASE_STORAGE_MODE` | API | Giữ `domain_partitioned` để dùng các cặp kho cố định theo loại dữ liệu; `partitioned` cũng được hiểu theo cùng cách. |
 | `APP_CLERK_SECRET_KEY` | API | Secret key của Clerk Production bên ngoài. Không dùng khóa Clerk do Replit quản lý hoặc khóa Development. |
 | `APP_CLERK_PUBLISHABLE_KEY` | API | Publishable key của cùng Clerk Production. |
