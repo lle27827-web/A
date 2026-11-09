@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/socong-mobile/"
+title = "Sổ Công Mobile"
+description = "Ứng dụng di động Expo đi kèm Sổ Công, bắt đầu bằng bộ khung native và cấu hình EAS dùng credentials cục bộ; khóa ký thật chỉ được lưu trong tệp bị Git bỏ qua."
+version = "1.0.0"
+id = "artifacts/socong-mobile"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/socong-mobile/" ]
+localPort = 23848
+
+[services.development]
+run = "pnpm --filter @workspace/socong-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/socong-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/socong-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "23848"
+BASE_PATH = "/socong-mobile/"
