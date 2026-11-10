@@ -28,6 +28,7 @@
     "migrate:employee-bonus-pay": "node ./scripts/apply-employee-bonus-pay.mjs",
     "migrate:card-usage-history": "node ./scripts/apply-card-usage-history.mjs",
     "migrate:api-write-operations": "node ./scripts/apply-api-write-operations.mjs",
+    "migrate:audit-logs": "node ./scripts/apply-audit-logs.mjs",
     "migrate:database-failover-state": "node ./scripts/apply-database-failover-state.mjs",
     "migrate:database-failover-state-to-db4": "node ./scripts/apply-database-failover-state-to-db4.mjs",
     "migrate:database-failover-coordinator": "node ./scripts/apply-database-failover-coordinator.mjs",

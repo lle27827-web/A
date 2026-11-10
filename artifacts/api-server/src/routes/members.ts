@@ -66,6 +66,7 @@ router.delete("/members/:id", massageHandler(async (req, res): Promise<void> => 
     params.data.id,
     operationIdFromRequest(req.get("Idempotency-Key"), "xóa nhân viên"),
     currentFacilityBusinessId(res),
+    facilityAuth?.email ?? null,
   );
   res.sendStatus(204);
 }));

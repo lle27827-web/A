@@ -26,6 +26,9 @@ const businessIdFor = currentFacilityBusinessId;
 function ownerView(res: Response): boolean {
   return (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.isOwner === true;
 }
+function currentActorEmail(res: Response): string | null {
+  return (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.email ?? null;
+}
 function visibleCard<T extends { phone: string }>(card: T, isOwner: boolean): T {
   return isOwner ? card : { ...card, phone: maskCustomerPhone(card.phone) };
 }
@@ -114,7 +117,12 @@ router.get("/treatment-cards", massageHandler(async (req, res) => {
 router.post("/treatment-cards", massageHandler(async (req, res) => {
   const businessId = businessIdFor(res);
   const input = parseInput(CreateTreatmentCardBody, req.body);
-  const card = await createCard(input, operationIdFromRequest(req.get("Idempotency-Key"), "bán thẻ"), businessId);
+  const card = await createCard(
+    input,
+    operationIdFromRequest(req.get("Idempotency-Key"), "bán thẻ"),
+    businessId,
+    currentActorEmail(res),
+  );
   res.status(201).json(CreateTreatmentCardResponse.parse(visibleCard(card, ownerView(res))));
 }));
 router.patch("/treatment-cards/:id", massageHandler(async (req, res) => {
@@ -123,7 +131,13 @@ router.patch("/treatment-cards/:id", massageHandler(async (req, res) => {
   const input = parseInput(UpdateTreatmentCardBody, req.body);
   if (!ownerView(res) && isMaskedCustomerPhone(input.phone)) delete input.phone;
   if (!Object.keys(input).length) { res.status(400).json({ error: "Chưa có thông tin cần cập nhật." }); return; }
-  const card = await updateCard(id, input, operationIdFromRequest(req.get("Idempotency-Key"), "sửa thẻ"), businessId);
+  const card = await updateCard(
+    id,
+    input,
+    operationIdFromRequest(req.get("Idempotency-Key"), "sửa thẻ"),
+    businessId,
+    currentActorEmail(res),
+  );
   res.json(UpdateTreatmentCardResponse.parse(visibleCard(card, ownerView(res))));
 }));
 router.post("/treatment-cards/:id/hours", massageHandler(async (req, res) => {
@@ -134,13 +148,19 @@ router.post("/treatment-cards/:id/hours", massageHandler(async (req, res) => {
     id, minutes, amount, paymentMethod, sellerName,
     operationIdFromRequest(req.get("Idempotency-Key"), "nạp thẻ"),
     businessId,
+    currentActorEmail(res),
   );
   res.json(AddTreatmentCardHoursResponse.parse(visibleCard(card, ownerView(res))));
 }));
 router.delete("/treatment-cards/:id", massageHandler(async (req, res) => {
   const businessId = businessIdFor(res);
   const { id } = parseInput(DeleteTreatmentCardParams, req.params);
-  await deleteCard(id, operationIdFromRequest(req.get("Idempotency-Key"), "xóa thẻ"), businessId);
+  await deleteCard(
+    id,
+    operationIdFromRequest(req.get("Idempotency-Key"), "xóa thẻ"),
+    businessId,
+    currentActorEmail(res),
+  );
   res.sendStatus(204);
 }));
 export default router;

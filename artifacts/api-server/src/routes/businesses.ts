@@ -10,6 +10,7 @@ import {
   RotateBusinessJoinCodeResponse,
 } from "@workspace/api-zod";
 import {
+  BusinessCreationLimitError,
   createBusinessForOwner,
   joinBusinessByCode,
   listCurrentBusinessMembers,
@@ -47,6 +48,10 @@ router.post("/businesses", async (req, res): Promise<void> => {
       joinCode: created.joinCode,
     }));
   } catch (error) {
+    if (error instanceof BusinessCreationLimitError) {
+      res.status(429).json({ error: error.message });
+      return;
+    }
     req.log?.error({ err: error }, "Unable to create business");
     res.status(503).json({ error: error instanceof Error ? error.message : "Không thể tạo doanh nghiệp." });
   }

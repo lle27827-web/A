@@ -20,7 +20,10 @@ import { massageHandler, parseInput } from "./massage-errors";
 import { getFacilityRevenue, getNightServiceEnabled, getPaymentDetails } from "../lib/facility-revenue";
 import { listMembersForPeriod } from "../lib/employee-history";
 import { noPermissions } from "../lib/facility-permissions";
-import { maskSessionForEmployeePermissions } from "../lib/service-session-visibility";
+import {
+  archivedCardUseToSession,
+  maskSessionForEmployeePermissions,
+} from "../lib/service-session-visibility";
 import { currentFacilityBusinessId, type OwnerAuthStatus } from "../lib/owner-auth";
 import { operationIdFromRequest } from "../lib/partitioned-mutations";
 
@@ -76,26 +79,8 @@ router.get("/service-sessions", massageHandler(async (req, res) => {
       (!q.date || row.workDate === q.date) &&
       (!queryMonthBounds || (row.workDate >= queryMonthBounds.start && row.workDate < queryMonthBounds.end)),
     );
-    const archivedSessions = archivedRows.map((row) => maskSessionForEmployeePermissions({
-      id: row.sourceSessionId,
-      cardId: row.cardId,
-      memberId: row.memberId,
-      employeeName: row.employeeName,
-      customerName: row.customerName,
-      serviceTypeId: row.serviceTypeId,
-      serviceType: row.serviceType,
-      workDate: row.workDate,
-      minutes: row.minutes,
-      customerHourlyRate: row.customerHourlyRate,
-      customerCharge: row.customerCharge,
-      paymentMethod: null,
-      hourlyRate: row.hourlyRate,
-      earnings: row.earnings,
-      isNightShift: row.isNightShift,
-      note: row.note,
-      createdAt: new Date(row.createdAt).toISOString(),
-      archived: true,
-    }, auth?.isOwner === true, permissions));
+    const archivedSessions = archivedRows.map((row) =>
+      maskSessionForEmployeePermissions(archivedCardUseToSession(row), auth?.isOwner === true, permissions));
     const visibleRows = rows.map((row) => maskSessionForEmployeePermissions(sessionResponse(row), auth?.isOwner === true, permissions));
     res.json(ListServiceSessionsResponse.parse([...visibleRows, ...archivedSessions]
       .sort((a, b) => b.workDate.localeCompare(a.workDate) || b.id - a.id)));
@@ -106,25 +91,8 @@ router.get("/service-sessions", massageHandler(async (req, res) => {
   const archivedRows = q.cardId ? await db.select().from(cardUsageHistoryTable).where(and(...archivedFilters,
     ))
     .orderBy(desc(cardUsageHistoryTable.workDate), desc(cardUsageHistoryTable.sourceSessionId)) : [];
-  const archivedSessions = archivedRows.map((row) => maskSessionForEmployeePermissions({
-    id: row.sourceSessionId,
-    cardId: row.cardId,
-    memberId: row.memberId,
-    employeeName: row.employeeName,
-    customerName: row.customerName,
-    serviceTypeId: row.serviceTypeId,
-    serviceType: row.serviceType,
-    workDate: row.workDate,
-    minutes: row.minutes,
-    customerHourlyRate: row.customerHourlyRate,
-    customerCharge: row.customerCharge,
-      paymentMethod: null,
-    hourlyRate: row.hourlyRate,
-    earnings: row.earnings,
-    note: row.note,
-    createdAt: row.createdAt.toISOString(),
-    archived: true,
-  }, auth?.isOwner === true, permissions));
+  const archivedSessions = archivedRows.map((row) =>
+    maskSessionForEmployeePermissions(archivedCardUseToSession(row), auth?.isOwner === true, permissions));
   const visibleRows = rows.map((row) => maskSessionForEmployeePermissions(sessionResponse(row), auth?.isOwner === true, permissions));
   res.json(ListServiceSessionsResponse.parse([...visibleRows, ...archivedSessions]
     .sort((a, b) => b.workDate.localeCompare(a.workDate) || b.id - a.id)));

@@ -35,3 +35,4 @@ export * from "./employee-bonus-pay";
 export * from "./facility-night-shift";
 export * from "./storage-partitioning";
 export * from "./business-tenancy";
+export * from "./audit-logs";

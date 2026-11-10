@@ -28,6 +28,7 @@ test("partition domains assign each application table to the requested store gro
   assert.equal(getPartitionDataDomain("facility_bonus_settings"), "shared");
   assert.equal(getPartitionDataDomain("employee_service_bonus_rates"), "shared");
   assert.equal(getPartitionDataDomain("facility_night_settings"), "shared");
+  assert.equal(getPartitionDataDomain("audit_logs"), "shared");
   assert.equal(getPartitionDataDomain("unlisted_table"), undefined);
   for (const table of [
     "members",
@@ -47,6 +48,7 @@ test("partition domains assign each application table to the requested store gro
     "facility_bonus_settings",
     "employee_service_bonus_rates",
     "tasks",
+    "audit_logs",
   ]) {
     assert.ok(getPartitionDataDomain(table), `Missing data-domain assignment for ${table}`);
   }
@@ -58,7 +60,9 @@ test("partition actions declare all data groups they can update", () => {
   assert.deepEqual(getPartitionActionEntityTypes("employee-bonus-config.update"), [
     "facility_bonus_settings", "employee_service_bonus_rates",
   ]);
-  assert.deepEqual(getPartitionActionEntityTypes("card.topup"), ["treatment_cards", "card_top_ups"]);
+  assert.deepEqual(getPartitionActionEntityTypes("card.topup"), ["treatment_cards", "card_top_ups", "audit_logs"]);
+  assert.deepEqual(getPartitionActionEntityTypes("card.delete"), ["treatment_cards", "audit_logs"]);
+  assert.deepEqual(getPartitionActionEntityTypes("member.delete"), ["members", "service_sessions", "attendance", "audit_logs"]);
   assert.deepEqual(getPartitionActionEntityTypes("service-session.save"), [
     "service_sessions", "treatment_cards", "appointments",
   ]);
@@ -91,6 +95,7 @@ test("domain routing keeps each data group on its fixed store pair", () => {
     "treatment_cards",
     "personal_sessions",
     "appointments",
+    "audit_logs",
   ]);
   assert.deepEqual(routes.attendance, {
     domain: "facility",
@@ -112,6 +117,7 @@ test("domain routing keeps each data group on its fixed store pair", () => {
     primary: "database_url_4",
     replica: "database_url_3",
   });
+  assert.deepEqual(routes.audit_logs, routes.appointments);
 });
 
 test("domain routing does not choose a different pair based on capacity", () => {

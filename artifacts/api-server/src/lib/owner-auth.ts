@@ -140,10 +140,7 @@ export async function getOwnerAuthStatus(req: Request): Promise<OwnerAuthStatus>
       role = fallback.role;
       isOwner = fallback.isOwner;
       permissions = fallback.permissions;
-      console.error(
-        "[auth-status] Business access lookup failed; returning personal-only access.",
-        error instanceof Error ? `${error.name}: ${error.message}` : "Unknown error",
-      );
+      req.log?.error({ err: error }, "Business access lookup failed; returning personal-only access.");
     }
   }
   return {

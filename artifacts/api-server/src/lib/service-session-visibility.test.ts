@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { noPermissions, ownerPermissions } from "./facility-permissions";
-import { maskSessionForEmployeePermissions } from "./service-session-visibility";
+import { archivedCardUseToSession, maskSessionForEmployeePermissions } from "./service-session-visibility";
 
 const row = {
   id: 3,
@@ -35,4 +35,27 @@ test("legacy card-use rows with no member id do not leak a retained employee nam
   const masked = maskSessionForEmployeePermissions({ ...row, memberId: null }, false, noPermissions());
   assert.equal(masked.employeeName, "Nhân viên");
   assert.equal(masked.earnings, 0);
+});
+
+test("archived SQL card-use sessions retain the night-shift marker", () => {
+  const session = archivedCardUseToSession({
+    sourceSessionId: 19,
+    cardId: 7,
+    memberId: 12,
+    employeeName: "Nhân viên A",
+    customerName: "Khách",
+    serviceTypeId: 2,
+    serviceType: "Massage",
+    workDate: "2026-11-10",
+    minutes: 60,
+    customerHourlyRate: 120_000,
+    customerCharge: 120_000,
+    hourlyRate: 80_000,
+    earnings: 80_000,
+    isNightShift: true,
+    note: null,
+    createdAt: new Date("2026-11-10T12:00:00.000Z"),
+  });
+  assert.equal(session.isNightShift, true);
+  assert.equal(session.archived, true);
 });

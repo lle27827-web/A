@@ -9,6 +9,7 @@ import {
   sameAppointmentCustomer,
   serviceTypeHasHistory,
 } from "./massage";
+import { identityText } from "./massage-common";
 
 test("appointment auto-completion matches either a non-empty normalized name or phone", () => {
   const appointment = (customerName: string, phone: string) => ({ customerName, phone });
@@ -35,6 +36,10 @@ test("card identity normalizes +84 and 0084 phone prefixes to the local 0 prefix
   assert.equal(identityPhone("+84 912 345 678"), identityPhone("0912345678"));
   assert.equal(identityPhone("0084 912 345 678"), identityPhone("0912345678"));
   assert.equal(identityPhone("84912345678"), identityPhone("0912345678"));
+});
+
+test("card identity normalizes Unicode composition and invisible spacing consistently", () => {
+  assert.equal(identityText("e\u0301\u00a0A\u200b  B\ufeff"), identityText("\u00e9 A B"));
 });
 
 test("editing a zero-rate card session uses the current service wage without changing saved rates", () => {

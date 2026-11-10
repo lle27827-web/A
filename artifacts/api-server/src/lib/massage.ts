@@ -2,6 +2,7 @@ import { and, asc, eq, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import {
   appendReservedPartitionOperation,
   appointmentsTable,
+  auditLogsTable,
   cardTopUpsTable,
   cardUsageHistoryTable,
   db,
@@ -24,6 +25,7 @@ import {
 } from "@workspace/db";
 import type { FacilityPermissions, ServiceSessionInput, TreatmentCardInput, TreatmentCardUpdate } from "@workspace/api-zod";
 import { canEditEmployee } from "./facility-permissions";
+import { auditLogIdForOperation, createAuditLogRecord } from "./audit-log";
 import { shouldKeepRecordedHourlyRate } from "./employee-bonus-pay";
 import { isWithinNightWindow } from "./night-service-pricing";
 import { isWithinRetention } from "./retention-window";
@@ -96,11 +98,12 @@ export async function createCard(
   input: TreatmentCardInput,
   operationId?: string,
   businessId = "00000000-0000-4000-8000-000000000001",
+  actorEmail: string | null = null,
 ) {
   const values = { ...cardValues({ ...input, ...validatedCardPayment(input) }), businessId };
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi bán thẻ.");
-    return createPartitionedCard(input, values, operationId, businessId);
+    return createPartitionedCard(input, values, operationId, businessId, actorEmail);
   }
   return idempotentTransaction(operationId, "bán thẻ", "card.create", { ...input, businessId }, async (tx) => {
     // Shared by creation and edits: changing identity cannot race a concurrent sale.
@@ -117,11 +120,36 @@ export async function createCard(
     const existing = candidates.find((card) => identityPhone(card.phone) === identity[1]);
     if (existing) {
       if (input.mergeTargetId !== existing.id) throw new MassageError(409, "Thẻ đã có. Xác nhận cộng vào thẻ hiện có?", { mergeTargetId: existing.id });
-      return { ...await creditCard(tx, existing, values.totalMinutes, values.purchaseAmount, values.purchaseDate,
-        "merged_sale", values.note, values.purchasePaymentMethod as "cash" | "transfer", values.sellerName!), mergedIntoExisting: true };
+      const result = await creditCard(tx, existing, values.totalMinutes, values.purchaseAmount, values.purchaseDate,
+        "merged_sale", values.note, values.purchasePaymentMethod as "cash" | "transfer", values.sellerName!);
+      await tx.insert(auditLogsTable).values(createAuditLogRecord({
+        ...(operationId ? { id: auditLogIdForOperation(operationId, businessId, "card.create") } : {}),
+        businessId,
+        actorEmail,
+        action: "card.create",
+        entity: "treatment_card",
+        entityId: String(existing.id),
+        beforeJson: { totalMinutes: existing.totalMinutes, purchaseAmount: existing.purchaseAmount },
+        afterJson: {
+          totalMinutes: existing.totalMinutes + values.totalMinutes,
+          purchaseAmount: existing.purchaseAmount,
+          saleAmount: values.purchaseAmount,
+        },
+      }));
+      return { ...result, mergedIntoExisting: true };
     }
     if (input.mergeTargetId) throw new MassageError(409, "Thẻ cần gộp đã thay đổi. Hãy kiểm tra thông tin và lưu lại.");
     const [row] = await tx.insert(treatmentCardsTable).values(values).returning();
+    await tx.insert(auditLogsTable).values(createAuditLogRecord({
+      ...(operationId ? { id: auditLogIdForOperation(operationId, businessId, "card.create") } : {}),
+      businessId,
+      actorEmail,
+      action: "card.create",
+      entity: "treatment_card",
+      entityId: String(row.id),
+      beforeJson: null,
+      afterJson: { totalMinutes: row.totalMinutes, purchaseAmount: row.purchaseAmount },
+    }));
     return { ...cardResponse(row), mergedIntoExisting: false };
   });
 }
@@ -131,6 +159,7 @@ async function createPartitionedCard(
   values: ReturnType<typeof cardValues> & { businessId: string },
   operationId: string,
   businessId: string,
+  actorEmail: string | null,
 ) {
   return withPartitionWriteMutex(scopedCardLock("card-identities", businessId), () =>
     withPartitionWriteMutex(scopedCardLock("card-ledger", businessId), async () => {
@@ -209,7 +238,7 @@ async function createPartitionedCard(
       operationId,
       requestHash,
       action: "card.create",
-      expectedEventCount: isMerge ? 2 : 1,
+      expectedEventCount: isMerge ? 3 : 2,
       idAllocations: isMerge
         ? { card_top_ups: 1 }
         : { treatment_cards: 1 },
@@ -291,6 +320,23 @@ async function createPartitionedCard(
         },
       });
     }
+    const audit = createAuditLogRecord({
+      id: auditLogIdForOperation(operationId, businessId, "card.create"),
+      businessId,
+      actorEmail,
+      action: "card.create",
+      entity: "treatment_card",
+      entityId: String(cardId),
+      beforeJson: existing
+        ? { totalMinutes: existing.totalMinutes, purchaseAmount: existing.purchaseAmount }
+        : null,
+      afterJson: {
+        totalMinutes: existing ? existing.totalMinutes + values.totalMinutes : values.totalMinutes,
+        purchaseAmount: existing?.purchaseAmount ?? values.purchaseAmount,
+        saleAmount: values.purchaseAmount,
+      },
+    });
+    mutations.push(upsertMutation("audit_logs", audit.id, audit));
     await appendReservedPartitionOperation(reconciled, mutations);
     const resultCard = existing
       ? { ...existing, totalMinutes: existing.totalMinutes + values.totalMinutes }
@@ -333,6 +379,7 @@ export async function updateCard(
   input: TreatmentCardUpdate,
   operationId?: string,
   businessId = "00000000-0000-4000-8000-000000000001",
+  actorEmail: string | null = null,
 ) {
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi sửa thẻ.");
@@ -384,14 +431,27 @@ export async function updateCard(
             purchaseDate: values.purchaseDate,
             note: values.note,
           };
+          const audit = createAuditLogRecord({
+            id: auditLogIdForOperation(operationId, businessId, "card.update"),
+            businessId,
+            actorEmail,
+            action: "card.update",
+            entity: "treatment_card",
+            entityId: String(id),
+            beforeJson: { totalMinutes: old.totalMinutes, purchaseAmount: old.purchaseAmount },
+            afterJson: { totalMinutes: updated.totalMinutes, purchaseAmount: updated.purchaseAmount },
+          });
           await commitPartitionedMutations({
             operationId,
             lockName: `card:${id}`,
             action: "card.update",
             request: { id, input, businessId },
-            expectedEventCount: 1,
+            expectedEventCount: 2,
             alreadyLocked: true,
-            build: () => [upsertMutation("treatment_cards", id, updated)],
+            build: () => [
+              upsertMutation("treatment_cards", id, updated),
+              upsertMutation("audit_logs", audit.id, audit),
+            ],
           });
           const refreshed = (await readPartitionedTableFresh("treatment_cards", businessId) as unknown as (typeof treatmentCardsTable.$inferSelect)[])
             .find((row) => row.id === id);
@@ -406,7 +466,22 @@ export async function updateCard(
         const oldFundingMinutes = values.totalMinutes - topUpMinutes;
         const firstUsedAt = [target.firstUsedAt, old.firstUsedAt].filter((value): value is Date => Boolean(value))
           .sort((a, b) => a.getTime() - b.getTime())[0] ?? (used > 0 ? now : null);
-        const eventCount = 3 + oldTopUps.length + oldSessions.length + oldArchived.length;
+        const audit = createAuditLogRecord({
+          id: auditLogIdForOperation(operationId, businessId, "card.merge"),
+          businessId,
+          actorEmail,
+          action: "card.merge",
+          entity: "treatment_card",
+          entityId: String(old.id),
+          beforeJson: { totalMinutes: old.totalMinutes, purchaseAmount: old.purchaseAmount },
+          afterJson: {
+            mergedIntoCardId: target.id,
+            totalMinutes: target.totalMinutes + values.totalMinutes,
+            purchaseAmount: target.purchaseAmount,
+            mergedPurchaseAmount: values.purchaseAmount,
+          },
+        });
+        const eventCount = 4 + oldTopUps.length + oldSessions.length + oldArchived.length;
         const operation = await commitPartitionedMutations({
           operationId,
           lockName: `card:${id}`,
@@ -441,6 +516,7 @@ export async function updateCard(
               ...oldTopUps.map((row) => upsertMutation("card_top_ups", row.id, { ...row, cardId: target.id })),
               ...oldSessions.map((row) => upsertMutation("service_sessions", row.id, { ...row, cardId: target.id })),
               ...oldArchived.map((row) => upsertMutation("card_usage_history", row.sourceSessionId, { ...row, cardId: target.id })),
+              upsertMutation("audit_logs", audit.id, audit),
             ];
           },
         });
@@ -516,6 +592,21 @@ export async function updateCard(
         eq(treatmentCardsTable.id, id),
         eq(treatmentCardsTable.businessId, businessId),
       ));
+      await tx.insert(auditLogsTable).values(createAuditLogRecord({
+        ...(operationId ? { id: auditLogIdForOperation(operationId, businessId, "card.merge") } : {}),
+        businessId,
+        actorEmail,
+        action: "card.merge",
+        entity: "treatment_card",
+        entityId: String(id),
+        beforeJson: { totalMinutes: old.totalMinutes, purchaseAmount: old.purchaseAmount },
+        afterJson: {
+          mergedIntoCardId: target.id,
+          totalMinutes: merged.totalMinutes,
+          purchaseAmount: merged.purchaseAmount,
+          mergedPurchaseAmount: values.purchaseAmount,
+        },
+      }));
       return { ...await cardWithHistory(tx, merged, await usedMinutes(tx, target.id, undefined, businessId)), mergedIntoExisting: true };
     }
     if (input.mergeTargetId) throw new MassageError(409, "Thẻ cần gộp đã thay đổi. Hãy kiểm tra thông tin và lưu lại.");
@@ -527,6 +618,16 @@ export async function updateCard(
       eq(treatmentCardsTable.id, id),
       eq(treatmentCardsTable.businessId, businessId),
     )).returning();
+    await tx.insert(auditLogsTable).values(createAuditLogRecord({
+      ...(operationId ? { id: auditLogIdForOperation(operationId, businessId, "card.update") } : {}),
+      businessId,
+      actorEmail,
+      action: "card.update",
+      entity: "treatment_card",
+      entityId: String(id),
+      beforeJson: { totalMinutes: old.totalMinutes, purchaseAmount: old.purchaseAmount },
+      afterJson: { totalMinutes: row.totalMinutes, purchaseAmount: row.purchaseAmount },
+    }));
     return cardWithHistory(tx, row, used);
   });
 }
@@ -534,6 +635,7 @@ export async function deleteCard(
   id: number,
   operationId?: string,
   businessId = "00000000-0000-4000-8000-000000000001",
+  actorEmail: string | null = null,
 ) {
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi xóa thẻ.");
@@ -543,14 +645,28 @@ export async function deleteCard(
         const cards = cardsRaw as unknown as (typeof treatmentCardsTable.$inferSelect)[];
         const card = cards.find((row) => row.id === id && row.businessId === businessId && row.deletedAt === null);
         if (!card) throw new MassageError(404, "Không tìm thấy thẻ.");
+        const deletedAt = new Date();
+        const audit = createAuditLogRecord({
+          id: auditLogIdForOperation(operationId, businessId, "card.delete"),
+          businessId,
+          actorEmail,
+          action: "card.delete",
+          entity: "treatment_card",
+          entityId: String(id),
+          beforeJson: { totalMinutes: card.totalMinutes, purchaseAmount: card.purchaseAmount },
+          afterJson: { deletedAt: deletedAt.toISOString() },
+        });
         await commitPartitionedMutations({
           operationId,
           lockName: `card:${id}`,
           action: "card.delete",
           request: { id, businessId },
-          expectedEventCount: 1,
+          expectedEventCount: 2,
           alreadyLocked: true,
-          build: () => [upsertMutation("treatment_cards", id, { ...card, deletedAt: new Date() })],
+          build: () => [
+            upsertMutation("treatment_cards", id, { ...card, deletedAt }),
+            upsertMutation("audit_logs", audit.id, audit),
+          ],
         });
       }),
     );
@@ -563,10 +679,21 @@ export async function deleteCard(
     if (!card || card.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
     // Keep the card, payments, and every employee visit as audit history.
     // Active card lists and card-sale revenue exclude this archived card.
-    await tx.update(treatmentCardsTable).set({ deletedAt: new Date() }).where(and(
+    const deletedAt = new Date();
+    await tx.update(treatmentCardsTable).set({ deletedAt }).where(and(
       eq(treatmentCardsTable.id, id),
       eq(treatmentCardsTable.businessId, businessId),
     ));
+    await tx.insert(auditLogsTable).values(createAuditLogRecord({
+      ...(operationId ? { id: auditLogIdForOperation(operationId, businessId, "card.delete") } : {}),
+      businessId,
+      actorEmail,
+      action: "card.delete",
+      entity: "treatment_card",
+      entityId: String(id),
+      beforeJson: { totalMinutes: card.totalMinutes, purchaseAmount: card.purchaseAmount },
+      afterJson: { deletedAt: deletedAt.toISOString() },
+    }));
   });
 }
 
@@ -579,6 +706,7 @@ export async function addCardHours(
   sellerName: string,
   operationId?: string,
   businessId = "00000000-0000-4000-8000-000000000001",
+  actorEmail: string | null = null,
 ) {
   if (!Number.isSafeInteger(minutes) || minutes < 1 || minutes > 600000) {
     throw new MassageError(400, "Số giờ nạp phải lớn hơn 0 và không quá 10.000 giờ.");
@@ -640,7 +768,7 @@ export async function addCardHours(
         operationId,
         requestHash,
         action: "card.topup",
-        expectedEventCount: 2,
+        expectedEventCount: 3,
         idAllocations: { card_top_ups: 1 },
       });
       const reconciled = await reconcilePartitionOperation(operation);
@@ -662,6 +790,21 @@ export async function addCardHours(
           note: "",
           createdAt: new Date(),
         };
+      const audit = createAuditLogRecord({
+        id: auditLogIdForOperation(operationId, businessId, "card.topup"),
+        businessId,
+        actorEmail,
+        action: "card.topup",
+        entity: "treatment_card",
+        entityId: String(id),
+        beforeJson: { totalMinutes: card.totalMinutes, purchaseAmount: card.purchaseAmount },
+        afterJson: {
+          totalMinutes: updatedCard.totalMinutes,
+          purchaseAmount: card.purchaseAmount,
+          topUpMinutes: minutes,
+          topUpAmount: amount,
+        },
+      });
         await appendReservedPartitionOperation(reconciled, [
           {
             entityType: "treatment_cards",
@@ -675,6 +818,12 @@ export async function addCardHours(
             action: "upsert",
             payload: topUpEvent,
           },
+        {
+          entityType: "audit_logs",
+          entityKey: partitionEntityKey("audit_logs", audit.id),
+          action: "upsert",
+          payload: audit,
+        },
         ]);
       }
       const refreshedCards = await readPartitionedTableFresh("treatment_cards", businessId) as unknown as (typeof treatmentCardsTable.$inferSelect)[];
@@ -699,7 +848,23 @@ export async function addCardHours(
       eq(treatmentCardsTable.businessId, businessId),
     )).for("update");
     if (!card || card.deletedAt) throw new MassageError(404, "Không tìm thấy thẻ.");
-    return creditCard(tx, card, minutes, amount, currentBusinessDate(), "topup", "", tender.purchasePaymentMethod, tender.sellerName);
+    const result = await creditCard(tx, card, minutes, amount, currentBusinessDate(), "topup", "", tender.purchasePaymentMethod, tender.sellerName);
+    await tx.insert(auditLogsTable).values(createAuditLogRecord({
+      ...(operationId ? { id: auditLogIdForOperation(operationId, businessId, "card.topup") } : {}),
+      businessId,
+      actorEmail,
+      action: "card.topup",
+      entity: "treatment_card",
+      entityId: String(id),
+      beforeJson: { totalMinutes: card.totalMinutes, purchaseAmount: card.purchaseAmount },
+      afterJson: {
+        totalMinutes: card.totalMinutes + minutes,
+        purchaseAmount: card.purchaseAmount,
+        topUpMinutes: minutes,
+        topUpAmount: amount,
+      },
+    }));
+    return result;
   });
 }
 
@@ -714,7 +879,7 @@ export async function saveSession(
 ) {
   const workDate = validDate(input.workDate);
   if (!isWorkDateWithinFutureLimit(workDate)) {
-    throw new MassageError(400, "Ngày làm không được vượt quá 30 ngày trong tương lai.");
+    throw new MassageError(400, "Ngày làm không được ở tương lai.");
   }
   if (input.cardId == null && !isWithinRetention(workDate)) {
     throw new MassageError(400, "Chỉ ghi ca khách lẻ trong 5 năm gần nhất.");

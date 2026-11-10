@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, isNull, isNotNull } from "drizzle-orm";
 import {
   attendanceTable,
+  auditLogsTable,
   isPartitionedStorageEnabled,
   membersTable,
   readPartitionedTable,
@@ -8,6 +9,7 @@ import {
   withPartitionWriteMutex,
 } from "@workspace/db";
 import { canEditEmployee } from "./facility-permissions";
+import { auditLogIdForOperation, createAuditLogRecord } from "./audit-log";
 import { idempotentTransaction } from "./massage-idempotency";
 import { currentBusinessDate, MassageError } from "./massage-common";
 import { commitPartitionedMutations, deleteMutation, upsertMutation } from "./partitioned-mutations";
@@ -16,6 +18,7 @@ export async function deleteMember(
   id: number,
   operationId?: string,
   businessId = "00000000-0000-4000-8000-000000000001",
+  actorEmail: string | null = null,
 ) {
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi xóa nhân viên.");
@@ -36,12 +39,25 @@ export async function deleteMember(
       const cardUses = currentSessions.filter((row) => row.cardId !== null);
       const walkIns = currentSessions.filter((row) => row.cardId === null);
       const deletedAt = new Date();
+      const audit = createAuditLogRecord({
+        ...(operationId ? { id: auditLogIdForOperation(operationId, businessId, "member.delete") } : {}),
+        businessId,
+        actorEmail,
+        action: "member.delete",
+        entity: "member",
+        entityId: String(id),
+        beforeJson: {
+          deletedWalkInCount: walkIns.length,
+          deletedWalkInRevenue: walkIns.reduce((total, row) => total + Number(row.customerCharge), 0),
+        },
+        afterJson: { deletedAt: deletedAt.toISOString() },
+      });
       await commitPartitionedMutations({
         operationId,
-        lockName: `member-delete:${id}`,
+        lockName: `member-delete:${businessId.toLowerCase()}:${id}`,
         action: "member.delete",
         request: { id, businessId },
-        expectedEventCount: 1 + cardUses.length + walkIns.length + currentAttendance.length,
+        expectedEventCount: 2 + cardUses.length + walkIns.length + currentAttendance.length,
         alreadyLocked: true,
         build: () => [
           ...cardUses.map((row) => upsertMutation("service_sessions", row.id, {
@@ -50,6 +66,7 @@ export async function deleteMember(
           ...walkIns.map((row) => deleteMutation("service_sessions", row.id)),
           ...currentAttendance.map((row) => deleteMutation("attendance", row.id)),
           upsertMutation("members", id, { ...member, deletedAt }),
+          upsertMutation("audit_logs", audit.id, audit),
         ],
       });
     });
@@ -73,6 +90,14 @@ export async function deleteMember(
     // Scope deletion to the current business month. Earlier months are immutable
     // history, including card usage, walk-in revenue, attendance and payroll.
     const currentMonthStart = `${currentBusinessDate().slice(0, 7)}-01`;
+    const deletedWalkIns = await tx.select({ customerCharge: serviceSessionsTable.customerCharge })
+      .from(serviceSessionsTable)
+      .where(and(
+        eq(serviceSessionsTable.memberId, id),
+        eq(serviceSessionsTable.businessId, businessId),
+        isNull(serviceSessionsTable.cardId),
+        gte(serviceSessionsTable.workDate, currentMonthStart),
+      ));
     // Keep current-month customer card-use history and its consumed minutes, but
     // detach the deleted employee and remove current-month wage associations.
     await tx.update(serviceSessionsTable).set({
@@ -99,11 +124,25 @@ export async function deleteMember(
     ));
     // Soft delete the profile so prior-month names, pay rates and visit details
     // remain available in historical views. No card totals or visit minutes change.
-    await tx.update(membersTable).set({ deletedAt: new Date() })
+    const deletedAt = new Date();
+    await tx.update(membersTable).set({ deletedAt })
       .where(and(
         eq(membersTable.id, id),
         eq(membersTable.businessId, businessId),
         isNull(membersTable.deletedAt),
       ));
+    await tx.insert(auditLogsTable).values(createAuditLogRecord({
+      ...(operationId ? { id: auditLogIdForOperation(operationId, businessId, "member.delete") } : {}),
+      businessId,
+      actorEmail,
+      action: "member.delete",
+      entity: "member",
+      entityId: String(id),
+      beforeJson: {
+        deletedWalkInCount: deletedWalkIns.length,
+        deletedWalkInRevenue: deletedWalkIns.reduce((total, row) => total + Number(row.customerCharge), 0),
+      },
+      afterJson: { deletedAt: deletedAt.toISOString() },
+    }));
   });
 }

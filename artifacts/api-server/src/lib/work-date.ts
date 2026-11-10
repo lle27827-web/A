@@ -1,4 +1,4 @@
-export const MAX_FUTURE_WORK_DATE_DAYS = 30;
+export const MAX_FUTURE_WORK_DATE_DAYS = 0;
 
 export function isWorkDateWithinFutureLimit(
   workDate: string,

@@ -60,12 +60,12 @@ test("card balance and service payroll stay consistent through edits and concurr
     await assert.rejects(topUp(topupCard.id, -1, 0), fails(400));
     await assert.rejects(topUp(topupCard.id, 1.5, 0), fails(400));
     await assert.rejects(topUp(topupCard.id, 600000, 0), fails(400));
-    const topupVisit = await record({ memberId, serviceTypeId: service.id, cardId: topupCard.id, workDate: "2099-10-13", minutes: 60, note: marker });
+    const topupVisit = await record({ memberId, serviceTypeId: service.id, cardId: topupCard.id, workDate: "2026-10-13", minutes: 60, note: marker });
     const toppedWithHistory = await topUp(topupCard.id, 30, 0);
     assert.equal(toppedWithHistory.totalMinutes, 331);
     assert.equal(toppedWithHistory.usedMinutes, 60);
     assert.equal(toppedWithHistory.remainingMinutes, 271);
-    const changedVisit = await record({ memberId, serviceTypeId: service.id, cardId: topupCard.id, workDate: "2099-10-13", minutes: 90, note: marker }, topupVisit.id);
+    const changedVisit = await record({ memberId, serviceTypeId: service.id, cardId: topupCard.id, workDate: "2026-10-13", minutes: 90, note: marker }, topupVisit.id);
     assert.equal(changedVisit.earnings, 150000);
     assert.equal(await balance(topupCard.id), 90);
     await deleteSession(topupVisit.id);
@@ -136,7 +136,7 @@ test("card balance and service payroll stay consistent through edits and concurr
       purchasePaymentMethod: "cash", sellerName: marker,
     });
     cards.push(removedCard.id);
-    const linkedSession = await record({ ...input, cardId: removedCard.id, minutes: 60, workDate: "2099-12-01" });
+    const linkedSession = await record({ ...input, cardId: removedCard.id, minutes: 60, workDate: "2026-11-01" });
     await deleteCard(removedCard.id);
     const [archivedUsedCard] = await db.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, removedCard.id));
     assert.ok(archivedUsedCard.deletedAt, "a partially used card can be archived at any time");
@@ -199,7 +199,7 @@ test("card balance and service payroll stay consistent through edits and concurr
     const [archivedCard] = await db.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, removedCard.id));
     assert.ok(archivedCard.deletedAt);
     assert.equal((await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, linkedSession.id))).length, 1);
-    await assert.rejects(record({ ...input, cardId: removedCard.id, minutes: 90, workDate: "2099-12-01" }, linkedSession.id), fails(404));
+    await assert.rejects(record({ ...input, cardId: removedCard.id, minutes: 90, workDate: "2026-11-01" }, linkedSession.id), fails(404));
     await assert.rejects(topUp(removedCard.id, 60, 0), fails(404));
     await assert.rejects(updateCard(removedCard.id, { customerName: marker }), fails(404));
     const cardMinutesBeforeRemoval = await balance(b.id);

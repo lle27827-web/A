@@ -28,6 +28,13 @@ type BusinessRegistryClient = {
 
 const JOIN_FAILURE_LIMIT = 5;
 const JOIN_FAILURE_WINDOW = "15 minutes";
+export const MAX_ACTIVE_BUSINESSES_PER_OWNER = 10;
+
+export class BusinessCreationLimitError extends Error {
+  constructor() {
+    super("Tài khoản đã đạt giới hạn 10 cơ sở đang hoạt động.");
+  }
+}
 
 const hashJoinCode = (code: string) =>
   createHash("sha256").update(code, "utf8").digest("hex");
@@ -65,6 +72,25 @@ async function lockJoinAttemptKeys(client: BusinessRegistryClient, keys: string[
       "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
       [key],
     );
+  }
+}
+
+export async function ensureBusinessCreationCapacity(
+  client: BusinessRegistryClient,
+  ownerUserId: string,
+): Promise<void> {
+  await client.query(
+    "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+    [`so-cong:business-create:${ownerUserId}`],
+  );
+  const result = await client.query(
+    `SELECT COUNT(*)::int AS active_count
+     FROM public.businesses
+     WHERE owner_user_id = $1 AND active = true`,
+    [ownerUserId],
+  );
+  if (Number(result.rows[0]?.active_count ?? 0) >= MAX_ACTIVE_BUSINESSES_PER_OWNER) {
+    throw new BusinessCreationLimitError();
   }
 }
 
@@ -341,6 +367,7 @@ export async function createBusinessForOwner(input: {
     await client.query("BEGIN");
     try {
       const email = input.email.trim().toLowerCase();
+      await ensureBusinessCreationCapacity(client, input.userId);
       await client.query(
         `INSERT INTO public.business_users (user_id, email)
          VALUES ($1, $2)
