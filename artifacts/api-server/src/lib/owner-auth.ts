@@ -4,7 +4,7 @@ import type { NextFunction, Request, Response } from "express";
 import { DatabaseFailoverInProgressError, db, attendanceTable, isPartitionedStorageEnabled, readPartitionedRowById, serviceSessionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { FacilityPermissions } from "@workspace/api-zod";
-import { canDeleteEmployee, canEditEmployee, canViewEmployee, noPermissions, ownerPermissions, permissionsForEmail } from "./facility-permissions";
+import { canCompareEmployee, canDeleteEmployee, canEditEmployee, canViewEmployee, noPermissions, ownerPermissions, permissionsForEmail } from "./facility-permissions";
 import { isValidRetentionCronAuthorization } from "./retention-auth";
 import { createAsyncTtlCache } from "./user-identity-cache";
 import {
@@ -249,24 +249,51 @@ export async function apiAuthorizationGate(
     return;
   }
   if (req.path === "/personal" || req.path.startsWith("/personal/")) {
+    const userId = getAuth(req).userId;
+    if (!userId) {
+      res.status(401).json({ error: "Vui lòng đăng nhập để dùng sổ cá nhân." });
+      return;
+    }
+    res.locals.personalUserId = userId;
+    const needsComparisonPermission = req.path === "/personal/comparison" ||
+      req.path === "/personal/sync" || req.path === "/personal/comparison/members";
     try {
-      const userId = getAuth(req).userId;
-      if (!userId) {
-        res.status(401).json({ error: "Vui lòng đăng nhập để dùng sổ cá nhân." });
-        return;
-      }
-      res.locals.personalUserId = userId;
-      if (req.path === "/personal/comparison" || req.path === "/personal/sync") {
-        const status = await getOwnerAuthStatus(req);
-        const id = positiveId(req.path === "/personal/sync" ? req.body?.memberId : req.query.memberId);
-        if (!canViewEmployee(status.permissions, id)) {
-          res.status(403).json({ error: "Bạn chưa được cấp quyền xem nhân viên này." });
+      const status = await getOwnerAuthStatus(req);
+      res.locals.facilityAuth = status;
+      if (needsComparisonPermission) {
+        if (status.businessAccessAvailable === false) {
+          res.status(503).json({ error: "Quyền cơ sở chưa sẵn sàng để đối chiếu." });
           return;
+        }
+        if (req.path === "/personal/comparison/members") {
+          if (!status.businessId || (!status.isOwner && !status.permissions.compareAllEmployees &&
+              status.permissions.compareEmployeeIds.length === 0)) {
+            res.status(403).json({ error: "Bạn chưa được cấp quyền chọn nhân viên để đối chiếu." });
+            return;
+          }
+        } else {
+          const id = positiveId(req.path === "/personal/sync" ? req.body?.memberId : req.query.memberId);
+          if (!status.isOwner && !canCompareEmployee(status.permissions, id)) {
+            res.status(403).json({ error: "Bạn chưa được cấp quyền đối chiếu nhân viên này." });
+            return;
+          }
+          if (!status.businessId) {
+            res.status(403).json({ error: "Hãy chọn cơ sở đã cấp quyền đối chiếu." });
+            return;
+          }
         }
       }
       next();
-    } catch {
-      res.status(503).json({ error: "Không thể xác minh phiên đăng nhập." });
+    } catch (error) {
+      if (needsComparisonPermission) {
+        req.log?.error({ err: error }, "Unable to verify comparison permissions");
+        res.status(503).json({ error: "Không thể xác minh quyền đối chiếu." });
+        return;
+      }
+      // The verified personal notebook stays usable during a business access
+      // outage; no business ID is exposed to personal data operations.
+      res.locals.facilityAuth = undefined;
+      next();
     }
     return;
   }

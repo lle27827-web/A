@@ -30,7 +30,8 @@ test("normal SQL access-grant creation rejects a missing idempotency key before 
       body: JSON.stringify({
         email: `new-${Date.now()}@example.test`,
         permissions: {
-          allEmployees: false, employeeIds: [], viewCards: false, viewRevenue: false,
+          allEmployees: false, employeeIds: [], compareAllEmployees: false, compareEmployeeIds: [],
+          viewCards: false, viewRevenue: false,
           editEmployees: false, deleteEmployees: false, editCards: false, editServices: false,
           viewAppointments: false, editAppointments: false,
         },

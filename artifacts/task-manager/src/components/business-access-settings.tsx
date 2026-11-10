@@ -42,6 +42,7 @@ function roleLabel(role: string) {
 function hasFacilityPermission(status: AuthStatus) {
   const permissions = status.permissions;
   return status.isOwner || permissions.allEmployees || permissions.employeeIds.length > 0 ||
+    permissions.compareAllEmployees || permissions.compareEmployeeIds.length > 0 ||
     permissions.viewCards || permissions.viewRevenue || permissions.editEmployees ||
     permissions.deleteEmployees || permissions.editCards || permissions.editServices ||
     permissions.viewAppointments || permissions.editAppointments;

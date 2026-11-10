@@ -19,7 +19,7 @@ Every signed-in account may keep a separate personal employee notebook: own atte
 
 **Why:** the user explicitly chose “Tự chấm công, dịch vụ/mức tiền riêng, thu nhập và lịch sử” and requested complete separation for each account.
 
-**How to apply:** derive identity only from the verified session; scope all personal data by account, including owner accounts. Personal writes never change facility data. Comparison requires permission to view the selected central employee; it shows their daily/monthly **pay** and service/customer-name details, not facility cash revenue, phone numbers or another account's private notebook. Revoking facility rights must not erase the account's own notebook.
+**How to apply:** derive identity only from the verified session; scope all personal data by account, including owner accounts. Personal writes never change facility data. Comparison requires a separate comparison grant, independent of employee-list visibility; it shows daily/monthly **pay** and service/customer-name details, not facility cash revenue, phone numbers or another account's private notebook. Membership may enable the joined user to choose the facility's service catalog for their own notebook, but does not grant general facility access. Revoking facility rights must not erase the account's own notebook.
 
 Accounts that have not completed role onboarding see the personal, owner, and employee choices once; skipping defaults to the personal notebook. Businesses are logical partitions by `business_id` in the existing four shared Neon stores, not separate physical databases. Joining with the 10-digit code creates membership but does not grant facility permissions by itself.
 

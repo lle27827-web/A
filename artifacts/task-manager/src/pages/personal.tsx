@@ -223,6 +223,14 @@ export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus
   const dayTotalLabel = date === today ? 'Tổng lương hôm nay' : `Tổng lương ngày ${formatShortDayMonth(date)}`;
   const services = data?.services ?? [];
   const useFacility = data?.useFacilityRates === true;
+  const canUseFacilityServices = Boolean(
+    businessStatus.businessId && businessStatus.businessAccessAvailable !== false,
+  );
+  const canCompareFacilityEmployees = Boolean(
+    businessStatus.businessId && businessStatus.businessAccessAvailable !== false &&
+      (businessStatus.isOwner || businessStatus.permissions.compareAllEmployees ||
+        businessStatus.permissions.compareEmployeeIds.length > 0),
+  );
   function toggleFacility(next: boolean) {
     if (updateSettings.isPending) return;
     setSettingError('');
@@ -238,17 +246,19 @@ export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus
       { id: 'personal-back', label: 'Trở về trong sổ cá nhân', group: 'Điều hướng chung', run: () => window.history.back() },
       { id: 'save-active-form', label: 'Lưu biểu mẫu đang mở', group: 'Biểu mẫu', allowInDialog: true, allowWhenEditing: true, run: submitActiveDialogForm },
       { id: 'choose-date', label: 'Chọn ngày', group: 'Chấm công cá nhân', run: () => open({ kind: 'date' }) },
-      { id: 'compare', label: 'Đối chiếu sổ cá nhân', group: 'Chấm công cá nhân', run: () => open({ kind: 'compare' }) },
       { id: 'view-day', label: 'Xem ca trong ngày', group: 'Chấm công cá nhân', run: () => setMode('day') },
       { id: 'view-month', label: 'Xem ca trong tháng', group: 'Chấm công cá nhân', run: () => setMode('month') },
       { id: 'previous-month', label: 'Xem tháng trước', group: 'Chấm công cá nhân', run: () => goPeriod(shiftMonth(month, -1)) },
     ];
+    if (canCompareFacilityEmployees) {
+      actions.push({ id: 'compare', label: 'Đối chiếu sổ cá nhân', group: 'Chấm công cá nhân', run: () => open({ kind: 'compare' }) });
+    }
     if (homeHref) actions.push({ id: 'facility-home', label: 'Về sổ cơ sở', group: 'Điều hướng chung', run: () => navigate(homeHref) });
     if (month < currentMonth) actions.push({ id: 'next-month', label: 'Xem tháng sau', group: 'Chấm công cá nhân', run: () => goPeriod(shiftMonth(month, 1)) });
     if (services.length) actions.push({ id: 'new-shift', label: 'Ghi ca cá nhân', group: 'Chấm công cá nhân', run: () => open({ kind: 'shift', item: null }) });
     if (!useFacility) actions.push({ id: 'new-service', label: 'Thêm dịch vụ cá nhân', group: 'Chấm công cá nhân', run: () => open({ kind: 'service', item: null }) });
     return actions;
-  }, [currentMonth, goPeriod, homeHref, month, navigate, open, services.length, useFacility]);
+  }, [canCompareFacilityEmployees, currentMonth, goPeriod, homeHref, month, navigate, open, services.length, useFacility]);
 
   useDeviceKeyboardShortcuts(shortcutActions);
 
@@ -305,7 +315,7 @@ export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus
         <div className="p-actions">
           <button type="button" className="btn primary" disabled={!data || !services.length} onClick={() => open({ kind: 'shift', item: null })} data-testid="button-add-personal-shift"><Plus size={15} />Ghi ca</button>
           <button type="button" className="btn" onClick={() => open({ kind: 'date' })} data-testid="button-personal-date"><CalendarDays size={14} />{formatShortDate(date)}</button>
-          <button type="button" className="btn" onClick={() => open({ kind: 'compare' })} data-testid="button-personal-compare"><Scale size={14} />Đối chiếu</button>
+          {canCompareFacilityEmployees && <button type="button" className="btn" onClick={() => open({ kind: 'compare' })} data-testid="button-personal-compare"><Scale size={14} />Đối chiếu</button>}
         </div>
         {!nb.isLoading && !nb.isError && !services.length && <p className="hint" data-testid="text-personal-no-services">Thêm ít nhất một dịch vụ để bắt đầu ghi ca.</p>}
       </section>
@@ -330,7 +340,8 @@ export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus
                     onEdit={(s) => open({ kind: 'shift', item: s })} onDelete={askDeleteShift}
                     onSelectDate={(workDate) => { setMode('day'); goPeriod(monthOf(workDate), workDate); }} />}
             </section>
-            <ServiceList services={services} busy={deleteService.isPending} useFacility={useFacility} settingBusy={updateSettings.isPending} settingError={settingError} onToggleFacility={toggleFacility} onAdd={() => open({ kind: 'service', item: null })}
+            <ServiceList services={services} busy={deleteService.isPending} useFacility={useFacility} canUseFacility={canUseFacilityServices}
+              settingBusy={updateSettings.isPending} settingError={settingError} onToggleFacility={toggleFacility} onAdd={() => open({ kind: 'service', item: null })}
               onEdit={(s) => open({ kind: 'service', item: s })} onDelete={askDeleteService} />
           </div>
         )}

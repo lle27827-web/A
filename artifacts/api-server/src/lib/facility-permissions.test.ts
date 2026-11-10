@@ -4,7 +4,7 @@ import express, { type Request } from "express";
 import { once } from "node:events";
 import { eq, inArray } from "drizzle-orm";
 import { attendanceTable, db, managerGrantsTable, membersTable, pool, serviceSessionsTable } from "@workspace/db";
-import { canDeleteEmployee, canManageGrant, canViewEmployee, noPermissions, ownerPermissions, permissionsForEmail, permissionsWithinDelegationScope, safePermissions } from "./facility-permissions";
+import { canCompareEmployee, canDeleteEmployee, canManageGrant, canViewEmployee, noPermissions, ownerPermissions, permissionsForEmail, permissionsWithinDelegationScope, safePermissions } from "./facility-permissions";
 import { managerRequestAllowed } from "./owner-auth";
 import membersRouter from "../routes/members";
 import attendanceRouter from "../routes/attendance";
@@ -79,7 +79,20 @@ test("permission policy denies by default; employee, card, revenue and edit righ
   assert.equal(await managerRequestAllowed(req("DELETE", "/appointments/1"), appointmentManager), true);
   assert.equal(await managerRequestAllowed(req("GET", "/appointments/1"), appointmentManager), false);
   const legacy = { allEmployees: true, employeeIds: [7], viewCards: true, viewRevenue: true, editEmployees: true, editCards: false, editServices: false };
-  assert.deepEqual(safePermissions(legacy), { ...legacy, viewAppointments: false, editAppointments: false, deleteEmployees: false });
+  assert.deepEqual(safePermissions(legacy), {
+    ...legacy, compareAllEmployees: true, compareEmployeeIds: [7],
+    viewAppointments: false, editAppointments: false, deleteEmployees: false,
+  });
+});
+
+test("comparison scope is independent from employee-list access and cannot be delegated outside its scope", () => {
+  const compareOnly = { ...noPermissions(), compareEmployeeIds: [7] };
+  assert.equal(canCompareEmployee(compareOnly, 7), true);
+  assert.equal(canCompareEmployee(compareOnly, 8), false);
+  assert.equal(canViewEmployee(compareOnly, 7), false, "comparison permission must not reveal the employee-management list");
+  assert.equal(permissionsWithinDelegationScope(compareOnly, { ...noPermissions(), compareEmployeeIds: [7] }), true);
+  assert.equal(permissionsWithinDelegationScope(compareOnly, { ...noPermissions(), compareEmployeeIds: [8] }), false);
+  assert.equal(permissionsWithinDelegationScope(compareOnly, { ...noPermissions(), compareAllEmployees: true }), false);
 });
 
 test("scoped reads and delegated grants stay within persisted manager permissions", async () => {

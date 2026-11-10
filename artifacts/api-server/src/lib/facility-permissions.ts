@@ -6,29 +6,45 @@ import { DEFAULT_BUSINESS_ID } from "./business-tenancy";
 
 // Old email-only grants deliberately default to no privileges.
 export const noPermissions = (): FacilityPermissions => ({
-  allEmployees: false, employeeIds: [], viewCards: false, viewRevenue: false,
+  allEmployees: false, employeeIds: [], compareAllEmployees: false, compareEmployeeIds: [],
+  viewCards: false, viewRevenue: false,
   editEmployees: false, editCards: false, editServices: false,
   deleteEmployees: false,
   viewAppointments: false, editAppointments: false,
 });
 export const ownerPermissions = (): FacilityPermissions => ({
-  allEmployees: true, employeeIds: [], viewCards: true, viewRevenue: true,
+  allEmployees: true, employeeIds: [], compareAllEmployees: true, compareEmployeeIds: [],
+  viewCards: true, viewRevenue: true,
   editEmployees: true, editCards: true, editServices: true,
   deleteEmployees: true,
   viewAppointments: true, editAppointments: true,
 });
 const storedPermissions = GetAuthStatusResponse.shape.permissions;
 export function safePermissions(value: unknown): FacilityPermissions {
-  // Existing grants predate appointment access. Keep their established rights
-  // and default only the new appointment permissions to denied.
+  // Existing grants predate appointment and independent comparison scopes.
+  // Preserve their old comparison access, then keep the new grants independent
+  // after they have been explicitly saved.
   const compatibleValue = value && typeof value === "object" && !Array.isArray(value)
-    ? { viewAppointments: false, editAppointments: false, deleteEmployees: false, ...value }
+    ? (() => {
+      const old = value as Partial<FacilityPermissions>;
+      return {
+        viewAppointments: false,
+        editAppointments: false,
+        deleteEmployees: false,
+        ...old,
+        compareAllEmployees: typeof old.compareAllEmployees === "boolean" ? old.compareAllEmployees : old.allEmployees === true,
+        compareEmployeeIds: Array.isArray(old.compareEmployeeIds) ? old.compareEmployeeIds : old.employeeIds ?? [],
+      };
+    })()
     : value;
   const result = storedPermissions.safeParse(compatibleValue);
   return result.success ? result.data : noPermissions();
 }
 export function canViewEmployee(p: FacilityPermissions, id: number): boolean {
   return Number.isSafeInteger(id) && id > 0 && (p.allEmployees || p.employeeIds.includes(id));
+}
+export function canCompareEmployee(p: FacilityPermissions, id: number): boolean {
+  return Number.isSafeInteger(id) && id > 0 && (p.compareAllEmployees || p.compareEmployeeIds.includes(id));
 }
 export function canEditEmployee(p: FacilityPermissions, id: number): boolean {
   return p.editEmployees && canViewEmployee(p, id);
@@ -58,6 +74,9 @@ export function permissionsWithinDelegationScope(
 ): boolean {
   if (delegated.allEmployees && !grantor.allEmployees) return false;
   if (!grantor.allEmployees && delegated.employeeIds.some((id) => !grantor.employeeIds.includes(id))) return false;
+  if (delegated.compareAllEmployees && !grantor.compareAllEmployees) return false;
+  if (!grantor.compareAllEmployees &&
+      delegated.compareEmployeeIds.some((id) => !grantor.compareEmployeeIds.includes(id))) return false;
   const flags = [
     "viewCards",
     "viewRevenue",

@@ -31,7 +31,7 @@ test("guests can read only health and auth status, never employee data", () => {
   }
 });
 
-test("personal routes require a verified session but never require facility ownership", () => {
+test("personal routes require a verified session but never require facility ownership", async () => {
   for (const userId of [null, "synthetic_verified_account"]) {
     let status = 200, nextCalled = false;
     const req = {
@@ -44,7 +44,7 @@ test("personal routes require a verified session but never require facility owne
       ),
     } as unknown as Request;
     const res = { locals: {}, set() { return this; }, status(code: number) { status = code; return this; }, json() { return this; } } as unknown as Response;
-    apiAuthorizationGate(req, res, () => { nextCalled = true; });
+    await apiAuthorizationGate(req, res, () => { nextCalled = true; });
     assert.equal(nextCalled, Boolean(userId));
     assert.equal(status, userId ? 200 : 401);
     assert.equal(res.locals.personalUserId, userId ?? undefined);

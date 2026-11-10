@@ -58,13 +58,19 @@ function rateValues(input: PersonalServiceInput) {
   }
   return { name, hourlyRate: input.hourlyRate };
 }
-export async function savePersonalService(userId: string, input: PersonalServiceInput, id?: number, operationId?: string) {
+export async function savePersonalService(
+  userId: string,
+  input: PersonalServiceInput,
+  id?: number,
+  operationId?: string,
+  businessId?: string,
+) {
   owned(userId);
   const values = rateValues(input);
   if (isPartitionedStorageEnabled()) {
     return withPersonalPartitionWrite(userId, async () => {
     const { services: serviceRows, settings } = await partitionedPersonalSnapshot(userId);
-    if (settings.find((row) => row.userId === userId)?.useFacilityRates) {
+    if (settings.find((row) => row.userId === userId)?.useFacilityRates && businessId) {
       throw new MassageError(409, "Tắt dùng đơn giá cơ sở trước khi sửa dịch vụ riêng.");
     }
     const old = id ? serviceRows.find((row) => row.id === id && row.userId === userId &&
@@ -98,7 +104,9 @@ export async function savePersonalService(userId: string, input: PersonalService
   }
   return db.transaction(async (tx) => {
     await lockPersonal(tx, userId);
-    if ((await personalSettings(tx, userId)).useFacilityRates) throw new MassageError(409, "Tắt dùng đơn giá cơ sở trước khi sửa dịch vụ riêng.");
+    if ((await personalSettings(tx, userId)).useFacilityRates && businessId) {
+      throw new MassageError(409, "Tắt dùng đơn giá cơ sở trước khi sửa dịch vụ riêng.");
+    }
     const [row] = id
       ? await tx.update(services).set(values).where(and(eq(services.id, id), eq(services.userId, userId), isNull(services.deletedAt), isNull(services.facilityServiceId))).returning()
       : await tx.insert(services).values({ ...values, userId }).returning();
@@ -155,7 +163,7 @@ export async function savePersonalSession(
       const duplicate = sessionRows.find((row) => row.userId === userId && row.requestId === input.requestId);
       if (duplicate) return sessionResult(duplicate);
     }
-    const useFacilityRates = settings.find((row) => row.userId === userId)?.useFacilityRates ?? false;
+    const useFacilityRates = Boolean(businessId && settings.find((row) => row.userId === userId)?.useFacilityRates);
     if (useFacilityRates && !businessId) throw new MassageError(403, "Chọn cơ sở đã được cấp quyền để dùng đơn giá cơ sở.");
     const service = serviceRows.find((row) => row.id === input.serviceId && row.userId === userId);
     if (!service || (service.deletedAt && previous?.serviceId !== service.id)) throw missing();
@@ -218,7 +226,7 @@ export async function savePersonalSession(
       if (duplicate) return sessionResult(duplicate);
     }
     if ((input.customerName?.trim().length ?? 0) > 160) throw new MassageError(400, "Tên khách quá dài.");
-    const { useFacilityRates } = await personalSettings(tx, userId);
+    const useFacilityRates = Boolean(businessId && (await personalSettings(tx, userId)).useFacilityRates);
     if (useFacilityRates) {
       if (!businessId) throw new MassageError(403, "Chọn cơ sở đã được cấp quyền để dùng đơn giá cơ sở.");
       await refreshFacilityServices(tx, userId, businessId);
@@ -289,7 +297,7 @@ export async function getPersonalNotebook(userId: string, month: string, date: s
   const { start, end } = period(month, date);
   if (isPartitionedStorageEnabled()) {
   const { services: serviceRows, sessions: sessionRows, settings } = await partitionedPersonalSnapshot(userId, businessId);
-    const useFacilityRates = settings.find((row) => row.userId === userId)?.useFacilityRates ?? false;
+    const useFacilityRates = Boolean(businessId && settings.find((row) => row.userId === userId)?.useFacilityRates);
     const visibleServices = serviceRows.filter((row) => row.userId === userId && row.deletedAt === null &&
       (useFacilityRates ? row.facilityServiceId !== null : row.facilityServiceId === null))
       .sort((a, b) => a.name.localeCompare(b.name, "vi"));
@@ -309,7 +317,7 @@ export async function getPersonalNotebook(userId: string, month: string, date: s
   }
   return db.transaction(async (tx) => {
   await lockPersonal(tx, userId);
-  const { useFacilityRates } = await personalSettings(tx, userId);
+  const useFacilityRates = Boolean(businessId && (await personalSettings(tx, userId)).useFacilityRates);
   if (useFacilityRates && businessId) await refreshFacilityServices(tx, userId, businessId);
   const serviceRows = await tx.select().from(services).where(and(eq(services.userId, userId), isNull(services.deletedAt),
     useFacilityRates ? isNotNull(services.facilityServiceId) : isNull(services.facilityServiceId))).orderBy(asc(services.name));

@@ -169,6 +169,12 @@ export interface FacilityPermissions {
      * @items.minimum 1
      */
   employeeIds: number[];
+  compareAllEmployees: boolean;
+  /**
+     * @maxItems 1000
+     * @items.minimum 1
+     */
+  compareEmployeeIds: number[];
   viewCards: boolean;
   viewRevenue: boolean;
   editEmployees: boolean;
@@ -594,6 +600,14 @@ export interface MemberRecord {
   createdAt: string;
   deletedAt?: string | null;
   historicalNameSource?: MemberRecordHistoricalNameSource;
+}
+
+export interface PersonalComparisonMember {
+  /** @minimum 1 */
+  id: number;
+  name: string;
+  /** @nullable */
+  deletedAt: string | null;
 }
 
 export interface MemberInput {
@@ -1225,6 +1239,13 @@ month: string;
  * @pattern ^\d{4}-\d{2}-\d{2}$
  */
 date: string;
+};
+
+export type ListPersonalComparisonMembersParams = {
+/**
+ * @pattern ^\d{4}-(0[1-9]|1[0-2])$
+ */
+month?: string;
 };
 
 export type ListMembersParams = {

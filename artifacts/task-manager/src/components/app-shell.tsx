@@ -20,15 +20,17 @@ import {
 import { primeSaveChime } from '@/lib/save-chime';
 
 export const NO_PERMISSIONS: FacilityPermissions = {
-  allEmployees: false, employeeIds: [], viewCards: false, viewRevenue: false,
+  allEmployees: false, employeeIds: [], compareAllEmployees: false, compareEmployeeIds: [],
+  viewCards: false, viewRevenue: false,
   editEmployees: false, deleteEmployees: false, editCards: false, editServices: false, viewAppointments: false, editAppointments: false,
 };
 export const ALL_PERMISSIONS: FacilityPermissions = {
-  allEmployees: true, employeeIds: [], viewCards: true, viewRevenue: true,
+  allEmployees: true, employeeIds: [], compareAllEmployees: true, compareEmployeeIds: [], viewCards: true, viewRevenue: true,
   editEmployees: true, deleteEmployees: true, editCards: true, editServices: true, viewAppointments: true, editAppointments: true,
 };
 export function hasFacilityAccess(p: FacilityPermissions): boolean {
-  return p.allEmployees || p.employeeIds.length > 0 || p.viewCards || p.viewRevenue || p.editServices || p.viewAppointments || p.editAppointments;
+  return p.allEmployees || p.employeeIds.length > 0 || p.viewCards || p.viewRevenue ||
+    p.editServices || p.viewAppointments || p.editAppointments;
 }
 
 type ShellCtx = {

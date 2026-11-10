@@ -13,6 +13,12 @@ export interface FacilityPermissions {
      * @items.minimum 1
      */
   employeeIds: number[];
+  compareAllEmployees: boolean;
+  /**
+     * @maxItems 1000
+     * @items.minimum 1
+     */
+  compareEmployeeIds: number[];
   viewCards: boolean;
   viewRevenue: boolean;
   editEmployees: boolean;

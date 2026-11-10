@@ -434,7 +434,7 @@ option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
   border: 1px solid hsl(var(--border));
   border-radius: 9px;
   color: hsl(var(--foreground));
-  background: hsl(var(--card));
+  background: hsl(var(--muted));
   font: inherit;
   font-size: 11px;
   font-weight: 700;
@@ -444,7 +444,7 @@ option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
 .business-role-options button.selected {
   border-color: hsl(var(--primary));
   color: hsl(var(--primary));
-  background: hsl(var(--primary) / .08);
+  background: hsl(var(--muted));
 }
 .onboarding-role-options { grid-template-columns: minmax(0, 1fr); }
 .onboarding-role-options button { justify-content: flex-start; min-height: 48px; padding-inline: 12px; background: hsl(var(--muted)); }

@@ -43,6 +43,8 @@ router.post("/access-grants", massageHandler(async (req, res) => {
   const permissions = {
     ...input.permissions,
     employeeIds: input.permissions.allEmployees ? [] : [...new Set(input.permissions.employeeIds)].sort((a, b) => a - b),
+    compareEmployeeIds: input.permissions.compareAllEmployees
+      ? [] : [...new Set(input.permissions.compareEmployeeIds)].sort((a, b) => a - b),
   };
   if (permissions.editCards && !permissions.viewCards) throw new MassageError(400, "Cần quyền xem thẻ trước khi cho phép sửa thẻ.");
   if (permissions.editAppointments && !permissions.viewAppointments) throw new MassageError(400, "Cần quyền xem lịch hẹn trước khi cho phép quản lý lịch hẹn.");
@@ -61,12 +63,13 @@ router.post("/access-grants", massageHandler(async (req, res) => {
       throw new MassageError(403, "Bạn không thể sửa quyền đã được cấp vượt phạm vi của mình.");
     }
   }
-  if (permissions.employeeIds.length) {
+  const scopedEmployeeIds = [...new Set([...permissions.employeeIds, ...permissions.compareEmployeeIds])];
+  if (scopedEmployeeIds.length) {
     const valid = isPartitionedStorageEnabled()
       ? (await readPartitionedTable("members", { businessId }) as unknown as (typeof membersTable.$inferSelect)[])
       : await db.select({ id: membersTable.id, deletedAt: membersTable.deletedAt }).from(membersTable)
-        .where(and(inArray(membersTable.id, permissions.employeeIds), eq(membersTable.businessId, businessId), isNull(membersTable.deletedAt)));
-    if (!hasOnlyActiveGrantEmployees(permissions.employeeIds, valid)) {
+        .where(and(inArray(membersTable.id, scopedEmployeeIds), eq(membersTable.businessId, businessId), isNull(membersTable.deletedAt)));
+    if (!hasOnlyActiveGrantEmployees(scopedEmployeeIds, valid)) {
       throw new MassageError(400, "Danh sách nhân viên không hợp lệ hoặc đã bị xóa. Hãy tải lại.");
     }
   }

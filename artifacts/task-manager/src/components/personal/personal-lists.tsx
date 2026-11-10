@@ -3,8 +3,9 @@ import { CalendarDays, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { formatShortDayMonth } from '@/lib/attendance';
 import { formatMinutes, formatVnd } from '@/lib/massage';
 
-export function ServiceList({ services, busy, useFacility, settingBusy, settingError, onToggleFacility, onAdd, onEdit, onDelete }: {
+export function ServiceList({ services, busy, useFacility, canUseFacility, settingBusy, settingError, onToggleFacility, onAdd, onEdit, onDelete }: {
   services: PersonalService[]; busy: boolean;
+  canUseFacility: boolean;
   useFacility: boolean; settingBusy: boolean; settingError: string; onToggleFacility: (next: boolean) => void;
   onAdd: () => void; onEdit: (s: PersonalService) => void; onDelete: (s: PersonalService) => void;
 }) {
@@ -14,12 +15,12 @@ export function ServiceList({ services, busy, useFacility, settingBusy, settingE
         <div><h2 id="p-services"><Sparkles size={16} aria-hidden="true" />Dịch vụ &amp; giá của tôi <span className="count">{services.length}</span></h2></div>
         {!useFacility && <button type="button" className="btn small" onClick={onAdd} data-testid="button-add-personal-service"><Plus size={14} />Thêm dịch vụ</button>}
       </div>
-      <label className="p-switch" data-testid="label-use-facility-rates">
+      {canUseFacility && <label className="p-switch" data-testid="label-use-facility-rates">
         <input type="checkbox" role="switch" aria-label="Dùng dịch vụ và tiền công của cơ sở" checked={useFacility} disabled={settingBusy} aria-busy={settingBusy}
           onChange={(e) => onToggleFacility(e.target.checked)} data-testid="switch-use-facility-rates" />
         <span className="p-switch-track" aria-hidden="true"><span /></span>
         <span className="grow"><strong>Dùng dịch vụ và tiền công của cơ sở</strong></span>
-      </label>
+      </label>}
       {settingError && <p className="form-error" role="alert" data-testid="text-facility-setting-error">{settingError}</p>}
       {services.length === 0 ? (
         <div className="empty small"><Sparkles size={18} /><p>{useFacility ? 'Cơ sở chưa có dịch vụ nào.' : 'Chưa có dịch vụ. Thêm dịch vụ và giá theo giờ trước khi ghi ca.'}</p></div>

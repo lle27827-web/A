@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  getGetPersonalComparisonQueryKey, getGetPersonalNotebookQueryKey, getListMembersQueryKey,
-  useGetPersonalComparison, useListMembers, useSyncPersonalNotebook,
+  getGetPersonalComparisonQueryKey, getGetPersonalNotebookQueryKey, getListPersonalComparisonMembersQueryKey,
+  useGetPersonalComparison, useListPersonalComparisonMembers, useSyncPersonalNotebook,
 } from '@workspace/api-client-react';
 import type { PersonalComparisonVisit } from '@workspace/api-client-react';
 import { AlertCircle, AlertTriangle, ArrowLeft, Check, CheckCircle2, LoaderCircle, RefreshCw, Scale, Users } from 'lucide-react';
@@ -49,7 +49,12 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
   // Match the facility's main roster: current active employees today, historical
   // identities only when explicitly looking at an older month.
   const memberParams = useMemo(() => comparisonMemberParams(month, localDate().slice(0, 7)), [month]);
-  const members = useListMembers(memberParams, { query: { queryKey: getListMembersQueryKey(memberParams), staleTime: 30_000, refetchOnWindowFocus: true } });
+  const members = useListPersonalComparisonMembers(memberParams, { query: {
+    queryKey: getListPersonalComparisonMembersQueryKey(memberParams),
+    staleTime: 30_000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+  } });
   const roster = useMemo(() => comparisonRoster(members.data ?? []), [members.data]);
   const selectedMember = roster.find((m) => m.id === memberId);
   useEffect(() => {
@@ -132,7 +137,7 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
     <Modal title="Đối chiếu tiền công" onClose={onClose} testId="dialog-comparison" className="personal-surface-dialog">
       {memberId === null ? (
         members.isLoading ? <Skeleton rows={5} label="Đang tải danh sách nhân viên" />
-          : members.isError ? <ErrorBanner text="Không tải được danh sách nhân viên cơ sở." onRetry={() => void members.refetch()} />
+          : members.isError ? <ErrorBanner text="Không tải được danh sách nhân viên được cấp quyền đối chiếu." onRetry={() => void members.refetch()} />
           : roster.length === 0 ? <div className="empty small" data-testid="status-compare-empty"><Users size={18} /><p>Không có nhân viên được phép đối chiếu.</p></div>
           : (
             <ul className="month-list" aria-label="Nhân viên để đối chiếu" data-testid="list-compare-members">

@@ -6,6 +6,8 @@ test("business registry failure leaves no stale business membership or permissio
   const fallback = personalOnlyBusinessAccess({
     allEmployees: false,
     employeeIds: [],
+    compareAllEmployees: false,
+    compareEmployeeIds: [],
     viewCards: false,
     viewRevenue: false,
     editEmployees: false,
@@ -25,6 +27,8 @@ test("business registry failure leaves no stale business membership or permissio
     permissions: {
       allEmployees: false,
       employeeIds: [],
+      compareAllEmployees: false,
+      compareEmployeeIds: [],
       viewCards: false,
       viewRevenue: false,
       editEmployees: false,

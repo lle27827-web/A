@@ -1,4 +1,4 @@
-import type { MemberRecord, PersonalComparisonVisit } from '@workspace/api-client-react';
+import type { PersonalComparisonMember, PersonalComparisonVisit } from '@workspace/api-client-react';
 
 const normalize = (text: string) => text.normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('vi');
 
@@ -6,7 +6,7 @@ export function comparisonMemberParams(month: string, currentMonth: string) {
   return month < currentMonth ? { month } : undefined;
 }
 
-export function comparisonRoster(rows: MemberRecord[]) {
+export function comparisonRoster(rows: PersonalComparisonMember[]) {
   const unique = [...new Map(rows.map((row) => [row.id, row])).values()];
   const names = new Map<string, number>();
   for (const row of unique) names.set(normalize(row.name), (names.get(normalize(row.name)) ?? 0) + 1);

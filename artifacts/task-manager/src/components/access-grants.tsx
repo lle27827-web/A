@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getListAccessGrantsQueryKey, getListCurrentBusinessMembersQueryKey, useDeleteAccessGrant, useListAccessGrants,
-  useListCurrentBusinessMembers, useSaveAccessGrant,
+  getListPersonalComparisonMembersQueryKey, useListCurrentBusinessMembers, useListPersonalComparisonMembers, useSaveAccessGrant,
 } from '@workspace/api-client-react';
 import type { AccessGrant, FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
 import { AlertCircle, ChevronDown, ChevronRight, KeyRound, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react';
@@ -12,19 +12,23 @@ import { hasDuplicateManagerGrantEmail, managerGrantEmailInputValue, normalizeMa
 
 type Scope = 'none' | 'all' | 'selected';
 type Draft = {
-  id: number | null; email: string; scope: Scope; employeeIds: number[];
+  id: number | null; email: string; scope: Scope; employeeIds: number[]; compareScope: Scope; compareEmployeeIds: number[];
   viewCards: boolean; editCards: boolean; viewRevenue: boolean; editEmployees: boolean; deleteEmployees: boolean; editServices: boolean;
   viewAppointments: boolean; editAppointments: boolean;
 };
 
-const EMPTY: Draft = { id: null, email: '', scope: 'none', employeeIds: [], viewCards: false, editCards: false, viewRevenue: false, editEmployees: false, deleteEmployees: false, editServices: false, viewAppointments: false, editAppointments: false };
+const EMPTY: Draft = { id: null, email: '', scope: 'none', employeeIds: [], compareScope: 'none', compareEmployeeIds: [],
+  viewCards: false, editCards: false, viewRevenue: false, editEmployees: false, deleteEmployees: false, editServices: false, viewAppointments: false, editAppointments: false };
 
 function fromGrant(g: AccessGrant): Draft {
   const p = g.permissions;
   return {
     id: g.id, email: g.email,
     scope: p.allEmployees ? 'all' : p.employeeIds.length ? 'selected' : 'none',
-    employeeIds: [...p.employeeIds], viewCards: p.viewCards || p.editCards, editCards: p.editCards,
+    employeeIds: [...p.employeeIds],
+    compareScope: p.compareAllEmployees ? 'all' : p.compareEmployeeIds.length ? 'selected' : 'none',
+    compareEmployeeIds: [...p.compareEmployeeIds],
+    viewCards: p.viewCards || p.editCards, editCards: p.editCards,
     viewRevenue: p.viewRevenue, editEmployees: p.editEmployees, deleteEmployees: p.deleteEmployees, editServices: p.editServices,
     viewAppointments: p.viewAppointments || p.editAppointments, editAppointments: p.editAppointments,
   };
@@ -36,6 +40,8 @@ function toPermissions(d: Draft): FacilityPermissions {
   return {
     allEmployees: d.scope === 'all',
     employeeIds: d.scope === 'selected' ? [...new Set(d.employeeIds)].sort((a, b) => a - b) : [],
+    compareAllEmployees: d.compareScope === 'all',
+    compareEmployeeIds: d.compareScope === 'selected' ? [...new Set(d.compareEmployeeIds)].sort((a, b) => a - b) : [],
     viewCards: d.viewCards || d.editCards,
     editCards: d.editCards,
     viewRevenue: d.viewRevenue,
@@ -47,12 +53,19 @@ function toPermissions(d: Draft): FacilityPermissions {
   };
 }
 
-function summary(p: FacilityPermissions, members: MemberRecord[]): string {
+type GrantMember = Pick<MemberRecord, 'id' | 'name'>;
+
+function summary(p: FacilityPermissions, members: readonly GrantMember[]): string {
   const parts: string[] = [];
   if (p.allEmployees) parts.push('Tất cả nhân viên');
   else if (p.employeeIds.length) {
     const names = p.employeeIds.map((id) => members.find((m) => m.id === id)?.name ?? `#${id}`);
     parts.push(`Nhân viên: ${names.join(', ')}`);
+  }
+  if (p.compareAllEmployees) parts.push('Đối chiếu tất cả nhân viên');
+  else if (p.compareEmployeeIds.length) {
+    const names = p.compareEmployeeIds.map((id) => members.find((m) => m.id === id)?.name ?? `#${id}`);
+    parts.push(`Đối chiếu: ${names.join(', ')}`);
   }
   if (p.editEmployees) parts.push('sửa nhân viên và ca');
   if (p.deleteEmployees) parts.push('xóa nhân viên');
@@ -65,13 +78,18 @@ function summary(p: FacilityPermissions, members: MemberRecord[]): string {
   return parts.length ? parts.join(' · ') : 'Không có quyền';
 }
 
-function permissionDetails(p: FacilityPermissions, members: MemberRecord[]): string[] {
+function permissionDetails(p: FacilityPermissions, members: readonly GrantMember[]): string[] {
   const details: string[] = [];
   if (p.allEmployees) details.push('Xem tất cả nhân viên');
   else if (p.employeeIds.length) {
     const names = p.employeeIds.map((id) => members.find((m) => m.id === id)?.name ?? `#${id}`);
     details.push(`Xem nhân viên: ${names.join(', ')}`);
   } else details.push('Không có quyền xem nhân viên');
+  if (p.compareAllEmployees) details.push('Đối chiếu sổ cá nhân với tất cả nhân viên');
+  else if (p.compareEmployeeIds.length) {
+    const names = p.compareEmployeeIds.map((id) => members.find((m) => m.id === id)?.name ?? `#${id}`);
+    details.push(`Được đối chiếu với: ${names.join(', ')}`);
+  } else details.push('Không có quyền đối chiếu nhân viên');
   if (p.editEmployees) details.push('Sửa nhân viên và ca');
   if (p.deleteEmployees) details.push('Xóa nhân viên trong phạm vi được cấp');
   if (p.viewCards || p.editCards) details.push('Xem thẻ khách');
@@ -98,6 +116,13 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
       refetchOnWindowFocus: true,
     },
   });
+  const comparisonMembers = useListPersonalComparisonMembers(undefined, {
+    query: {
+      queryKey: getListPersonalComparisonMembersQueryKey(),
+      enabled: isOwner || permissions.compareAllEmployees || permissions.compareEmployeeIds.length > 0,
+      refetchOnWindowFocus: true,
+    },
+  });
   const save = useSaveAccessGrant();
   const remove = useDeleteAccessGrant();
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -108,6 +133,17 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
   const assignableMembers = useMemo(
     () => isOwner || permissions.allEmployees ? members : members.filter((member) => permissions.employeeIds.includes(member.id)),
     [isOwner, members, permissions.allEmployees, permissions.employeeIds],
+  );
+  const assignableComparisonMembers = useMemo(
+    () => [...new Map([
+      ...(comparisonMembers.data ?? []),
+      ...assignableMembers.map(({ id, name, deletedAt }) => ({ id, name, deletedAt: deletedAt ?? null })),
+    ].map((member) => [member.id, member])).values()],
+    [assignableMembers, comparisonMembers.data],
+  );
+  const displayMembers = useMemo(
+    () => [...new Map([...members, ...assignableComparisonMembers].map((member) => [member.id, member])).values()],
+    [assignableComparisonMembers, members],
   );
   const list = useMemo(() => [...(grants.data ?? [])].sort((a, b) => a.email.localeCompare(b.email)), [grants.data]);
   const canGrantAllEmployees = isOwner || permissions.allEmployees;
@@ -131,6 +167,7 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
       return setError('Email này đã có quyền. Hãy sửa dòng hiện có.');
     }
     if (draft.scope === 'selected' && draft.employeeIds.length === 0) return setError('Chọn ít nhất một nhân viên.');
+    if (draft.compareScope === 'selected' && draft.compareEmployeeIds.length === 0) return setError('Chọn ít nhất một nhân viên được đối chiếu.');
     const permissions = toPermissions(draft);
     if (!hasAny(permissions)) return setError('Chọn ít nhất một quyền.');
     save.mutate({ data: { email, permissions } }, {
@@ -163,6 +200,10 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
   }
 
   const hasScope = draft ? draft.scope === 'all' || (draft.scope === 'selected' && draft.employeeIds.length > 0) : false;
+  const hasCompareScope = draft ? draft.compareScope === 'all' ||
+    (draft.compareScope === 'selected' && draft.compareEmployeeIds.length > 0) : false;
+  const canGrantAllComparison = isOwner || permissions.compareAllEmployees;
+  const canGrantSelectedComparison = canGrantAllComparison || permissions.compareEmployeeIds.length > 0;
 
   return (
     <>
@@ -224,6 +265,44 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
                 <span>Xóa nhân viên trong phạm vi trên</span>
               </label>
               {draft.scope === 'selected' && draft.editEmployees && <p className="hint">Thêm nhân viên mới cần quyền tất cả nhân viên.</p>}
+            </fieldset>
+
+            <fieldset className="grant-group" data-testid="group-grant-comparison">
+              <legend>Quyền được đối chiếu</legend>
+              <p className="hint">Phạm vi này độc lập với quyền xem danh sách nhân viên.</p>
+              {(['none', 'all', 'selected'] as const).map((scope) => (
+                <label key={scope} className="grant-check">
+                  <input type="radio" name="grant-comparison-scope" checked={draft.compareScope === scope}
+                    disabled={scope === 'all' ? !canGrantAllComparison : scope === 'selected' ? !canGrantSelectedComparison : false}
+                    onChange={() => {
+                      setError('');
+                      setDraft((d) => d ? { ...d, compareScope: scope } : d);
+                    }}
+                    data-testid={`radio-grant-comparison-scope-${scope}`} />
+                  <span>{scope === 'none' ? 'Không được đối chiếu' : scope === 'all' ? 'Tất cả nhân viên' : 'Nhân viên được chọn'}</span>
+                </label>
+              ))}
+              {draft.compareScope === 'selected' && (
+                <div className="grant-members" role="group" aria-label="Nhân viên được phép đối chiếu">
+                  {comparisonMembers.isLoading ? <p className="muted small">Đang tải danh sách nhân viên được đối chiếu…</p>
+                    : comparisonMembers.isError ? <p className="muted small">Không tải được danh sách. Hãy đóng rồi mở lại phần quyền.</p>
+                      : assignableComparisonMembers.length === 0 ? <p className="muted small">Chưa có nhân viên trong phạm vi đối chiếu của bạn.</p>
+                        : assignableComparisonMembers.map((member) => (
+                          <label key={member.id} className="grant-check">
+                            <input type="checkbox" checked={draft.compareEmployeeIds.includes(member.id)}
+                              disabled={!isOwner && !permissions.compareAllEmployees && !permissions.compareEmployeeIds.includes(member.id)}
+                              onChange={(event) => set('compareEmployeeIds', event.target.checked
+                                ? [...draft.compareEmployeeIds, member.id]
+                                : draft.compareEmployeeIds.filter((id) => id !== member.id))}
+                              data-testid={`checkbox-grant-compare-member-${member.id}`} />
+                            <span>{member.name}{member.deletedAt ? ' · Đã nghỉ' : ''}</span>
+                          </label>
+                        ))}
+                </div>
+              )}
+              {!hasCompareScope && draft.compareScope !== 'none' && (
+                <p className="hint">Chọn nhân viên trước khi lưu quyền đối chiếu.</p>
+              )}
             </fieldset>
 
             <fieldset className="grant-group">
@@ -297,7 +376,7 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
                   data-testid={`button-select-grant-${g.id}`}>
                   <span className="grow">
                     <strong data-testid={`text-grant-email-${g.id}`}>{g.email}</strong>
-                    <span className="muted">{summary(g.permissions, members)}</span>
+                    <span className="muted">{summary(g.permissions, displayMembers)}</span>
                   </span>
                   {selectedGrantId === g.id ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
                 </button>
@@ -346,7 +425,7 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
             <h3 id={`grant-details-title-${g.id}`} className="group-title">Quyền của tài khoản</h3>
             <p className="grant-detail-email">{g.email}</p>
             <ul className="grant-permission-list">
-              {permissionDetails(g.permissions, members).map((detail) => <li key={detail}>{detail}</li>)}
+              {permissionDetails(g.permissions, displayMembers).map((detail) => <li key={detail}>{detail}</li>)}
             </ul>
             <div className="row-actions text-actions">
               <button type="button" className="btn small" onClick={() => { setNotice(''); setError(''); setDraft(fromGrant(g)); }} aria-label={`Sửa quyền ${g.email}`} data-testid={`button-edit-grant-${g.id}`}><Pencil size={14} aria-hidden="true" />Sửa quyền</button>
@@ -361,5 +440,7 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
 }
 
 function hasAny(p: FacilityPermissions) {
-  return p.allEmployees || p.employeeIds.length > 0 || p.viewCards || p.viewRevenue || p.editEmployees || p.deleteEmployees || p.editCards || p.editServices || p.viewAppointments || p.editAppointments;
+  return p.allEmployees || p.employeeIds.length > 0 || p.compareAllEmployees || p.compareEmployeeIds.length > 0 ||
+    p.viewCards || p.viewRevenue || p.editEmployees || p.deleteEmployees || p.editCards || p.editServices ||
+    p.viewAppointments || p.editAppointments;
 }

@@ -533,6 +533,24 @@ export const GetPersonalComparisonResponse = zod.object({
 })
 
 
+export const listPersonalComparisonMembersQueryMonthRegExp = new RegExp('^\\d{4}-(0[1-9]|1[0-2])$');
+
+
+export const ListPersonalComparisonMembersQueryParams = zod.object({
+  "month": zod.coerce.string().regex(listPersonalComparisonMembersQueryMonthRegExp).optional()
+})
+
+
+
+
+export const ListPersonalComparisonMembersResponseItem = zod.object({
+  "id": zod.number().int().min(1),
+  "name": zod.string(),
+  "deletedAt": zod.coerce.date().nullable()
+})
+export const ListPersonalComparisonMembersResponse = zod.array(ListPersonalComparisonMembersResponseItem)
+
+
 export const ListServiceTypesResponseItem = zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
@@ -785,6 +803,9 @@ export const HealthCheckResponse = zod.object({
 export const getAuthStatusResponsePermissionsEmployeeIdsMax = 1000;
 
 
+export const getAuthStatusResponsePermissionsCompareEmployeeIdsMax = 1000;
+
+
 
 export const GetAuthStatusResponse = zod.object({
   "authConfigured": zod.boolean(),
@@ -805,6 +826,8 @@ export const GetAuthStatusResponse = zod.object({
   "permissions": zod.object({
   "allEmployees": zod.boolean(),
   "employeeIds": zod.array(zod.number().int().min(1)).max(getAuthStatusResponsePermissionsEmployeeIdsMax),
+  "compareAllEmployees": zod.boolean(),
+  "compareEmployeeIds": zod.array(zod.number().int().min(1)).max(getAuthStatusResponsePermissionsCompareEmployeeIdsMax),
   "viewCards": zod.boolean(),
   "viewRevenue": zod.boolean(),
   "editEmployees": zod.boolean(),
@@ -918,12 +941,17 @@ export const listAccessGrantsResponseOneEmailMax = 254;
 export const listAccessGrantsResponseOnePermissionsEmployeeIdsMax = 1000;
 
 
+export const listAccessGrantsResponseOnePermissionsCompareEmployeeIdsMax = 1000;
+
+
 
 export const ListAccessGrantsResponseItem = zod.object({
   "email": zod.string().email().max(listAccessGrantsResponseOneEmailMax),
   "permissions": zod.object({
   "allEmployees": zod.boolean(),
   "employeeIds": zod.array(zod.number().int().min(1)).max(listAccessGrantsResponseOnePermissionsEmployeeIdsMax),
+  "compareAllEmployees": zod.boolean(),
+  "compareEmployeeIds": zod.array(zod.number().int().min(1)).max(listAccessGrantsResponseOnePermissionsCompareEmployeeIdsMax),
   "viewCards": zod.boolean(),
   "viewRevenue": zod.boolean(),
   "editEmployees": zod.boolean(),
@@ -948,12 +976,17 @@ export const saveAccessGrantBodyEmailMax = 254;
 export const saveAccessGrantBodyPermissionsEmployeeIdsMax = 1000;
 
 
+export const saveAccessGrantBodyPermissionsCompareEmployeeIdsMax = 1000;
+
+
 
 export const SaveAccessGrantBody = zod.object({
   "email": zod.string().email().max(saveAccessGrantBodyEmailMax),
   "permissions": zod.object({
   "allEmployees": zod.boolean(),
   "employeeIds": zod.array(zod.number().int().min(1)).max(saveAccessGrantBodyPermissionsEmployeeIdsMax),
+  "compareAllEmployees": zod.boolean(),
+  "compareEmployeeIds": zod.array(zod.number().int().min(1)).max(saveAccessGrantBodyPermissionsCompareEmployeeIdsMax),
   "viewCards": zod.boolean(),
   "viewRevenue": zod.boolean(),
   "editEmployees": zod.boolean(),
@@ -971,12 +1004,17 @@ export const saveAccessGrantResponseOneEmailMax = 254;
 export const saveAccessGrantResponseOnePermissionsEmployeeIdsMax = 1000;
 
 
+export const saveAccessGrantResponseOnePermissionsCompareEmployeeIdsMax = 1000;
+
+
 
 export const SaveAccessGrantResponse = zod.object({
   "email": zod.string().email().max(saveAccessGrantResponseOneEmailMax),
   "permissions": zod.object({
   "allEmployees": zod.boolean(),
   "employeeIds": zod.array(zod.number().int().min(1)).max(saveAccessGrantResponseOnePermissionsEmployeeIdsMax),
+  "compareAllEmployees": zod.boolean(),
+  "compareEmployeeIds": zod.array(zod.number().int().min(1)).max(saveAccessGrantResponseOnePermissionsCompareEmployeeIdsMax),
   "viewCards": zod.boolean(),
   "viewRevenue": zod.boolean(),
   "editEmployees": zod.boolean(),

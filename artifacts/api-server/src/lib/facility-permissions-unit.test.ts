@@ -2,11 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { Request } from "express";
 import {
+  canCompareEmployee,
   canDeleteEmployee,
+  canViewEmployee,
   canManageGrant,
   hasOnlyActiveGrantEmployees,
   noPermissions,
   ownerPermissions,
+  permissionsWithinDelegationScope,
   safePermissions,
 } from "./facility-permissions";
 import { managerRequestAllowed } from "./owner-auth";
@@ -24,6 +27,16 @@ test("legacy grants cannot delete employees or be changed by managers", () => {
     { email: "manager@example.com", isOwner: false, permissions: ownerPermissions() },
     { email: "staff@example.com", grantedBy: null, permissions },
   ), false);
+});
+
+test("comparison-only grants do not grant employee-list visibility and remain separately delegated", () => {
+  const scope = { ...noPermissions(), compareEmployeeIds: [7] };
+  assert.equal(canCompareEmployee(scope, 7), true);
+  assert.equal(canCompareEmployee(scope, 8), false);
+  assert.equal(canViewEmployee(scope, 7), false);
+  assert.equal(permissionsWithinDelegationScope(scope, { ...noPermissions(), compareEmployeeIds: [7] }), true);
+  assert.equal(permissionsWithinDelegationScope(scope, { ...noPermissions(), compareEmployeeIds: [8] }), false);
+  assert.equal(permissionsWithinDelegationScope(scope, { ...noPermissions(), compareAllEmployees: true }), false);
 });
 
 test("a manager may only manage grants they created within their delegated scope", () => {

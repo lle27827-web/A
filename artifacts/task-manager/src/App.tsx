@@ -221,7 +221,10 @@ function SignedInApplication({
 
 function permissionKey(p: FacilityPermissions | undefined, owner: boolean, businessId: string | null): string {
   if (!p) return 'none';
-  return JSON.stringify([businessId, owner, p.allEmployees, [...p.employeeIds].sort((a, b) => a - b), p.viewCards, p.viewRevenue, p.editEmployees, p.deleteEmployees, p.editCards, p.editServices, p.viewAppointments, p.editAppointments]);
+  return JSON.stringify([businessId, owner, p.allEmployees, [...p.employeeIds].sort((a, b) => a - b),
+    p.compareAllEmployees, [...p.compareEmployeeIds].sort((a, b) => a - b),
+    p.viewCards, p.viewRevenue, p.editEmployees, p.deleteEmployees, p.editCards, p.editServices,
+    p.viewAppointments, p.editAppointments]);
 }
 
 function AuthenticatedApplication() {
@@ -302,7 +305,7 @@ function AuthenticatedApplication() {
       void client.resetQueries({
         predicate: (q) => {
           const head = q.queryKey[0];
-          return !(typeof head === 'string' && (head === authKey || (head.startsWith('/api/personal') && head !== '/api/personal/comparison')));
+          return !(typeof head === 'string' && head === authKey);
         },
       });
     }

@@ -51,6 +51,7 @@ import type {
   JoinBusinessInput,
   ListAttendanceParams,
   ListMembersParams,
+  ListPersonalComparisonMembersParams,
   ListServiceSessionsParams,
   ListTreatmentCardsParams,
   MassageSummary,
@@ -62,6 +63,7 @@ import type {
   NightServicePricingUpdate,
   PaymentDetails,
   PersonalComparison,
+  PersonalComparisonMember,
   PersonalNotebook,
   PersonalService,
   PersonalServiceInput,
@@ -1610,6 +1612,84 @@ export function useGetPersonalComparison<TData = Awaited<ReturnType<typeof getPe
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetPersonalComparisonQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListPersonalComparisonMembersUrl = (params?: ListPersonalComparisonMembersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/personal/comparison/members?${stringifiedParams}` : `/api/personal/comparison/members`
+}
+
+export const listPersonalComparisonMembers = async (params?: ListPersonalComparisonMembersParams, options?: Parameters<typeof customFetch>[1]): Promise<PersonalComparisonMember[]> => {
+
+  return customFetch<PersonalComparisonMember[]>(getListPersonalComparisonMembersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPersonalComparisonMembersQueryKey = (params?: ListPersonalComparisonMembersParams,) => {
+    return [
+    `/api/personal/comparison/members`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListPersonalComparisonMembersQueryOptions = <TData = Awaited<ReturnType<typeof listPersonalComparisonMembers>>, TError = ErrorType<unknown>>(params?: ListPersonalComparisonMembersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPersonalComparisonMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPersonalComparisonMembersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPersonalComparisonMembers>>> = ({ signal }) => listPersonalComparisonMembers(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPersonalComparisonMembers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPersonalComparisonMembersQueryResult = NonNullable<Awaited<ReturnType<typeof listPersonalComparisonMembers>>>
+export type ListPersonalComparisonMembersQueryError = ErrorType<unknown>
+
+
+
+export function useListPersonalComparisonMembers<TData = Awaited<ReturnType<typeof listPersonalComparisonMembers>>, TError = ErrorType<unknown>>(
+ params?: ListPersonalComparisonMembersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPersonalComparisonMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPersonalComparisonMembersQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

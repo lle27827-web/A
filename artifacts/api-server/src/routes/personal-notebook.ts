@@ -4,6 +4,7 @@ import { db, isPartitionedStorageEnabled, readPartitionedTable } from "@workspac
 import {
   CreatePersonalServiceBody, CreatePersonalSessionBody, GetPersonalNotebookQueryParams,
   GetPersonalNotebookResponse, GetPersonalComparisonQueryParams, GetPersonalComparisonResponse,
+  ListPersonalComparisonMembersQueryParams, ListPersonalComparisonMembersResponse,
   UpdatePersonalServiceBody, UpdatePersonalServiceParams, UpdatePersonalSessionBody, UpdatePersonalSessionParams,
   DeletePersonalServiceParams, DeletePersonalSessionParams,
   UpdatePersonalSettingsBody, SyncPersonalNotebookBody,
@@ -13,30 +14,27 @@ import { savePersonalService, deletePersonalService, savePersonalSession, delete
   getPersonalNotebook, getPersonalComparison, updatePersonalSettings } from "../lib/personal-notebook";
 import { syncPersonalNotebook } from "../lib/personal-comparison";
 import { MassageError } from "../lib/massage";
-import { noPermissions } from "../lib/facility-permissions";
+import { canCompareEmployee, noPermissions } from "../lib/facility-permissions";
 import type { OwnerAuthStatus } from "../lib/owner-auth";
 import { retentionCutoffDate } from "../lib/retention-window";
+import { listMembersForPeriod } from "../lib/employee-history";
 
 const router: IRouter = Router();
 function account(value: unknown): string {
   if (typeof value !== "string" || !value) throw new MassageError(401, "Vui lòng đăng nhập.");
   return value;
 }
-function requireMemberRead(res: Response, memberId: number): string {
+function requireMemberComparison(res: Response, memberId: number): string {
   const status = res.locals.facilityAuth as OwnerAuthStatus | undefined;
-  if (!status?.businessId) throw new MassageError(403, "Bạn chưa được cấp quyền xem dữ liệu của cơ sở.");
-  if (!status.isOwner && !status.permissions.allEmployees && !status.permissions.employeeIds.includes(memberId)) {
-    throw new MassageError(403, "Bạn chưa được cấp quyền xem nhân viên này.");
+  if (!status?.businessId) throw new MassageError(403, "Hãy chọn cơ sở đã cấp quyền đối chiếu.");
+  if (!status.isOwner && !canCompareEmployee(status.permissions, memberId)) {
+    throw new MassageError(403, "Bạn chưa được cấp quyền đối chiếu nhân viên này.");
   }
   return status.businessId;
 }
 function selectedBusinessId(res: Response): string | undefined {
   const status = res.locals.facilityAuth as OwnerAuthStatus | undefined;
-  if (!status?.businessId) return undefined;
-  if (status.isOwner || status.permissions.allEmployees || status.permissions.employeeIds.length > 0) {
-    return status.businessId;
-  }
-  return undefined;
+  return status?.businessId ?? undefined;
 }
 router.put("/personal/settings", massageHandler(async (req, res) => {
   const { useFacilityRates } = parseInput(UpdatePersonalSettingsBody, req.body);
@@ -49,7 +47,7 @@ router.put("/personal/settings", massageHandler(async (req, res) => {
 }));
 router.post("/personal/sync", massageHandler(async (req, res) => {
   const input = parseInput(SyncPersonalNotebookBody, req.body);
-  const businessId = requireMemberRead(res, input.memberId);
+  const businessId = requireMemberComparison(res, input.memberId);
   res.json(await syncPersonalNotebook(
     account(res.locals.personalUserId),
     input,
@@ -69,6 +67,7 @@ router.post("/personal/services", massageHandler(async (req, res) => {
     parseInput(CreatePersonalServiceBody, req.body),
     undefined,
     req.get("Idempotency-Key") ?? undefined,
+    selectedBusinessId(res),
   ));
 }));
 router.put("/personal/services/:id", massageHandler(async (req, res) => {
@@ -78,6 +77,7 @@ router.put("/personal/services/:id", massageHandler(async (req, res) => {
     parseInput(UpdatePersonalServiceBody, req.body),
     id,
     req.get("Idempotency-Key") ?? undefined,
+    selectedBusinessId(res),
   ));
 }));
 router.delete("/personal/services/:id", massageHandler(async (req, res) => {
@@ -111,10 +111,23 @@ router.delete("/personal/sessions/:id", massageHandler(async (req, res) => {
 }));
 router.get("/personal/comparison", massageHandler(async (req, res) => {
   const { memberId, month, date } = parseInput(GetPersonalComparisonQueryParams, req.query);
-  const businessId = requireMemberRead(res, memberId);
+  const businessId = requireMemberComparison(res, memberId);
   res.json(GetPersonalComparisonResponse.parse(await getPersonalComparison(
     account(res.locals.personalUserId), memberId, month, date, businessId,
   )));
+}));
+router.get("/personal/comparison/members", massageHandler(async (req, res) => {
+  const { month } = parseInput(ListPersonalComparisonMembersQueryParams, req.query);
+  const status = res.locals.facilityAuth as OwnerAuthStatus | undefined;
+  const businessId = status?.businessId;
+  if (!businessId) throw new MassageError(403, "Hãy chọn cơ sở đã cấp quyền đối chiếu.");
+  const permissions = status.permissions ?? noPermissions();
+  if (!status.isOwner && !permissions.compareAllEmployees && permissions.compareEmployeeIds.length === 0) {
+    throw new MassageError(403, "Bạn chưa được cấp quyền chọn nhân viên để đối chiếu.");
+  }
+  const rows = await listMembersForPeriod(month, undefined, businessId);
+  const visible = status.isOwner ? rows : rows.filter((member) => canCompareEmployee(permissions, member.id));
+  res.json(ListPersonalComparisonMembersResponse.parse(visible.map(({ id, name, deletedAt }) => ({ id, name, deletedAt }))));
 }));
 router.get("/history-months", massageHandler(async (_req, res) => {
   const status = res.locals.facilityAuth as OwnerAuthStatus | undefined;

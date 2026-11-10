@@ -157,7 +157,7 @@ export default function AttendanceApp() {
           </form>
           <div className="account">
             <span className="mode-pill" data-testid="status-view-mode">{employeeMode ? 'Nhân viên' : 'Chủ'}</span>
-            <ViewSettings prefs={prefs} members={members} open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView} isOwner={false} canManageGrants={false} homeHref="/" permissions={{ allEmployees: false, employeeIds: [], viewCards: false, viewRevenue: false, editEmployees: false, deleteEmployees: false, editCards: false, editServices: false, viewAppointments: false, editAppointments: false }} />
+            <ViewSettings prefs={prefs} members={members} open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView} isOwner={false} canManageGrants={false} homeHref="/" permissions={{ allEmployees: false, employeeIds: [], compareAllEmployees: false, compareEmployeeIds: [], viewCards: false, viewRevenue: false, editEmployees: false, deleteEmployees: false, editCards: false, editServices: false, viewAppointments: false, editAppointments: false }} />
           </div>
         </div>
       </header>
