@@ -14,10 +14,13 @@ import {
   type KeyboardShortcutBindings,
 } from '@/lib/keyboard-shortcuts';
 
-export function KeyboardShortcutsSettings({ actions }: { actions: KeyboardShortcutAction[] }) {
-  const [bindings, setBindings] = useState<KeyboardShortcutBindings>(readDeviceShortcutBindings);
+export function KeyboardShortcutsSettings({ actions, storageScope = 'device' }: {
+  actions: KeyboardShortcutAction[];
+  storageScope?: string;
+}) {
+  const [bindings, setBindings] = useState<KeyboardShortcutBindings>(() => readDeviceShortcutBindings(storageScope));
   const [screenActions, setScreenActions] = useState<KeyboardShortcutAction[]>([]);
-  const [knownLabels, setKnownLabels] = useState<Record<string, string>>(readDeviceShortcutLabels);
+  const [knownLabels, setKnownLabels] = useState<Record<string, string>>(() => readDeviceShortcutLabels(storageScope));
   const [selectedActionId, setSelectedActionId] = useState(actions[0]?.id ?? '');
   const [actionFilter, setActionFilter] = useState('');
   const [recording, setRecording] = useState(false);
@@ -63,9 +66,10 @@ export function KeyboardShortcutsSettings({ actions }: { actions: KeyboardShortc
   const selectedAction = actionById.get(selectedActionId);
 
   useEffect(() => {
+    setBindings(readDeviceShortcutBindings(storageScope));
+    setKnownLabels(readDeviceShortcutLabels(storageScope));
     setScreenActions(discoverDeviceShortcutActions());
-    setKnownLabels(readDeviceShortcutLabels());
-  }, [actions]);
+  }, [actions, storageScope]);
 
   useEffect(() => {
     if (!filteredActions.some((action) => action.id === selectedActionId)) {
@@ -99,13 +103,13 @@ export function KeyboardShortcutsSettings({ actions }: { actions: KeyboardShortc
           actionId: selectedActionId,
           combination,
         }];
-    if (!writeDeviceShortcutBindings(next)) {
+    if (!writeDeviceShortcutBindings(next, storageScope)) {
       setStatus('Không lưu được trên thiết bị này. Hãy kiểm tra quyền lưu của trình duyệt.');
       return;
     }
-    writeDeviceShortcutLabels(availableActions, next);
+    writeDeviceShortcutLabels(availableActions, next, storageScope);
     setBindings(next);
-    setKnownLabels(readDeviceShortcutLabels());
+    setKnownLabels(readDeviceShortcutLabels(storageScope));
     setRecording(false);
     setCandidate('');
     setEditingBindingId(null);
@@ -156,13 +160,13 @@ export function KeyboardShortcutsSettings({ actions }: { actions: KeyboardShortc
 
   function removeCombination(bindingId: string) {
     const next = bindings.filter((binding) => binding.id !== bindingId);
-    if (!writeDeviceShortcutBindings(next)) {
+    if (!writeDeviceShortcutBindings(next, storageScope)) {
       setStatus('Không xóa được phím tắt trên thiết bị này.');
       return;
     }
-    writeDeviceShortcutLabels(availableActions, next);
+    writeDeviceShortcutLabels(availableActions, next, storageScope);
     setBindings(next);
-    setKnownLabels(readDeviceShortcutLabels());
+    setKnownLabels(readDeviceShortcutLabels(storageScope));
     setStatus('Đã xóa phím tắt.');
   }
 

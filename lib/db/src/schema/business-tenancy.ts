@@ -10,6 +10,11 @@ export const businessesTable = pgTable("businesses", {
   ownerUserId: text("owner_user_id").notNull(),
   ownerEmail: text("owner_email").notNull(),
   joinCodeHash: text("join_code_hash").notNull(),
+  facilityName: text("facility_name").notNull().default(""),
+  facilityAddress: text("facility_address").notNull().default(""),
+  facilityTaxCode: text("facility_tax_code").notNull().default(""),
+  facilityPhone: text("facility_phone").notNull().default(""),
+  printProfileUpdatedAt: timestamp("print_profile_updated_at", { withTimezone: true }).notNull().defaultNow(),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [

@@ -22,12 +22,18 @@ import './print-settings.css';
 export type ViewMode = 'owner' | 'employee';
 export type ViewPrefs = { mode: ViewMode; employeeId: number | null };
 
-const KEY = 'cung-lam:view';
+const KEY_PREFIX = 'cung-lam:view:v2:';
+const LEGACY_KEY = 'cung-lam:view';
 const DEFAULT: ViewPrefs = { mode: 'owner', employeeId: null };
 
-function readPrefs(): ViewPrefs {
+function viewPrefsKey(userId?: string | null, businessId?: string | null): string {
+  return `${KEY_PREFIX}${encodeURIComponent(userId || 'device')}:${encodeURIComponent(businessId || 'personal')}`;
+}
+
+function readPrefs(key: string): ViewPrefs {
   try {
-    const raw = window.localStorage.getItem(KEY);
+    const raw = window.localStorage.getItem(key);
+    window.localStorage.removeItem(LEGACY_KEY);
     if (!raw) return DEFAULT;
     const v: unknown = JSON.parse(raw);
     if (!v || typeof v !== 'object') return DEFAULT;
@@ -41,16 +47,18 @@ function readPrefs(): ViewPrefs {
   }
 }
 
-export function useViewPrefs() {
-  const [prefs, setPrefs] = useState<ViewPrefs>(readPrefs);
+export function useViewPrefs(userId?: string | null, businessId?: string | null) {
+  const key = viewPrefsKey(userId, businessId);
+  const [prefs, setPrefs] = useState<ViewPrefs>(() => readPrefs(key));
+  useEffect(() => setPrefs(readPrefs(key)), [key]);
   const update = useCallback((next: ViewPrefs) => {
     setPrefs(next);
-    try { window.localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* storage unavailable: keep in memory */ }
-  }, []);
+    try { window.localStorage.setItem(key, JSON.stringify(next)); } catch { /* storage unavailable: keep in memory */ }
+  }, [key]);
   return [prefs, update] as const;
 }
 
-export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOwner, permissions, canManageGrants, homeHref, shortcutActions, printPreferences, onPrintPreferencesChange, businessStatus, onBusinessSelected, onContinuePersonal, onRefreshStatus, onRoleSelected }: {
+export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOwner, permissions, canManageGrants, homeHref, shortcutActions, shortcutStorageScope, printPreferences, onPrintPreferencesChange, onSaveBusinessPrintProfile, printProfileReady = true, printProfileSaving = false, printProfileError, onRetryPrintProfile, businessStatus, onBusinessSelected, onContinuePersonal, onRefreshStatus, onRoleSelected }: {
   prefs: ViewPrefs;
   members: MemberRecord[];
   open: boolean;
@@ -61,8 +69,14 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   canManageGrants: boolean;
   homeHref: string;
   shortcutActions?: KeyboardShortcutAction[];
+  shortcutStorageScope?: string;
   printPreferences?: PrintPreferences;
   onPrintPreferencesChange?: (next: PrintPreferences) => void;
+  onSaveBusinessPrintProfile?: () => void;
+  printProfileReady?: boolean;
+  printProfileSaving?: boolean;
+  printProfileError?: string;
+  onRetryPrintProfile?: () => void;
   businessStatus?: AuthStatus;
   onBusinessSelected?: (id: string) => Promise<void>;
   onContinuePersonal?: () => void;
@@ -147,11 +161,16 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
             </button>
           )}
 
-          {shortcutActions && <KeyboardShortcutsSettings actions={shortcutActions} />}
+          {shortcutActions && <KeyboardShortcutsSettings actions={shortcutActions} storageScope={shortcutStorageScope} />}
 
           {onPrintPreferencesChange && (
             <section className="print-settings" aria-labelledby="print-settings-title">
               <h3 id="print-settings-title"><Printer size={16} aria-hidden="true" />In phiếu và thẻ</h3>
+              {printProfileError && (
+                <p role="alert" className="print-preview-note">
+                  {printProfileError}{onRetryPrintProfile && <> <button type="button" className="link-soft as-button" onClick={onRetryPrintProfile}>Thử lại</button></>}
+                </p>
+              )}
               <label className="print-setting-switch">
                 <input
                   type="checkbox"
@@ -210,6 +229,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
                 <input id="print-facility-name" type="text" maxLength={120}
                   value={printPrefs.facilityName}
                   onChange={(event) => onPrintPreferencesChange({ ...printPrefs, facilityName: event.target.value })}
+                  readOnly={!isOwner || !printProfileReady}
                   placeholder="Nhập tên cơ sở"
                   data-testid="input-print-facility-name" />
               </label>
@@ -217,6 +237,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
                 <input id="print-facility-address" type="text" maxLength={240}
                   value={printPrefs.facilityAddress}
                   onChange={(event) => onPrintPreferencesChange({ ...printPrefs, facilityAddress: event.target.value })}
+                  readOnly={!isOwner || !printProfileReady}
                   placeholder="Nhập địa chỉ cơ sở"
                   data-testid="input-print-facility-address" />
               </label>
@@ -224,6 +245,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
                 <input id="print-facility-tax-code" type="text" maxLength={40}
                   value={printPrefs.facilityTaxCode}
                   onChange={(event) => onPrintPreferencesChange({ ...printPrefs, facilityTaxCode: event.target.value })}
+                  readOnly={!isOwner || !printProfileReady}
                   placeholder="Nhập mã số thuế"
                   data-testid="input-print-facility-tax-code" />
               </label>
@@ -231,9 +253,16 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
                 <input id="print-facility-phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={40}
                   value={printPrefs.facilityPhone}
                   onChange={(event) => onPrintPreferencesChange({ ...printPrefs, facilityPhone: event.target.value })}
+                  readOnly={!isOwner || !printProfileReady}
                   placeholder="Nhập số điện thoại cơ sở"
                   data-testid="input-print-facility-phone" />
               </label>
+              {isOwner && onSaveBusinessPrintProfile && (
+                <button type="button" className="settings-link" onClick={onSaveBusinessPrintProfile}
+                  disabled={!printProfileReady || printProfileSaving} data-testid="button-save-business-print-profile">
+                  {printProfileSaving ? 'Đang lưu thông tin cơ sở…' : 'Lưu thông tin in của cơ sở'}
+                </button>
+              )}
               <PrintPreview key={open ? 'settings-open' : 'settings-closed'}
                 paperSize={printPrefs.paperSize} customWidthMm={printPrefs.customWidthMm}
                 customHeightMm={printPrefs.customHeightMm} facilityName={printPrefs.facilityName}

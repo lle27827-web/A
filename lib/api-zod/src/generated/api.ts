@@ -903,6 +903,65 @@ export const ListCurrentBusinessMembersResponse = zod.array(ListCurrentBusinessM
 
 
 /**
+ * @summary Thành viên xem thông tin in của cơ sở đang chọn
+ */
+export const getCurrentBusinessPrintProfileResponseFacilityNameMax = 120;
+
+export const getCurrentBusinessPrintProfileResponseFacilityAddressMax = 240;
+
+export const getCurrentBusinessPrintProfileResponseFacilityTaxCodeMax = 40;
+
+export const getCurrentBusinessPrintProfileResponseFacilityPhoneMax = 40;
+
+
+
+export const GetCurrentBusinessPrintProfileResponse = zod.object({
+  "facilityName": zod.string().max(getCurrentBusinessPrintProfileResponseFacilityNameMax),
+  "facilityAddress": zod.string().max(getCurrentBusinessPrintProfileResponseFacilityAddressMax),
+  "facilityTaxCode": zod.string().max(getCurrentBusinessPrintProfileResponseFacilityTaxCodeMax),
+  "facilityPhone": zod.string().max(getCurrentBusinessPrintProfileResponseFacilityPhoneMax)
+})
+
+
+/**
+ * @summary Chủ cơ sở cập nhật thông tin in riêng của doanh nghiệp
+ */
+export const updateCurrentBusinessPrintProfileBodyFacilityNameMax = 120;
+
+export const updateCurrentBusinessPrintProfileBodyFacilityAddressMax = 240;
+
+export const updateCurrentBusinessPrintProfileBodyFacilityTaxCodeMax = 40;
+
+export const updateCurrentBusinessPrintProfileBodyFacilityPhoneMax = 40;
+
+
+
+export const UpdateCurrentBusinessPrintProfileBody = zod.object({
+  "facilityName": zod.string().max(updateCurrentBusinessPrintProfileBodyFacilityNameMax),
+  "facilityAddress": zod.string().max(updateCurrentBusinessPrintProfileBodyFacilityAddressMax),
+  "facilityTaxCode": zod.string().max(updateCurrentBusinessPrintProfileBodyFacilityTaxCodeMax),
+  "facilityPhone": zod.string().max(updateCurrentBusinessPrintProfileBodyFacilityPhoneMax)
+})
+
+export const updateCurrentBusinessPrintProfileResponseFacilityNameMax = 120;
+
+export const updateCurrentBusinessPrintProfileResponseFacilityAddressMax = 240;
+
+export const updateCurrentBusinessPrintProfileResponseFacilityTaxCodeMax = 40;
+
+export const updateCurrentBusinessPrintProfileResponseFacilityPhoneMax = 40;
+
+
+
+export const UpdateCurrentBusinessPrintProfileResponse = zod.object({
+  "facilityName": zod.string().max(updateCurrentBusinessPrintProfileResponseFacilityNameMax),
+  "facilityAddress": zod.string().max(updateCurrentBusinessPrintProfileResponseFacilityAddressMax),
+  "facilityTaxCode": zod.string().max(updateCurrentBusinessPrintProfileResponseFacilityTaxCodeMax),
+  "facilityPhone": zod.string().max(updateCurrentBusinessPrintProfileResponseFacilityPhoneMax)
+})
+
+
+/**
  * @summary Nhân viên rời cơ sở đang chọn
  */
 export const LeaveBusinessParams = zod.object({

@@ -16,6 +16,7 @@ function withFakeWindow<T>(callback: (values: Map<string, string>) => T): T {
     localStorage: {
       getItem: (key: string) => values.get(key) ?? null,
       setItem: (key: string, value: string) => { values.set(key, value); },
+      removeItem: (key: string) => { values.delete(key); },
     },
     dispatchEvent: () => true,
   } as unknown as Window;
@@ -76,15 +77,13 @@ test('stores normalized bindings locally and drops duplicate combinations', () =
   });
 });
 
-test('supports multiple shortcuts for one action and migrates old device bindings', () => {
+test('does not migrate ambiguous global bindings into a tenant scope', () => {
   withFakeWindow((values) => {
     values.set('so-cong:keyboard-shortcuts:v1', JSON.stringify({
       'employee-attendance-7': 'Alt+1',
     }));
-    const migrated = readDeviceShortcutBindings();
-    assert.equal(migrated.length, 1);
-    assert.equal(migrated[0].actionId, 'employee-attendance-7');
-    assert.equal(migrated[0].combination, 'Alt+1');
+    assert.deepEqual(readDeviceShortcutBindings('owner-1:business-a'), []);
+    assert.equal(values.has('so-cong:keyboard-shortcuts:v1'), false);
 
     const multiple = [
       { id: 'binding-one', actionId: 'employee-attendance-7', combination: 'Alt+1' },
@@ -103,5 +102,22 @@ test('keeps labels only for assigned screen actions on this device', () => {
       { id: 'ui-b2', label: 'Xóa nhân viên Mai', run: () => undefined },
     ], [{ id: 'binding-a', actionId: 'ui-a1', combination: 'Alt+A' }]);
     assert.deepEqual(readDeviceShortcutLabels(), { 'ui-a1': 'Thêm lịch hẹn' });
+  });
+});
+
+test('bindings and employee labels cannot be read from another business scope', () => {
+  withFakeWindow(() => {
+    const scopeA = 'owner-1:business-a';
+    const scopeB = 'owner-1:business-b';
+    const binding = { id: 'binding-a', actionId: 'attendance-employee-17', combination: 'Alt+A' };
+    writeDeviceShortcutBindings([binding], scopeA);
+    writeDeviceShortcutLabels([
+      { id: binding.actionId, label: 'Chấm công nhân viên A', run: () => undefined },
+    ], [binding], scopeA);
+
+    assert.deepEqual(readDeviceShortcutBindings(scopeA), [binding]);
+    assert.deepEqual(readDeviceShortcutBindings(scopeB), []);
+    assert.equal(readDeviceShortcutLabels(scopeA)[binding.actionId], 'Chấm công nhân viên A');
+    assert.deepEqual(readDeviceShortcutLabels(scopeB), {});
   });
 });

@@ -219,6 +219,28 @@ export interface BusinessMemberSummary {
   role: BusinessMemberSummaryRole;
 }
 
+export interface BusinessPrintProfile {
+  /** @maxLength 120 */
+  facilityName: string;
+  /** @maxLength 240 */
+  facilityAddress: string;
+  /** @maxLength 40 */
+  facilityTaxCode: string;
+  /** @maxLength 40 */
+  facilityPhone: string;
+}
+
+export interface BusinessPrintProfileInput {
+  /** @maxLength 120 */
+  facilityName: string;
+  /** @maxLength 240 */
+  facilityAddress: string;
+  /** @maxLength 40 */
+  facilityTaxCode: string;
+  /** @maxLength 40 */
+  facilityPhone: string;
+}
+
 export interface CreateBusinessInput {
   /**
      * @minLength 2

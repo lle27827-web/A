@@ -17,14 +17,34 @@ export type KeyboardShortcutBinding = {
 };
 export type KeyboardShortcutBindings = KeyboardShortcutBinding[];
 
-const STORAGE_KEY = 'so-cong:keyboard-shortcuts:v2';
-const LEGACY_STORAGE_KEY = 'so-cong:keyboard-shortcuts:v1';
-const LABELS_STORAGE_KEY = 'so-cong:keyboard-shortcut-labels:v1';
+const STORAGE_PREFIX = 'so-cong:keyboard-shortcuts:v3:';
+const LABELS_PREFIX = 'so-cong:keyboard-shortcut-labels:v2:';
+const LEGACY_STORAGE_KEYS = [
+  'so-cong:keyboard-shortcuts:v2',
+  'so-cong:keyboard-shortcuts:v1',
+  'so-cong:keyboard-shortcut-labels:v1',
+];
 const CHANGE_EVENT = 'so-cong:keyboard-shortcuts-change';
 const MODIFIERS = ['Ctrl', 'Alt', 'Shift', 'Meta'] as const;
 type Modifier = (typeof MODIFIERS)[number];
 const ACTION_ID_PATTERN = /^[a-z0-9-]{1,80}$/i;
 const BINDING_ID_PATTERN = /^[a-z0-9-]{1,120}$/i;
+
+function shortcutStorageKey(scopeKey = 'device'): string {
+  return `${STORAGE_PREFIX}${encodeURIComponent(scopeKey)}`;
+}
+
+function labelsStorageKey(scopeKey = 'device'): string {
+  return `${LABELS_PREFIX}${encodeURIComponent(scopeKey)}`;
+}
+
+function removeAmbiguousLegacyShortcutSettings(): void {
+  try {
+    for (const key of LEGACY_STORAGE_KEYS) window.localStorage.removeItem(key);
+  } catch {
+    // The scoped key remains authoritative if browser storage is unavailable.
+  }
+}
 
 function parseCombination(combination: string): { modifiers: Modifier[]; key: string } | null {
   const parts = combination.split('+');
@@ -141,22 +161,22 @@ export function createDeviceShortcutBindingId(): string {
   return `binding-${randomPart}`;
 }
 
-export function readDeviceShortcutBindings(): KeyboardShortcutBindings {
+export function readDeviceShortcutBindings(scopeKey = 'device'): KeyboardShortcutBindings {
   try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored) return normalizeBindings(JSON.parse(stored));
-    const legacyStored = window.localStorage.getItem(LEGACY_STORAGE_KEY);
-    if (!legacyStored) return [];
-    return normalizeBindings(JSON.parse(legacyStored));
+    removeAmbiguousLegacyShortcutSettings();
+    const stored = window.localStorage.getItem(shortcutStorageKey(scopeKey));
+    if (!stored) return [];
+    return normalizeBindings(JSON.parse(stored));
   } catch {
     return [];
   }
 }
 
-export function writeDeviceShortcutBindings(bindings: KeyboardShortcutBindings): boolean {
+export function writeDeviceShortcutBindings(bindings: KeyboardShortcutBindings, scopeKey = 'device'): boolean {
   try {
     const safe = normalizeBindings(bindings);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
+    removeAmbiguousLegacyShortcutSettings();
+    window.localStorage.setItem(shortcutStorageKey(scopeKey), JSON.stringify(safe));
     window.dispatchEvent(new Event(CHANGE_EVENT));
     return true;
   } catch {
@@ -164,9 +184,10 @@ export function writeDeviceShortcutBindings(bindings: KeyboardShortcutBindings):
   }
 }
 
-export function readDeviceShortcutLabels(): Record<string, string> {
+export function readDeviceShortcutLabels(scopeKey = 'device'): Record<string, string> {
   try {
-    const stored = window.localStorage.getItem(LABELS_STORAGE_KEY);
+    removeAmbiguousLegacyShortcutSettings();
+    const stored = window.localStorage.getItem(labelsStorageKey(scopeKey));
     if (!stored) return {};
     const parsed: unknown = JSON.parse(stored);
     if (!isLegacyBindings(parsed)) return {};
@@ -180,16 +201,20 @@ export function readDeviceShortcutLabels(): Record<string, string> {
   }
 }
 
-export function writeDeviceShortcutLabels(actions: KeyboardShortcutAction[], bindings: KeyboardShortcutBindings): void {
+export function writeDeviceShortcutLabels(
+  actions: KeyboardShortcutAction[],
+  bindings: KeyboardShortcutBindings,
+  scopeKey = 'device',
+): void {
   try {
     const actionLabels = new Map(actions.map((action) => [action.id, action.label]));
-    const existingLabels = readDeviceShortcutLabels();
+    const existingLabels = readDeviceShortcutLabels(scopeKey);
     const labels: Record<string, string> = {};
     for (const { actionId } of bindings) {
       const label = actionLabels.get(actionId) ?? existingLabels[actionId];
       if (label) labels[actionId] = label;
     }
-    window.localStorage.setItem(LABELS_STORAGE_KEY, JSON.stringify(labels));
+    window.localStorage.setItem(labelsStorageKey(scopeKey), JSON.stringify(labels));
   } catch {
     // Shortcut assignment still works if device label storage is unavailable.
   }
@@ -273,13 +298,14 @@ function isEditableTarget(target: EventTarget | null): boolean {
   ));
 }
 
-export function useDeviceKeyboardShortcuts(actions: KeyboardShortcutAction[]): void {
+export function useDeviceKeyboardShortcuts(actions: KeyboardShortcutAction[], scopeKey = 'device'): void {
   const actionRef = useRef(actions);
-  const bindingsRef = useRef<KeyboardShortcutBindings>(readDeviceShortcutBindings());
+  const bindingsRef = useRef<KeyboardShortcutBindings>(readDeviceShortcutBindings(scopeKey));
   actionRef.current = actions;
+  useEffect(() => { bindingsRef.current = readDeviceShortcutBindings(scopeKey); }, [scopeKey]);
 
   useEffect(() => {
-    const syncBindings = () => { bindingsRef.current = readDeviceShortcutBindings(); };
+    const syncBindings = () => { bindingsRef.current = readDeviceShortcutBindings(scopeKey); };
     const syncTargets = () => { discoverDeviceShortcutActions(); };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing || event.repeat) return;
@@ -290,7 +316,7 @@ export function useDeviceKeyboardShortcuts(actions: KeyboardShortcutAction[]): v
       const action = actionRef.current.find((candidate) => candidate.id === binding.actionId) ??
         (binding.actionId.startsWith('ui-') ? {
           id: binding.actionId,
-          label: readDeviceShortcutLabels()[binding.actionId] ?? 'Nút trên màn hình',
+          label: readDeviceShortcutLabels(scopeKey)[binding.actionId] ?? 'Nút trên màn hình',
           targetId: binding.actionId,
           run: () => shortcutTarget(binding.actionId)?.click(),
         } : undefined);
@@ -328,7 +354,7 @@ export function useDeviceKeyboardShortcuts(actions: KeyboardShortcutAction[]): v
       window.removeEventListener('keydown', onKeyDown, true);
       observer?.disconnect();
     };
-  }, []);
+  }, [scopeKey]);
 }
 
 export function submitActiveDialogForm(): void {

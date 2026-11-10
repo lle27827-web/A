@@ -20,6 +20,7 @@ import { AttendanceTable, TableSkeleton } from '@/components/attendance-table';
 import { AttendanceDialog } from '@/components/attendance-dialog';
 import { MemberHistory, MemberList } from '@/components/member-panel';
 import { ViewSettings, useViewPrefs, type ViewPrefs } from '@/components/view-settings';
+import { useShell } from '@/components/app-shell';
 import { EmployeeView } from '@/components/employee-view';
 import { STATUS_OPTIONS, formatDate, formatShortDate, initial, localDate, messageFromError, normalize, recordMatches } from '@/lib/attendance';
 import { followBusinessDay } from '@/lib/revenue-period';
@@ -32,6 +33,7 @@ function shiftDate(date: string, days: number) {
 }
 
 export default function AttendanceApp() {
+  const shell = useShell();
   const cache = useQueryClient();
   const today = useVietnamToday();
   const [query, setQuery] = useState('');
@@ -49,7 +51,7 @@ export default function AttendanceApp() {
   const [operationError, setOperationError] = useState('');
 
   const searching = query.trim().length > 0;
-  const [prefs, setPrefs] = useViewPrefs();
+  const [prefs, setPrefs] = useViewPrefs(shell.userId, shell.businessId);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const employeeMode = prefs.mode === 'employee';
   const canEdit = prefs.mode === 'owner';

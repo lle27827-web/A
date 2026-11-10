@@ -7,6 +7,7 @@ import {
   buildPrintDocumentHtml,
   DEFAULT_PRINT_PREFERENCES,
   readPrintPreferences,
+  writePrintPreferences,
   cardSalePrintRows,
   getPrintPageLayout,
   PRINT_PAPER_OPTIONS,
@@ -209,7 +210,7 @@ test('settings previews show separate card, sale, top-up and attendance template
   assert.equal(sessionRows.find((row) => row.label === 'Số giờ')?.value, '1 giờ 30 phút');
 });
 
-test('automatic printing is on by default and enabled during one-time migration', () => {
+test('legacy print preferences migrate only non-business settings and discard old phone fields', () => {
   assert.equal(DEFAULT_PRINT_PREFERENCES.autoPrintCardSales, true);
   assert.equal(DEFAULT_PRINT_PREFERENCES.autoPrintCardTopUps, true);
   assert.equal(DEFAULT_PRINT_PREFERENCES.autoPrintServiceSessions, true);
@@ -220,7 +221,7 @@ test('automatic printing is on by default and enabled during one-time migration'
     autoPrintCardTopUps: false,
     autoPrintServiceSessions: false,
     paperSize: 'a4',
-    facilityPhone: '028 1234 5678',
+    facilityPhone: 'legacy-contact-value',
   })]]);
   const localStorage = {
     getItem(key: string) { return values.get(key) ?? null; },
@@ -229,14 +230,43 @@ test('automatic printing is on by default and enabled during one-time migration'
   };
   Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage } });
   try {
-    const preferences = readPrintPreferences('owner-1');
+    const preferences = readPrintPreferences('owner-1', 'business-a');
     assert.equal(preferences.autoPrintCardSales, true);
     assert.equal(preferences.autoPrintCardTopUps, true);
     assert.equal(preferences.autoPrintServiceSessions, true);
     assert.equal(preferences.paperSize, 'a4');
-    assert.equal(preferences.facilityPhone, '028 1234 5678');
+    assert.equal(preferences.facilityPhone, '');
     assert.equal(values.has('so-cong:print-settings:owner-1'), false);
-    assert.equal(JSON.parse(values.get('so-cong:print-settings:v2:owner-1') ?? '{}').autoPrintCardTopUps, true);
+    const saved = JSON.parse(values.get('so-cong:print-settings:v3:owner-1:business-a') ?? '{}');
+    assert.equal(saved.autoPrintCardTopUps, true);
+    assert.equal('facilityPhone' in saved, false);
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else delete (globalThis as typeof globalThis & { window?: unknown }).window;
+  }
+});
+
+test('device print settings are isolated by business and never persist facility phone data', () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const values = new Map<string, string>();
+  const localStorage = {
+    getItem(key: string) { return values.get(key) ?? null; },
+    setItem(key: string, value: string) { values.set(key, value); },
+    removeItem(key: string) { values.delete(key); },
+  };
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage } });
+  try {
+    writePrintPreferences('owner-1', 'business-a', {
+      ...DEFAULT_PRINT_PREFERENCES,
+      paperSize: 'a4',
+      facilityPhone: '0900000001',
+    });
+
+    assert.equal(readPrintPreferences('owner-1', 'business-a').paperSize, 'a4');
+    assert.equal(readPrintPreferences('owner-1', 'business-b').paperSize, DEFAULT_PRINT_PREFERENCES.paperSize);
+    const saved = JSON.parse(values.get('so-cong:print-settings:v3:owner-1:business-a') ?? '{}');
+    assert.equal('facilityPhone' in saved, false);
+    assert.equal('facilityName' in saved, false);
   } finally {
     if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
     else delete (globalThis as typeof globalThis & { window?: unknown }).window;

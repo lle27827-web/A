@@ -33,6 +33,12 @@ Resolve a business membership only by the authenticated Clerk user ID; email is 
 
 **How to apply:** use the 10-digit code to create a membership linking the user identity to the selected business; keep owner-granted facility permissions separate. Derive all facility query scopes from verified server auth, not request bodies, email matches, or default IDs.
 
+Business identity and settings must stay isolated by business, including print name, address, tax code, phone number, and device print preferences. Store business identity on the server under the selected business; scope device preferences and employee-specific shortcuts by user and business. Never keep facility phone details in unscoped browser storage.
+
+**Why:** the user explicitly requires all business details, including print settings and phone numbers, to remain separate between businesses.
+
+**How to apply:** read through the authenticated membership scope, allow writes only to the verified owner of that same active business, and key any client-side preference that can contain employee-specific values by both account and business.
+
 If Clerk has verified the user but the business registry or permission store is unavailable, keep the authenticated personal notebook usable while returning no business membership or permissions and clearly marking business access unavailable.
 
 **Why:** A DB4 or grants-store outage should not lock users out of their personal records, while stale or cross-database fallback data could grant access to the wrong business.

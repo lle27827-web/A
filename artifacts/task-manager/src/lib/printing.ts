@@ -72,8 +72,8 @@ const PAPER_SPECS: readonly PrintPaperSpec[] = [
 
 export const PRINT_PAPER_OPTIONS = PAPER_SPECS.map(({ value, label }) => ({ value, label }));
 
-const STORAGE_PREFIX = 'so-cong:print-settings:v2:';
-const LEGACY_STORAGE_PREFIX = 'so-cong:print-settings:';
+const STORAGE_PREFIX = 'so-cong:print-settings:v3:';
+const LEGACY_STORAGE_PREFIXES = ['so-cong:print-settings:v2:', 'so-cong:print-settings:'] as const;
 const CUSTOM_DIMENSION_MIN_MM = 20;
 const CUSTOM_DIMENSION_MAX_MM = 1200;
 
@@ -112,43 +112,68 @@ function formatPrintMinutes(minutes: number): string {
   return remainingMinutes ? `${hours} giờ ${remainingMinutes} phút` : `${hours} giờ`;
 }
 
-function storageKey(userId?: string | null, prefix = STORAGE_PREFIX): string {
-  return `${prefix}${userId || 'device'}`;
+function storageKey(userId?: string | null, businessId?: string | null, prefix = STORAGE_PREFIX): string {
+  return `${prefix}${encodeURIComponent(userId || 'device')}:${encodeURIComponent(businessId || 'personal')}`;
 }
 
-export function readPrintPreferences(userId?: string | null): PrintPreferences {
+function legacyStorageKeys(userId?: string | null): string[] {
+  const account = userId || 'device';
+  return LEGACY_STORAGE_PREFIXES.map((prefix) => `${prefix}${account}`);
+}
+
+function devicePreferencesFrom(stored: Record<string, unknown>): PrintPreferences {
+  const paperSize = PRINT_PAPER_OPTIONS.some((option) => option.value === stored.paperSize)
+    ? stored.paperSize as PrintPaperSize
+    : DEFAULT_PRINT_PREFERENCES.paperSize;
+  return {
+    autoPrintServiceSessions: stored.autoPrintServiceSessions === undefined
+      ? true : stored.autoPrintServiceSessions === true,
+    autoPrintCardSales: stored.autoPrintCardSales === undefined
+      ? true : stored.autoPrintCardSales === true,
+    autoPrintCardTopUps: stored.autoPrintCardTopUps === undefined
+      ? true : stored.autoPrintCardTopUps === true,
+    paperSize,
+    customWidthMm: normalizeCustomPaperDimension(stored.customWidthMm, DEFAULT_PRINT_PREFERENCES.customWidthMm),
+    customHeightMm: normalizeCustomPaperDimension(stored.customHeightMm, DEFAULT_PRINT_PREFERENCES.customHeightMm),
+    facilityName: '',
+    facilityAddress: '',
+    facilityTaxCode: '',
+    facilityPhone: '',
+  };
+}
+
+function persistableDevicePreferences(preferences: PrintPreferences) {
+  return {
+    autoPrintServiceSessions: preferences.autoPrintServiceSessions,
+    autoPrintCardSales: preferences.autoPrintCardSales,
+    autoPrintCardTopUps: preferences.autoPrintCardTopUps,
+    paperSize: preferences.paperSize,
+    customWidthMm: normalizeCustomPaperDimension(preferences.customWidthMm, DEFAULT_PRINT_PREFERENCES.customWidthMm),
+    customHeightMm: normalizeCustomPaperDimension(preferences.customHeightMm, DEFAULT_PRINT_PREFERENCES.customHeightMm),
+  };
+}
+
+export function readPrintPreferences(userId?: string | null, businessId?: string | null): PrintPreferences {
   try {
-    const currentKey = storageKey(userId);
-    const legacyKey = storageKey(userId, LEGACY_STORAGE_PREFIX);
+    const currentKey = storageKey(userId, businessId);
     const currentRaw = window.localStorage.getItem(currentKey);
-    const legacyRaw = currentRaw === null ? window.localStorage.getItem(legacyKey) : null;
+    const oldKeys = legacyStorageKeys(userId);
+    const legacyKey = oldKeys.find((key) => window.localStorage.getItem(key) !== null);
+    const legacyRaw = currentRaw === null && legacyKey ? window.localStorage.getItem(legacyKey) : null;
     const isLegacy = currentRaw === null && legacyRaw !== null;
     const raw = currentRaw ?? legacyRaw;
+    // Old account-wide entries may contain a facility phone shared across
+    // businesses. Remove them and migrate only non-business device settings.
+    for (const oldKey of oldKeys) window.localStorage.removeItem(oldKey);
     if (!raw) return { ...DEFAULT_PRINT_PREFERENCES };
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_PRINT_PREFERENCES };
-    const stored = parsed as Record<string, unknown>;
-    const paperSize = PRINT_PAPER_OPTIONS.some((option) => option.value === stored.paperSize)
-      ? stored.paperSize as PrintPaperSize
-      : DEFAULT_PRINT_PREFERENCES.paperSize;
-    const preferences: PrintPreferences = {
-      autoPrintServiceSessions: isLegacy || stored.autoPrintServiceSessions === undefined
-        ? true : stored.autoPrintServiceSessions === true,
-      autoPrintCardSales: isLegacy || stored.autoPrintCardSales === undefined
-        ? true : stored.autoPrintCardSales === true,
-      autoPrintCardTopUps: isLegacy || stored.autoPrintCardTopUps === undefined
-        ? true : stored.autoPrintCardTopUps === true,
-      paperSize,
-      customWidthMm: normalizeCustomPaperDimension(stored.customWidthMm, DEFAULT_PRINT_PREFERENCES.customWidthMm),
-      customHeightMm: normalizeCustomPaperDimension(stored.customHeightMm, DEFAULT_PRINT_PREFERENCES.customHeightMm),
-      facilityName: typeof stored.facilityName === 'string' ? stored.facilityName.slice(0, 120) : '',
-      facilityAddress: typeof stored.facilityAddress === 'string' ? stored.facilityAddress.slice(0, 240) : '',
-      facilityTaxCode: typeof stored.facilityTaxCode === 'string' ? stored.facilityTaxCode.slice(0, 40) : '',
-      facilityPhone: typeof stored.facilityPhone === 'string' ? stored.facilityPhone.slice(0, 40) : '',
-    };
+    const preferences = devicePreferencesFrom(parsed as Record<string, unknown>);
     if (isLegacy) {
-      window.localStorage.setItem(currentKey, JSON.stringify(preferences));
-      window.localStorage.removeItem(legacyKey);
+      preferences.autoPrintServiceSessions = true;
+      preferences.autoPrintCardSales = true;
+      preferences.autoPrintCardTopUps = true;
+      window.localStorage.setItem(currentKey, JSON.stringify(persistableDevicePreferences(preferences)));
     }
     return preferences;
   } catch {
@@ -156,9 +181,13 @@ export function readPrintPreferences(userId?: string | null): PrintPreferences {
   }
 }
 
-export function writePrintPreferences(userId: string | null | undefined, preferences: PrintPreferences): void {
+export function writePrintPreferences(
+  userId: string | null | undefined,
+  businessId: string | null | undefined,
+  preferences: PrintPreferences,
+): void {
   try {
-    window.localStorage.setItem(storageKey(userId), JSON.stringify(preferences));
+    window.localStorage.setItem(storageKey(userId, businessId), JSON.stringify(persistableDevicePreferences(preferences)));
   } catch {
     // Keep the current session usable when browser storage is unavailable.
   }

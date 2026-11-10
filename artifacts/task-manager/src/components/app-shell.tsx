@@ -1,6 +1,13 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { getListMembersQueryKey, useListMembers } from '@workspace/api-client-react';
-import type { AuthStatus, FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  getGetCurrentBusinessPrintProfileQueryKey,
+  getListMembersQueryKey,
+  useGetCurrentBusinessPrintProfile,
+  useListMembers,
+  useUpdateCurrentBusinessPrintProfile,
+} from '@workspace/api-client-react';
+import type { AuthStatus, BusinessPrintProfile, FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
 import { AlertCircle, ArrowLeft, BookHeart, CalendarDays, Check, CreditCard, Hand, History, Home, Search, Sparkles, Users, X } from 'lucide-react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { SearchResults } from '@/components/search-results';
@@ -38,6 +45,8 @@ type ShellCtx = {
   canEdit: boolean;
   /** Verified owner only: role/grant management. Never implies a manager. */
   isOwner: boolean;
+  userId?: string | null;
+  businessId: string | null;
   permissions: FacilityPermissions;
   canViewEmployees: boolean;
   /** editEmployees within scope, not in a historical month. */
@@ -112,11 +121,26 @@ export function AppShell({
   const [desktopLayout, setDesktopLayout] = useState(() =>
     typeof window !== 'undefined' && window.matchMedia('(min-width: 900px)').matches,
   );
-  const [prefs, setPrefs] = useViewPrefs();
+  const businessId = businessStatus.businessId;
+  const shortcutStorageScope = `${userId || 'device'}:${businessId || 'personal'}`;
+  const [prefs, setPrefs] = useViewPrefs(userId, businessId);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [printPreferences, setPrintPreferences] = useState<PrintPreferences>(() =>
-    readPrintPreferences(userId),
+    readPrintPreferences(userId, businessId),
   );
+  const queryClient = useQueryClient();
+  const printProfileQueryKey = [
+    ...getGetCurrentBusinessPrintProfileQueryKey(),
+    businessId ?? 'no-business',
+    userId ?? 'no-user',
+  ];
+  const printProfileQuery = useGetCurrentBusinessPrintProfile({
+    query: {
+      queryKey: printProfileQueryKey,
+      enabled: Boolean(businessId),
+      staleTime: 30_000,
+    },
+  });
   const search = useSearch();
   const today = useVietnamToday();
   const resolved = resolveRevenuePeriod(search, today);
@@ -137,9 +161,29 @@ export function AppShell({
   const [query, setQuery] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const printProfileMutation = useUpdateCurrentBusinessPrintProfile({
+    mutation: {
+      onSuccess: (profile) => {
+        setPrintPreferences((current) => ({ ...current, ...profile }));
+        queryClient.setQueryData(printProfileQueryKey, profile);
+        setError('');
+        setNotice('Thông tin in đã lưu riêng cho cơ sở này.');
+      },
+      onError: (mutationError) => {
+        setNotice('');
+        setError(errorText(mutationError));
+      },
+    },
+  });
   const showResults = query.trim().length > 0;
   const employeeMode = isOwner && prefs.mode === 'employee';
   const desktopRevenueLayout = desktopLayout && permissions.viewRevenue && !employeeMode && desktopLeftPanel != null;
+
+  useEffect(() => {
+    if (printProfileQuery.data) {
+      setPrintPreferences((current) => ({ ...current, ...printProfileQuery.data }));
+    }
+  }, [printProfileQuery.data]);
 
   useEffect(() => {
     const media = window.matchMedia('(min-width: 900px)');
@@ -195,7 +239,16 @@ export function AppShell({
   }
   function updatePrintPreferences(next: PrintPreferences) {
     setPrintPreferences(next);
-    writePrintPreferences(userId, next);
+    writePrintPreferences(userId, businessId, next);
+  }
+  function saveBusinessPrintProfile() {
+    const profile: BusinessPrintProfile = {
+      facilityName: printPreferences.facilityName,
+      facilityAddress: printPreferences.facilityAddress,
+      facilityTaxCode: printPreferences.facilityTaxCode,
+      facilityPhone: printPreferences.facilityPhone,
+    };
+    printProfileMutation.mutate({ data: profile });
   }
 
   const shortcutActions = useMemo<KeyboardShortcutAction[]>(() => {
@@ -265,7 +318,7 @@ export function AppShell({
     return actions;
   }, [canAddEmployees, canEditCards, canEditEmployees, canEditServices, canViewEmployees, goBack, historyMonth, homeHref, location, members, navigate, permissions.editServices, permissions.editAppointments, permissions.viewAppointments, permissions.viewCards, withHistory]);
 
-  useDeviceKeyboardShortcuts(shortcutActions);
+  useDeviceKeyboardShortcuts(shortcutActions, shortcutStorageScope);
 
   const ctx: ShellCtx = {
     canEdit: canEditEmployees,
@@ -277,6 +330,8 @@ export function AppShell({
     canDeleteEmployees: canViewEmployees && permissions.deleteEmployees && !historyMonth,
     canEditCards,
     canEditServices,
+    userId,
+    businessId,
     historyMonth,
     selectedHistoryDate,
     period: { month: resolved.month, date: resolved.date, currentMonth: resolved.currentMonth, today },
@@ -335,8 +390,14 @@ export function AppShell({
                   canManageGrants={isOwner || hasFacilityAccess(permissions)}
                   homeHref={homeHref}
                   shortcutActions={shortcutActions}
+                  shortcutStorageScope={shortcutStorageScope}
                   printPreferences={printPreferences}
                    onPrintPreferencesChange={updatePrintPreferences}
+                   onSaveBusinessPrintProfile={saveBusinessPrintProfile}
+                   printProfileReady={printProfileQuery.isSuccess}
+                   printProfileSaving={printProfileMutation.isPending}
+                   printProfileError={printProfileQuery.isError ? 'Không thể tải thông tin in của cơ sở.' : undefined}
+                   onRetryPrintProfile={() => { void printProfileQuery.refetch(); }}
                    businessStatus={businessStatus}
                    onBusinessSelected={onBusinessSelected}
                    onContinuePersonal={onContinuePersonal}

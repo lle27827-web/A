@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Response } from "express";
 import { ipKeyGenerator } from "express-rate-limit";
 import {
+  GetCurrentBusinessPrintProfileResponse,
   CreateBusinessBody,
   CreateBusinessResponse,
   JoinBusinessBody,
@@ -8,22 +9,30 @@ import {
   ListCurrentBusinessMembersResponse,
   LeaveBusinessParams,
   RotateBusinessJoinCodeResponse,
+  UpdateCurrentBusinessPrintProfileBody,
+  UpdateCurrentBusinessPrintProfileResponse,
 } from "@workspace/api-zod";
 import {
   BusinessCreationLimitError,
   createBusinessForOwner,
+  getBusinessPrintProfile,
   joinBusinessByCode,
   listCurrentBusinessMembers,
   rotateBusinessJoinCode,
+  updateBusinessPrintProfile,
 } from "../lib/business-tenancy";
 import { BusinessLeaveError, leaveBusinessForEmployee } from "../lib/business-leave";
 import { operationIdFromRequest } from "../lib/partitioned-mutations";
-import type { OwnerAuthStatus } from "../lib/owner-auth";
+import { requireOwner, type OwnerAuthStatus } from "../lib/owner-auth";
 
 const router: IRouter = Router();
 
 function currentStatus(res: Response): OwnerAuthStatus | undefined {
   return res.locals.facilityAuth as OwnerAuthStatus | undefined;
+}
+
+function safeErrorName(error: unknown): string {
+  return error instanceof Error ? error.name : "UnknownError";
 }
 
 router.post("/businesses", async (req, res): Promise<void> => {
@@ -122,6 +131,61 @@ router.get("/businesses/current/members", async (req, res): Promise<void> => {
   } catch (error) {
     req.log?.error({ err: error, businessId: status.businessId }, "Unable to list business members");
     res.status(503).json({ error: "Không thể tải danh sách tài khoản đã tham gia cơ sở." });
+  }
+});
+
+router.get("/businesses/current/print-profile", async (req, res): Promise<void> => {
+  const status = currentStatus(res);
+  if (!status?.authenticated) {
+    res.status(401).json({ error: "Vui lòng đăng nhập." });
+    return;
+  }
+  if (!status.businessId) {
+    res.status(409).json({ error: "Hãy chọn cơ sở trước khi xem thông tin in." });
+    return;
+  }
+
+  res.set("Cache-Control", "private, no-store");
+  try {
+    const profile = await getBusinessPrintProfile(status.businessId);
+    if (!profile) {
+      res.status(404).json({ error: "Không tìm thấy thông tin của cơ sở đang chọn." });
+      return;
+    }
+    res.json(GetCurrentBusinessPrintProfileResponse.parse(profile));
+  } catch (error) {
+    req.log?.error({ errorName: safeErrorName(error), businessId: status.businessId }, "Unable to read business print profile");
+    res.status(503).json({ error: "Không thể tải thông tin in của cơ sở." });
+  }
+});
+
+router.patch("/businesses/current/print-profile", requireOwner, async (req, res): Promise<void> => {
+  const status = currentStatus(res);
+  const parsed = UpdateCurrentBusinessPrintProfileBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  if (!status?.userId || !status.businessId || !status.isOwner) {
+    res.status(403).json({ error: "Chỉ chủ sở hữu của cơ sở đang chọn mới được sửa thông tin in." });
+    return;
+  }
+
+  try {
+    const profile = await updateBusinessPrintProfile({
+      businessId: status.businessId,
+      ownerUserId: status.userId,
+      profile: parsed.data,
+    });
+    if (!profile) {
+      res.status(404).json({ error: "Không tìm thấy cơ sở thuộc quyền sở hữu của tài khoản này." });
+      return;
+    }
+    res.set("Cache-Control", "private, no-store");
+    res.json(UpdateCurrentBusinessPrintProfileResponse.parse(profile));
+  } catch (error) {
+    req.log?.error({ errorName: safeErrorName(error), businessId: status.businessId }, "Unable to update business print profile");
+    res.status(503).json({ error: "Không thể lưu thông tin in của cơ sở." });
   }
 });
 

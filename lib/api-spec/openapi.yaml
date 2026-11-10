@@ -495,6 +495,40 @@ paths:
         "403": { description: Chỉ chủ cơ sở được xem danh sách }
         "409": { description: Chưa chọn cơ sở }
         "503": { description: Không thể đọc danh sách thành viên }
+  /businesses/current/print-profile:
+    get:
+      operationId: getCurrentBusinessPrintProfile
+      tags: [health]
+      summary: Thành viên xem thông tin in của cơ sở đang chọn
+      responses:
+        "200":
+          description: Thông tin mẫu in thuộc riêng cơ sở hiện tại
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BusinessPrintProfile" }
+        "401": { description: Cần đăng nhập }
+        "409": { description: Chưa chọn cơ sở }
+        "503": { description: Không thể đọc thông tin in }
+    patch:
+      operationId: updateCurrentBusinessPrintProfile
+      tags: [health]
+      summary: Chủ cơ sở cập nhật thông tin in riêng của doanh nghiệp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BusinessPrintProfileInput" }
+      responses:
+        "200":
+          description: Thông tin in đã lưu trong hồ sơ của cơ sở hiện tại
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BusinessPrintProfile" }
+        "400": { description: Thông tin không hợp lệ }
+        "401": { description: Cần đăng nhập }
+        "403": { description: Chỉ chủ cơ sở được chỉnh sửa }
+        "404": { description: Không tìm thấy cơ sở thuộc tài khoản }
+        "503": { description: Không thể lưu thông tin in }
   /businesses/{id}/leave:
     delete:
       operationId: leaveBusiness
@@ -1183,6 +1217,22 @@ components:
       properties:
         email: { type: string, format: email, maxLength: 254 }
         role: { type: string, enum: [owner, employee] }
+    BusinessPrintProfile:
+      type: object
+      required: [facilityName, facilityAddress, facilityTaxCode, facilityPhone]
+      properties:
+        facilityName: { type: string, maxLength: 120 }
+        facilityAddress: { type: string, maxLength: 240 }
+        facilityTaxCode: { type: string, maxLength: 40 }
+        facilityPhone: { type: string, maxLength: 40 }
+    BusinessPrintProfileInput:
+      type: object
+      required: [facilityName, facilityAddress, facilityTaxCode, facilityPhone]
+      properties:
+        facilityName: { type: string, maxLength: 120 }
+        facilityAddress: { type: string, maxLength: 240 }
+        facilityTaxCode: { type: string, maxLength: 40 }
+        facilityPhone: { type: string, maxLength: 40 }
     CreateBusinessInput:
       type: object
       required: [name]

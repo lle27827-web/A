@@ -13,6 +13,12 @@ export type BusinessMemberSummary = {
   email: string;
   role: BusinessRole;
 };
+export type BusinessPrintProfile = {
+  facilityName: string;
+  facilityAddress: string;
+  facilityTaxCode: string;
+  facilityPhone: string;
+};
 
 export type JoinBusinessResult =
   | { kind: "joined"; business: BusinessSummary }
@@ -40,6 +46,71 @@ const hashJoinCode = (code: string) =>
   createHash("sha256").update(code, "utf8").digest("hex");
 
 const normalizeEmail = (email: string | null | undefined) => email?.trim().toLowerCase() ?? "";
+
+function printProfileFromRow(row: Record<string, unknown>): BusinessPrintProfile {
+  return {
+    facilityName: String(row.facility_name ?? ""),
+    facilityAddress: String(row.facility_address ?? ""),
+    facilityTaxCode: String(row.facility_tax_code ?? ""),
+    facilityPhone: String(row.facility_phone ?? ""),
+  };
+}
+
+export async function getBusinessPrintProfile(businessId: string): Promise<BusinessPrintProfile | null> {
+  return withBusinessRegistryClient((client) =>
+    getBusinessPrintProfileWithClient(client, businessId),
+  );
+}
+
+export async function getBusinessPrintProfileWithClient(
+  client: BusinessRegistryClient,
+  businessId: string,
+): Promise<BusinessPrintProfile | null> {
+  const result = await client.query(
+    `SELECT facility_name, facility_address, facility_tax_code, facility_phone
+     FROM public.businesses
+     WHERE id = $1::uuid AND active = true`,
+    [businessId],
+  );
+  const row = result.rows[0];
+  return row ? printProfileFromRow(row) : null;
+}
+
+export async function updateBusinessPrintProfile(input: {
+  businessId: string;
+  ownerUserId: string;
+  profile: BusinessPrintProfile;
+}): Promise<BusinessPrintProfile | null> {
+  return withBusinessRegistryClient((client) =>
+    updateBusinessPrintProfileWithClient(client, input),
+  );
+}
+
+export async function updateBusinessPrintProfileWithClient(
+  client: BusinessRegistryClient,
+  input: { businessId: string; ownerUserId: string; profile: BusinessPrintProfile },
+): Promise<BusinessPrintProfile | null> {
+  const result = await client.query(
+    `UPDATE public.businesses
+     SET facility_name = $3,
+         facility_address = $4,
+         facility_tax_code = $5,
+         facility_phone = $6,
+         print_profile_updated_at = now()
+     WHERE id = $1::uuid AND owner_user_id = $2 AND active = true
+     RETURNING facility_name, facility_address, facility_tax_code, facility_phone`,
+    [
+      input.businessId,
+      input.ownerUserId,
+      input.profile.facilityName,
+      input.profile.facilityAddress,
+      input.profile.facilityTaxCode,
+      input.profile.facilityPhone,
+    ],
+  );
+  const row = result.rows[0];
+  return row ? printProfileFromRow(row) : null;
+}
 
 export function isVerifiedAdminIdentity(
   identity: { email: string | null; verified: boolean },
