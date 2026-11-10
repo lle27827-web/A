@@ -154,7 +154,7 @@ export async function listBusinessesForIdentityWithClient(
      JOIN public.business_memberships m ON m.business_id = b.id
      WHERE b.active = true AND m.active = true
         AND m.user_id = $1
-     ORDER BY b.name, b.id`,
+     ORDER BY b.name, b.id::text`,
     [userId],
   );
   return result.rows.map((row) => ({

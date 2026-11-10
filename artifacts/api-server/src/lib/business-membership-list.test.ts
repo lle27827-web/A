@@ -1,6 +1,31 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { listCurrentBusinessMembersWithClient } from "./business-tenancy";
+import {
+  listBusinessesForIdentityWithClient,
+  listCurrentBusinessMembersWithClient,
+} from "./business-tenancy";
+
+test("lists an identity's businesses with DISTINCT-safe ordering", async () => {
+  let queryText = "";
+  const client = {
+    async query(text: string) {
+      queryText = text;
+      return {
+        rows: [{ id: "business-a", name: "Cơ sở A", role: "employee" }],
+      };
+    },
+  };
+
+  const businesses = await listBusinessesForIdentityWithClient(client, "user-a", false);
+
+  assert.deepEqual(businesses, [{
+    id: "business-a",
+    name: "Cơ sở A",
+    role: "employee",
+  }]);
+  assert.match(queryText, /SELECT DISTINCT b\.id::text/);
+  assert.match(queryText, /ORDER BY b\.name, b\.id::text/);
+});
 
 test("lists only active members from the selected business for its owner", async () => {
   let queryText = "";
