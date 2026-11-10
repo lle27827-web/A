@@ -9,7 +9,7 @@ import type { AuthStatus, BusinessAccessResult } from '@workspace/api-client-rea
 import { ArrowRight, BookHeart, Building2, Check, Copy, KeyRound, LoaderCircle, RefreshCw } from 'lucide-react';
 import { ConfirmDialog, type ConfirmState } from '@/components/modal';
 import { getApiErrorMessage } from '@/lib/api-error-message';
-import { readBusinessRolePreference } from '@/lib/business-role-preference';
+import { readBusinessRolePreference, shouldShowBusinessJoinForm } from '@/lib/business-role-preference';
 
 type RoleChoice = 'personal' | 'owner' | 'employee';
 
@@ -79,6 +79,7 @@ export function BusinessAccessSettings({
   const activeBusiness = businesses.find((business) => business.id === status.businessId);
   const activeOwnerBusiness = activeBusiness?.role === 'owner' ? activeBusiness : null;
   const selectedRole = isOnboarding ? setupRole : role;
+  const canJoinWithCode = shouldShowBusinessJoinForm(selectedRole, businesses.length);
   const canLeaveActiveBusiness = Boolean(
     activeBusiness &&
     activeBusiness.role === 'employee' &&
@@ -215,11 +216,11 @@ export function BusinessAccessSettings({
 
   return (
     <section className="business-access-settings" aria-labelledby={isOnboarding ? undefined : 'business-access-title'}
-      aria-label={isOnboarding ? 'Chọn vai trò' : undefined}>
+      aria-label={isOnboarding ? 'Chế độ sử dụng' : undefined}>
       {!isOnboarding && (
         <div className="business-access-heading">
-          <h3 id="business-access-title">Vai trò và cơ sở</h3>
-          <p>Chưa chọn vai trò thì mặc định sử dụng sổ cá nhân. Quyền cơ sở do máy chủ xác minh.</p>
+          <h3 id="business-access-title">Chế độ sử dụng</h3>
+          <p>Chọn doanh nghiệp để quản lý hoặc tham gia, hoặc dùng sổ cá nhân riêng. Quyền doanh nghiệp do máy chủ xác minh.</p>
         </div>
       )}
       {status.businessAccessAvailable === false && (
@@ -236,7 +237,7 @@ export function BusinessAccessSettings({
           <strong>{selectedRole === 'owner' ? 'Chủ doanh nghiệp' : selectedRole === 'employee' ? 'Nhân viên' : 'Sổ cá nhân'}</strong>
         </div>
       ) : (
-        <div className={`business-role-options${isOnboarding ? ' onboarding-role-options' : ''}`} role="group" aria-label="Chọn vai trò">
+        <div className={`business-role-options${isOnboarding ? ' onboarding-role-options' : ''}`} role="group" aria-label="Chế độ sử dụng">
           {roleChoices.map((choice) => (
             <button key={choice} type="button" aria-pressed={!isOnboarding ? role === choice : undefined}
               className={!isOnboarding && role === choice ? 'selected' : ''}
@@ -244,7 +245,14 @@ export function BusinessAccessSettings({
               {choice === 'owner' ? <Building2 size={16} aria-hidden="true" /> :
                 choice === 'employee' ? <KeyRound size={16} aria-hidden="true" /> :
                   <BookHeart size={16} aria-hidden="true" />}
-              <span>{choice === 'owner' ? 'Chủ doanh nghiệp' : choice === 'employee' ? 'Nhân viên' : 'Sổ cá nhân'}</span>
+              <span className="business-role-option-copy">
+                <strong>{choice === 'owner' ? 'Chủ doanh nghiệp' : choice === 'employee' ? 'Nhân viên' : 'Chấm công cá nhân'}</strong>
+                <small>{choice === 'owner'
+                  ? 'Tạo doanh nghiệp riêng, chia sẻ mã tham gia và cấp quyền cho nhân viên.'
+                  : choice === 'employee'
+                    ? 'Nhập mã 10 số do chủ doanh nghiệp cung cấp để tham gia.'
+                    : 'Dữ liệu riêng của tài khoản, không kết nối doanh nghiệp.'}</small>
+              </span>
             </button>
           ))}
         </div>
@@ -260,7 +268,7 @@ export function BusinessAccessSettings({
         </div>)
       ) : selectedRole === 'owner' ? (
         <div className="business-role-panel">
-          <p>Mỗi doanh nghiệp có dữ liệu riêng. Mã tham gia chỉ dùng để kết nối tài khoản nhân viên.</p>
+          <p>Nhập tên rồi tạo doanh nghiệp. Sau khi tạo, gửi mã tham gia đang hiển thị cho nhân viên để họ kết nối với cơ sở của bạn.</p>
           {created ? (
             <div className="business-created" role="status">
               {created.joinCode ? (
@@ -277,7 +285,7 @@ export function BusinessAccessSettings({
                       </div>
                     </div>
                   </div>
-                  <p>Tạo mã khác sẽ vô hiệu mã đang hiển thị; nhân viên đã liên kết vẫn giữ nguyên quyền.</p>
+                  <p>Gửi mã 10 chữ số này cho nhân viên để họ tham gia doanh nghiệp. Mã chỉ tạo liên kết; bạn vẫn cần cấp quyền xem hoặc sửa dữ liệu riêng cho từng nhân viên.</p>
                   <div className="business-access-actions">
                     <button type="button" className="btn small" onClick={() => void copyCode()}>
                       {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
@@ -324,25 +332,33 @@ export function BusinessAccessSettings({
         </div>
       ) : selectedRole === 'employee' ? (
         <div className="business-role-panel">
-          {activeBusiness?.role === 'employee' && (
-            <div className="business-current" data-testid="active-employee-business">
-              <span className="business-access-label">DOANH NGHIỆP ĐANG THAM GIA</span>
-              <strong>{activeBusiness.name}</strong>
-            </div>
+          {canJoinWithCode ? (
+            <>
+              <p>Nhập mã 10 chữ số do chủ doanh nghiệp gửi để tham gia. Sau khi kết nối, chủ cơ sở cần cấp quyền trước khi bạn xem dữ liệu doanh nghiệp.</p>
+              <form className="business-access-form" onSubmit={(event) => void joinWorkspace(event)} aria-busy={busy}>
+                <label className="field" htmlFor="settings-business-join-code">Mã doanh nghiệp
+                  <input id="settings-business-join-code" value={joinCode}
+                    onChange={(event) => setJoinCode(event.target.value.replace(/\D/g, '').slice(0, 10))}
+                    inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{10}" required
+                    placeholder="Mã gồm 10 chữ số" />
+                </label>
+                <button type="submit" className="btn primary" disabled={busy || status.businessAccessAvailable === false || joinCode.length !== 10}>
+                  {busy ? <LoaderCircle size={15} className="spin" aria-hidden="true" /> : <KeyRound size={15} aria-hidden="true" />}
+                  {isOnboarding ? 'Tiếp tục' : 'Tham gia cơ sở'}
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              {activeBusiness?.role === 'employee' && (
+                <div className="business-current" data-testid="active-employee-business">
+                  <span className="business-access-label">DOANH NGHIỆP ĐANG THAM GIA</span>
+                  <strong>{activeBusiness.name}</strong>
+                </div>
+              )}
+              <p>Tài khoản đã tham gia doanh nghiệp nên mục nhập mã được ẩn. Hãy chọn doanh nghiệp đã liên kết bên dưới; sau khi rời doanh nghiệp, mục nhập mã sẽ xuất hiện lại.</p>
+            </>
           )}
-          <p>Nhập mã doanh nghiệp gồm 10 chữ số. Chủ cơ sở vẫn cần cấp quyền trước khi tài khoản xem dữ liệu.</p>
-          <form className="business-access-form" onSubmit={(event) => void joinWorkspace(event)} aria-busy={busy}>
-            <label className="field" htmlFor="settings-business-join-code">Mã doanh nghiệp
-              <input id="settings-business-join-code" value={joinCode}
-                onChange={(event) => setJoinCode(event.target.value.replace(/\D/g, '').slice(0, 10))}
-                inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{10}" required
-                placeholder="Mã gồm 10 chữ số" />
-            </label>
-            <button type="submit" className="btn primary" disabled={busy || joinCode.length !== 10}>
-              {busy ? <LoaderCircle size={15} className="spin" aria-hidden="true" /> : <KeyRound size={15} aria-hidden="true" />}
-              {isOnboarding ? 'Tiếp tục' : 'Tham gia cơ sở'}
-            </button>
-          </form>
         </div>
       ) : null}
 

@@ -198,8 +198,8 @@ function SignedInApplication({
       </Switch>
       {showRoleOnboarding && (
         <Modal
-          title="Chọn vai trò"
-          description="Chọn chủ doanh nghiệp, nhân viên hoặc sổ cá nhân."
+          title="Chế độ sử dụng"
+          description="Chủ doanh nghiệp tạo cơ sở và cấp quyền; nhân viên tham gia bằng mã 10 số; chấm công cá nhân lưu dữ liệu riêng."
           onClose={onFinishRoleOnboarding}
           testId="dialog-first-role-choice"
         >

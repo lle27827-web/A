@@ -4,7 +4,17 @@ import {
   decideBusinessRoleOnboarding,
   hasCompletedBusinessRoleOnboarding,
   readBusinessRolePreference,
+  shouldShowBusinessJoinForm,
 } from './business-role-preference';
+
+test('the business join form is only shown to employees with no linked business', () => {
+  assert.equal(shouldShowBusinessJoinForm('employee', 0), true);
+  assert.equal(shouldShowBusinessJoinForm('employee', 1), false);
+  assert.equal(shouldShowBusinessJoinForm('employee', 2), false);
+  assert.equal(shouldShowBusinessJoinForm('owner', 0), false);
+  assert.equal(shouldShowBusinessJoinForm('personal', 0), false);
+  assert.equal(shouldShowBusinessJoinForm(null, 0), false);
+});
 
 test('a new account sees role selection and defaults to its personal notebook', () => {
   assert.deepEqual(decideBusinessRoleOnboarding({

@@ -3,6 +3,10 @@ export type BusinessRolePreference = 'personal' | 'owner' | 'employee';
 const roleKey = (userId: string) => `so-cong:role-choice:${userId}`;
 const onboardingKey = (userId: string) => `so-cong:role-onboarding-complete:v2:${userId}`;
 
+export function shouldShowBusinessJoinForm(role: BusinessRolePreference | null, linkedBusinessCount: number): boolean {
+  return role === 'employee' && linkedBusinessCount === 0;
+}
+
 export function decideBusinessRoleOnboarding(input: {
   completed: boolean;
   savedRole: BusinessRolePreference | null;
