@@ -53,7 +53,8 @@ app.use(
 );
 
 app.use(helmet());
-app.use(express.json());
+// Keep untrusted JSON payloads bounded before Zod validation to limit memory use.
+app.use(express.json({ limit: "100kb" }));
 
 if (clerkSecretKey && clerkPublishableKey) {
   const clerkAuth = clerkMiddleware({

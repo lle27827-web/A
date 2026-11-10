@@ -27,3 +27,4 @@
 - [Push to main](push-to-main.md) — push completed project changes to `main` without asking for confirmation again.
 - [Workflow port restart conflicts](workflow-port-restart-conflicts.md) — a failed managed workflow can leave its old server listening; verify the port before retrying.
 - [Keyboard shortcut storage](keyboard-shortcut-storage.md) — keep keyboard shortcut bindings local to each device.
+- [pnpm override enforcement](pnpm-overrides.md) — keep security overrides in the root manifest and verify lockfile resolution; workspace config alone may not update installed versions.
