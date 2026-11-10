@@ -1,0 +1,19 @@
+{
+  "name": "Sổ Công",
+  "short_name": "Sổ Công",
+  "description": "Chấm công và quản lý cơ sở.",
+  "lang": "vi",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#e6c45f",
+  "theme_color": "#e6c45f",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

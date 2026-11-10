@@ -4,7 +4,18 @@ import { viVN } from '@clerk/localizations';
 import { MutationCache, QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { Route, Switch, Router as WouterRouter, Redirect, useLocation, useSearch } from 'wouter';
 import type { AuthStatus, FacilityPermissions } from '@workspace/api-client-react';
-import { getAuthStatus, getGetAuthStatusQueryKey, setAuthTokenGetter, setBusinessIdGetter, useGetAuthStatus } from '@workspace/api-client-react';
+import {
+  flushOfflineMutationQueue,
+  getAuthStatus,
+  getGetAuthStatusQueryKey,
+  OFFLINE_SYNC_REQUEST_MESSAGE,
+  OFFLINE_WRITE_QUEUED_EVENT,
+  setAuthTokenGetter,
+  setBusinessIdGetter,
+  setOfflineSyncUserId,
+  useGetAuthStatus,
+} from '@workspace/api-client-react';
+import { Toaster, toast } from 'sonner';
 import { ALL_PERMISSIONS, AppShell, NO_PERMISSIONS, hasFacilityAccess, useShell } from '@/components/app-shell';
 import { AppGestureProvider } from '@/components/app-gesture-provider';
 import { ColorThemeProvider, useColorTheme } from '@/components/color-theme-provider';
@@ -264,6 +275,76 @@ function AuthenticatedApplication() {
   });
 
   const data = status.data;
+  useEffect(() => {
+    setOfflineSyncUserId(userId ?? null);
+    return () => setOfflineSyncUserId(null);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId || data?.authenticated !== true) return;
+    let syncing = false;
+
+    const syncPendingWrites = async (replyPort?: MessagePort) => {
+      if (syncing) {
+        replyPort?.postMessage({ ok: true, alreadySyncing: true });
+        return;
+      }
+      syncing = true;
+      try {
+        const result = await flushOfflineMutationQueue();
+        if (result.synced > 0) {
+          await client.invalidateQueries();
+          toast.success(`Đã đồng bộ ${result.synced} thao tác ngoại tuyến.`);
+        }
+        if (result.blocked > 0) {
+          toast.error(`${result.blocked} thao tác đang chờ cần kiểm tra quyền hoặc dữ liệu.`);
+        }
+        replyPort?.postMessage({ ok: true, ...result });
+      } catch {
+        replyPort?.postMessage({ ok: false });
+      } finally {
+        syncing = false;
+      }
+    };
+
+    const onOnline = () => {
+      toast.dismiss('so-cong-offline-status');
+      void syncPendingWrites();
+    };
+    const onOffline = () => {
+      toast.info('Mất mạng. Thao tác tạo chấm công, ca dịch vụ, lịch hẹn và sổ cá nhân sẽ được xếp hàng.', {
+        id: 'so-cong-offline-status',
+        duration: Infinity,
+      });
+    };
+    const onQueued = () => {
+      toast.info('Đã lưu thao tác trên thiết bị; sẽ gửi lên máy chủ khi có mạng.', {
+        id: 'so-cong-offline-queued',
+        duration: 5000,
+      });
+      if (navigator.onLine) void syncPendingWrites();
+    };
+    const onWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type === OFFLINE_SYNC_REQUEST_MESSAGE) {
+        void syncPendingWrites(event.ports[0]);
+      }
+    };
+
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    window.addEventListener(OFFLINE_WRITE_QUEUED_EVENT, onQueued);
+    navigator.serviceWorker?.addEventListener('message', onWorkerMessage);
+    if (navigator.onLine) void syncPendingWrites();
+    else onOffline();
+
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+      window.removeEventListener(OFFLINE_WRITE_QUEUED_EVENT, onQueued);
+      navigator.serviceWorker?.removeEventListener('message', onWorkerMessage);
+    };
+  }, [userId, data?.authenticated, data?.businessId, client]);
+
   const roleOnboardingInitializedUserId = useRef<string | null>(null);
   const [showRoleOnboarding, setShowRoleOnboarding] = useState(false);
   useEffect(() => {
@@ -460,6 +541,15 @@ function ClerkApplication() {
 
 function App() {
   useEffect(() => {
+    if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return;
+    void navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, {
+      scope: import.meta.env.BASE_URL,
+    }).catch(() => {
+      // The app remains usable; foreground online/offline listeners are the fallback.
+    });
+  }, []);
+
+  useEffect(() => {
     const root = document.documentElement;
     const viewport = window.visualViewport;
     const syncViewport = () => {
@@ -503,6 +593,7 @@ function App() {
           </QueryClientProvider>
         )}
       </WouterRouter>
+      <Toaster position="top-center" richColors />
     </ColorThemeProvider>
   );
 }

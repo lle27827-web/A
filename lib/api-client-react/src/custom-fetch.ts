@@ -1,5 +1,15 @@
+import {
+  enqueueOfflineWrite,
+  flushOfflineWrites,
+  getOfflineSyncUserId,
+  isQueueableOfflineWrite,
+  requestOfflineBackgroundSync,
+} from "./offline-outbox";
+
 export type CustomFetchOptions = RequestInit & {
   responseType?: "json" | "text" | "blob" | "auto";
+  /** Internal: replay an outbox entry without adding it to the queue again. */
+  skipOfflineQueue?: boolean;
 };
 
 export type ErrorType<T = unknown> = ApiError<T>;
@@ -21,6 +31,15 @@ let _businessIdGetter: (() => string | null) | null = null;
 const inMemoryIdempotencyKeys = new Map<string, string>();
 const IDEMPOTENCY_STORAGE_PREFIX = "so-cong:pending-request:";
 const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
+
+export class OfflineMutationQueuedError extends Error {
+  readonly name = "OfflineMutationQueuedError";
+
+  constructor() {
+    super("Mất mạng. Thao tác tạo mới đã được lưu trên thiết bị để đồng bộ khi có mạng.");
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
 
 function fingerprintRequest(value: string): string {
   const seeds = [0x811c9dc5, 0x9e3779b9, 0x85ebca6b, 0xc2b2ae35];
@@ -81,6 +100,41 @@ function removeStoredIdempotencyKey(storageKey: string): void {
   } catch {
     // The response has completed; clearing the in-memory entry is sufficient.
   }
+}
+
+async function queueOfflineRequest(input: {
+  method: string;
+  url: string;
+  body: BodyInit | null | undefined;
+  headers: Headers;
+  idempotencyStorageKey: string | null;
+  userId: string | null;
+}): Promise<boolean> {
+  const { method, url: requestUrl, body, headers, idempotencyStorageKey, userId } = input;
+  if (!userId || userId !== getOfflineSyncUserId() || typeof location === "undefined") return false;
+  const url = new URL(requestUrl, location.origin);
+  if (url.origin !== location.origin || !isQueueableOfflineWrite(method, url.pathname)) return false;
+  if (typeof body !== "string" || !looksLikeJson(body) || !headers.get("idempotency-key")) return false;
+
+  const persistedHeaders: Record<string, string> = {};
+  for (const name of ["accept", "content-type", "x-business-id", "idempotency-key"]) {
+    const value = headers.get(name);
+    if (value) persistedHeaders[name] = value;
+  }
+  const queued = await enqueueOfflineWrite({
+    userId,
+    businessId: headers.get("x-business-id"),
+    url: `${url.pathname}${url.search}`,
+    method: "POST",
+    body,
+    headers: persistedHeaders,
+    idempotencyStorageKey: idempotencyStorageKey ?? "",
+  });
+  if (!queued) return false;
+
+  void requestOfflineBackgroundSync();
+  window.dispatchEvent(new CustomEvent("so-cong:offline-write-queued"));
+  return true;
 }
 
 /**
@@ -398,7 +452,7 @@ export async function customFetch<T = unknown>(
   options: CustomFetchOptions = {},
 ): Promise<T> {
   input = applyBaseUrl(input);
-  const { responseType = "auto", headers: headersInit, ...init } = options;
+  const { responseType = "auto", skipOfflineQueue = false, headers: headersInit, ...init } = options;
 
   const method = resolveMethod(input, init.method);
 
@@ -441,15 +495,58 @@ export async function customFetch<T = unknown>(
   // Attach bearer token when an auth getter is configured and no
   // Authorization header has been explicitly provided.
   if (_authTokenGetter && !headers.has("authorization")) {
-    const token = await _authTokenGetter(resolveUrl(input));
+    let token: string | null;
+    try {
+      token = await _authTokenGetter(resolveUrl(input));
+    } catch (error) {
+      const requestUserId = getOfflineSyncUserId();
+      const networkFailure = error instanceof TypeError ||
+        (typeof navigator !== "undefined" && navigator.onLine === false);
+      if (
+        !skipOfflineQueue && isMutation && networkFailure &&
+        await queueOfflineRequest({
+          method,
+          url: resolveUrl(input),
+          body: init.body,
+          headers,
+          idempotencyStorageKey,
+          userId: requestUserId,
+        })
+      ) {
+        throw new OfflineMutationQueuedError();
+      }
+      throw error;
+    }
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
     }
   }
 
   const requestInfo = { method, url: resolveUrl(input) };
+  const requestUserId = getOfflineSyncUserId();
 
-  const response = await fetch(input, { ...init, method, headers });
+  let response: Response;
+  try {
+    response = await fetch(input, { ...init, method, headers });
+  } catch (error) {
+    const isNetworkFailure = error instanceof TypeError ||
+      (typeof navigator !== "undefined" && navigator.onLine === false);
+
+    if (
+      !skipOfflineQueue && isMutation && isNetworkFailure &&
+      await queueOfflineRequest({
+        method,
+        url: requestInfo.url,
+        body: init.body,
+        headers,
+        idempotencyStorageKey,
+        userId: requestUserId,
+      })
+    ) {
+      throw new OfflineMutationQueuedError();
+    }
+    throw error;
+  }
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
@@ -462,4 +559,43 @@ export async function customFetch<T = unknown>(
   const data = (await parseSuccessBody(response, responseType, requestInfo)) as T;
   if (idempotencyStorageKey) removeStoredIdempotencyKey(idempotencyStorageKey);
   return data;
+}
+
+/** Replay this account's queued writes with fresh authentication and active tenant headers. */
+let activeOfflineQueueFlush: Promise<{
+  synced: number;
+  blocked: number;
+  waitingForContext: boolean;
+}> | null = null;
+
+export function flushOfflineMutationQueue(): Promise<{
+  synced: number;
+  blocked: number;
+  waitingForContext: boolean;
+}> {
+  if (activeOfflineQueueFlush) return activeOfflineQueueFlush;
+  activeOfflineQueueFlush = runOfflineMutationQueueFlush().finally(() => {
+    activeOfflineQueueFlush = null;
+  });
+  return activeOfflineQueueFlush;
+}
+
+async function runOfflineMutationQueueFlush(): Promise<{
+  synced: number;
+  blocked: number;
+  waitingForContext: boolean;
+}> {
+  const userId = getOfflineSyncUserId();
+  if (!userId) return { synced: 0, blocked: 0, waitingForContext: true };
+
+  return flushOfflineWrites(async (write) => {
+    await customFetch(write.url, {
+      method: write.method,
+      body: write.body,
+      headers: write.headers,
+      credentials: "same-origin",
+      skipOfflineQueue: true,
+    });
+    if (write.idempotencyStorageKey) removeStoredIdempotencyKey(write.idempotencyStorageKey);
+  }, _businessIdGetter?.() ?? null);
 }
