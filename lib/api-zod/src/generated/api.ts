@@ -16,10 +16,10 @@ export const ListHistoryMonthsResponse = zod.array(ListHistoryMonthsResponseItem
  * @summary Liệt kê năm có lịch sử chấm công cơ sở
  */
 export const ListRetentionYearsResponseItem = zod.object({
-  "year": zod.number().int(),
-  "attendanceCount": zod.number().int(),
-  "serviceSessionCount": zod.number().int(),
-  "cardUseCount": zod.number().int()
+  "year": zod.int(),
+  "attendanceCount": zod.int(),
+  "serviceSessionCount": zod.int(),
+  "cardUseCount": zod.int()
 })
 export const ListRetentionYearsResponse = zod.array(ListRetentionYearsResponseItem)
 
@@ -37,10 +37,10 @@ export const DeleteRetentionYearParams = zod.object({
 })
 
 export const DeleteRetentionYearResponse = zod.object({
-  "year": zod.number().int(),
-  "deletedAttendance": zod.number().int(),
-  "deletedServiceSessions": zod.number().int(),
-  "archivedCardUses": zod.number().int()
+  "year": zod.int(),
+  "deletedAttendance": zod.int(),
+  "deletedServiceSessions": zod.int(),
+  "archivedCardUses": zod.int()
 })
 
 
@@ -63,9 +63,9 @@ export const previewRetentionDateRangeResponseToDateRegExp = new RegExp('^\\d{4}
 export const PreviewRetentionDateRangeResponse = zod.object({
   "fromDate": zod.string().regex(previewRetentionDateRangeResponseFromDateRegExp),
   "toDate": zod.string().regex(previewRetentionDateRangeResponseToDateRegExp),
-  "attendanceCount": zod.number().int(),
-  "serviceSessionCount": zod.number().int(),
-  "cardUseCount": zod.number().int()
+  "attendanceCount": zod.int(),
+  "serviceSessionCount": zod.int(),
+  "cardUseCount": zod.int()
 })
 
 
@@ -88,9 +88,9 @@ export const deleteRetentionDateRangeResponseToDateRegExp = new RegExp('^\\d{4}-
 export const DeleteRetentionDateRangeResponse = zod.object({
   "fromDate": zod.string().regex(deleteRetentionDateRangeResponseFromDateRegExp),
   "toDate": zod.string().regex(deleteRetentionDateRangeResponseToDateRegExp),
-  "deletedAttendance": zod.number().int(),
-  "deletedServiceSessions": zod.number().int(),
-  "archivedCardUses": zod.number().int()
+  "deletedAttendance": zod.int(),
+  "deletedServiceSessions": zod.int(),
+  "archivedCardUses": zod.int()
 })
 
 
@@ -192,7 +192,7 @@ export const syncPersonalNotebookBodyRevisionMax = 64;
 
 
 export const SyncPersonalNotebookBody = zod.object({
-  "memberId": zod.number().int().min(1),
+  "memberId": zod.int().min(1),
   "month": zod.string().regex(syncPersonalNotebookBodyMonthRegExp),
   "date": zod.string().regex(syncPersonalNotebookBodyDateRegExp),
   "scope": zod.enum(['day', 'month']),
@@ -200,8 +200,8 @@ export const SyncPersonalNotebookBody = zod.object({
 })
 
 export const SyncPersonalNotebookResponse = zod.object({
-  "removed": zod.number().int(),
-  "imported": zod.number().int()
+  "removed": zod.int(),
+  "imported": zod.int()
 })
 
 
@@ -239,29 +239,29 @@ export const GetPersonalNotebookResponse = zod.object({
   "date": zod.string(),
   "services": zod.array(zod.object({
   "name": zod.string().min(1).max(getPersonalNotebookResponseServicesItemOneNameMax),
-  "hourlyRate": zod.number().int().min(getPersonalNotebookResponseServicesItemOneHourlyRateMin).max(getPersonalNotebookResponseServicesItemOneHourlyRateMax)
+  "hourlyRate": zod.int().min(getPersonalNotebookResponseServicesItemOneHourlyRateMin).max(getPersonalNotebookResponseServicesItemOneHourlyRateMax)
 }).and(zod.object({
-  "id": zod.number().int(),
-  "facilityServiceId": zod.number().int().nullish(),
-  "nightHourlyRate": zod.number().int().nullable()
+  "id": zod.int(),
+  "facilityServiceId": zod.int().nullish(),
+  "nightHourlyRate": zod.int().nullable()
 }))),
   "sessions": zod.array(zod.object({
-  "serviceId": zod.number().int().min(1),
+  "serviceId": zod.int().min(1),
   "workDate": zod.string().regex(getPersonalNotebookResponseSessionsItemOneWorkDateRegExp),
-  "minutes": zod.number().int().min(1).max(getPersonalNotebookResponseSessionsItemOneMinutesMax),
+  "minutes": zod.int().min(1).max(getPersonalNotebookResponseSessionsItemOneMinutesMax),
   "note": zod.string().max(getPersonalNotebookResponseSessionsItemOneNoteMax),
   "customerName": zod.string().max(getPersonalNotebookResponseSessionsItemOneCustomerNameMax).default(getPersonalNotebookResponseSessionsItemOneCustomerNameDefault),
   "requestId": zod.string().min(getPersonalNotebookResponseSessionsItemOneRequestIdMin).max(getPersonalNotebookResponseSessionsItemOneRequestIdMax).optional()
 }).and(zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "serviceName": zod.string(),
-  "hourlyRate": zod.number().int(),
-  "earnings": zod.number().int(),
+  "hourlyRate": zod.int(),
+  "earnings": zod.int(),
   "createdAt": zod.string(),
   "isNightShift": zod.boolean()
 }))),
-  "totalDay": zod.number().int(),
-  "totalMonth": zod.number().int(),
+  "totalDay": zod.int(),
+  "totalMonth": zod.int(),
   "months": zod.array(zod.string())
 })
 
@@ -275,7 +275,7 @@ export const createPersonalServiceBodyHourlyRateMax = 100000000;
 
 export const CreatePersonalServiceBody = zod.object({
   "name": zod.string().min(1).max(createPersonalServiceBodyNameMax),
-  "hourlyRate": zod.number().int().min(createPersonalServiceBodyHourlyRateMin).max(createPersonalServiceBodyHourlyRateMax)
+  "hourlyRate": zod.int().min(createPersonalServiceBodyHourlyRateMin).max(createPersonalServiceBodyHourlyRateMax)
 })
 
 export const createPersonalServiceResponseOneNameMax = 120;
@@ -287,11 +287,11 @@ export const createPersonalServiceResponseOneHourlyRateMax = 100000000;
 
 export const CreatePersonalServiceResponse = zod.object({
   "name": zod.string().min(1).max(createPersonalServiceResponseOneNameMax),
-  "hourlyRate": zod.number().int().min(createPersonalServiceResponseOneHourlyRateMin).max(createPersonalServiceResponseOneHourlyRateMax)
+  "hourlyRate": zod.int().min(createPersonalServiceResponseOneHourlyRateMin).max(createPersonalServiceResponseOneHourlyRateMax)
 }).and(zod.object({
-  "id": zod.number().int(),
-  "facilityServiceId": zod.number().int().nullish(),
-  "nightHourlyRate": zod.number().int().nullable()
+  "id": zod.int(),
+  "facilityServiceId": zod.int().nullish(),
+  "nightHourlyRate": zod.int().nullable()
 }))
 
 
@@ -311,7 +311,7 @@ export const updatePersonalServiceBodyHourlyRateMax = 100000000;
 
 export const UpdatePersonalServiceBody = zod.object({
   "name": zod.string().min(1).max(updatePersonalServiceBodyNameMax),
-  "hourlyRate": zod.number().int().min(updatePersonalServiceBodyHourlyRateMin).max(updatePersonalServiceBodyHourlyRateMax)
+  "hourlyRate": zod.int().min(updatePersonalServiceBodyHourlyRateMin).max(updatePersonalServiceBodyHourlyRateMax)
 })
 
 export const updatePersonalServiceResponseOneNameMax = 120;
@@ -323,11 +323,11 @@ export const updatePersonalServiceResponseOneHourlyRateMax = 100000000;
 
 export const UpdatePersonalServiceResponse = zod.object({
   "name": zod.string().min(1).max(updatePersonalServiceResponseOneNameMax),
-  "hourlyRate": zod.number().int().min(updatePersonalServiceResponseOneHourlyRateMin).max(updatePersonalServiceResponseOneHourlyRateMax)
+  "hourlyRate": zod.int().min(updatePersonalServiceResponseOneHourlyRateMin).max(updatePersonalServiceResponseOneHourlyRateMax)
 }).and(zod.object({
-  "id": zod.number().int(),
-  "facilityServiceId": zod.number().int().nullish(),
-  "nightHourlyRate": zod.number().int().nullable()
+  "id": zod.int(),
+  "facilityServiceId": zod.int().nullish(),
+  "nightHourlyRate": zod.int().nullable()
 }))
 
 
@@ -356,9 +356,9 @@ export const createPersonalSessionBodyRequestIdMax = 80;
 
 
 export const CreatePersonalSessionBody = zod.object({
-  "serviceId": zod.number().int().min(1),
+  "serviceId": zod.int().min(1),
   "workDate": zod.string().regex(createPersonalSessionBodyWorkDateRegExp),
-  "minutes": zod.number().int().min(1).max(createPersonalSessionBodyMinutesMax),
+  "minutes": zod.int().min(1).max(createPersonalSessionBodyMinutesMax),
   "note": zod.string().max(createPersonalSessionBodyNoteMax),
   "customerName": zod.string().max(createPersonalSessionBodyCustomerNameMax).default(createPersonalSessionBodyCustomerNameDefault),
   "requestId": zod.string().min(createPersonalSessionBodyRequestIdMin).max(createPersonalSessionBodyRequestIdMax).optional()
@@ -379,17 +379,17 @@ export const createPersonalSessionResponseOneRequestIdMax = 80;
 
 
 export const CreatePersonalSessionResponse = zod.object({
-  "serviceId": zod.number().int().min(1),
+  "serviceId": zod.int().min(1),
   "workDate": zod.string().regex(createPersonalSessionResponseOneWorkDateRegExp),
-  "minutes": zod.number().int().min(1).max(createPersonalSessionResponseOneMinutesMax),
+  "minutes": zod.int().min(1).max(createPersonalSessionResponseOneMinutesMax),
   "note": zod.string().max(createPersonalSessionResponseOneNoteMax),
   "customerName": zod.string().max(createPersonalSessionResponseOneCustomerNameMax).default(createPersonalSessionResponseOneCustomerNameDefault),
   "requestId": zod.string().min(createPersonalSessionResponseOneRequestIdMin).max(createPersonalSessionResponseOneRequestIdMax).optional()
 }).and(zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "serviceName": zod.string(),
-  "hourlyRate": zod.number().int(),
-  "earnings": zod.number().int(),
+  "hourlyRate": zod.int(),
+  "earnings": zod.int(),
   "createdAt": zod.string(),
   "isNightShift": zod.boolean()
 }))
@@ -417,9 +417,9 @@ export const updatePersonalSessionBodyRequestIdMax = 80;
 
 
 export const UpdatePersonalSessionBody = zod.object({
-  "serviceId": zod.number().int().min(1),
+  "serviceId": zod.int().min(1),
   "workDate": zod.string().regex(updatePersonalSessionBodyWorkDateRegExp),
-  "minutes": zod.number().int().min(1).max(updatePersonalSessionBodyMinutesMax),
+  "minutes": zod.int().min(1).max(updatePersonalSessionBodyMinutesMax),
   "note": zod.string().max(updatePersonalSessionBodyNoteMax),
   "customerName": zod.string().max(updatePersonalSessionBodyCustomerNameMax).default(updatePersonalSessionBodyCustomerNameDefault),
   "requestId": zod.string().min(updatePersonalSessionBodyRequestIdMin).max(updatePersonalSessionBodyRequestIdMax).optional()
@@ -440,17 +440,17 @@ export const updatePersonalSessionResponseOneRequestIdMax = 80;
 
 
 export const UpdatePersonalSessionResponse = zod.object({
-  "serviceId": zod.number().int().min(1),
+  "serviceId": zod.int().min(1),
   "workDate": zod.string().regex(updatePersonalSessionResponseOneWorkDateRegExp),
-  "minutes": zod.number().int().min(1).max(updatePersonalSessionResponseOneMinutesMax),
+  "minutes": zod.int().min(1).max(updatePersonalSessionResponseOneMinutesMax),
   "note": zod.string().max(updatePersonalSessionResponseOneNoteMax),
   "customerName": zod.string().max(updatePersonalSessionResponseOneCustomerNameMax).default(updatePersonalSessionResponseOneCustomerNameDefault),
   "requestId": zod.string().min(updatePersonalSessionResponseOneRequestIdMin).max(updatePersonalSessionResponseOneRequestIdMax).optional()
 }).and(zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "serviceName": zod.string(),
-  "hourlyRate": zod.number().int(),
-  "earnings": zod.number().int(),
+  "hourlyRate": zod.int(),
+  "earnings": zod.int(),
   "createdAt": zod.string(),
   "isNightShift": zod.boolean()
 }))
@@ -479,52 +479,52 @@ export const GetPersonalComparisonQueryParams = zod.object({
 
 export const GetPersonalComparisonResponse = zod.object({
   "memberName": zod.string(),
-  "personalDay": zod.number().int(),
-  "personalMonth": zod.number().int(),
-  "referenceDay": zod.number().int(),
-  "referenceMonth": zod.number().int(),
-  "differenceDay": zod.number().int(),
-  "differenceMonth": zod.number().int(),
+  "personalDay": zod.int(),
+  "personalMonth": zod.int(),
+  "referenceDay": zod.int(),
+  "referenceMonth": zod.int(),
+  "differenceDay": zod.int(),
+  "differenceMonth": zod.int(),
   "personalVisits": zod.array(zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "workDate": zod.string(),
   "serviceName": zod.string(),
   "customerName": zod.string(),
-  "minutes": zod.number().int(),
-  "hourlyRate": zod.number().int(),
-  "earnings": zod.number().int(),
+  "minutes": zod.int(),
+  "hourlyRate": zod.int(),
+  "earnings": zod.int(),
   "note": zod.string()
 })),
   "referenceVisits": zod.array(zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "workDate": zod.string(),
   "serviceName": zod.string(),
   "customerName": zod.string(),
-  "minutes": zod.number().int(),
-  "hourlyRate": zod.number().int(),
-  "earnings": zod.number().int(),
+  "minutes": zod.int(),
+  "hourlyRate": zod.int(),
+  "earnings": zod.int(),
   "note": zod.string()
 })),
   "discrepancies": zod.array(zod.object({
   "reason": zod.string(),
   "personal": zod.array(zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "workDate": zod.string(),
   "serviceName": zod.string(),
   "customerName": zod.string(),
-  "minutes": zod.number().int(),
-  "hourlyRate": zod.number().int(),
-  "earnings": zod.number().int(),
+  "minutes": zod.int(),
+  "hourlyRate": zod.int(),
+  "earnings": zod.int(),
   "note": zod.string()
 })),
   "reference": zod.array(zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "workDate": zod.string(),
   "serviceName": zod.string(),
   "customerName": zod.string(),
-  "minutes": zod.number().int(),
-  "hourlyRate": zod.number().int(),
-  "earnings": zod.number().int(),
+  "minutes": zod.int(),
+  "hourlyRate": zod.int(),
+  "earnings": zod.int(),
   "note": zod.string()
 }))
 })),
@@ -544,7 +544,7 @@ export const ListPersonalComparisonMembersQueryParams = zod.object({
 
 
 export const ListPersonalComparisonMembersResponseItem = zod.object({
-  "id": zod.number().int().min(1),
+  "id": zod.int().min(1),
   "name": zod.string(),
   "deletedAt": zod.coerce.date().nullable()
 })
@@ -552,12 +552,12 @@ export const ListPersonalComparisonMembersResponse = zod.array(ListPersonalCompa
 
 
 export const ListServiceTypesResponseItem = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "name": zod.string(),
-  "customerHourlyRate": zod.number().int(),
-  "hourlyRate": zod.number().int(),
-  "nightCustomerHourlyRate": zod.number().int().nullable(),
-  "nightHourlyRate": zod.number().int().nullable(),
+  "customerHourlyRate": zod.int(),
+  "hourlyRate": zod.int(),
+  "nightCustomerHourlyRate": zod.int().nullable(),
+  "nightHourlyRate": zod.int().nullable(),
   "createdAt": zod.coerce.date()
 })
 export const ListServiceTypesResponse = zod.array(ListServiceTypesResponseItem)
@@ -573,17 +573,17 @@ export const createServiceTypeBodyHourlyRateMax = 10000000;
 
 export const CreateServiceTypeBody = zod.object({
   "name": zod.string().min(1).max(createServiceTypeBodyNameMax),
-  "customerHourlyRate": zod.number().int().min(1).max(createServiceTypeBodyCustomerHourlyRateMax),
-  "hourlyRate": zod.number().int().min(1).max(createServiceTypeBodyHourlyRateMax)
+  "customerHourlyRate": zod.int().min(1).max(createServiceTypeBodyCustomerHourlyRateMax),
+  "hourlyRate": zod.int().min(1).max(createServiceTypeBodyHourlyRateMax)
 })
 
 export const CreateServiceTypeResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "name": zod.string(),
-  "customerHourlyRate": zod.number().int(),
-  "hourlyRate": zod.number().int(),
-  "nightCustomerHourlyRate": zod.number().int().nullable(),
-  "nightHourlyRate": zod.number().int().nullable(),
+  "customerHourlyRate": zod.int(),
+  "hourlyRate": zod.int(),
+  "nightCustomerHourlyRate": zod.int().nullable(),
+  "nightHourlyRate": zod.int().nullable(),
   "createdAt": zod.coerce.date()
 })
 
@@ -605,17 +605,17 @@ export const updateServiceTypeBodyHourlyRateMax = 10000000;
 
 export const UpdateServiceTypeBody = zod.object({
   "name": zod.string().min(1).max(updateServiceTypeBodyNameMax),
-  "customerHourlyRate": zod.number().int().min(1).max(updateServiceTypeBodyCustomerHourlyRateMax),
-  "hourlyRate": zod.number().int().min(1).max(updateServiceTypeBodyHourlyRateMax)
+  "customerHourlyRate": zod.int().min(1).max(updateServiceTypeBodyCustomerHourlyRateMax),
+  "hourlyRate": zod.int().min(1).max(updateServiceTypeBodyHourlyRateMax)
 })
 
 export const UpdateServiceTypeResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "name": zod.string(),
-  "customerHourlyRate": zod.number().int(),
-  "hourlyRate": zod.number().int(),
-  "nightCustomerHourlyRate": zod.number().int().nullable(),
-  "nightHourlyRate": zod.number().int().nullable(),
+  "customerHourlyRate": zod.int(),
+  "hourlyRate": zod.int(),
+  "nightCustomerHourlyRate": zod.int().nullable(),
+  "nightHourlyRate": zod.int().nullable(),
   "createdAt": zod.coerce.date()
 })
 
@@ -648,20 +648,20 @@ export const getEmployeeBonusConfigResponseRatesItemHourlyRateMax = 10000000;
 
 export const GetEmployeeBonusConfigResponse = zod.object({
   "enabled": zod.boolean(),
-  "thresholdMinutes": zod.number().int().min(getEmployeeBonusConfigResponseThresholdMinutesMin).max(getEmployeeBonusConfigResponseThresholdMinutesMax),
+  "thresholdMinutes": zod.int().min(getEmployeeBonusConfigResponseThresholdMinutesMin).max(getEmployeeBonusConfigResponseThresholdMinutesMax),
   "members": zod.array(zod.object({
-  "id": zod.number().int().min(1),
+  "id": zod.int().min(1),
   "name": zod.string()
 })),
   "services": zod.array(zod.object({
-  "id": zod.number().int().min(1),
+  "id": zod.int().min(1),
   "name": zod.string(),
-  "hourlyRate": zod.number().int().min(1).max(getEmployeeBonusConfigResponseServicesItemHourlyRateMax)
+  "hourlyRate": zod.int().min(1).max(getEmployeeBonusConfigResponseServicesItemHourlyRateMax)
 })),
   "rates": zod.array(zod.object({
-  "memberId": zod.number().int().min(1),
-  "serviceTypeId": zod.number().int().min(1),
-  "hourlyRate": zod.number().int().min(1).max(getEmployeeBonusConfigResponseRatesItemHourlyRateMax)
+  "memberId": zod.int().min(1),
+  "serviceTypeId": zod.int().min(1),
+  "hourlyRate": zod.int().min(1).max(getEmployeeBonusConfigResponseRatesItemHourlyRateMax)
 }))
 })
 
@@ -682,11 +682,11 @@ export const updateEmployeeBonusConfigBodyRatesMax = 1000;
 
 export const UpdateEmployeeBonusConfigBody = zod.object({
   "enabled": zod.boolean(),
-  "thresholdMinutes": zod.number().int().min(updateEmployeeBonusConfigBodyThresholdMinutesMin).max(updateEmployeeBonusConfigBodyThresholdMinutesMax),
+  "thresholdMinutes": zod.int().min(updateEmployeeBonusConfigBodyThresholdMinutesMin).max(updateEmployeeBonusConfigBodyThresholdMinutesMax),
   "rates": zod.array(zod.object({
-  "memberId": zod.number().int().min(1),
-  "serviceTypeId": zod.number().int().min(1),
-  "hourlyRate": zod.number().int().min(1).max(updateEmployeeBonusConfigBodyRatesItemHourlyRateMax).nullable()
+  "memberId": zod.int().min(1),
+  "serviceTypeId": zod.int().min(1),
+  "hourlyRate": zod.int().min(1).max(updateEmployeeBonusConfigBodyRatesItemHourlyRateMax).nullable()
 })).max(updateEmployeeBonusConfigBodyRatesMax).optional()
 })
 
@@ -705,20 +705,20 @@ export const updateEmployeeBonusConfigResponseRatesItemHourlyRateMax = 10000000;
 
 export const UpdateEmployeeBonusConfigResponse = zod.object({
   "enabled": zod.boolean(),
-  "thresholdMinutes": zod.number().int().min(updateEmployeeBonusConfigResponseThresholdMinutesMin).max(updateEmployeeBonusConfigResponseThresholdMinutesMax),
+  "thresholdMinutes": zod.int().min(updateEmployeeBonusConfigResponseThresholdMinutesMin).max(updateEmployeeBonusConfigResponseThresholdMinutesMax),
   "members": zod.array(zod.object({
-  "id": zod.number().int().min(1),
+  "id": zod.int().min(1),
   "name": zod.string()
 })),
   "services": zod.array(zod.object({
-  "id": zod.number().int().min(1),
+  "id": zod.int().min(1),
   "name": zod.string(),
-  "hourlyRate": zod.number().int().min(1).max(updateEmployeeBonusConfigResponseServicesItemHourlyRateMax)
+  "hourlyRate": zod.int().min(1).max(updateEmployeeBonusConfigResponseServicesItemHourlyRateMax)
 })),
   "rates": zod.array(zod.object({
-  "memberId": zod.number().int().min(1),
-  "serviceTypeId": zod.number().int().min(1),
-  "hourlyRate": zod.number().int().min(1).max(updateEmployeeBonusConfigResponseRatesItemHourlyRateMax)
+  "memberId": zod.int().min(1),
+  "serviceTypeId": zod.int().min(1),
+  "hourlyRate": zod.int().min(1).max(updateEmployeeBonusConfigResponseRatesItemHourlyRateMax)
 }))
 })
 
@@ -735,12 +735,12 @@ export const GetNightServicePricingResponse = zod.object({
   "startTime": zod.string().regex(getNightServicePricingResponseStartTimeRegExp),
   "endTime": zod.string().regex(getNightServicePricingResponseEndTimeRegExp),
   "rates": zod.array(zod.object({
-  "serviceTypeId": zod.number().int(),
+  "serviceTypeId": zod.int(),
   "serviceName": zod.string(),
-  "standardCustomerHourlyRate": zod.number().int(),
-  "standardEmployeeHourlyRate": zod.number().int(),
-  "customerHourlyRate": zod.number().int().nullable(),
-  "employeeHourlyRate": zod.number().int().nullable()
+  "standardCustomerHourlyRate": zod.int(),
+  "standardEmployeeHourlyRate": zod.int(),
+  "customerHourlyRate": zod.int().nullable(),
+  "employeeHourlyRate": zod.int().nullable()
 }))
 })
 
@@ -762,9 +762,9 @@ export const UpdateNightServicePricingBody = zod.object({
   "startTime": zod.string().regex(updateNightServicePricingBodyStartTimeRegExp),
   "endTime": zod.string().regex(updateNightServicePricingBodyEndTimeRegExp),
   "rates": zod.array(zod.object({
-  "serviceTypeId": zod.number().int().min(1),
-  "customerHourlyRate": zod.number().int().min(1).max(updateNightServicePricingBodyRatesItemCustomerHourlyRateMax).nullable(),
-  "employeeHourlyRate": zod.number().int().min(1).max(updateNightServicePricingBodyRatesItemEmployeeHourlyRateMax).nullable()
+  "serviceTypeId": zod.int().min(1),
+  "customerHourlyRate": zod.int().min(1).max(updateNightServicePricingBodyRatesItemCustomerHourlyRateMax).nullable(),
+  "employeeHourlyRate": zod.int().min(1).max(updateNightServicePricingBodyRatesItemEmployeeHourlyRateMax).nullable()
 }))
 })
 
@@ -777,12 +777,12 @@ export const UpdateNightServicePricingResponse = zod.object({
   "startTime": zod.string().regex(updateNightServicePricingResponseStartTimeRegExp),
   "endTime": zod.string().regex(updateNightServicePricingResponseEndTimeRegExp),
   "rates": zod.array(zod.object({
-  "serviceTypeId": zod.number().int(),
+  "serviceTypeId": zod.int(),
   "serviceName": zod.string(),
-  "standardCustomerHourlyRate": zod.number().int(),
-  "standardEmployeeHourlyRate": zod.number().int(),
-  "customerHourlyRate": zod.number().int().nullable(),
-  "employeeHourlyRate": zod.number().int().nullable()
+  "standardCustomerHourlyRate": zod.int(),
+  "standardEmployeeHourlyRate": zod.int(),
+  "customerHourlyRate": zod.int().nullable(),
+  "employeeHourlyRate": zod.int().nullable()
 }))
 })
 
@@ -814,20 +814,20 @@ export const GetAuthStatusResponse = zod.object({
   "isPlatformAdmin": zod.boolean(),
   "userId": zod.string().nullable(),
   "email": zod.string().nullable(),
-  "businessId": zod.string().uuid().nullable(),
+  "businessId": zod.uuid().nullable(),
   "businessName": zod.string().nullable(),
   "role": zod.union([zod.literal('owner'),zod.literal('employee'),zod.literal('platform_admin'),zod.literal(null)]).nullable(),
   "businesses": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "name": zod.string(),
   "role": zod.enum(['owner', 'employee', 'platform_admin'])
 })),
   "businessAccessAvailable": zod.boolean().optional(),
   "permissions": zod.object({
   "allEmployees": zod.boolean(),
-  "employeeIds": zod.array(zod.number().int().min(1)).max(getAuthStatusResponsePermissionsEmployeeIdsMax),
+  "employeeIds": zod.array(zod.int().min(1)).max(getAuthStatusResponsePermissionsEmployeeIdsMax),
   "compareAllEmployees": zod.boolean(),
-  "compareEmployeeIds": zod.array(zod.number().int().min(1)).max(getAuthStatusResponsePermissionsCompareEmployeeIdsMax),
+  "compareEmployeeIds": zod.array(zod.int().min(1)).max(getAuthStatusResponsePermissionsCompareEmployeeIdsMax),
   "viewCards": zod.boolean(),
   "viewRevenue": zod.boolean(),
   "editEmployees": zod.boolean(),
@@ -857,7 +857,7 @@ export const createBusinessResponseJoinCodeRegExp = new RegExp('^[0-9]{10}$');
 
 export const CreateBusinessResponse = zod.object({
   "business": zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "name": zod.string(),
   "role": zod.enum(['owner', 'employee', 'platform_admin'])
 }),
@@ -880,7 +880,7 @@ export const joinBusinessResponseJoinCodeRegExp = new RegExp('^[0-9]{10}$');
 
 export const JoinBusinessResponse = zod.object({
   "business": zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "name": zod.string(),
   "role": zod.enum(['owner', 'employee', 'platform_admin'])
 }),
@@ -896,7 +896,7 @@ export const listCurrentBusinessMembersResponseEmailMax = 254;
 
 
 export const ListCurrentBusinessMembersResponseItem = zod.object({
-  "email": zod.string().email().max(listCurrentBusinessMembersResponseEmailMax),
+  "email": zod.email().max(listCurrentBusinessMembersResponseEmailMax),
   "role": zod.enum(['owner', 'employee'])
 })
 export const ListCurrentBusinessMembersResponse = zod.array(ListCurrentBusinessMembersResponseItem)
@@ -906,7 +906,7 @@ export const ListCurrentBusinessMembersResponse = zod.array(ListCurrentBusinessM
  * @summary Nhân viên rời cơ sở đang chọn
  */
 export const LeaveBusinessParams = zod.object({
-  "id": zod.coerce.string().uuid()
+  "id": zod.uuid()
 })
 
 export const LeaveBusinessResponse = zod.void()
@@ -916,7 +916,7 @@ export const LeaveBusinessResponse = zod.void()
  * @summary Tạo mã tham gia mới cho doanh nghiệp
  */
 export const RotateBusinessJoinCodeParams = zod.object({
-  "id": zod.coerce.string().uuid()
+  "id": zod.uuid()
 })
 
 export const rotateBusinessJoinCodeResponseJoinCodeRegExp = new RegExp('^[0-9]{10}$');
@@ -924,7 +924,7 @@ export const rotateBusinessJoinCodeResponseJoinCodeRegExp = new RegExp('^[0-9]{1
 
 export const RotateBusinessJoinCodeResponse = zod.object({
   "business": zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "name": zod.string(),
   "role": zod.enum(['owner', 'employee', 'platform_admin'])
 }),
@@ -946,12 +946,12 @@ export const listAccessGrantsResponseOnePermissionsCompareEmployeeIdsMax = 1000;
 
 
 export const ListAccessGrantsResponseItem = zod.object({
-  "email": zod.string().email().max(listAccessGrantsResponseOneEmailMax),
+  "email": zod.email().max(listAccessGrantsResponseOneEmailMax),
   "permissions": zod.object({
   "allEmployees": zod.boolean(),
-  "employeeIds": zod.array(zod.number().int().min(1)).max(listAccessGrantsResponseOnePermissionsEmployeeIdsMax),
+  "employeeIds": zod.array(zod.int().min(1)).max(listAccessGrantsResponseOnePermissionsEmployeeIdsMax),
   "compareAllEmployees": zod.boolean(),
-  "compareEmployeeIds": zod.array(zod.number().int().min(1)).max(listAccessGrantsResponseOnePermissionsCompareEmployeeIdsMax),
+  "compareEmployeeIds": zod.array(zod.int().min(1)).max(listAccessGrantsResponseOnePermissionsCompareEmployeeIdsMax),
   "viewCards": zod.boolean(),
   "viewRevenue": zod.boolean(),
   "editEmployees": zod.boolean(),
@@ -962,7 +962,7 @@ export const ListAccessGrantsResponseItem = zod.object({
   "editAppointments": zod.boolean()
 })
 }).and(zod.object({
-  "id": zod.number().int()
+  "id": zod.int()
 }))
 export const ListAccessGrantsResponse = zod.array(ListAccessGrantsResponseItem)
 
@@ -981,12 +981,12 @@ export const saveAccessGrantBodyPermissionsCompareEmployeeIdsMax = 1000;
 
 
 export const SaveAccessGrantBody = zod.object({
-  "email": zod.string().email().max(saveAccessGrantBodyEmailMax),
+  "email": zod.email().max(saveAccessGrantBodyEmailMax),
   "permissions": zod.object({
   "allEmployees": zod.boolean(),
-  "employeeIds": zod.array(zod.number().int().min(1)).max(saveAccessGrantBodyPermissionsEmployeeIdsMax),
+  "employeeIds": zod.array(zod.int().min(1)).max(saveAccessGrantBodyPermissionsEmployeeIdsMax),
   "compareAllEmployees": zod.boolean(),
-  "compareEmployeeIds": zod.array(zod.number().int().min(1)).max(saveAccessGrantBodyPermissionsCompareEmployeeIdsMax),
+  "compareEmployeeIds": zod.array(zod.int().min(1)).max(saveAccessGrantBodyPermissionsCompareEmployeeIdsMax),
   "viewCards": zod.boolean(),
   "viewRevenue": zod.boolean(),
   "editEmployees": zod.boolean(),
@@ -1009,12 +1009,12 @@ export const saveAccessGrantResponseOnePermissionsCompareEmployeeIdsMax = 1000;
 
 
 export const SaveAccessGrantResponse = zod.object({
-  "email": zod.string().email().max(saveAccessGrantResponseOneEmailMax),
+  "email": zod.email().max(saveAccessGrantResponseOneEmailMax),
   "permissions": zod.object({
   "allEmployees": zod.boolean(),
-  "employeeIds": zod.array(zod.number().int().min(1)).max(saveAccessGrantResponseOnePermissionsEmployeeIdsMax),
+  "employeeIds": zod.array(zod.int().min(1)).max(saveAccessGrantResponseOnePermissionsEmployeeIdsMax),
   "compareAllEmployees": zod.boolean(),
-  "compareEmployeeIds": zod.array(zod.number().int().min(1)).max(saveAccessGrantResponseOnePermissionsCompareEmployeeIdsMax),
+  "compareEmployeeIds": zod.array(zod.int().min(1)).max(saveAccessGrantResponseOnePermissionsCompareEmployeeIdsMax),
   "viewCards": zod.boolean(),
   "viewRevenue": zod.boolean(),
   "editEmployees": zod.boolean(),
@@ -1025,7 +1025,7 @@ export const SaveAccessGrantResponse = zod.object({
   "editAppointments": zod.boolean()
 })
 }).and(zod.object({
-  "id": zod.number().int()
+  "id": zod.int()
 }))
 
 
@@ -1058,11 +1058,11 @@ export const listAppointmentsResponseNoteMax = 2000;
 
 
 export const ListAppointmentsResponseItem = zod.object({
-  "id": zod.number().int().min(1),
+  "id": zod.int().min(1),
   "customerName": zod.string().max(listAppointmentsResponseCustomerNameMax),
   "phone": zod.string().max(listAppointmentsResponsePhoneMax),
   "scheduledAt": zod.coerce.date(),
-  "memberId": zod.number().int().min(1).nullable(),
+  "memberId": zod.int().min(1).nullable(),
   "status": zod.enum(['scheduled', 'completed']),
   "request": zod.string().max(listAppointmentsResponseRequestMax),
   "note": zod.string().max(listAppointmentsResponseNoteMax),
@@ -1090,7 +1090,7 @@ export const CreateAppointmentBody = zod.object({
   "customerName": zod.string().max(createAppointmentBodyCustomerNameMax).optional(),
   "phone": zod.string().max(createAppointmentBodyPhoneMax).optional(),
   "scheduledAt": zod.coerce.date(),
-  "memberId": zod.number().int().min(1).nullish(),
+  "memberId": zod.int().min(1).nullish(),
   "request": zod.string().max(createAppointmentBodyRequestMax).optional(),
   "note": zod.string().max(createAppointmentBodyNoteMax).optional()
 })
@@ -1108,11 +1108,11 @@ export const createAppointmentResponseNoteMax = 2000;
 
 
 export const CreateAppointmentResponse = zod.object({
-  "id": zod.number().int().min(1),
+  "id": zod.int().min(1),
   "customerName": zod.string().max(createAppointmentResponseCustomerNameMax),
   "phone": zod.string().max(createAppointmentResponsePhoneMax),
   "scheduledAt": zod.coerce.date(),
-  "memberId": zod.number().int().min(1).nullable(),
+  "memberId": zod.int().min(1).nullable(),
   "status": zod.enum(['scheduled', 'completed']),
   "request": zod.string().max(createAppointmentResponseRequestMax),
   "note": zod.string().max(createAppointmentResponseNoteMax),
@@ -1128,7 +1128,7 @@ export const CreateAppointmentResponse = zod.object({
 
 
 export const ListAppointmentStaffActivityResponseItem = zod.object({
-  "memberId": zod.number().int().min(1),
+  "memberId": zod.int().min(1),
   "employeeName": zod.string(),
   "state": zod.enum(['working', 'available', 'off']),
   "endsAt": zod.coerce.date().nullable(),
@@ -1160,7 +1160,7 @@ export const UpdateAppointmentStaffActivityBody = zod.object({
 
 
 export const UpdateAppointmentStaffActivityResponse = zod.object({
-  "memberId": zod.number().int().min(1),
+  "memberId": zod.int().min(1),
   "employeeName": zod.string(),
   "state": zod.enum(['working', 'available', 'off']),
   "endsAt": zod.coerce.date().nullable(),
@@ -1198,7 +1198,7 @@ export const UpdateAppointmentBody = zod.object({
   "customerName": zod.string().max(updateAppointmentBodyCustomerNameMax).optional(),
   "phone": zod.string().max(updateAppointmentBodyPhoneMax).optional(),
   "scheduledAt": zod.coerce.date(),
-  "memberId": zod.number().int().min(1).nullish(),
+  "memberId": zod.int().min(1).nullish(),
   "request": zod.string().max(updateAppointmentBodyRequestMax).optional(),
   "note": zod.string().max(updateAppointmentBodyNoteMax).optional()
 })
@@ -1216,11 +1216,11 @@ export const updateAppointmentResponseNoteMax = 2000;
 
 
 export const UpdateAppointmentResponse = zod.object({
-  "id": zod.number().int().min(1),
+  "id": zod.int().min(1),
   "customerName": zod.string().max(updateAppointmentResponseCustomerNameMax),
   "phone": zod.string().max(updateAppointmentResponsePhoneMax),
   "scheduledAt": zod.coerce.date(),
-  "memberId": zod.number().int().min(1).nullable(),
+  "memberId": zod.int().min(1).nullable(),
   "status": zod.enum(['scheduled', 'completed']),
   "request": zod.string().max(updateAppointmentResponseRequestMax),
   "note": zod.string().max(updateAppointmentResponseNoteMax),
@@ -1257,9 +1257,9 @@ export const listMembersResponseHourlyRateMin = 0;
 
 
 export const ListMembersResponseItem = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "name": zod.string(),
-  "hourlyRate": zod.number().int().min(listMembersResponseHourlyRateMin),
+  "hourlyRate": zod.int().min(listMembersResponseHourlyRateMin),
   "createdAt": zod.coerce.date(),
   "deletedAt": zod.coerce.date().nullish(),
   "historicalNameSource": zod.enum(['version', 'session', 'unverified']).optional()
@@ -1279,7 +1279,7 @@ export const createMemberBodyHourlyRateMax = 10000000;
 
 export const CreateMemberBody = zod.object({
   "name": zod.string().min(1).max(createMemberBodyNameMax),
-  "hourlyRate": zod.number().int().min(createMemberBodyHourlyRateMin).max(createMemberBodyHourlyRateMax).optional()
+  "hourlyRate": zod.int().min(createMemberBodyHourlyRateMin).max(createMemberBodyHourlyRateMax).optional()
 })
 
 export const createMemberResponseHourlyRateMin = 0;
@@ -1287,9 +1287,9 @@ export const createMemberResponseHourlyRateMin = 0;
 
 
 export const CreateMemberResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "name": zod.string(),
-  "hourlyRate": zod.number().int().min(createMemberResponseHourlyRateMin),
+  "hourlyRate": zod.int().min(createMemberResponseHourlyRateMin),
   "createdAt": zod.coerce.date(),
   "deletedAt": zod.coerce.date().nullish(),
   "historicalNameSource": zod.enum(['version', 'session', 'unverified']).optional()
@@ -1312,7 +1312,7 @@ export const updateMemberBodyHourlyRateMax = 10000000;
 
 export const UpdateMemberBody = zod.object({
   "name": zod.string().min(1).max(updateMemberBodyNameMax).optional(),
-  "hourlyRate": zod.number().int().min(updateMemberBodyHourlyRateMin).max(updateMemberBodyHourlyRateMax).optional()
+  "hourlyRate": zod.int().min(updateMemberBodyHourlyRateMin).max(updateMemberBodyHourlyRateMax).optional()
 })
 
 export const updateMemberResponseHourlyRateMin = 0;
@@ -1320,9 +1320,9 @@ export const updateMemberResponseHourlyRateMin = 0;
 
 
 export const UpdateMemberResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "name": zod.string(),
-  "hourlyRate": zod.number().int().min(updateMemberResponseHourlyRateMin),
+  "hourlyRate": zod.int().min(updateMemberResponseHourlyRateMin),
   "createdAt": zod.coerce.date(),
   "deletedAt": zod.coerce.date().nullish(),
   "historicalNameSource": zod.enum(['version', 'session', 'unverified']).optional()
@@ -1358,8 +1358,8 @@ export const listAttendanceResponseCheckOutRegExp = new RegExp('^([01]\\d|2[0-3]
 
 
 export const ListAttendanceResponseItem = zod.object({
-  "id": zod.number().int(),
-  "memberId": zod.number().int().nullable(),
+  "id": zod.int(),
+  "memberId": zod.int().nullable(),
   "employeeName": zod.string(),
   "workDate": zod.string().regex(listAttendanceResponseWorkDateRegExp),
   "checkIn": zod.string().regex(listAttendanceResponseCheckInRegExp).nullable(),
@@ -1385,7 +1385,7 @@ export const createAttendanceBodyNoteMax = 2000;
 
 
 export const CreateAttendanceBody = zod.object({
-  "memberId": zod.number().int(),
+  "memberId": zod.int(),
   "employeeName": zod.string().min(1).max(createAttendanceBodyEmployeeNameMax),
   "workDate": zod.string().regex(createAttendanceBodyWorkDateRegExp),
   "checkIn": zod.string().regex(createAttendanceBodyCheckInRegExp).nullish(),
@@ -1400,8 +1400,8 @@ export const createAttendanceResponseCheckOutRegExp = new RegExp('^([01]\\d|2[0-
 
 
 export const CreateAttendanceResponse = zod.object({
-  "id": zod.number().int(),
-  "memberId": zod.number().int().nullable(),
+  "id": zod.int(),
+  "memberId": zod.int().nullable(),
   "employeeName": zod.string(),
   "workDate": zod.string().regex(createAttendanceResponseWorkDateRegExp),
   "checkIn": zod.string().regex(createAttendanceResponseCheckInRegExp).nullable(),
@@ -1428,13 +1428,13 @@ export const getAttendanceSummaryResponseDateRegExp = new RegExp('^\\d{4}-\\d{2}
 
 export const GetAttendanceSummaryResponse = zod.object({
   "date": zod.string().regex(getAttendanceSummaryResponseDateRegExp),
-  "total": zod.number().int(),
-  "present": zod.number().int(),
-  "late": zod.number().int(),
-  "absent": zod.number().int(),
-  "leave": zod.number().int(),
-  "checkedIn": zod.number().int(),
-  "checkedOut": zod.number().int()
+  "total": zod.int(),
+  "present": zod.int(),
+  "late": zod.int(),
+  "absent": zod.int(),
+  "leave": zod.int(),
+  "checkedIn": zod.int(),
+  "checkedOut": zod.int()
 })
 
 
@@ -1455,7 +1455,7 @@ export const updateAttendanceBodyNoteMax = 2000;
 
 
 export const UpdateAttendanceBody = zod.object({
-  "memberId": zod.number().int().nullish(),
+  "memberId": zod.int().nullish(),
   "employeeName": zod.string().min(1).max(updateAttendanceBodyEmployeeNameMax).optional(),
   "workDate": zod.string().regex(updateAttendanceBodyWorkDateRegExp).optional(),
   "checkIn": zod.string().regex(updateAttendanceBodyCheckInRegExp).nullish(),
@@ -1470,8 +1470,8 @@ export const updateAttendanceResponseCheckOutRegExp = new RegExp('^([01]\\d|2[0-
 
 
 export const UpdateAttendanceResponse = zod.object({
-  "id": zod.number().int(),
-  "memberId": zod.number().int().nullable(),
+  "id": zod.int(),
+  "memberId": zod.int().nullable(),
   "employeeName": zod.string(),
   "workDate": zod.string().regex(updateAttendanceResponseWorkDateRegExp),
   "checkIn": zod.string().regex(updateAttendanceResponseCheckInRegExp).nullable(),
@@ -1502,23 +1502,23 @@ export const ListTreatmentCardsQueryParams = zod.object({
 })
 
 export const ListTreatmentCardsResponseItem = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "customerName": zod.string(),
   "phone": zod.string(),
   "serviceType": zod.string(),
-  "totalMinutes": zod.number().int(),
-  "usedMinutes": zod.number().int(),
+  "totalMinutes": zod.int(),
+  "usedMinutes": zod.int(),
   "hasBeenUsed": zod.boolean().optional().describe('Thẻ đã từng có lượt sử dụng.'),
-  "remainingMinutes": zod.number().int(),
-  "purchaseAmount": zod.number().int(),
+  "remainingMinutes": zod.int(),
+  "purchaseAmount": zod.int(),
   "purchasePaymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable(),
   "sellerName": zod.string().nullable(),
   "totalPaidAmount": zod.number(),
   "mergedIntoExisting": zod.boolean().optional(),
   "topUps": zod.array(zod.object({
-  "id": zod.number().int(),
-  "minutes": zod.number().int(),
-  "amount": zod.number().int(),
+  "id": zod.int(),
+  "minutes": zod.int(),
+  "amount": zod.int(),
   "paymentDate": zod.string(),
   "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable(),
   "sellerName": zod.string().nullable(),
@@ -1553,12 +1553,12 @@ export const createTreatmentCardBodyNoteMax = 2000;
 
 
 export const CreateTreatmentCardBody = zod.object({
-  "mergeTargetId": zod.number().int().min(1).optional(),
+  "mergeTargetId": zod.int().min(1).optional(),
   "customerName": zod.string().min(1).max(createTreatmentCardBodyCustomerNameMax),
   "phone": zod.string().min(1).max(createTreatmentCardBodyPhoneMax),
   "serviceType": zod.string().min(1).max(createTreatmentCardBodyServiceTypeMax),
-  "totalMinutes": zod.number().int().min(1).max(createTreatmentCardBodyTotalMinutesMax),
-  "purchaseAmount": zod.number().int().min(createTreatmentCardBodyPurchaseAmountMin).max(createTreatmentCardBodyPurchaseAmountMax),
+  "totalMinutes": zod.int().min(1).max(createTreatmentCardBodyTotalMinutesMax),
+  "purchaseAmount": zod.int().min(createTreatmentCardBodyPurchaseAmountMin).max(createTreatmentCardBodyPurchaseAmountMax),
   "purchaseDate": zod.string().regex(createTreatmentCardBodyPurchaseDateRegExp),
   "purchasePaymentMethod": zod.enum(['cash', 'transfer']).optional(),
   "sellerName": zod.string().min(1).max(createTreatmentCardBodySellerNameMax).optional(),
@@ -1566,23 +1566,23 @@ export const CreateTreatmentCardBody = zod.object({
 })
 
 export const CreateTreatmentCardResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "customerName": zod.string(),
   "phone": zod.string(),
   "serviceType": zod.string(),
-  "totalMinutes": zod.number().int(),
-  "usedMinutes": zod.number().int(),
+  "totalMinutes": zod.int(),
+  "usedMinutes": zod.int(),
   "hasBeenUsed": zod.boolean().optional().describe('Thẻ đã từng có lượt sử dụng.'),
-  "remainingMinutes": zod.number().int(),
-  "purchaseAmount": zod.number().int(),
+  "remainingMinutes": zod.int(),
+  "purchaseAmount": zod.int(),
   "purchasePaymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable(),
   "sellerName": zod.string().nullable(),
   "totalPaidAmount": zod.number(),
   "mergedIntoExisting": zod.boolean().optional(),
   "topUps": zod.array(zod.object({
-  "id": zod.number().int(),
-  "minutes": zod.number().int(),
-  "amount": zod.number().int(),
+  "id": zod.int(),
+  "minutes": zod.int(),
+  "amount": zod.int(),
   "paymentDate": zod.string(),
   "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable(),
   "sellerName": zod.string().nullable(),
@@ -1621,34 +1621,34 @@ export const updateTreatmentCardBodyNoteMax = 2000;
 
 
 export const UpdateTreatmentCardBody = zod.object({
-  "mergeTargetId": zod.number().int().min(1).optional(),
+  "mergeTargetId": zod.int().min(1).optional(),
   "customerName": zod.string().min(1).max(updateTreatmentCardBodyCustomerNameMax).optional(),
   "phone": zod.string().min(1).max(updateTreatmentCardBodyPhoneMax).optional(),
   "serviceType": zod.string().min(1).max(updateTreatmentCardBodyServiceTypeMax).optional(),
-  "totalMinutes": zod.number().int().min(1).max(updateTreatmentCardBodyTotalMinutesMax).optional(),
-  "purchaseAmount": zod.number().int().min(updateTreatmentCardBodyPurchaseAmountMin).max(updateTreatmentCardBodyPurchaseAmountMax).optional(),
+  "totalMinutes": zod.int().min(1).max(updateTreatmentCardBodyTotalMinutesMax).optional(),
+  "purchaseAmount": zod.int().min(updateTreatmentCardBodyPurchaseAmountMin).max(updateTreatmentCardBodyPurchaseAmountMax).optional(),
   "purchaseDate": zod.string().regex(updateTreatmentCardBodyPurchaseDateRegExp).optional(),
   "note": zod.string().max(updateTreatmentCardBodyNoteMax).optional()
 })
 
 export const UpdateTreatmentCardResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "customerName": zod.string(),
   "phone": zod.string(),
   "serviceType": zod.string(),
-  "totalMinutes": zod.number().int(),
-  "usedMinutes": zod.number().int(),
+  "totalMinutes": zod.int(),
+  "usedMinutes": zod.int(),
   "hasBeenUsed": zod.boolean().optional().describe('Thẻ đã từng có lượt sử dụng.'),
-  "remainingMinutes": zod.number().int(),
-  "purchaseAmount": zod.number().int(),
+  "remainingMinutes": zod.int(),
+  "purchaseAmount": zod.int(),
   "purchasePaymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable(),
   "sellerName": zod.string().nullable(),
   "totalPaidAmount": zod.number(),
   "mergedIntoExisting": zod.boolean().optional(),
   "topUps": zod.array(zod.object({
-  "id": zod.number().int(),
-  "minutes": zod.number().int(),
-  "amount": zod.number().int(),
+  "id": zod.int(),
+  "minutes": zod.int(),
+  "amount": zod.int(),
   "paymentDate": zod.string(),
   "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable(),
   "sellerName": zod.string().nullable(),
@@ -1689,30 +1689,30 @@ export const addTreatmentCardHoursBodySellerNameMax = 120;
 
 
 export const AddTreatmentCardHoursBody = zod.object({
-  "minutes": zod.number().int().min(1).max(addTreatmentCardHoursBodyMinutesMax),
-  "amount": zod.number().int().min(addTreatmentCardHoursBodyAmountMin).max(addTreatmentCardHoursBodyAmountMax),
+  "minutes": zod.int().min(1).max(addTreatmentCardHoursBodyMinutesMax),
+  "amount": zod.int().min(addTreatmentCardHoursBodyAmountMin).max(addTreatmentCardHoursBodyAmountMax),
   "paymentMethod": zod.enum(['cash', 'transfer']),
   "sellerName": zod.string().min(1).max(addTreatmentCardHoursBodySellerNameMax)
 })
 
 export const AddTreatmentCardHoursResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "customerName": zod.string(),
   "phone": zod.string(),
   "serviceType": zod.string(),
-  "totalMinutes": zod.number().int(),
-  "usedMinutes": zod.number().int(),
+  "totalMinutes": zod.int(),
+  "usedMinutes": zod.int(),
   "hasBeenUsed": zod.boolean().optional().describe('Thẻ đã từng có lượt sử dụng.'),
-  "remainingMinutes": zod.number().int(),
-  "purchaseAmount": zod.number().int(),
+  "remainingMinutes": zod.int(),
+  "purchaseAmount": zod.int(),
   "purchasePaymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable(),
   "sellerName": zod.string().nullable(),
   "totalPaidAmount": zod.number(),
   "mergedIntoExisting": zod.boolean().optional(),
   "topUps": zod.array(zod.object({
-  "id": zod.number().int(),
-  "minutes": zod.number().int(),
-  "amount": zod.number().int(),
+  "id": zod.int(),
+  "minutes": zod.int(),
+  "amount": zod.int(),
   "paymentDate": zod.string(),
   "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable(),
   "sellerName": zod.string().nullable(),
@@ -1740,20 +1740,20 @@ export const ListServiceSessionsQueryParams = zod.object({
 })
 
 export const ListServiceSessionsResponseItem = zod.object({
-  "id": zod.number().int(),
-  "cardId": zod.number().int().nullable(),
-  "memberId": zod.number().int().nullable(),
+  "id": zod.int(),
+  "cardId": zod.int().nullable(),
+  "memberId": zod.int().nullable(),
   "employeeName": zod.string(),
-  "serviceTypeId": zod.number().int().nullable(),
+  "serviceTypeId": zod.int().nullable(),
   "customerName": zod.string(),
   "serviceType": zod.string(),
   "workDate": zod.string(),
-  "minutes": zod.number().int(),
-  "customerHourlyRate": zod.number().int(),
-  "customerCharge": zod.number().int(),
+  "minutes": zod.int(),
+  "customerHourlyRate": zod.int(),
+  "customerCharge": zod.int(),
   "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable().describe('Ca dùng thẻ luôn hiển thị theo nguồn Thẻ; dữ liệu cũ chưa ghi phương thức là null.'),
-  "hourlyRate": zod.number().int(),
-  "earnings": zod.number().int(),
+  "hourlyRate": zod.int(),
+  "earnings": zod.int(),
   "isNightShift": zod.boolean().describe('Ca được ghi trong khung giờ đêm đã cài; nhãn và đơn giá được lưu theo từng ca.'),
   "note": zod.string(),
   "createdAt": zod.coerce.date(),
@@ -1777,32 +1777,32 @@ export const createServiceSessionBodyNoteMax = 2000;
 
 
 export const CreateServiceSessionBody = zod.object({
-  "memberId": zod.number().int().min(1),
-  "serviceTypeId": zod.number().int().min(1).nullish(),
-  "cardId": zod.number().int().min(1).nullish(),
+  "memberId": zod.int().min(1),
+  "serviceTypeId": zod.int().min(1).nullish(),
+  "cardId": zod.int().min(1).nullish(),
   "customerName": zod.string().max(createServiceSessionBodyCustomerNameMax).optional(),
   "serviceType": zod.string().max(createServiceSessionBodyServiceTypeMax).optional(),
   "workDate": zod.string().regex(createServiceSessionBodyWorkDateRegExp),
-  "minutes": zod.number().int().min(1).max(createServiceSessionBodyMinutesMax),
+  "minutes": zod.int().min(1).max(createServiceSessionBodyMinutesMax),
   "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullish(),
   "note": zod.string().max(createServiceSessionBodyNoteMax).optional()
 })
 
 export const CreateServiceSessionResponse = zod.object({
-  "id": zod.number().int(),
-  "cardId": zod.number().int().nullable(),
-  "memberId": zod.number().int().nullable(),
+  "id": zod.int(),
+  "cardId": zod.int().nullable(),
+  "memberId": zod.int().nullable(),
   "employeeName": zod.string(),
-  "serviceTypeId": zod.number().int().nullable(),
+  "serviceTypeId": zod.int().nullable(),
   "customerName": zod.string(),
   "serviceType": zod.string(),
   "workDate": zod.string(),
-  "minutes": zod.number().int(),
-  "customerHourlyRate": zod.number().int(),
-  "customerCharge": zod.number().int(),
+  "minutes": zod.int(),
+  "customerHourlyRate": zod.int(),
+  "customerCharge": zod.int(),
   "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable().describe('Ca dùng thẻ luôn hiển thị theo nguồn Thẻ; dữ liệu cũ chưa ghi phương thức là null.'),
-  "hourlyRate": zod.number().int(),
-  "earnings": zod.number().int(),
+  "hourlyRate": zod.int(),
+  "earnings": zod.int(),
   "isNightShift": zod.boolean().describe('Ca được ghi trong khung giờ đêm đã cài; nhãn và đơn giá được lưu theo từng ca.'),
   "note": zod.string(),
   "createdAt": zod.coerce.date(),
@@ -1832,32 +1832,32 @@ export const updateServiceSessionBodyNoteMax = 2000;
 
 
 export const UpdateServiceSessionBody = zod.object({
-  "memberId": zod.number().int().min(1),
-  "serviceTypeId": zod.number().int().min(1).nullish(),
-  "cardId": zod.number().int().min(1).nullish(),
+  "memberId": zod.int().min(1),
+  "serviceTypeId": zod.int().min(1).nullish(),
+  "cardId": zod.int().min(1).nullish(),
   "customerName": zod.string().max(updateServiceSessionBodyCustomerNameMax).optional(),
   "serviceType": zod.string().max(updateServiceSessionBodyServiceTypeMax).optional(),
   "workDate": zod.string().regex(updateServiceSessionBodyWorkDateRegExp),
-  "minutes": zod.number().int().min(1).max(updateServiceSessionBodyMinutesMax),
+  "minutes": zod.int().min(1).max(updateServiceSessionBodyMinutesMax),
   "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullish(),
   "note": zod.string().max(updateServiceSessionBodyNoteMax).optional()
 })
 
 export const UpdateServiceSessionResponse = zod.object({
-  "id": zod.number().int(),
-  "cardId": zod.number().int().nullable(),
-  "memberId": zod.number().int().nullable(),
+  "id": zod.int(),
+  "cardId": zod.int().nullable(),
+  "memberId": zod.int().nullable(),
   "employeeName": zod.string(),
-  "serviceTypeId": zod.number().int().nullable(),
+  "serviceTypeId": zod.int().nullable(),
   "customerName": zod.string(),
   "serviceType": zod.string(),
   "workDate": zod.string(),
-  "minutes": zod.number().int(),
-  "customerHourlyRate": zod.number().int(),
-  "customerCharge": zod.number().int(),
+  "minutes": zod.int(),
+  "customerHourlyRate": zod.int(),
+  "customerCharge": zod.int(),
   "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable().describe('Ca dùng thẻ luôn hiển thị theo nguồn Thẻ; dữ liệu cũ chưa ghi phương thức là null.'),
-  "hourlyRate": zod.number().int(),
-  "earnings": zod.number().int(),
+  "hourlyRate": zod.int(),
+  "earnings": zod.int(),
   "isNightShift": zod.boolean().describe('Ca được ghi trong khung giờ đêm đã cài; nhãn và đơn giá được lưu theo từng ca.'),
   "note": zod.string(),
   "createdAt": zod.coerce.date(),
@@ -1891,40 +1891,40 @@ export const GetMassageSummaryResponse = zod.object({
   "netRevenue": zod.number().describe('Tiền dịch vụ khách lẻ cộng tiền bán và nạp thẻ trừ tiền công ca khách lẻ. Ca dùng thẻ không thay đổi chỉ tiêu này; tiền công ca thẻ vẫn ghi vào lương nhân viên.'),
   "serviceRevenue": zod.number().describe('Tiền khách lẻ trả theo giá dịch vụ đã lưu ở từng ca; không gồm ca thanh toán bằng thẻ.'),
   "walkInServiceRevenue": zod.number().describe('Bí danh tương thích của serviceRevenue; không gồm ca đã dùng thẻ.'),
-  "walkInServiceMinutes": zod.number().int().describe('Tổng số phút phục vụ khách lẻ; không gồm ca đã dùng thẻ.'),
+  "walkInServiceMinutes": zod.int().describe('Tổng số phút phục vụ khách lẻ; không gồm ca đã dùng thẻ.'),
   "revenueExcludingCardSessions": zod.number().describe('Tổng doanh thu gộp, không tính lại dịch vụ đã thanh toán qua thẻ.'),
   "cardRevenue": zod.number().describe('Tiền bán thẻ theo ngày mua và tiền nạp theo ngày giao dịch.'),
   "payroll": zod.number().describe('Tổng tiền công nhân viên theo ca trong tháng, gồm ca khách lẻ và thẻ còn hoạt động.'),
-  "cardsSold": zod.number().int(),
-  "walkInVisits": zod.number().int().describe('Số ca không dùng thẻ; mỗi ca là một lượt khách.'),
-  "cardVisits": zod.number().int().describe('Số ca dùng các thẻ đang hoạt động.'),
+  "cardsSold": zod.int(),
+  "walkInVisits": zod.int().describe('Số ca không dùng thẻ; mỗi ca là một lượt khách.'),
+  "cardVisits": zod.int().describe('Số ca dùng các thẻ đang hoạt động.'),
   "topSoldCardService": zod.object({
   "serviceType": zod.string(),
-  "cardsSold": zod.number().int()
+  "cardsSold": zod.int()
 }).nullable(),
   "mostUsedCardService": zod.object({
   "serviceType": zod.string(),
-  "visits": zod.number().int(),
-  "minutes": zod.number().int()
+  "visits": zod.int(),
+  "minutes": zod.int()
 }).nullable(),
   "mostUsedWalkInService": zod.object({
   "serviceType": zod.string(),
-  "visits": zod.number().int()
+  "visits": zod.int()
 }).nullable(),
   "mostUsedService": zod.object({
   "serviceType": zod.string(),
-  "visits": zod.number().int(),
-  "minutes": zod.number().int()
+  "visits": zod.int(),
+  "minutes": zod.int()
 }).nullable(),
   "serviceBreakdown": zod.array(zod.object({
   "serviceType": zod.string(),
-  "minutes": zod.number().int().describe('Thời lượng của từng ca trong nhóm.'),
-  "visits": zod.number().int().describe('Số ca có cùng loại dịch vụ và thời lượng.')
+  "minutes": zod.int().describe('Thời lượng của từng ca trong nhóm.'),
+  "visits": zod.int().describe('Số ca có cùng loại dịch vụ và thời lượng.')
 })),
   "nightShiftBreakdown": zod.array(zod.object({
   "serviceType": zod.string(),
-  "minutes": zod.number().int().describe('Thời lượng của từng ca trong nhóm.'),
-  "visits": zod.number().int().describe('Số ca có cùng loại dịch vụ và thời lượng.')
+  "minutes": zod.int().describe('Thời lượng của từng ca trong nhóm.'),
+  "visits": zod.int().describe('Số ca có cùng loại dịch vụ và thời lượng.')
 })).describe('Số ca và tổng thời lượng ca đêm theo dịch vụ, gồm ca thẻ nhưng không cộng lại doanh thu ca thẻ.'),
   "paymentBreakdown": zod.object({
   "cash": zod.object({
@@ -1952,22 +1952,22 @@ export const GetMassageSummaryResponse = zod.object({
   "netRevenue": zod.number().describe('Cùng công thức của tháng, chỉ tính giao dịch và ca khách lẻ trong ngày; ca dùng thẻ không thay đổi chỉ tiêu này.'),
   "serviceRevenue": zod.number(),
   "walkInServiceRevenue": zod.number(),
-  "walkInServiceMinutes": zod.number().int(),
+  "walkInServiceMinutes": zod.int(),
   "revenueExcludingCardSessions": zod.number(),
   "cardRevenue": zod.number(),
   "payroll": zod.number(),
-  "cardsSold": zod.number().int(),
-  "walkInVisits": zod.number().int(),
-  "cardVisits": zod.number().int(),
+  "cardsSold": zod.int(),
+  "walkInVisits": zod.int(),
+  "cardVisits": zod.int(),
   "serviceBreakdown": zod.array(zod.object({
   "serviceType": zod.string(),
-  "minutes": zod.number().int().describe('Thời lượng của từng ca trong nhóm.'),
-  "visits": zod.number().int().describe('Số ca có cùng loại dịch vụ và thời lượng.')
+  "minutes": zod.int().describe('Thời lượng của từng ca trong nhóm.'),
+  "visits": zod.int().describe('Số ca có cùng loại dịch vụ và thời lượng.')
 })),
   "nightShiftBreakdown": zod.array(zod.object({
   "serviceType": zod.string(),
-  "minutes": zod.number().int().describe('Thời lượng của từng ca trong nhóm.'),
-  "visits": zod.number().int().describe('Số ca có cùng loại dịch vụ và thời lượng.')
+  "minutes": zod.int().describe('Thời lượng của từng ca trong nhóm.'),
+  "visits": zod.int().describe('Số ca có cùng loại dịch vụ và thời lượng.')
 })),
   "paymentBreakdown": zod.object({
   "cash": zod.object({
@@ -2015,7 +2015,7 @@ export const GetPaymentDetailsResponse = zod.object({
   "serviceType": zod.string(),
   "employeeName": zod.string().nullable(),
   "sellerName": zod.string().nullable(),
-  "minutes": zod.number().int().nullable(),
+  "minutes": zod.int().nullable(),
   "amount": zod.number(),
   "paymentMethod": zod.union([zod.literal('cash'),zod.literal('transfer'),zod.literal(null)]).nullable()
 }))
@@ -2037,9 +2037,9 @@ export const getMemberPayrollResponseMemberHourlyRateMin = 0;
 
 export const GetMemberPayrollResponse = zod.object({
   "member": zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "name": zod.string(),
-  "hourlyRate": zod.number().int().min(getMemberPayrollResponseMemberHourlyRateMin),
+  "hourlyRate": zod.int().min(getMemberPayrollResponseMemberHourlyRateMin),
   "createdAt": zod.coerce.date(),
   "deletedAt": zod.coerce.date().nullish(),
   "historicalNameSource": zod.enum(['version', 'session', 'unverified']).optional()
