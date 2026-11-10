@@ -7,7 +7,7 @@ import {
 } from '@workspace/api-client-react';
 import type { AuthStatus, PersonalService, PersonalSession } from '@workspace/api-client-react';
 import { serviceAttendanceLabel, summarizeServiceAttendance } from '@/lib/service-duration-summary';
-import { AlertCircle, ArrowLeft, BookHeart, CalendarDays, Check, ChevronLeft, ChevronRight, Home, LogIn, Menu, Plus, Scale, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, BookHeart, Building2, CalendarDays, Check, ChevronLeft, ChevronRight, Home, LogIn, Menu, Plus, Scale, X } from 'lucide-react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
 import { DatePickerDialog } from '@/components/date-picker-dialog';
@@ -60,6 +60,51 @@ function PersonalFrame({ children, onSignOut, onOpenSettings, homeHref, onTouchS
         </nav>
       </main>
     </div>
+  );
+}
+
+function FacilityPermissionsPanel({ status }: { status: AuthStatus }) {
+  const permissions = status.permissions;
+  const rows = status.isOwner ? [
+    'Quản lý nhân viên và chấm công',
+    'Quản lý thẻ, dịch vụ và giá',
+    'Xem doanh thu, lịch hẹn và đối chiếu',
+  ] : [
+    ...(permissions.allEmployees
+      ? ['Xem tất cả nhân viên']
+      : permissions.employeeIds.length
+        ? [`Xem ${permissions.employeeIds.length} nhân viên được cấp`]
+        : []),
+    ...(permissions.compareAllEmployees
+      ? ['Đối chiếu với tất cả nhân viên']
+      : permissions.compareEmployeeIds.length
+        ? [`Đối chiếu với ${permissions.compareEmployeeIds.length} nhân viên được cấp`]
+        : []),
+    ...(permissions.editEmployees ? ['Sửa thông tin và chấm công trong phạm vi được cấp'] : []),
+    ...(permissions.deleteEmployees ? ['Xóa nhân viên trong phạm vi được cấp'] : []),
+    ...(permissions.viewCards || permissions.editCards ? [permissions.editCards ? 'Xem và sửa thẻ khách' : 'Xem thẻ khách'] : []),
+    ...(permissions.viewRevenue ? ['Xem doanh thu'] : []),
+    ...(permissions.editServices ? ['Sửa dịch vụ và giá'] : []),
+    ...(permissions.viewAppointments || permissions.editAppointments
+      ? [permissions.editAppointments ? 'Xem và quản lý lịch hẹn' : 'Xem lịch hẹn']
+      : []),
+  ];
+  const businessName = status.businessName ?? status.businesses.find((business) => business.id === status.businessId)?.name ?? 'Cơ sở';
+
+  return (
+    <section className="p-card facility-permissions-panel" aria-labelledby="personal-facility-permissions-title" data-testid="section-personal-facility-permissions">
+      <h2 id="personal-facility-permissions-title"><Building2 size={17} aria-hidden="true" />Quyền ở cơ sở</h2>
+      <p className="facility-permissions-business">{businessName} · {status.isOwner ? 'Chủ doanh nghiệp' : 'Nhân viên'}</p>
+      {rows.length ? (
+        <ul className="facility-permission-list" aria-label="Các quyền được cấp">
+          {rows.map((row) => <li key={row}><Check size={15} aria-hidden="true" /><span>{row}</span></li>)}
+        </ul>
+      ) : (
+        <p className="facility-permissions-empty" role="status" data-testid="status-personal-no-facility-permissions">
+          Chủ cơ sở chưa cấp quyền truy cập dữ liệu.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -120,6 +165,12 @@ export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus
   const [mode, setMode] = useState<'day' | 'month'>('day');
   const [settingError, setSettingError] = useState('');
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
+  const [personalPane, setPersonalPane] = useState<'personal' | 'facility-rights'>('personal');
+  const hasActiveBusiness = Boolean(businessStatus.businessId && businessStatus.businessAccessAvailable !== false);
+
+  useEffect(() => {
+    if (!hasActiveBusiness) setPersonalPane('personal');
+  }, [hasActiveBusiness]);
 
   function refresh() {
     void cache.invalidateQueries({ queryKey: getGetPersonalNotebookQueryKey() });
@@ -282,6 +333,19 @@ export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus
           Kho doanh nghiệp chưa sẵn sàng. Sổ cá nhân vẫn dùng được; chưa thể mở, tạo hoặc tham gia cơ sở.
         </div>
       )}
+      {hasActiveBusiness && (
+        <div className="personal-mode-switch" role="group" aria-label="Chế độ xem">
+          <button type="button" aria-pressed={personalPane === 'personal'} onClick={() => setPersonalPane('personal')} data-testid="button-personal-pane">
+            Chấm công cá nhân
+          </button>
+          <button type="button" aria-pressed={personalPane === 'facility-rights'} onClick={() => setPersonalPane('facility-rights')} data-testid="button-facility-rights-pane">
+            Quyền ở cơ sở
+          </button>
+        </div>
+      )}
+      {personalPane === 'facility-rights' && hasActiveBusiness ? (
+        <FacilityPermissionsPanel status={businessStatus} />
+      ) : <>
       <section className="p-hero" aria-labelledby="p-title" data-testid="section-personal-hero">
         <div className="month-nav">
           <button type="button" className="icon-btn" onClick={() => goPeriod(shiftMonth(month, -1))} aria-label="Tháng trước" data-testid="button-personal-prev-month"><ChevronLeft size={16} /></button>
@@ -344,6 +408,7 @@ export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus
           </div>
         )}
 
+      </>}
       {dlg?.kind === 'service' && !useFacility && <PersonalServiceDialog service={dlg.item} busy={createService.isPending || updateService.isPending} serverError={dialogError} onClose={() => setDlg(null)}
         onSubmit={(input) => dlg.item
           ? updateService.mutate({ id: dlg.item.id, data: input }, { onSuccess: () => done('Đã cập nhật dịch vụ.'), onError: failed })
