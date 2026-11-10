@@ -11,6 +11,7 @@ export function isMaskedCustomerPhone(phone: unknown): phone is string {
 export function matchesTreatmentCardSearch(
   card: { customerName: string; phone: string; serviceType: string },
   query: string,
+  allowPhoneSearch = true,
 ): boolean {
   const search = query.trim();
   if (!search) return true;
@@ -18,6 +19,7 @@ export function matchesTreatmentCardSearch(
     value.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
   if (normalized(card.customerName).includes(normalized(search)) ||
       normalized(card.serviceType).includes(normalized(search))) return true;
+  if (!allowPhoneSearch) return false;
 
   if (!/^[\d\s()+.-]+$/.test(search)) return false;
   const digits = identityPhone(search);

@@ -20,6 +20,7 @@ import { massageHandler, parseInput } from "./massage-errors";
 import { getFacilityRevenue, getNightServiceEnabled, getPaymentDetails } from "../lib/facility-revenue";
 import { listMembersForPeriod } from "../lib/employee-history";
 import { noPermissions } from "../lib/facility-permissions";
+import { maskSessionForEmployeePermissions } from "../lib/service-session-visibility";
 import { currentFacilityBusinessId, type OwnerAuthStatus } from "../lib/owner-auth";
 import { operationIdFromRequest } from "../lib/partitioned-mutations";
 
@@ -32,7 +33,8 @@ router.get("/service-sessions", massageHandler(async (req, res) => {
   const filters = [];
   const archivedFilters = [eq(cardUsageHistoryTable.businessId, businessId)];
   filters.push(eq(serviceSessionsTable.businessId, businessId));
-  const permissions = (res.locals.facilityAuth as OwnerAuthStatus | undefined)?.permissions ?? noPermissions();
+  const auth = res.locals.facilityAuth as OwnerAuthStatus | undefined;
+  const permissions = auth?.permissions ?? noPermissions();
   if (!q.cardId && !permissions.allEmployees) filters.push(inArray(serviceSessionsTable.memberId, permissions.employeeIds));
   if (q.memberId) filters.push(eq(serviceSessionsTable.memberId, q.memberId));
   if (q.cardId) filters.push(eq(serviceSessionsTable.cardId, q.cardId));
@@ -74,7 +76,7 @@ router.get("/service-sessions", massageHandler(async (req, res) => {
       (!q.date || row.workDate === q.date) &&
       (!queryMonthBounds || (row.workDate >= queryMonthBounds.start && row.workDate < queryMonthBounds.end)),
     );
-    const archivedSessions = archivedRows.map((row) => ({
+    const archivedSessions = archivedRows.map((row) => maskSessionForEmployeePermissions({
       id: row.sourceSessionId,
       cardId: row.cardId,
       memberId: row.memberId,
@@ -93,8 +95,9 @@ router.get("/service-sessions", massageHandler(async (req, res) => {
       note: row.note,
       createdAt: new Date(row.createdAt).toISOString(),
       archived: true,
-    }));
-    res.json(ListServiceSessionsResponse.parse([...rows.map(sessionResponse), ...archivedSessions]
+    }, auth?.isOwner === true, permissions));
+    const visibleRows = rows.map((row) => maskSessionForEmployeePermissions(sessionResponse(row), auth?.isOwner === true, permissions));
+    res.json(ListServiceSessionsResponse.parse([...visibleRows, ...archivedSessions]
       .sort((a, b) => b.workDate.localeCompare(a.workDate) || b.id - a.id)));
     return;
   }
@@ -103,7 +106,7 @@ router.get("/service-sessions", massageHandler(async (req, res) => {
   const archivedRows = q.cardId ? await db.select().from(cardUsageHistoryTable).where(and(...archivedFilters,
     ))
     .orderBy(desc(cardUsageHistoryTable.workDate), desc(cardUsageHistoryTable.sourceSessionId)) : [];
-  const archivedSessions = archivedRows.map((row) => ({
+  const archivedSessions = archivedRows.map((row) => maskSessionForEmployeePermissions({
     id: row.sourceSessionId,
     cardId: row.cardId,
     memberId: row.memberId,
@@ -121,8 +124,9 @@ router.get("/service-sessions", massageHandler(async (req, res) => {
     note: row.note,
     createdAt: row.createdAt.toISOString(),
     archived: true,
-  }));
-  res.json(ListServiceSessionsResponse.parse([...rows.map(sessionResponse), ...archivedSessions]
+  }, auth?.isOwner === true, permissions));
+  const visibleRows = rows.map((row) => maskSessionForEmployeePermissions(sessionResponse(row), auth?.isOwner === true, permissions));
+  res.json(ListServiceSessionsResponse.parse([...visibleRows, ...archivedSessions]
     .sort((a, b) => b.workDate.localeCompare(a.workDate) || b.id - a.id)));
 }));
 router.post("/service-sessions", massageHandler(async (req, res) => {

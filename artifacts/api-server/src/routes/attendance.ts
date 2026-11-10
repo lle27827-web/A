@@ -179,7 +179,7 @@ router.post("/attendance", massageHandler(async (req, res): Promise<void> => {
     return;
   }
   if (!isEditableAttendanceDate(parsed.data.workDate)) {
-    res.status(400).json({ error: "Chỉ ghi chấm công trong 5 năm gần nhất." });
+    res.status(400).json({ error: "Ngày chấm công phải nằm trong 5 năm gần nhất và không quá 30 ngày tới." });
     return;
   }
   const operationId = operationIdFromRequest(req.get("Idempotency-Key"), "chấm công");
@@ -255,7 +255,7 @@ router.patch("/attendance/:id", massageHandler(async (req, res): Promise<void> =
     return;
   }
   if (parsed.data.workDate !== undefined && !isEditableAttendanceDate(parsed.data.workDate)) {
-    res.status(400).json({ error: "Chỉ ghi chấm công trong 5 năm gần nhất." });
+    res.status(400).json({ error: "Ngày chấm công phải nằm trong 5 năm gần nhất và không quá 30 ngày tới." });
     return;
   }
   const operationId = operationIdFromRequest(req.get("Idempotency-Key"), "sửa chấm công");

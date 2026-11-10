@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Request, Response } from "express";
-import { apiAuthorizationGate, isPublicEmployeeRead, managerRequestAllowed } from "./owner-auth";
+import {
+  apiAuthorizationGate,
+  createRequirePlatformAdmin,
+  isPublicEmployeeRead,
+  managerRequestAllowed,
+  normalizeApiRoutePath,
+} from "./owner-auth";
 import { noPermissions, ownerPermissions } from "./facility-permissions";
 import { createAsyncTtlCache } from "./user-identity-cache";
 
@@ -98,6 +104,85 @@ test("database failover status and promotion are reserved for the owner", async 
   const maximumManagerPermissions = ownerPermissions();
   assert.equal(await managerRequestAllowed(request("GET", "/database/failover"), maximumManagerPermissions), false);
   assert.equal(await managerRequestAllowed(request("POST", "/database/failover"), maximumManagerPermissions), false);
+});
+
+test("platform database guard rejects an owner and admits only a verified platform administrator", async () => {
+  const statusBase = {
+    authConfigured: true,
+    authenticated: true,
+    isOwner: true,
+    isPlatformAdmin: false,
+    userId: "owner-user",
+    email: "owner@example.com",
+    businessId: "business-id",
+    businessName: "Example",
+    role: "owner" as const,
+    businesses: [],
+    permissions: ownerPermissions(),
+    businessAccessAvailable: true,
+  };
+  const runGuard = async (isPlatformAdmin: boolean) => {
+    let statusCode = 200;
+    let nextCalled = false;
+    const status = { ...statusBase, isPlatformAdmin };
+    const req = {
+      get: (name: string) => name.toLowerCase() === "host" ? "app.test" : undefined,
+      log: undefined,
+    } as unknown as Request;
+    const res = {
+      locals: {},
+      status(code: number) { statusCode = code; return this; },
+      json() { return this; },
+    } as unknown as Response;
+    const guard = createRequirePlatformAdmin({
+      authConfigured: () => true,
+      loadStatus: async () => status,
+    });
+    await guard(req, res, () => { nextCalled = true; });
+    return { statusCode, nextCalled, attachedStatus: res.locals.facilityAuth };
+  };
+
+  const owner = await runGuard(false);
+  assert.equal(owner.statusCode, 403);
+  assert.equal(owner.nextCalled, false);
+  const admin = await runGuard(true);
+  assert.equal(admin.statusCode, 200);
+  assert.equal(admin.nextCalled, true);
+  assert.ok(admin.attachedStatus);
+});
+
+test("authorization paths are case-insensitive and ignore trailing or repeated slashes", async () => {
+  assert.equal(normalizeApiRoutePath("/Retention//cleanup/"), "/retention/cleanup");
+  assert.equal(normalizeApiRoutePath("/PERSONAL/comparison/"), "/personal/comparison");
+  const permissions = { ...ownerPermissions(), viewRevenue: true };
+  assert.equal(await managerRequestAllowed(request("GET", "/PAYMENT-DETAILS/"), permissions), true);
+});
+
+test("cron cleanup path variants are checked and missing authorization is rejected", async () => {
+  const previousSecret = process.env.CRON_SECRET;
+  process.env.CRON_SECRET = "test-cron-secret";
+  try {
+    for (const path of ["/retention/cleanup", "/Retention/cleanup", "/retention/cleanup/"]) {
+      let statusCode = 200;
+      let nextCalled = false;
+      const req = {
+        method: "GET",
+        path,
+        get: (name: string) => name.toLowerCase() === "host" ? "app.test" : undefined,
+      } as unknown as Request;
+      const res = {
+        set() { return this; },
+        status(code: number) { statusCode = code; return this; },
+        json() { return this; },
+      } as unknown as Response;
+      await apiAuthorizationGate(req, res, () => { nextCalled = true; });
+      assert.equal(statusCode, 401, path);
+      assert.equal(nextCalled, false, path);
+    }
+  } finally {
+    if (previousSecret === undefined) delete process.env.CRON_SECRET;
+    else process.env.CRON_SECRET = previousSecret;
+  }
 });
 
 test("employee bonus pay configuration is reserved for the owner", async () => {

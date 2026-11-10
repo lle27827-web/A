@@ -27,6 +27,7 @@ import { canEditEmployee } from "./facility-permissions";
 import { shouldKeepRecordedHourlyRate } from "./employee-bonus-pay";
 import { isWithinNightWindow } from "./night-service-pricing";
 import { isWithinRetention } from "./retention-window";
+import { isWorkDateWithinFutureLimit } from "./work-date";
 import {
   commitPartitionedMutations,
   reconcileAndReload,
@@ -80,6 +81,17 @@ export {
 export { idempotentTransaction } from "./massage-idempotency";
 export { deleteMember } from "./massage-employees";
 export { cardResponse } from "./massage-cards";
+
+function readPartitionedTableFresh<T extends Record<string, unknown>>(
+  tableName: string,
+  businessId: string,
+): Promise<T[]> {
+  return readPartitionedTable<T>(tableName, { businessId }, { bypassCache: true });
+}
+
+const scopedCardLock = (name: "card-identities" | "card-ledger", businessId: string) =>
+  `${name}:${businessId.toLowerCase()}`;
+
 export async function createCard(
   input: TreatmentCardInput,
   operationId?: string,
@@ -92,15 +104,15 @@ export async function createCard(
   }
   return idempotentTransaction(operationId, "bán thẻ", "card.create", { ...input, businessId }, async (tx) => {
     // Shared by creation and edits: changing identity cannot race a concurrent sale.
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('so-cong:card-identities', 0))`);
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`so-cong:card-identities:${businessId.toLowerCase()}`}, 0))`);
     const identity = [identityText(values.customerName), identityPhone(values.phone), identityText(values.serviceType)];
     // Serialize identical sale requests even when no matching card exists yet.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${JSON.stringify(identity)}, 0))`);
     const candidates = await tx.select().from(treatmentCardsTable).where(and(
       eq(treatmentCardsTable.businessId, businessId),
       isNull(treatmentCardsTable.deletedAt),
-      sql`lower(normalize(regexp_replace(btrim(${treatmentCardsTable.customerName}), '[[:space:]]+', ' ', 'g'), NFC)) = ${identity[0]}`,
-      sql`lower(normalize(regexp_replace(btrim(${treatmentCardsTable.serviceType}), '[[:space:]]+', ' ', 'g'), NFC)) = ${identity[2]}`,
+      sql`lower(normalize(btrim(regexp_replace(${treatmentCardsTable.customerName}, U&'[[:space:]\00A0\2000-\200B\202F\205F\3000\FEFF\2060]+', ' ', 'g')), NFC)) = ${identity[0]}`,
+      sql`lower(normalize(btrim(regexp_replace(${treatmentCardsTable.serviceType}, U&'[[:space:]\00A0\2000-\200B\202F\205F\3000\FEFF\2060]+', ' ', 'g')), NFC)) = ${identity[2]}`,
     )).orderBy(asc(treatmentCardsTable.id)).for("update");
     const existing = candidates.find((card) => identityPhone(card.phone) === identity[1]);
     if (existing) {
@@ -120,7 +132,8 @@ async function createPartitionedCard(
   operationId: string,
   businessId: string,
 ) {
-  return withPartitionWriteMutex("card-identities", async () => {
+  return withPartitionWriteMutex(scopedCardLock("card-identities", businessId), () =>
+    withPartitionWriteMutex(scopedCardLock("card-ledger", businessId), async () => {
     const requestHash = hashPartitionRequest({ action: "card.create", input, businessId });
     const prior = await getReservedPartitionOperation(operationId, requestHash);
     if (prior) {
@@ -128,10 +141,10 @@ async function createPartitionedCard(
         prior,
         reconcilePartitionOperation,
         () => Promise.all([
-          readPartitionedTable("treatment_cards", { businessId }),
-          readPartitionedTable("card_top_ups", { businessId }),
-          readPartitionedTable("service_sessions", { businessId }),
-          readPartitionedTable("card_usage_history", { businessId }),
+          readPartitionedTableFresh("treatment_cards", businessId),
+          readPartitionedTableFresh("card_top_ups", businessId),
+          readPartitionedTableFresh("service_sessions", businessId),
+          readPartitionedTableFresh("card_usage_history", businessId),
         ]),
       );
       if (reconciled.state === "committed") {
@@ -157,10 +170,10 @@ async function createPartitionedCard(
       }
     }
     const [cardRowsRaw, topUpRowsRaw, sessionRowsRaw, archivedRowsRaw] = await Promise.all([
-      readPartitionedTable("treatment_cards", { businessId }),
-      readPartitionedTable("card_top_ups", { businessId }),
-      readPartitionedTable("service_sessions", { businessId }),
-      readPartitionedTable("card_usage_history", { businessId }),
+      readPartitionedTableFresh("treatment_cards", businessId),
+      readPartitionedTableFresh("card_top_ups", businessId),
+      readPartitionedTableFresh("service_sessions", businessId),
+      readPartitionedTableFresh("card_usage_history", businessId),
     ]);
     const cards = cardRowsRaw as unknown as (typeof treatmentCardsTable.$inferSelect)[];
     const topUps = topUpRowsRaw as unknown as CardTopUpRow[];
@@ -205,10 +218,10 @@ async function createPartitionedCard(
       operation,
       reconcilePartitionOperation,
       () => Promise.all([
-        readPartitionedTable("treatment_cards", { businessId }),
-        readPartitionedTable("card_top_ups", { businessId }),
-        readPartitionedTable("service_sessions", { businessId }),
-        readPartitionedTable("card_usage_history", { businessId }),
+        readPartitionedTableFresh("treatment_cards", businessId),
+        readPartitionedTableFresh("card_top_ups", businessId),
+        readPartitionedTableFresh("service_sessions", businessId),
+        readPartitionedTableFresh("card_usage_history", businessId),
       ]),
     );
     if (reconciled.state === "committed") {
@@ -313,7 +326,7 @@ async function createPartitionedCard(
       ),
       mergedIntoExisting: isMerge,
     };
-  });
+  }));
 }
 export async function updateCard(
   id: number,
@@ -323,13 +336,13 @@ export async function updateCard(
 ) {
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi sửa thẻ.");
-    return withPartitionWriteMutex("card-identities", () =>
-      withPartitionWriteMutex("card-ledger", async () => {
+    return withPartitionWriteMutex(scopedCardLock("card-identities", businessId), () =>
+      withPartitionWriteMutex(scopedCardLock("card-ledger", businessId), async () => {
         const [cardsRaw, topUpsRaw, sessionsRaw, archivedRaw] = await Promise.all([
-          readPartitionedTable("treatment_cards", { businessId }),
-          readPartitionedTable("card_top_ups", { businessId }),
-          readPartitionedTable("service_sessions", { businessId }),
-          readPartitionedTable("card_usage_history", { businessId }),
+          readPartitionedTableFresh("treatment_cards", businessId),
+          readPartitionedTableFresh("card_top_ups", businessId),
+          readPartitionedTableFresh("service_sessions", businessId),
+          readPartitionedTableFresh("card_usage_history", businessId),
         ]);
         const cards = cardsRaw as unknown as (typeof treatmentCardsTable.$inferSelect)[];
         const topUps = topUpsRaw as unknown as CardTopUpRow[];
@@ -380,7 +393,7 @@ export async function updateCard(
             alreadyLocked: true,
             build: () => [upsertMutation("treatment_cards", id, updated)],
           });
-          const refreshed = (await readPartitionedTable("treatment_cards", { businessId }) as unknown as (typeof treatmentCardsTable.$inferSelect)[])
+          const refreshed = (await readPartitionedTableFresh("treatment_cards", businessId) as unknown as (typeof treatmentCardsTable.$inferSelect)[])
             .find((row) => row.id === id);
           if (!refreshed) throw new MassageError(503, "Không tải lại được thẻ sau khi sửa.");
           return cardResponse(refreshed, used, topUps.filter((row) => row.cardId === id));
@@ -431,12 +444,12 @@ export async function updateCard(
             ];
           },
         });
-        const targetCard = (await readPartitionedTable("treatment_cards", { businessId }) as unknown as (typeof treatmentCardsTable.$inferSelect)[])
+        const targetCard = (await readPartitionedTableFresh("treatment_cards", businessId) as unknown as (typeof treatmentCardsTable.$inferSelect)[])
           .find((row) => row.id === target.id);
         if (!targetCard) throw new MassageError(503, "Không tải lại được thẻ sau khi gộp.");
-        const refreshedTopUps = await readPartitionedTable("card_top_ups", { businessId }) as unknown as CardTopUpRow[];
-        const refreshedSessions = await readPartitionedTable("service_sessions", { businessId }) as unknown as (typeof serviceSessionsTable.$inferSelect)[];
-        const refreshedArchived = await readPartitionedTable("card_usage_history", { businessId }) as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
+        const refreshedTopUps = await readPartitionedTableFresh("card_top_ups", businessId) as unknown as CardTopUpRow[];
+        const refreshedSessions = await readPartitionedTableFresh("service_sessions", businessId) as unknown as (typeof serviceSessionsTable.$inferSelect)[];
+        const refreshedArchived = await readPartitionedTableFresh("card_usage_history", businessId) as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
         const targetUsed = refreshedSessions.filter((row) => row.cardId === target.id).reduce((sum, row) => sum + row.minutes, 0) +
           refreshedArchived.filter((row) => row.cardId === target.id).reduce((sum, row) => sum + row.minutes, 0);
         return {
@@ -447,7 +460,7 @@ export async function updateCard(
     );
   }
   return idempotentTransaction(operationId, "sửa thẻ", "card.update", { id, input, businessId }, async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('so-cong:card-identities', 0))`);
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`so-cong:card-identities:${businessId.toLowerCase()}`}, 0))`);
     const [old] = await tx.select().from(treatmentCardsTable).where(and(
       eq(treatmentCardsTable.id, id),
       eq(treatmentCardsTable.businessId, businessId),
@@ -469,8 +482,8 @@ export async function updateCard(
       eq(treatmentCardsTable.businessId, businessId),
       ne(treatmentCardsTable.id, id),
       isNull(treatmentCardsTable.deletedAt),
-      sql`lower(normalize(regexp_replace(btrim(${treatmentCardsTable.customerName}), '[[:space:]]+', ' ', 'g'), NFC)) = ${identity[0]}`,
-      sql`lower(normalize(regexp_replace(btrim(${treatmentCardsTable.serviceType}), '[[:space:]]+', ' ', 'g'), NFC)) = ${identity[2]}`,
+      sql`lower(normalize(btrim(regexp_replace(${treatmentCardsTable.customerName}, U&'[[:space:]\00A0\2000-\200B\202F\205F\3000\FEFF\2060]+', ' ', 'g')), NFC)) = ${identity[0]}`,
+      sql`lower(normalize(btrim(regexp_replace(${treatmentCardsTable.serviceType}, U&'[[:space:]\00A0\2000-\200B\202F\205F\3000\FEFF\2060]+', ' ', 'g')), NFC)) = ${identity[2]}`,
     )).orderBy(asc(treatmentCardsTable.id)).for("update");
     const target = matches.find((card) => identityPhone(card.phone) === identity[1]);
     if (target) {
@@ -524,9 +537,9 @@ export async function deleteCard(
 ) {
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi xóa thẻ.");
-    return withPartitionWriteMutex("card-identities", () =>
-      withPartitionWriteMutex("card-ledger", async () => {
-        const cardsRaw = await readPartitionedTable("treatment_cards", { businessId });
+    return withPartitionWriteMutex(scopedCardLock("card-identities", businessId), () =>
+      withPartitionWriteMutex(scopedCardLock("card-ledger", businessId), async () => {
+        const cardsRaw = await readPartitionedTableFresh("treatment_cards", businessId);
         const cards = cardsRaw as unknown as (typeof treatmentCardsTable.$inferSelect)[];
         const card = cards.find((row) => row.id === id && row.businessId === businessId && row.deletedAt === null);
         if (!card) throw new MassageError(404, "Không tìm thấy thẻ.");
@@ -576,7 +589,7 @@ export async function addCardHours(
     if (!Number.isSafeInteger(amount) || amount < 0 || amount > 1_000_000_000) {
       throw new MassageError(400, "Số tiền nạp không hợp lệ.");
     }
-    return withPartitionWriteMutex("card-ledger", async () => {
+    return withPartitionWriteMutex(scopedCardLock("card-ledger", businessId), async () => {
       const requestHash = hashPartitionRequest({ action: "card.topup", id, minutes, amount, ...tender, businessId });
       const prior = await getReservedPartitionOperation(operationId, requestHash);
       if (prior) {
@@ -584,10 +597,10 @@ export async function addCardHours(
           prior,
           reconcilePartitionOperation,
           () => Promise.all([
-            readPartitionedTable("treatment_cards", { businessId }),
-            readPartitionedTable("card_top_ups", { businessId }),
-            readPartitionedTable("service_sessions", { businessId }),
-            readPartitionedTable("card_usage_history", { businessId }),
+            readPartitionedTableFresh("treatment_cards", businessId),
+            readPartitionedTableFresh("card_top_ups", businessId),
+            readPartitionedTableFresh("service_sessions", businessId),
+            readPartitionedTableFresh("card_usage_history", businessId),
           ]),
         );
         if (reconciledPrior.state === "committed") {
@@ -609,10 +622,10 @@ export async function addCardHours(
         }
       }
       const [cards, topUps, sessions, archived] = await Promise.all([
-        readPartitionedTable("treatment_cards", { businessId }),
-        readPartitionedTable("card_top_ups", { businessId }),
-        readPartitionedTable("service_sessions", { businessId }),
-        readPartitionedTable("card_usage_history", { businessId }),
+        readPartitionedTableFresh("treatment_cards", businessId),
+        readPartitionedTableFresh("card_top_ups", businessId),
+        readPartitionedTableFresh("service_sessions", businessId),
+        readPartitionedTableFresh("card_usage_history", businessId),
       ]);
       const cardRows = cards as unknown as (typeof treatmentCardsTable.$inferSelect)[];
       const topUpRows = topUps as unknown as CardTopUpRow[];
@@ -664,12 +677,12 @@ export async function addCardHours(
           },
         ]);
       }
-      const refreshedCards = await readPartitionedTable("treatment_cards", { businessId }) as unknown as (typeof treatmentCardsTable.$inferSelect)[];
+      const refreshedCards = await readPartitionedTableFresh("treatment_cards", businessId) as unknown as (typeof treatmentCardsTable.$inferSelect)[];
       const refreshedCard = refreshedCards.find((row) => row.id === id);
       if (!refreshedCard) throw new MassageError(503, "Không tải lại được thẻ sau khi nạp.");
-      const refreshedTopUps = await readPartitionedTable("card_top_ups", { businessId }) as unknown as CardTopUpRow[];
-      const usedLive = await readPartitionedTable("service_sessions", { businessId }) as unknown as (typeof serviceSessionsTable.$inferSelect)[];
-      const usedArchived = await readPartitionedTable("card_usage_history", { businessId }) as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
+      const refreshedTopUps = await readPartitionedTableFresh("card_top_ups", businessId) as unknown as CardTopUpRow[];
+      const usedLive = await readPartitionedTableFresh("service_sessions", businessId) as unknown as (typeof serviceSessionsTable.$inferSelect)[];
+      const usedArchived = await readPartitionedTableFresh("card_usage_history", businessId) as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
       const used = usedLive.filter((row) => row.cardId === id).reduce((sum, row) => sum + row.minutes, 0)
         + usedArchived.filter((row) => row.cardId === id).reduce((sum, row) => sum + row.minutes, 0);
       return cardResponse(
@@ -700,6 +713,9 @@ export async function saveSession(
   businessId = "00000000-0000-4000-8000-000000000001",
 ) {
   const workDate = validDate(input.workDate);
+  if (!isWorkDateWithinFutureLimit(workDate)) {
+    throw new MassageError(400, "Ngày làm không được vượt quá 30 ngày trong tương lai.");
+  }
   if (input.cardId == null && !isWithinRetention(workDate)) {
     throw new MassageError(400, "Chỉ ghi ca khách lẻ trong 5 năm gần nhất.");
   }
@@ -842,14 +858,14 @@ async function savePartitionedSession(
   operationId: string,
   businessId: string,
 ) {
-  return withPartitionWriteMutex("card-ledger", async () => {
+  return withPartitionWriteMutex(scopedCardLock("card-ledger", businessId), async () => {
     const requestHash = hashPartitionRequest({ action: "service-session.save", id: id ?? null, input, businessId });
     const prior = await getReservedPartitionOperation(operationId, requestHash);
     if (prior) {
       const { operation: reconciled, rows: freshRows } = await reconcileAndReload(
         prior,
         reconcilePartitionOperation,
-        () => readPartitionedTable("service_sessions", { businessId }),
+        () => readPartitionedTableFresh("service_sessions", businessId),
       );
       if (reconciled.state === "committed") {
         if (!freshRows) throw new MassageError(503, "Không tải lại được ca sau khi lưu.");
@@ -862,13 +878,13 @@ async function savePartitionedSession(
     }
     const [sessionRowsRaw, cardRowsRaw, archivedRowsRaw, memberRowsRaw, serviceRowsRaw, appointmentRowsRaw, nightSettingsRaw] =
       await Promise.all([
-        readPartitionedTable("service_sessions", { businessId }),
-        readPartitionedTable("treatment_cards", { businessId }),
-        readPartitionedTable("card_usage_history", { businessId }),
-        readPartitionedTable("members", { businessId }),
-        readPartitionedTable("service_types", { businessId }),
-        readPartitionedTable("appointments", { businessId }),
-        readPartitionedTable("facility_night_settings", { businessId }),
+        readPartitionedTableFresh("service_sessions", businessId),
+        readPartitionedTableFresh("treatment_cards", businessId),
+        readPartitionedTableFresh("card_usage_history", businessId),
+        readPartitionedTableFresh("members", businessId),
+        readPartitionedTableFresh("service_types", businessId),
+        readPartitionedTableFresh("appointments", businessId),
+        readPartitionedTableFresh("facility_night_settings", businessId),
       ]);
     const sessionRows = sessionRowsRaw as unknown as (typeof serviceSessionsTable.$inferSelect)[];
     const cardRows = cardRowsRaw as unknown as (typeof treatmentCardsTable.$inferSelect)[];
@@ -985,7 +1001,7 @@ async function savePartitionedSession(
     const { operation: reconciled, rows: refreshedSessions } = await reconcileAndReload(
       operation,
       reconcilePartitionOperation,
-      () => readPartitionedTable("service_sessions", { businessId }),
+      () => readPartitionedTableFresh("service_sessions", businessId),
     );
     if (reconciled.state !== "committed") {
       const sessionId = id ?? reconciled.allocatedIds.service_sessions?.[0];
@@ -1035,14 +1051,16 @@ export async function deleteSession(
 ) {
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi xóa ca.");
-    return withPartitionWriteMutex("card-ledger", async () => {
+    return withPartitionWriteMutex(scopedCardLock("card-ledger", businessId), async () => {
       const requestHash = hashPartitionRequest({ action: "service-session.delete", id, businessId });
       const prior = await getReservedPartitionOperation(operationId, requestHash);
       if (prior) {
         const reconciled = await reconcilePartitionOperation(prior);
         if (reconciled.state === "committed") return;
       }
-      const old = await readPartitionedRowById<typeof serviceSessionsTable.$inferSelect>("service_sessions", id, businessId);
+      const old = await readPartitionedRowById<typeof serviceSessionsTable.$inferSelect>(
+        "service_sessions", id, businessId, { bypassCache: true },
+      );
       if (!old) throw new MassageError(404, "Không tìm thấy lượt phục vụ.");
       if (old && permissions && (!(old.memberId === null
         ? permissions.allEmployees && permissions.editEmployees

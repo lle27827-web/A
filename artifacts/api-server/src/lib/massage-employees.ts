@@ -19,11 +19,11 @@ export async function deleteMember(
 ) {
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi xóa nhân viên.");
-    await withPartitionWriteMutex(`member:${id}`, async () => {
+    await withPartitionWriteMutex(`member:${businessId.toLowerCase()}:${id}`, async () => {
       const [members, sessions, attendance] = await Promise.all([
-        readPartitionedTable("members", { businessId }),
-        readPartitionedTable("service_sessions", { businessId }),
-        readPartitionedTable("attendance", { businessId }),
+        readPartitionedTable("members", { businessId }, { bypassCache: true }),
+        readPartitionedTable("service_sessions", { businessId }, { bypassCache: true }),
+        readPartitionedTable("attendance", { businessId }, { bypassCache: true }),
       ]);
       const member = (members as unknown as (typeof membersTable.$inferSelect)[])
         .find((row) => row.id === id && row.deletedAt === null);

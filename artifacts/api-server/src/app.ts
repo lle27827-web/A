@@ -5,9 +5,10 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { apiAuthorizationGate } from "./lib/owner-auth";
+import { apiAuthorizationGate, normalizeApiRoutePath } from "./lib/owner-auth";
 import type { OwnerAuthStatus } from "./lib/owner-auth";
 import { writeRateLimitKey } from "./lib/write-rate-limit-key";
+import { isMalformedJsonBodyError } from "./lib/request-validation";
 
 const app: Express = express();
 app.set("trust proxy", 1);
@@ -61,7 +62,10 @@ if (clerkSecretKey && clerkPublishableKey) {
     secretKey: clerkSecretKey,
     publishableKey: clerkPublishableKey,
   });
-  app.use((req, res, next) => req.path === "/api/retention/cleanup" ? next() : clerkAuth(req, res, next));
+  app.use((req, res, next) =>
+    normalizeApiRoutePath(req.path) === "/api/retention/cleanup"
+      ? next()
+      : clerkAuth(req, res, next));
 } else {
   logger.warn("External Clerk keys are not configured; API remains read-only");
 }
@@ -79,6 +83,10 @@ app.use("/api", router);
 app.use((error: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (res.headersSent) {
     next(error);
+    return;
+  }
+  if (isMalformedJsonBodyError(error)) {
+    res.status(400).json({ message: "Nội dung JSON không hợp lệ." });
     return;
   }
   req.log?.error({ err: error, method: req.method, path: req.path }, "Unhandled API error");

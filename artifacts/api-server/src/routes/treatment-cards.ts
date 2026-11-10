@@ -48,7 +48,7 @@ router.get("/treatment-cards", massageHandler(async (req, res) => {
     ]);
     const cards = (cardRows as unknown as (typeof treatmentCardsTable.$inferSelect)[])
       .filter((card) => card.deletedAt === null)
-      .filter((card) => matchesTreatmentCardSearch(card, search))
+      .filter((card) => matchesTreatmentCardSearch(card, search, isOwner))
       .sort((a, b) => b.purchaseDate.localeCompare(a.purchaseDate) || b.id - a.id);
     const sessions = sessionRows as unknown as (typeof serviceSessionsTable.$inferSelect)[];
     const archivedUses = archivedRows as unknown as (typeof cardUsageHistoryTable.$inferSelect)[];
@@ -74,7 +74,7 @@ router.get("/treatment-cards", massageHandler(async (req, res) => {
       isNull(treatmentCardsTable.deletedAt),
     ))
       .orderBy(desc(treatmentCardsTable.purchaseDate), desc(treatmentCardsTable.id));
-    const matchingCards = cards.filter((card) => matchesTreatmentCardSearch(card, search));
+    const matchingCards = cards.filter((card) => matchesTreatmentCardSearch(card, search, isOwner));
     const cardIds = matchingCards.map((card) => card.id);
     const liveUse = cardIds.length ? await tx.select({
       cardId: serviceSessionsTable.cardId,

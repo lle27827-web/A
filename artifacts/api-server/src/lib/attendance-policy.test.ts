@@ -8,4 +8,5 @@ test("attendance rejects deleted employees and records outside the five-year win
   assert.equal(isActiveAttendanceMember(null), false);
   assert.equal(isEditableAttendanceDate(new Date().toISOString().slice(0, 10)), true);
   assert.equal(isEditableAttendanceDate("2000-01-01"), false);
+  assert.equal(isEditableAttendanceDate("2099-01-01"), false);
 });

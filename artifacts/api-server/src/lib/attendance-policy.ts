@@ -1,4 +1,5 @@
 import { isWithinRetention } from "./retention-window";
+import { isWorkDateWithinFutureLimit } from "./work-date";
 
 export function isActiveAttendanceMember<T extends { deletedAt: Date | null }>(
   member: T | null | undefined,
@@ -7,5 +8,5 @@ export function isActiveAttendanceMember<T extends { deletedAt: Date | null }>(
 }
 
 export function isEditableAttendanceDate(workDate: string): boolean {
-  return isWithinRetention(workDate);
+  return isWithinRetention(workDate) && isWorkDateWithinFutureLimit(workDate);
 }

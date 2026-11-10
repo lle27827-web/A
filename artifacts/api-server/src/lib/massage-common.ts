@@ -45,7 +45,11 @@ export function currentBusinessDate() {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
-export const identityText = (value: string) => value.normalize("NFC").trim().replace(/\s+/g, " ").toLowerCase();
+export const identityText = (value: string) => value
+  .normalize("NFC")
+  .replace(/[\s\u200b\u2060\ufeff]+/gu, " ")
+  .trim()
+  .toLowerCase();
 
 export const validIdentityPhone = (value: string) => {
   let digits = value.replace(/\D/g, "");

@@ -22,3 +22,10 @@ test("partition cache returns cloned rows so consumer sorting cannot mutate cach
   read.sort((a, b) => a.id - b.id);
   assert.deepEqual(cache.get("members", "{}"), original);
 });
+
+test("locked write callers can bypass a still-valid cached snapshot", () => {
+  const cache = new PartitionReadCache(60_000);
+  cache.set("treatment_cards", "{\"businessId\":\"tenant-a\"}", [{ id: 1 }]);
+  assert.deepEqual(cache.get("treatment_cards", "{\"businessId\":\"tenant-a\"}"), [{ id: 1 }]);
+  assert.equal(cache.get("treatment_cards", "{\"businessId\":\"tenant-a\"}", Date.now(), true), undefined);
+});

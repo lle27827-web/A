@@ -16,3 +16,11 @@ test("treatment-card phone search compares original numbers before masking", () 
   assert.equal(matchesTreatmentCardSearch(card, "Massage"), true);
   assert.equal(matchesTreatmentCardSearch(card, "0900000000"), false);
 });
+
+test("non-owner treatment-card search cannot infer a phone from partial digits", () => {
+  const card = { customerName: "Khách", phone: "0912345678", serviceType: "Massage" };
+  assert.equal(matchesTreatmentCardSearch(card, "0912", false), false);
+  assert.equal(matchesTreatmentCardSearch(card, "0912345678", false), false);
+  assert.equal(matchesTreatmentCardSearch(card, "Khách", false), true);
+  assert.equal(matchesTreatmentCardSearch(card, "Massage", false), true);
+});

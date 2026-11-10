@@ -5,7 +5,13 @@ export class PartitionReadCache {
 
   constructor(private readonly ttlMs = 3_000) {}
 
-  get<T>(table: string, filterKey: string, now = Date.now()): T[] | undefined {
+  get<T>(
+    table: string,
+    filterKey: string,
+    now = Date.now(),
+    bypassCache = false,
+  ): T[] | undefined {
+    if (bypassCache) return undefined;
     const key = `${table}:${filterKey}`;
     const entry = this.entries.get(key);
     if (!entry) return undefined;

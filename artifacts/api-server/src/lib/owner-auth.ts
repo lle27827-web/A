@@ -5,7 +5,7 @@ import { DatabaseFailoverInProgressError, db, attendanceTable, isPartitionedStor
 import { eq } from "drizzle-orm";
 import type { FacilityPermissions } from "@workspace/api-zod";
 import { canCompareEmployee, canDeleteEmployee, canEditEmployee, canViewEmployee, noPermissions, ownerPermissions, permissionsForEmail } from "./facility-permissions";
-import { isValidRetentionCronAuthorization } from "./retention-auth";
+import { retentionCronAuthorizationStatus } from "./retention-auth";
 import { createAsyncTtlCache } from "./user-identity-cache";
 import {
   DEFAULT_BUSINESS_ID,
@@ -178,6 +178,11 @@ function requestHasTrustedOrigin(req: Request): boolean {
   return allowedOrigins.includes(originUrl.origin);
 }
 
+export function normalizeApiRoutePath(path: string): string {
+  const normalized = `/${path.split("/").filter(Boolean).join("/")}`.toLowerCase();
+  return normalized === "/" ? normalized : normalized.replace(/\/+$/, "");
+}
+
 export async function requireOwner(
   req: Request,
   res: Response,
@@ -210,8 +215,49 @@ export async function requireOwner(
   }
 }
 
+type PlatformAdminGuardDependencies = {
+  loadStatus?: (req: Request) => Promise<OwnerAuthStatus>;
+  authConfigured?: () => boolean;
+};
+
+export function createRequirePlatformAdmin(
+  dependencies: PlatformAdminGuardDependencies = {},
+): (req: Request, res: Response, next: NextFunction) => Promise<void> {
+  const loadStatus = dependencies.loadStatus ?? getOwnerAuthStatus;
+  const authConfigured = dependencies.authConfigured ?? ownerAuthIsConfigured;
+  return async (req, res, next): Promise<void> => {
+    if (!requestHasTrustedOrigin(req)) {
+      res.status(403).json({ error: "Yêu cầu không được gửi từ ứng dụng này." });
+      return;
+    }
+    if (!authConfigured() || (!dependencies.loadStatus && !clerk)) {
+      res.status(503).json({ error: "Xác thực quản trị nền tảng chưa được cấu hình." });
+      return;
+    }
+    try {
+      const status = await loadStatus(req);
+      if (!status.authenticated) {
+        res.status(401).json({ error: "Vui lòng đăng nhập để thực hiện thao tác này." });
+        return;
+      }
+      if (!status.isPlatformAdmin) {
+        res.status(403).json({ error: "Chỉ quản trị viên nền tảng được phép thực hiện thao tác này." });
+        return;
+      }
+      res.locals.facilityAuth = status;
+      next();
+    } catch (error) {
+      req.log?.error({ err: error }, "Unable to verify platform administrator with Clerk");
+      res.status(503).json({ error: "Không thể xác minh quyền quản trị nền tảng." });
+    }
+  };
+}
+
+export const requirePlatformAdmin = createRequirePlatformAdmin();
+
 export function isPublicEmployeeRead(req: Request): boolean {
-  return (req.method === "GET" || req.method === "HEAD") && ["/healthz", "/auth/status"].includes(req.path);
+  return (req.method === "GET" || req.method === "HEAD") &&
+    ["/healthz", "/auth/status"].includes(normalizeApiRoutePath(req.path));
 }
 
 /** Facility data routes must use the server-authenticated tenant, never a client-supplied or default tenant ID. */
@@ -232,11 +278,12 @@ export async function apiAuthorizationGate(
   next: NextFunction,
 ): Promise<void> {
   res.set("Cache-Control", "private, no-store");
-  if (req.path === "/retention/cleanup") {
+  const path = normalizeApiRoutePath(req.path);
+  if (path === "/retention/cleanup") {
     if (req.method !== "GET") { res.status(405).json({ error: "Phương thức không được hỗ trợ." }); return; }
-    const secret = process.env.CRON_SECRET?.trim();
-    if (!secret) { res.status(503).json({ error: "Lịch lưu trữ chưa được cấu hình." }); return; }
-    if (!isValidRetentionCronAuthorization(req.get("authorization"), secret)) {
+    const authStatus = retentionCronAuthorizationStatus(req.get("authorization"), process.env.CRON_SECRET);
+    if (authStatus === 503) { res.status(503).json({ error: "Lịch lưu trữ chưa được cấu hình." }); return; }
+    if (authStatus === 401) {
       res.status(401).json({ error: "Không được phép chạy tác vụ lưu trữ." });
       return;
     }
@@ -248,15 +295,15 @@ export async function apiAuthorizationGate(
     res.status(403).json({ error: "Yêu cầu không được gửi từ ứng dụng này." });
     return;
   }
-  if (req.path === "/personal" || req.path.startsWith("/personal/")) {
+  if (path === "/personal" || path.startsWith("/personal/")) {
     const userId = getAuth(req).userId;
     if (!userId) {
       res.status(401).json({ error: "Vui lòng đăng nhập để dùng sổ cá nhân." });
       return;
     }
     res.locals.personalUserId = userId;
-    const needsComparisonPermission = req.path === "/personal/comparison" ||
-      req.path === "/personal/sync" || req.path === "/personal/comparison/members";
+    const needsComparisonPermission = path === "/personal/comparison" ||
+      path === "/personal/sync" || path === "/personal/comparison/members";
     try {
       const status = await getOwnerAuthStatus(req);
       res.locals.facilityAuth = status;
@@ -265,14 +312,14 @@ export async function apiAuthorizationGate(
           res.status(503).json({ error: "Quyền cơ sở chưa sẵn sàng để đối chiếu." });
           return;
         }
-        if (req.path === "/personal/comparison/members") {
+        if (path === "/personal/comparison/members") {
           if (!status.businessId || (!status.isOwner && !status.permissions.compareAllEmployees &&
               status.permissions.compareEmployeeIds.length === 0)) {
             res.status(403).json({ error: "Bạn chưa được cấp quyền chọn nhân viên để đối chiếu." });
             return;
           }
         } else {
-          const id = positiveId(req.path === "/personal/sync" ? req.body?.memberId : req.query.memberId);
+          const id = positiveId(path === "/personal/sync" ? req.body?.memberId : req.query.memberId);
           if (!status.isOwner && !canCompareEmployee(status.permissions, id)) {
             res.status(403).json({ error: "Bạn chưa được cấp quyền đối chiếu nhân viên này." });
             return;
@@ -301,7 +348,7 @@ export async function apiAuthorizationGate(
     const status = await getOwnerAuthStatus(req);
     if (!status.authenticated) { res.status(401).json({ error: "Vui lòng đăng nhập để sử dụng dịch vụ." }); return; }
     res.locals.facilityAuth = status;
-    if (req.path === "/businesses" || req.path === "/businesses/join" || /^\/businesses\/[0-9a-f-]{36}\/join-code$/i.test(req.path)) {
+    if (path === "/businesses" || path === "/businesses/join" || /^\/businesses\/[0-9a-f-]{36}\/join-code$/i.test(path)) {
       if (!status.email || !status.userId) {
         res.status(403).json({ error: "Tài khoản cần có email đã xác minh để quản lý doanh nghiệp." });
         return;
@@ -309,7 +356,7 @@ export async function apiAuthorizationGate(
       next();
       return;
     }
-    const leaveBusinessMatch = /^\/businesses\/([0-9a-f-]{36})\/leave$/i.exec(req.path);
+    const leaveBusinessMatch = /^\/businesses\/([0-9a-f-]{36})\/leave$/i.exec(path);
     if (req.method === "DELETE" && leaveBusinessMatch) {
       if (!status.userId || !status.email) {
         res.status(403).json({ error: "Tài khoản cần có email đã xác minh để rời cơ sở." });
@@ -354,7 +401,7 @@ export async function managerRequestAllowed(
   businessId = DEFAULT_BUSINESS_ID,
 ): Promise<boolean> {
   const read = req.method === "GET" || req.method === "HEAD";
-  const path = req.path;
+  const path = normalizeApiRoutePath(req.path);
   if (read) {
     if (path === "/appointments") return p.viewAppointments;
     if (path === "/appointments/staff-activity") return p.viewAppointments;

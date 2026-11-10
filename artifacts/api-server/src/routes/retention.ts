@@ -16,6 +16,7 @@ import {
   previewFacilityHistoryDateRange,
 } from "../lib/retention";
 import { currentFacilityBusinessId, requireOwner } from "../lib/owner-auth";
+import { retentionCronAuthorizationStatus } from "../lib/retention-auth";
 
 const router: IRouter = Router();
 const businessIdFor = currentFacilityBusinessId;
@@ -83,6 +84,15 @@ router.delete("/retention/range", requireOwner, async (req, res, next): Promise<
 });
 
 router.get("/retention/cleanup", async (req, res, next): Promise<void> => {
+  const authStatus = retentionCronAuthorizationStatus(req.get("authorization"), process.env.CRON_SECRET);
+  if (authStatus === 503) {
+    res.status(503).json({ error: "Lịch lưu trữ chưa được cấu hình." });
+    return;
+  }
+  if (authStatus === 401) {
+    res.status(401).json({ error: "Không được phép chạy tác vụ lưu trữ." });
+    return;
+  }
   try {
     res.set("Cache-Control", "no-store");
     const result = await cleanupExpiredHistory();

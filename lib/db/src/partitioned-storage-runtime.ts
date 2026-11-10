@@ -1386,6 +1386,7 @@ function normalizeEventPayload(value: unknown): unknown {
 export async function readPartitionedTable<T extends Record<string, unknown>>(
   tableName: string,
   filter?: { ids?: number[]; email?: string; grantedBy?: string; userId?: string; businessId?: string },
+  options: { bypassCache?: boolean } = {},
 ): Promise<T[]> {
   requireConfiguredNodes();
   const keyColumn = TABLE_KEY_COLUMN[tableName];
@@ -1407,7 +1408,7 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
     throw new PartitionStorageError("ID filters are not supported for this table.", "partition_entity_invalid", 400);
   }
   const filterKey = stableJson(filter ?? {});
-  const cachedRows = partitionReadCache.get<T>(tableName, filterKey);
+  const cachedRows = partitionReadCache.get<T>(tableName, filterKey, Date.now(), options.bypassCache === true);
   if (cachedRows) return cachedRows;
   const eventConditions: string[] = [];
   const eventParams: unknown[] = [tableName];
@@ -1534,8 +1535,13 @@ export async function readPartitionedRowById<T extends Record<string, unknown>>(
   tableName: string,
   id: number,
   businessId?: string,
+  options: { bypassCache?: boolean } = {},
 ): Promise<T | undefined> {
-  const rows = await readPartitionedTable<T>(tableName, { ids: [id], ...(businessId ? { businessId } : {}) });
+  const rows = await readPartitionedTable<T>(
+    tableName,
+    { ids: [id], ...(businessId ? { businessId } : {}) },
+    options,
+  );
   return rows[0];
 }
 

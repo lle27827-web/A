@@ -12,7 +12,7 @@ import {
   requestOwnerForcedDatabaseFailover,
 } from "@workspace/db";
 import { GetDatabaseStorageStatusResponse } from "@workspace/api-zod";
-import { requireOwner } from "../lib/owner-auth";
+import { requirePlatformAdmin } from "../lib/owner-auth";
 
 const router: IRouter = Router();
 const backendNames: Record<string, string> = {
@@ -22,7 +22,7 @@ const backendNames: Record<string, string> = {
   database_url_4: "DB4",
 };
 
-router.get("/database/storage-status", requireOwner, async (_req, res, next): Promise<void> => {
+router.get("/database/storage-status", requirePlatformAdmin, async (_req, res, next): Promise<void> => {
   try {
     res.set("Cache-Control", "private, no-store");
     res.json(GetDatabaseStorageStatusResponse.parse(await getPartitionedStorageStatus()));
@@ -31,7 +31,7 @@ router.get("/database/storage-status", requireOwner, async (_req, res, next): Pr
   }
 });
 
-router.get("/database/failover", requireOwner, async (_req, res, next): Promise<void> => {
+router.get("/database/failover", requirePlatformAdmin, async (_req, res, next): Promise<void> => {
   try {
     res.set("Cache-Control", "no-store");
     const status = await getDatabaseFailoverStatus();
@@ -41,7 +41,7 @@ router.get("/database/failover", requireOwner, async (_req, res, next): Promise<
   }
 });
 
-router.post("/database/failover", requireOwner, async (req, res, next): Promise<void> => {
+router.post("/database/failover", requirePlatformAdmin, async (req, res, next): Promise<void> => {
   const input = RequestDatabaseFailoverBody.safeParse(req.body);
   if (
     !input.success ||
@@ -92,7 +92,7 @@ router.post("/database/failover", requireOwner, async (req, res, next): Promise<
   }
 });
 
-router.post("/database/failover/recover", requireOwner, async (req, res, next): Promise<void> => {
+router.post("/database/failover/recover", requirePlatformAdmin, async (req, res, next): Promise<void> => {
   const input = RequestDatabaseFailoverBody.safeParse(req.body);
   if (
     !input.success ||
