@@ -9,10 +9,31 @@ export function ServiceList({ services, busy, useFacility, canUseFacility, setti
   useFacility: boolean; settingBusy: boolean; settingError: string; onToggleFacility: (next: boolean) => void;
   onAdd: () => void; onEdit: (s: PersonalService) => void; onDelete: (s: PersonalService) => void;
 }) {
+  const nightServices = services.filter((service) => service.nightHourlyRate !== null);
+  const renderServiceRows = (items: PersonalService[], priceMode: 'regular' | 'night', label: string) => (
+    <ul className="p-list" aria-label={label}>
+      {items.map((s) => (
+        <li key={s.id} className="p-row" data-testid={`row-personal-service-${priceMode}-${s.id}`}>
+          <span className="grow">
+            <strong>{s.name}</strong>
+            <span className="muted mono">{formatVnd(priceMode === 'night' ? s.nightHourlyRate ?? 0 : s.hourlyRate)} / giờ</span>
+            {!useFacility && priceMode === 'regular' && s.nightHourlyRate !== null && <span className="muted mono">Ca đêm: {formatVnd(s.nightHourlyRate)} / giờ</span>}
+          </span>
+          {useFacility ? <span className="p-pill" data-testid={`text-facility-service-${priceMode}-${s.id}`}>Cơ sở</span> : (
+            <span className="head-actions">
+              <button type="button" className="btn small" onClick={() => onEdit(s)} data-testid={`button-edit-personal-service-${s.id}`}><Pencil size={13} />Sửa</button>
+              <button type="button" className="btn small ghost danger-text" disabled={busy} onClick={() => onDelete(s)} data-testid={`button-delete-personal-service-${s.id}`}><Trash2 size={13} />Xóa</button>
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+
   return (
     <section className="p-card" aria-labelledby="p-services" data-testid="section-personal-services">
       <div className="panel-head wrap">
-        <div><h2 id="p-services"><Sparkles size={16} aria-hidden="true" />Dịch vụ &amp; giá của tôi <span className="count">{services.length}</span></h2></div>
+        <div><h2 id="p-services"><Sparkles size={16} aria-hidden="true" />{useFacility ? 'Dịch vụ của cơ sở' : 'Dịch vụ & giá của tôi'} <span className="count">{services.length}</span></h2></div>
         {!useFacility && <button type="button" className="btn small" onClick={onAdd} data-testid="button-add-personal-service"><Plus size={14} />Thêm dịch vụ</button>}
       </div>
       {canUseFacility && <label className="p-switch" data-testid="label-use-facility-rates">
@@ -24,23 +45,21 @@ export function ServiceList({ services, busy, useFacility, canUseFacility, setti
       {settingError && <p className="form-error" role="alert" data-testid="text-facility-setting-error">{settingError}</p>}
       {services.length === 0 ? (
         <div className="empty small"><Sparkles size={18} /><p>{useFacility ? 'Cơ sở chưa có dịch vụ nào.' : 'Chưa có dịch vụ. Thêm dịch vụ và giá theo giờ trước khi ghi ca.'}</p></div>
+      ) : useFacility ? (
+        <div className="facility-service-groups">
+          <section className="facility-service-group" aria-labelledby="personal-facility-services-title">
+            <h3 id="personal-facility-services-title">Dịch vụ</h3>
+            {renderServiceRows(services, 'regular', 'Dịch vụ của cơ sở')}
+          </section>
+          <section className="facility-service-group" aria-labelledby="personal-facility-night-services-title">
+            <h3 id="personal-facility-night-services-title">Dịch vụ ca đêm</h3>
+            {nightServices.length
+              ? renderServiceRows(nightServices, 'night', 'Dịch vụ ca đêm của cơ sở')
+              : <p className="hint" data-testid="text-no-facility-night-services">Cơ sở chưa thiết lập giá ca đêm.</p>}
+          </section>
+        </div>
       ) : (
-        <ul className="p-list">
-          {services.map((s) => (
-            <li key={s.id} className="p-row" data-testid={`row-personal-service-${s.id}`}>
-              <span className="grow">
-                <strong>{s.name}</strong>
-                <span className="muted mono">{formatVnd(s.hourlyRate)} / giờ</span>
-                {s.nightHourlyRate !== null && <span className="muted mono">Ca đêm: {formatVnd(s.nightHourlyRate)} / giờ</span>}
-              </span>
-              {useFacility ? <span className="p-pill" data-testid={`text-facility-service-${s.id}`}>Cơ sở</span> : (
-              <span className="head-actions">
-                <button type="button" className="btn small" onClick={() => onEdit(s)} data-testid={`button-edit-personal-service-${s.id}`}><Pencil size={13} />Sửa</button>
-                <button type="button" className="btn small ghost danger-text" disabled={busy} onClick={() => onDelete(s)} data-testid={`button-delete-personal-service-${s.id}`}><Trash2 size={13} />Xóa</button>
-              </span>)}
-            </li>
-          ))}
-        </ul>
+        renderServiceRows(services, 'regular', 'Dịch vụ cá nhân')
       )}
     </section>
   );

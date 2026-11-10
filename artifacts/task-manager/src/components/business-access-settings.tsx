@@ -220,7 +220,7 @@ export function BusinessAccessSettings({
       {!isOnboarding && (
         <div className="business-access-heading">
           <h3 id="business-access-title">Chế độ sử dụng</h3>
-          <p>Chọn doanh nghiệp để quản lý hoặc tham gia, hoặc dùng sổ cá nhân riêng. Quyền doanh nghiệp do máy chủ xác minh.</p>
+          <p>Chọn cơ sở hoặc sổ cá nhân.</p>
         </div>
       )}
       {status.businessAccessAvailable === false && (
@@ -248,10 +248,10 @@ export function BusinessAccessSettings({
               <span className="business-role-option-copy">
                 <strong>{choice === 'owner' ? 'Chủ doanh nghiệp' : choice === 'employee' ? 'Nhân viên' : 'Chấm công cá nhân'}</strong>
                 <small>{choice === 'owner'
-                  ? 'Tạo doanh nghiệp riêng, chia sẻ mã tham gia và cấp quyền cho nhân viên.'
+                  ? 'Tạo cơ sở và mã mời nhân viên.'
                   : choice === 'employee'
-                    ? 'Nhập mã 10 số do chủ doanh nghiệp cung cấp để tham gia.'
-                    : 'Dữ liệu riêng của tài khoản, không kết nối doanh nghiệp.'}</small>
+                    ? 'Nhập mã cơ sở để tham gia.'
+                    : 'Sổ riêng của tài khoản.'}</small>
               </span>
             </button>
           ))}
@@ -261,7 +261,7 @@ export function BusinessAccessSettings({
       {selectedRole === 'personal' ? (
         isOnboarding ? null : (
         <div className="business-role-panel">
-          <p>Sổ cá nhân là lựa chọn mặc định và chỉ lưu dữ liệu của tài khoản này.</p>
+          <p>Sổ cá nhân chỉ lưu dữ liệu của tài khoản này.</p>
           <button type="button" className="btn small" onClick={() => { onCloseSettings?.(); onContinuePersonal(); }}>
             <BookHeart size={15} aria-hidden="true" />Mở sổ cá nhân
           </button>

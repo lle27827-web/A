@@ -33,7 +33,7 @@ function CompactDifference({ serviceName, workDate, personalMinutes, referenceMi
 
 const isConflict = (e: unknown) => !!e && typeof e === 'object' && (e as { status?: unknown }).status === 409;
 
-export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: string; date: string; onClose: () => void; onUpdated?: () => void }) {
+export function ComparisonDialog({ month, date, canCompare, onClose, onUpdated }: { month: string; date: string; canCompare: boolean; onClose: () => void; onUpdated?: () => void }) {
   const cache = useQueryClient();
   const [memberId, setMemberId] = useState<number | null>(null);
   const [scope, setScope] = useState<Scope>('day');
@@ -51,6 +51,7 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
   const memberParams = useMemo(() => comparisonMemberParams(month, localDate().slice(0, 7)), [month]);
   const members = useListPersonalComparisonMembers(memberParams, { query: {
     queryKey: getListPersonalComparisonMembersQueryKey(memberParams),
+    enabled: canCompare,
     staleTime: 30_000,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
@@ -135,7 +136,9 @@ export function ComparisonDialog({ month, date, onClose, onUpdated }: { month: s
 
   return (
     <Modal title="Đối chiếu tiền công" onClose={onClose} testId="dialog-comparison" className="personal-surface-dialog">
-      {memberId === null ? (
+      {!canCompare ? (
+        <div className="empty small" role="status" data-testid="status-compare-no-permission"><Users size={18} /><p>Chưa được cấp quyền xem nhân viên để đối chiếu.</p></div>
+      ) : memberId === null ? (
         members.isLoading ? <Skeleton rows={5} label="Đang tải danh sách nhân viên" />
           : members.isError ? <ErrorBanner text="Không tải được danh sách nhân viên được cấp quyền đối chiếu." onRetry={() => void members.refetch()} />
           : roster.length === 0 ? <div className="empty small" data-testid="status-compare-empty"><Users size={18} /><p>Không có nhân viên được phép đối chiếu.</p></div>

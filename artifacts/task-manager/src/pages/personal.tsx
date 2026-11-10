@@ -250,15 +250,13 @@ export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus
       { id: 'view-month', label: 'Xem ca trong tháng', group: 'Chấm công cá nhân', run: () => setMode('month') },
       { id: 'previous-month', label: 'Xem tháng trước', group: 'Chấm công cá nhân', run: () => goPeriod(shiftMonth(month, -1)) },
     ];
-    if (canCompareFacilityEmployees) {
-      actions.push({ id: 'compare', label: 'Đối chiếu sổ cá nhân', group: 'Chấm công cá nhân', run: () => open({ kind: 'compare' }) });
-    }
+    actions.push({ id: 'compare', label: 'Đối chiếu sổ cá nhân', group: 'Chấm công cá nhân', run: () => open({ kind: 'compare' }) });
     if (homeHref) actions.push({ id: 'facility-home', label: 'Về sổ cơ sở', group: 'Điều hướng chung', run: () => navigate(homeHref) });
     if (month < currentMonth) actions.push({ id: 'next-month', label: 'Xem tháng sau', group: 'Chấm công cá nhân', run: () => goPeriod(shiftMonth(month, 1)) });
     if (services.length) actions.push({ id: 'new-shift', label: 'Ghi ca cá nhân', group: 'Chấm công cá nhân', run: () => open({ kind: 'shift', item: null }) });
     if (!useFacility) actions.push({ id: 'new-service', label: 'Thêm dịch vụ cá nhân', group: 'Chấm công cá nhân', run: () => open({ kind: 'service', item: null }) });
     return actions;
-  }, [canCompareFacilityEmployees, currentMonth, goPeriod, homeHref, month, navigate, open, services.length, useFacility]);
+  }, [currentMonth, goPeriod, homeHref, month, navigate, open, services.length, useFacility]);
 
   useDeviceKeyboardShortcuts(shortcutActions);
 
@@ -315,7 +313,7 @@ export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus
         <div className="p-actions">
           <button type="button" className="btn primary" disabled={!data || !services.length} onClick={() => open({ kind: 'shift', item: null })} data-testid="button-add-personal-shift"><Plus size={15} />Ghi ca</button>
           <button type="button" className="btn" onClick={() => open({ kind: 'date' })} data-testid="button-personal-date"><CalendarDays size={14} />{formatShortDate(date)}</button>
-          {canCompareFacilityEmployees && <button type="button" className="btn" onClick={() => open({ kind: 'compare' })} data-testid="button-personal-compare"><Scale size={14} />Đối chiếu</button>}
+          <button type="button" className="btn" onClick={() => open({ kind: 'compare' })} data-testid="button-personal-compare"><Scale size={14} />Đối chiếu</button>
         </div>
         {!nb.isLoading && !nb.isError && !services.length && <p className="hint" data-testid="text-personal-no-services">Thêm ít nhất một dịch vụ để bắt đầu ghi ca.</p>}
       </section>
@@ -354,7 +352,7 @@ export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus
         onSubmit={(input) => { setDialogError(''); return dlg.item
           ? updateShift.mutate({ id: dlg.item.id, data: input }, { onSuccess: (saved) => { setPendingHistorySpeech(saved); done('Đã cập nhật ca.'); goSaved(saved.workDate); }, onError: failed })
           : createShift.mutate({ data: input }, { onSuccess: (saved) => { setPendingHistorySpeech(saved); done('Đã ghi ca.'); goSaved(saved.workDate); }, onError: failed }); }} />}
-      {dlg?.kind === 'compare' && <ComparisonDialog month={month} date={date} onClose={() => setDlg(null)} onUpdated={refresh} />}
+      {dlg?.kind === 'compare' && <ComparisonDialog month={month} date={date} canCompare={canCompareFacilityEmployees} onClose={() => setDlg(null)} onUpdated={refresh} />}
       {dlg?.kind === 'date' && <DatePickerDialog value={date} title="Chọn ngày" immediate onClose={() => setDlg(null)} onSelect={(d) => { setDlg(null); goPeriod(monthOf(d), d); }} />}
       {confirm && <ConfirmDialog state={confirm} busy={deleteService.isPending || deleteShift.isPending} onClose={() => setConfirm(null)} />}
       {shortcutSettingsOpen && <Modal title="Cài đặt" description="Chọn vai trò, cơ sở và phím tắt cho thiết bị này."
