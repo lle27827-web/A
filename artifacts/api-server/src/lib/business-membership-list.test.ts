@@ -27,6 +27,33 @@ test("lists an identity's businesses with DISTINCT-safe ordering", async () => {
   assert.match(queryText, /ORDER BY b\.name, b\.id::text/);
 });
 
+test("keeps both active business memberships and their distinct roles for a multi-business identity", async () => {
+  let queryText = "";
+  let queryValues: unknown[] = [];
+  const client = {
+    async query(text: string, values: unknown[] = []) {
+      queryText = text;
+      queryValues = values;
+      return {
+        rows: [
+          { id: "business-a", name: "Cơ sở A", role: "owner" },
+          { id: "business-b", name: "Cơ sở B", role: "employee" },
+        ],
+      };
+    },
+  };
+
+  const businesses = await listBusinessesForIdentityWithClient(client, "multi-business-user", false);
+
+  assert.deepEqual(businesses, [
+    { id: "business-a", name: "Cơ sở A", role: "owner" },
+    { id: "business-b", name: "Cơ sở B", role: "employee" },
+  ]);
+  assert.match(queryText, /b\.active = true AND m\.active = true/);
+  assert.match(queryText, /m\.user_id = \$1/);
+  assert.deepEqual(queryValues, ["multi-business-user"]);
+});
+
 test("lists only active members from the selected business for its owner", async () => {
   let queryText = "";
   let queryValues: unknown[] = [];
