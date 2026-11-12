@@ -54,9 +54,17 @@ test("a manager may only manage grants they created within their delegated scope
 });
 
 test("owner always retains authority over every grant and employee", () => {
-  const owner = { email: "owner@example.com", isOwner: true, permissions: ownerPermissions() };
+  const permissions = ownerPermissions();
+  const owner = { email: "owner@example.com", isOwner: true, permissions };
+  for (const capability of [
+    "allEmployees", "compareAllEmployees", "viewCards", "viewRevenue",
+    "editEmployees", "editCards", "editServices", "deleteEmployees",
+    "viewAppointments", "editAppointments",
+  ] as const) {
+    assert.equal(permissions[capability], true, `owner must have ${capability}`);
+  }
   assert.equal(canManageGrant(owner, { email: "legacy@example.com", grantedBy: null, permissions: {} }), true);
-  assert.equal(canDeleteEmployee(ownerPermissions(), 4), true);
+  assert.equal(canDeleteEmployee(permissions, 4), true);
 });
 
 test("manager access grants cannot assign deleted employees", () => {

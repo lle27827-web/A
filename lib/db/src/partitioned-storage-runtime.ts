@@ -4,7 +4,7 @@ import { AdvisoryLockReleaseError, withReentrantAdvisoryLock } from "./reentrant
 import { createAsyncMutex } from "./async-mutex";
 import { normalizePartitionDatabaseRow, personalTableReadPredicates } from "./partitioned-row";
 import { PartitionReadCache } from "./partition-read-cache";
-import { readWithMinimumReplicaCount } from "./partition-read-plan";
+import { hasPartitionReadQuorum, PARTITION_READ_QUORUM, readWithMinimumReplicaCount } from "./partition-read-plan";
 import { isDatabaseAvailabilityError, isDatabaseCapacityError } from "./failover-utils";
 import {
   buildPartitionEventInsertBatch,
@@ -1458,7 +1458,7 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
   // one copy of every pair across three stores while tolerating one outage.
   const eventReads = await readWithMinimumReplicaCount(
     nodes,
-    2,
+    PARTITION_READ_QUORUM,
     (node) => node.pool.query(
       `SELECT event_id, operation_id, revision::text, entity_type, entity_key, action, payload
        FROM ${EVENT_TABLE}
@@ -1492,9 +1492,9 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
         mutationsById.set(mutation.eventId, mutation);
     }
   }
-  if (availableNodes.length < 3) {
+  if (!hasPartitionReadQuorum(availableNodes.length)) {
     throw new PartitionStorageError(
-      "Fewer than three event stores are readable; complete history cannot be guaranteed after one-store failure.",
+      "Fewer than two event stores are readable; complete history cannot be guaranteed after one-store failure.",
       "partition_operation_incomplete",
     );
   }

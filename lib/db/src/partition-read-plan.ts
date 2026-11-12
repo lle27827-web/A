@@ -3,6 +3,12 @@ export type SuccessfulPartitionRead<TNode, TResult> = {
   result: TResult;
 };
 
+export const PARTITION_READ_QUORUM = 2;
+
+export function hasPartitionReadQuorum(successfulReads: number): boolean {
+  return Number.isInteger(successfulReads) && successfulReads >= PARTITION_READ_QUORUM;
+}
+
 /**
  * Read enough replicas to tolerate one unavailable store, without querying
  * every configured store on the healthy path.

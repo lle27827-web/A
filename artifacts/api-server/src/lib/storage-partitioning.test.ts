@@ -12,6 +12,8 @@ import {
   resolveDomainWriteRoutes,
   normalizePartitionDatabaseRow,
   personalTableReadPredicates,
+  hasPartitionReadQuorum,
+  PARTITION_READ_QUORUM,
   readWithMinimumReplicaCount,
   type PartitionMutation,
 } from "@workspace/db";
@@ -147,7 +149,7 @@ test("partition reads query only two stores when all are healthy", async () => {
   const queried: string[] = [];
   const reads = await readWithMinimumReplicaCount(
     ["db1", "db2", "db3"],
-    2,
+    PARTITION_READ_QUORUM,
     async (node) => {
       queried.push(node);
       return node;
@@ -168,7 +170,7 @@ test("partition reads try DB3 only to replace an unavailable copy", async () => 
     const queried: string[] = [];
     const reads = await readWithMinimumReplicaCount(
       ["db1", "db2", "db3"],
-      2,
+      PARTITION_READ_QUORUM,
       async (node) => {
         queried.push(node);
         if (node === failedNode) throw new Error("store unavailable");
@@ -185,7 +187,7 @@ test("partition reads try DB3 only to replace an unavailable copy", async () => 
 test("partition reads return fewer than two copies when multiple stores fail", async () => {
   const reads = await readWithMinimumReplicaCount(
     ["db1", "db2", "db3"],
-    2,
+    PARTITION_READ_QUORUM,
     async (node) => {
       if (node === "db1" || node === "db2") throw new Error("store unavailable");
       return node;
@@ -193,6 +195,13 @@ test("partition reads return fewer than two copies when multiple stores fail", a
   );
 
   assert.deepEqual(reads.map((entry) => entry.result), ["db3"]);
+});
+
+test("two readable partition stores meet the minimum complete-history quorum", () => {
+  assert.equal(hasPartitionReadQuorum(2), true);
+  assert.equal(hasPartitionReadQuorum(3), true);
+  assert.equal(hasPartitionReadQuorum(1), false);
+  assert.equal(hasPartitionReadQuorum(0), false);
 });
 
 test("partition keys keep equal local IDs distinct across stores", () => {
