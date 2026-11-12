@@ -1366,16 +1366,6 @@ button.back.as-button { background: none; border: 0; cursor: pointer; font: inhe
 }
 .p-card h2 { margin: 0; font-family: var(--app-font-display); font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
 .p-card h2 > svg { color: hsl(var(--jade)); }
-.personal-mode-switch { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 5px; border: 1px solid hsl(var(--frame-border)); border-radius: 12px; background: hsl(var(--gray-row)); }
-.personal-mode-switch button { min-width: 0; min-height: 42px; padding: 8px 12px; border: 1px solid transparent; border-radius: 8px; color: hsl(0 0% 100%); background: transparent; font: inherit; font-size: 14px; font-weight: 800; overflow-wrap: anywhere; }
-.personal-mode-switch button[aria-pressed="true"] { border-color: hsl(0 0% 100% / .5); color: hsl(0 0% 100%); background: hsl(0 0% 34%); }
-.personal-mode-switch button:focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
-.facility-permissions-panel { display: grid; gap: 12px; }
-.facility-permissions-business { margin: -4px 0 0; color: hsl(var(--muted-foreground)); font-size: 14px; font-weight: 700; }
-.facility-permission-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.facility-permission-list li { display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px; border: 1px solid hsl(var(--border)); border-radius: 10px; background: hsl(var(--muted)); font-size: 14px; font-weight: 700; line-height: 1.45; }
-.facility-permission-list li svg { flex: 0 0 auto; margin-top: 2px; color: hsl(var(--ok)); }
-.facility-permissions-empty { margin: 0; padding: 12px; border-radius: 10px; background: hsl(var(--muted)); font-size: 14px; line-height: 1.5; }
 .p-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .facility-service-groups { display: grid; gap: 14px; margin-top: 12px; }
 .facility-service-group { display: grid; gap: 7px; min-width: 0; }
