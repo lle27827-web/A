@@ -13,6 +13,5 @@ export const DatabaseFailoverCoordinatorBackend = {
   database_url_1: 'database_url_1',
   database_url: 'database_url',
   database_url_3: 'database_url_3',
-  database_url_4: 'database_url_4',
   independent: 'independent',
 } as const;

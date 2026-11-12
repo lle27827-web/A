@@ -13,5 +13,4 @@ export const DatabaseFailoverTarget = {
   database_url_1: 'database_url_1',
   database_url: 'database_url',
   database_url_3: 'database_url_3',
-  database_url_4: 'database_url_4',
 } as const;

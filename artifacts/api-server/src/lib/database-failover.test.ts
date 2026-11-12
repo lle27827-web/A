@@ -114,16 +114,14 @@ test("ordinary SQL and validation errors never trigger automatic failover", () =
   }
 });
 
-test("database labels retain their one-to-one environment mapping", () => {
+test("database labels retain the three-store one-to-one environment mapping", () => {
   const nodes = resolveDatabaseNodes({
     DATABASE_URL_1: "postgres://user:pass@db1.example/app",
     DATABASE_URL_2: "postgres://user:pass@db2.example/app",
     DATABASE_URL_3: "postgres://user:pass@db3.example/app",
-    DATABASE_URL_4: "postgres://user:pass@db4.example/app",
     NEON_DB1_DIRECT_URL: "postgres://user:pass@db1.example/app",
     NEON_DB2_DIRECT_URL: "postgres://user:pass@db2.example/app",
     NEON_DB3_DIRECT_URL: "postgres://user:pass@db3.example/app",
-    NEON_DB4_DIRECT_URL: "postgres://user:pass@db4.example/app",
   });
   assert.deepEqual(
     nodes.map(({ backend, url, adminUrl }) => [backend, url, adminUrl]),
@@ -131,7 +129,6 @@ test("database labels retain their one-to-one environment mapping", () => {
       ["database_url_1", "postgres://user:pass@db1.example/app", "postgres://user:pass@db1.example/app"],
       ["database_url", "postgres://user:pass@db2.example/app", "postgres://user:pass@db2.example/app"],
       ["database_url_3", "postgres://user:pass@db3.example/app", "postgres://user:pass@db3.example/app"],
-      ["database_url_4", "postgres://user:pass@db4.example/app", "postgres://user:pass@db4.example/app"],
     ],
   );
 });
@@ -153,18 +150,17 @@ test("independent coordinator URLs cannot share a database failure domain", () =
   );
 });
 
-test("four-database failover order maps DATABASE_URL_1 to DB1 and DATABASE_URL_2 to DB2", () => {
+test("three-database failover order maps DATABASE_URL_1 to DB1 and DATABASE_URL_2 to DB2", () => {
   const nodes = resolveDatabaseNodes({
     DATABASE_URL_1: "postgres://primary",
     DATABASE_URL_2: "postgres://fallback",
     NEON_DB1_DIRECT_URL: "postgres://primary-direct",
     DATABASE_URL_3: "postgres://replica3",
-    DATABASE_URL_4: "postgres://replica4",
   });
 
   assert.deepEqual(
     nodes.map((node) => node.backend),
-    ["database_url_1", "database_url", "database_url_3", "database_url_4"],
+    ["database_url_1", "database_url", "database_url_3"],
   );
   assert.deepEqual(
     nodes.map(({ backend, url }) => [backend, url]),
@@ -172,39 +168,27 @@ test("four-database failover order maps DATABASE_URL_1 to DB1 and DATABASE_URL_2
       ["database_url_1", "postgres://primary"],
       ["database_url", "postgres://fallback"],
       ["database_url_3", "postgres://replica3"],
-      ["database_url_4", "postgres://replica4"],
     ],
   );
   assert.equal(
     getNextBackend("database_url", nodes)?.backend,
     "database_url_3",
   );
-  assert.equal(
-    getNextBackend("database_url_3", nodes)?.backend,
-    "database_url_4",
-  );
+  assert.equal(getNextBackend("database_url_3", nodes), undefined);
   assert.equal(nodes[0]?.adminUrl, "postgres://primary-direct");
 });
 
-test("DB4 can be selected as the coordinator only when its node is configured", () => {
+test("DB3 is the coordinator and DB4 is no longer a valid backend", () => {
   const nodes = resolveDatabaseNodes({
     DATABASE_URL_1: "postgres://fallback",
     DATABASE_URL_2: "postgres://primary",
     DATABASE_URL_3: "postgres://replica3",
-    DATABASE_URL_4: "postgres://replica4",
   });
-  assert.equal(resolveFailoverCoordinatorBackend(undefined, nodes), "database_url_4");
-  assert.equal(
-    resolveFailoverCoordinatorBackend(undefined, nodes.slice(0, 3)),
-    "database_url",
-  );
-  assert.equal(
-    resolveFailoverCoordinatorBackend("database_url_4", nodes),
-    "database_url_4",
-  );
+  assert.equal(resolveFailoverCoordinatorBackend(undefined, nodes), "database_url_3");
+  assert.equal(resolveFailoverCoordinatorBackend(undefined, nodes.slice(0, 2)), "database_url");
   assert.throws(
-    () => resolveFailoverCoordinatorBackend("database_url_4", nodes.slice(0, 3)),
-    /requires that database URL to be configured/,
+    () => resolveFailoverCoordinatorBackend("database_url_4", nodes),
+    /must be database_url or database_url_3/,
   );
 });
 
@@ -213,14 +197,11 @@ test("manual switching is limited to adjacent configured databases in either dir
     DATABASE_URL_1: "postgres://fallback",
     DATABASE_URL_2: "postgres://primary",
     DATABASE_URL_3: "postgres://replica3",
-    DATABASE_URL_4: "postgres://replica4",
   });
   assert.equal(areAdjacentBackends("database_url_1", "database_url", nodes), true);
   assert.equal(areAdjacentBackends("database_url", "database_url_1", nodes), true);
   assert.equal(areAdjacentBackends("database_url", "database_url_3", nodes), true);
-  assert.equal(areAdjacentBackends("database_url_3", "database_url_4", nodes), true);
   assert.equal(areAdjacentBackends("database_url_1", "database_url_3", nodes), false);
-  assert.equal(areAdjacentBackends("database_url_1", "database_url_4", nodes), false);
 });
 
 test("replication blockers identify subscription and table setup problems", () => {
@@ -266,15 +247,14 @@ test("replication blockers report apply-worker and lag details", () => {
   );
 });
 
-test("additional replica cannot skip a missing link in the failover order", () => {
+test("DB3 cannot skip a missing DB2 link in the failover order", () => {
   assert.throws(
     () =>
       resolveDatabaseNodes({
         DATABASE_URL_1: "postgres://fallback",
-        DATABASE_URL_2: "postgres://primary",
-        DATABASE_URL_4: "postgres://replica4",
+        DATABASE_URL_3: "postgres://replica3",
       }),
-    /requires DATABASE_URL_3/,
+    /requires DATABASE_URL_2/,
   );
 });
 
@@ -295,10 +275,23 @@ test("Vercel requires DATABASE_URL_2 and never falls back to DATABASE_URL", () =
       DATABASE_URL: "postgres://old-db2",
       DATABASE_URL_1: "postgres://db1",
       DATABASE_URL_3: "postgres://db3",
-      DATABASE_URL_4: "postgres://db4",
     }),
     /DATABASE_URL_2 as the second link/,
   );
+});
+
+test("Vercel DB2 can use the configured Neon direct-source alias", () => {
+  const nodes = resolveDatabaseNodes({
+    VERCEL: "1",
+    DATABASE_URL_1: "postgres://db1",
+    NEON_SOURCE_DIRECT_URL: "postgres://db2-direct",
+    DATABASE_URL_3: "postgres://db3",
+  });
+  assert.deepEqual(
+    nodes.map((node) => node.backend),
+    ["database_url_1", "database_url", "database_url_3"],
+  );
+  assert.equal(nodes[1].url, "postgres://db2-direct");
 });
 
 test("replication checks define forward and reverse names for each adjacent link", () => {
@@ -311,20 +304,12 @@ test("replication checks define forward and reverse names for each adjacent link
     "socong_source_to_db3_v1",
   );
   assert.equal(
-    getReplicationEdge("database_url_3", "database_url_4")?.subscriptionName,
-    "socong_db4_from_db3_v1",
-  );
-  assert.equal(
     getReplicationEdge("database_url", "database_url_1")?.subscriptionName,
     "socong_db1_from_db2_v1",
   );
   assert.equal(
     getReplicationEdge("database_url_3", "database_url")?.publicationName,
     "socong_db3_to_db2_v1",
-  );
-  assert.equal(
-    getReplicationEdge("database_url_4", "database_url_3")?.subscriptionName,
-    "socong_db3_from_db4_v1",
   );
   assert.equal(getReplicationEdge("database_url_1", "database_url_3"), undefined);
 });
@@ -349,15 +334,15 @@ test("replication table validation requires the exact application table set", ()
 test("failover-state migration must allow every configured backend", () => {
   assert.equal(
     failoverStateConstraintSupports(
-      "CHECK (active_backend IN ('database_url_1', 'database_url', 'database_url_3', 'database_url_4', 'switching'))",
-      ["database_url_1", "database_url", "database_url_3", "database_url_4"],
+      "CHECK (active_backend IN ('database_url_1', 'database_url', 'database_url_3', 'switching'))",
+      ["database_url_1", "database_url", "database_url_3"],
     ),
     true,
   );
   assert.equal(
     failoverStateConstraintSupports(
       "CHECK (active_backend IN ('database_url_1', 'database_url', 'database_url_3', 'switching'))",
-      ["database_url_4"],
+      ["database_url_4" as never],
     ),
     false,
   );

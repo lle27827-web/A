@@ -27,7 +27,7 @@ export const storagePartitionStateTable = pgTable("storage_partition_state", {
   check("storage_partition_state_singleton_check", sql`${table.id} = 1`),
   check(
     "storage_partition_state_backend_check",
-    sql`${table.writeBackend} IN ('database_url_1', 'database_url', 'database_url_3', 'database_url_4')`,
+    sql`${table.writeBackend} IN ('database_url_1', 'database_url', 'database_url_3')`,
   ),
 ]);
 
@@ -87,7 +87,7 @@ export const storagePartitionOperationsTable = pgTable("storage_partition_operat
 }, (table) => [
   check(
     "storage_partition_operations_backend_check",
-    sql`${table.targetBackend} IN ('database_url_1', 'database_url', 'database_url_3', 'database_url_4')`,
+    sql`${table.targetBackend} IN ('database_url_1', 'database_url', 'database_url_3')`,
   ),
   check(
     "storage_partition_operations_state_check",
@@ -101,7 +101,7 @@ export const storagePartitionOperationsTable = pgTable("storage_partition_operat
 ]);
 
 /**
- * Global numeric ID allocators live on DB4. Existing DB1 IDs seed the counters;
+ * Global numeric ID allocators live on DB3. Existing IDs seed the counters;
  * every post-cutover insert must reserve IDs here rather than use local serials.
  */
 export const storagePartitionIdSequencesTable = pgTable("storage_partition_id_sequences", {

@@ -110,12 +110,12 @@ test("domain routing keeps each data group on its fixed store pair", () => {
   assert.deepEqual(routes.personal_sessions, {
     domain: "personal",
     primary: "database_url_3",
-    replica: "database_url_4",
+    replica: "database_url",
   });
   assert.deepEqual(routes.appointments, {
     domain: "shared",
-    primary: "database_url_4",
-    replica: "database_url_3",
+    primary: "database_url_3",
+    replica: "database_url_1",
   });
   assert.deepEqual(routes.audit_logs, routes.appointments);
 });
@@ -139,37 +139,36 @@ test("only a failed connection may move a domain operation to a fixed alternate 
   assert.deepEqual(fallback.treatment_cards, {
     domain: "cards",
     primary: "database_url_3",
-    replica: "database_url_4",
+    replica: "database_url_1",
   });
 });
 
-test("partition reads query only three stores when all are healthy", async () => {
+test("partition reads query only two stores when all are healthy", async () => {
   const queried: string[] = [];
   const reads = await readWithMinimumReplicaCount(
-    ["db1", "db2", "db3", "db4"],
-    3,
+    ["db1", "db2", "db3"],
+    2,
     async (node) => {
       queried.push(node);
       return node;
     },
   );
 
-  assert.deepEqual(queried, ["db1", "db2", "db3"]);
-  assert.deepEqual(reads.map((entry) => entry.result), ["db1", "db2", "db3"]);
+  assert.deepEqual(queried, ["db1", "db2"]);
+  assert.deepEqual(reads.map((entry) => entry.result), ["db1", "db2"]);
   for (const pair of [
-    ["db1", "db2"], ["db1", "db3"], ["db1", "db4"],
-    ["db2", "db3"], ["db2", "db4"], ["db3", "db4"],
+    ["db1", "db2"], ["db1", "db3"], ["db2", "db3"],
   ]) {
     assert.ok(reads.some((entry) => pair.includes(entry.node)));
   }
 });
 
-test("partition reads try the fourth store only to replace an unavailable replica", async () => {
-  for (const failedNode of ["db1", "db2", "db3", "db4"]) {
+test("partition reads try DB3 only to replace an unavailable copy", async () => {
+  for (const failedNode of ["db1", "db2", "db3"]) {
     const queried: string[] = [];
     const reads = await readWithMinimumReplicaCount(
-      ["db1", "db2", "db3", "db4"],
-      3,
+      ["db1", "db2", "db3"],
+      2,
       async (node) => {
         queried.push(node);
         if (node === failedNode) throw new Error("store unavailable");
@@ -177,23 +176,23 @@ test("partition reads try the fourth store only to replace an unavailable replic
       },
     );
 
-    assert.equal(reads.length, 3, `Expected three healthy replicas when ${failedNode} is unavailable.`);
+    assert.equal(reads.length, 2, `Expected two healthy copies when ${failedNode} is unavailable.`);
     assert.ok(!reads.some((entry) => entry.node === failedNode));
-    assert.equal(queried.includes("db4"), failedNode !== "db4");
+    assert.equal(queried.includes("db3"), failedNode !== "db3");
   }
 });
 
-test("partition reads return fewer than three replicas when multiple stores fail", async () => {
+test("partition reads return fewer than two copies when multiple stores fail", async () => {
   const reads = await readWithMinimumReplicaCount(
-    ["db1", "db2", "db3", "db4"],
-    3,
+    ["db1", "db2", "db3"],
+    2,
     async (node) => {
       if (node === "db1" || node === "db2") throw new Error("store unavailable");
       return node;
     },
   );
 
-  assert.deepEqual(reads.map((entry) => entry.result), ["db3", "db4"]);
+  assert.deepEqual(reads.map((entry) => entry.result), ["db3"]);
 });
 
 test("partition keys keep equal local IDs distinct across stores", () => {

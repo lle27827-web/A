@@ -79,9 +79,9 @@ advance on rolled-back inserts; gaps in IDs are normal, not lost records.
 
 The Vercel API build runs `migrate:all-vercel-stores`, then the read-only
 `migrate:verify-stores`, then the API build. The migration command preflights the
-runtime store configuration and all four distinct direct Neon URLs before
+runtime store configuration and all three distinct direct Neon URLs before
 opening database connections. It then applies the existing idempotent
-compatibility updates sequentially in DB1, DB2, DB3, DB4 order. A completely
+compatibility updates sequentially in DB1, DB2, DB3 order. A completely
 empty database is initialized with the reviewed append-only migration sequence.
 A partially populated schema is not baselined or reset; verification fails the
 build if required tables/columns are absent. Migration steps are not a
@@ -94,15 +94,14 @@ code that requires its recovery fields. The retention-index step uses the single
 `DATABASE_URL` target supplied by each loop iteration; it must not re-resolve
 all store variables inside the per-store migration.
 
-The build migration requires direct endpoint values for DB1 through DB4. It
-prefers the uniform aliases `NEON_DB1_DIRECT_URL` through
-`NEON_DB4_DIRECT_URL`; legacy aliases such as `DATABASE_URL_1_DIRECT`,
-`DATABASE_URL_2_DIRECT`, `DATABASE_URL_DIRECT`, `NEON_SOURCE_DIRECT_URL`,
-`MIGRATE_DATABASE_URL_3_DIRECT`, and `MIGRATE_DATABASE_URL_4_DIRECT` are also
-accepted. If a dedicated direct variable is absent, it can use the
-corresponding runtime variable (`DATABASE_URL_1`, `DATABASE_URL_2`,
-`DATABASE_URL_3`, or `DATABASE_URL_4`) only when it is a PostgreSQL URL whose
-host is not a `-pooler` endpoint. Validation errors identify the selected
+The build migration requires direct endpoint values for DB1 through DB3. It
+prefers `NEON_DB1_DIRECT_URL`, `NEON_DB2_DIRECT_URL`, and
+`NEON_DB3_DIRECT_URL`; legacy aliases such as `DATABASE_URL_1_DIRECT`,
+`DATABASE_URL_2_DIRECT`, `DATABASE_URL_DIRECT`, `NEON_SOURCE_DIRECT_URL`, and
+`MIGRATE_DATABASE_URL_3_DIRECT` are also accepted. If a dedicated direct
+variable is absent, it can use the corresponding runtime variable
+(`DATABASE_URL_1`, `DATABASE_URL_2`, or `DATABASE_URL_3`) only when it is a
+PostgreSQL URL whose host is not a `-pooler` endpoint. Validation errors identify the selected
 variable name but never print its value. Preview builds run the same migration
 sequence, so they must use isolated Preview databases rather than Production
 endpoints.
@@ -124,7 +123,7 @@ an external production target.
 ## Vercel database failover state
 
 The `migrate:database-failover-state` command runs only when invoked explicitly.
-For the four-node failover chain, run it with `DATABASE_URL_2` set to the Vercel
+For the three-node failover chain, run it with `DATABASE_URL_2` set to the Vercel
 control database (the existing second node) **using its direct endpoint**, not
 the Replit database. It updates the state table's allowed backend values and
 adds idempotent interrupted-switch recovery fields; the runtime refuses
@@ -132,37 +131,46 @@ promotion to a new node until the schema accepts that node. Existing stale
 `switching` rows without source/target metadata are marked for manual review and
 remain write-locked.
 Do not add `migrate:database-failover-state` to a Vercel build hook. This is a
-separate, explicit migration; the automatic four-store schema pipeline described
+separate, explicit migration; the automatic three-store schema pipeline described
 above does not apply it.
 
-### DB4 as the failover coordinator
+### Three-store cutover and DB4 retirement
 
-The runtime automatically uses DB4 as the coordinator when DB4 is configured,
-after its single state row has been initialized from DB2. This moves the
-control-plane failure point from DB2 to DB4; if DB4 is unavailable or full,
-promotion cannot be coordinated. The state table is intentionally not included
-in application-data replication. `DATABASE_FAILOVER_COORDINATOR_BACKEND` can
-explicitly override the default when needed.
+The user selected DB1 for facility attendance, DB2 for cards/history, and DB3
+for remaining data, business identity, and partition coordination. DB4 is a
+temporary migration source, not a runtime store. Do not deploy the three-store
+runtime or remove DB4 environment variables until the copy and verification
+below have succeeded.
 
-Before deploying the runtime setting, pause manual failover and run the explicit
-migration with direct URLs from DB2 and DB4:
+First prepare the DB1–DB3 schema, including the DB3 coordinator tables. Then
+pause application writes and run the explicit DB4→DB3 additive copy:
 
 ```sh
-DATABASE_FAILOVER_STATE_SOURCE_URL="$NEON_SOURCE_DIRECT_URL" \
-DATABASE_FAILOVER_STATE_TARGET_URL="$MIGRATE_DATABASE_URL_4_DIRECT" \
-pnpm --filter @workspace/db run migrate:database-failover-state-to-db4
+pnpm --filter @workspace/db run migrate:all-vercel-stores
+pnpm --filter @workspace/db run migrate:storage-partitioning
+CONFIRM_DB4_TO_DB3_MIGRATION=I_HAVE_PAUSED_WRITES \
+pnpm --filter @workspace/db run migrate:db4-to-db3
 ```
 
-The script locks the DB2 state row while it initializes DB4, refuses to overwrite
-a conflicting DB4 state, copies only `db_failover_state`, and does not copy
-employee or business records. After it reports success, deploy the runtime code.
-Do not deploy the new coordinator selection before the migration succeeds; the
-runtime fails closed if the coordinator state table is missing.
+Set `NEON_DB4_DIRECT_URL` (or a supported DB4 direct alias) and the DB1–DB3
+direct/runtime URLs in the migration environment. The copy verifies matching
+schemas and primary keys, locks the source and destination tables, copies
+business, application, journal, and coordinator rows without deleting DB4,
+and stops on conflicting rows or unfinished operations. It remaps active
+coordinator references from DB4 to DB3 but preserves historical event keys.
+If schema comparison or row comparison fails, resolve the discrepancy before
+retrying; never overwrite the conflicting row. Keep DB4 available as a rollback
+source until the three-store deployment is confirmed.
+
+Only after the script completes, the read-only store verifier passes, and the
+deployed app reads the migrated business and partition data should DB4 variables
+be removed from Vercel. Deleting the Neon database itself is a separate manual
+action and must wait until no replication subscription or other consumer uses it.
 
 ### Independent failover coordinator
 
 For failover to remain coordinatable when DB2 (`DATABASE_URL_2`) is unavailable,
-provision a separate PostgreSQL database that is not one of the four data
+provision a separate PostgreSQL database that is not one of the three data
 stores. It stores only the single `public.db_failover_state` coordination row.
 The application continues using the legacy DB2 state table until
 `DATABASE_FAILOVER_COORDINATOR_URL` is configured.
@@ -179,7 +187,7 @@ pnpm --filter @workspace/db run migrate:database-failover-coordinator
 The migration only reads the existing state from DB2 and creates/initializes
 the state table on the new coordinator. It refuses to overwrite a conflicting
 state or migrate while the current state is `switching`. Do not run this against
-a coordinator that is one of the four application data stores. After the
+a coordinator that is one of the three application data stores. After the
 migration succeeds, add `DATABASE_FAILOVER_COORDINATOR_URL` to the Vercel
 environment and redeploy. If that URL is set before migration, application
 database requests fail closed until the coordinator state table is ready.
@@ -201,20 +209,20 @@ No application table is reset or deleted.
 ## Partitioned storage foundation (not a production cutover)
 
 The storage-partition migration creates only the append-only event journal on
-DB1–DB4 and the operation/routing/ID coordinator tables on DB4. It reads the
-maximum historical IDs from DB1 to seed global numeric ID allocators, but it
+DB1–DB3 and the operation/routing/ID coordinator tables on DB3. It reads the
+maximum historical IDs across DB1–DB3 to seed global numeric ID allocators, but it
 does not copy, update, or delete business rows. It requires direct Neon URLs for
-all four distinct projects:
+all three distinct projects:
 
 ```sh
 pnpm --filter @workspace/db run migrate:storage-partitioning
 ```
 
-The script prefers `NEON_DB1_DIRECT_URL` through `NEON_DB4_DIRECT_URL` and
-supports the legacy DB2–DB4 aliases `DATABASE_URL_2_DIRECT`, `NEON_SOURCE_DIRECT_URL`,
-`MIGRATE_DATABASE_URL_3_DIRECT`, and `MIGRATE_DATABASE_URL_4_DIRECT`. It falls
-back to the corresponding `DATABASE_URL_1`, `DATABASE_URL_2`, `DATABASE_URL_3`,
-and `DATABASE_URL_4` values. It refuses pooler endpoints and repeated Neon
+The script prefers `NEON_DB1_DIRECT_URL` through `NEON_DB3_DIRECT_URL` and
+supports the legacy DB2/DB3 aliases `DATABASE_URL_2_DIRECT`,
+`NEON_SOURCE_DIRECT_URL`, and `MIGRATE_DATABASE_URL_3_DIRECT`. It falls
+back to the corresponding `DATABASE_URL_1`, `DATABASE_URL_2`, and
+`DATABASE_URL_3` values. It refuses pooler endpoints and repeated Neon
 hosts. A missing historical table or an exhausted integer ID range stops before
 creating any partition schema.
 
@@ -223,4 +231,4 @@ set `DATABASE_STORAGE_MODE=partitioned`, stop logical replication, or deploy a
 cutover until every API read/write path uses the partition repository, card
 operations have idempotent recovery tests, and a full read/revenue parity check
 has passed. DB1 remains the canonical source for pre-cutover rows; old copies on
-DB2–DB4 must be preserved but excluded from canonical reads to avoid duplicates.
+DB2–DB3 must be preserved but excluded from canonical reads to avoid duplicates.

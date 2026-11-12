@@ -53,7 +53,7 @@ Money is integer VND, duration is integer minutes, and visit earnings are rounde
 
 Partitioned storage overlays append-only event journals on base-table rows, batches event inserts, and uses a short in-process read cache invalidated after local commits. Journal compression or snapshot compaction is **not** implemented; plan versioned snapshots/compaction before journal growth materially increases read cost. **Why:** do not claim that compression or compaction is active, and preserve replay/idempotency semantics when designing it.
 
-In partitioned mode, DB4 is intentionally the fixed coordinator; `coordinatorBackend` reports that assigned role, while `coordinatorReady` and each store's status report current availability. **Why:** the user selected DB4 as coordinator, and role assignment must not be confused with a health check.
+In partitioned mode, DB3 is the fixed coordinator for the three-store layout; `coordinatorBackend` reports that assigned role, while `coordinatorReady` and each store's status report current availability. **Why:** the user chose to move DB4 data into DB3 and retire DB4, so DB3 now holds the registry and routing state.
 
 Use Asia/Ho_Chi_Minh to determine today and the current month. Preserve old attendance and task data; legacy attendance is not included in service-based wages. Nonowners receive masked customer phone numbers from the server, not just a CSS mask. Removing a card from the active list preserves its attendance and use-history records.
 

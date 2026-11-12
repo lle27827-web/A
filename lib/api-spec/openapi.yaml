@@ -104,7 +104,7 @@ paths:
     get:
       operationId: getDatabaseStorageStatus
       tags: [database]
-      summary: Chủ sở hữu xem trạng thái phân vùng cố định của bốn kho
+      summary: Chủ sở hữu xem trạng thái phân vùng cố định của ba kho
       responses:
         "200":
           description: Trạng thái chỉ đọc của bộ điều phối và nhật ký phân vùng; không kiểm tra CU hoặc dung lượng
@@ -1474,10 +1474,10 @@ components:
         archivedCardUses: { type: integer }
     DatabaseFailoverBackend:
       type: string
-      enum: [database_url_1, database_url, database_url_3, database_url_4, switching]
+      enum: [database_url_1, database_url, database_url_3, switching]
     DatabaseFailoverCoordinatorBackend:
       type: string
-      enum: [database_url_1, database_url, database_url_3, database_url_4, independent]
+      enum: [database_url_1, database_url, database_url_3, independent]
     DatabaseFailoverStatus:
       type: object
       required: [activeBackend, coordinatorBackend, switchTargets]
@@ -1493,7 +1493,7 @@ components:
       properties:
         enabled: { type: boolean }
         strategy: { type: string, enum: [replication_failover, partitioned_by_domain] }
-        coordinatorBackend: { type: string, enum: [database_url_4] }
+        coordinatorBackend: { type: string, enum: [database_url_3] }
         coordinatorReady: { type: ["boolean", "null"] }
         writeCursor: { type: ["string", "null"] }
         nextRevision: { type: ["string", "null"] }
@@ -1524,7 +1524,7 @@ components:
         message: { type: string }
     DatabaseFailoverTarget:
       type: string
-      enum: [database_url_1, database_url, database_url_3, database_url_4]
+      enum: [database_url_1, database_url, database_url_3]
     DatabaseFailoverInput:
       type: object
       required: [fromBackend, targetBackend, confirmation]

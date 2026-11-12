@@ -15,10 +15,10 @@ const DOMAIN_TABLES: Record<PartitionDataDomain, readonly string[]> = {
 };
 
 const DOMAIN_ORDER: Record<PartitionDataDomain, readonly DatabaseBackend[]> = {
-  facility: ["database_url_1", "database_url"],
-  cards: ["database_url", "database_url_3"],
-  personal: ["database_url_3", "database_url"],
-  shared: ["database_url_3", "database_url_1"],
+  facility: ["database_url_1", "database_url", "database_url_3"],
+  cards: ["database_url", "database_url_3", "database_url_1"],
+  personal: ["database_url_3", "database_url", "database_url_1"],
+  shared: ["database_url_3", "database_url_1", "database_url"],
 };
 
 const ACTION_ENTITY_TYPES: Record<string, readonly string[]> = {

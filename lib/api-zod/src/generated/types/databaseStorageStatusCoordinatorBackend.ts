@@ -10,5 +10,5 @@ export type DatabaseStorageStatusCoordinatorBackend = typeof DatabaseStorageStat
 
 
 export const DatabaseStorageStatusCoordinatorBackend = {
-  database_url_4: 'database_url_4',
+  database_url_3: 'database_url_3',
 } as const;

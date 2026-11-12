@@ -19,7 +19,6 @@ const backendNames: Record<string, string> = {
   database_url_1: "DB1",
   database_url: "DB2",
   database_url_3: "DB3",
-  database_url_4: "DB4",
 };
 
 router.get("/database/storage-status", requirePlatformAdmin, async (_req, res, next): Promise<void> => {

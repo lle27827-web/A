@@ -46,6 +46,17 @@ const DATABASE_ENV = [
   },
 ] as const;
 
+function firstConfiguredUrl(
+  env: Record<string, string | undefined>,
+  keys: readonly string[],
+): string {
+  for (const key of keys) {
+    const value = env[key]?.trim();
+    if (value) return value;
+  }
+  return "";
+}
+
 const REPLICATION_EDGES: readonly ReplicationEdge[] = [
   {
     publisher: "database_url_1",
@@ -78,10 +89,22 @@ export function resolveDatabaseNodes(
 ): DatabaseNodeConfig[] {
   const configured = DATABASE_ENV.map((entry) => ({
     backend: entry.backend,
-    url:
-      entry.backend === "database_url" && env.VERCEL !== "1"
-        ? env.DATABASE_URL_2?.trim() || env.DATABASE_URL?.trim() || ""
-        : env[entry.urlKey]?.trim() ?? "",
+    url: entry.backend === "database_url_1"
+      ? firstConfiguredUrl(env, ["DATABASE_URL_1", "NEON_DB1_DIRECT_URL"])
+      : entry.backend === "database_url"
+        ? firstConfiguredUrl(env, [
+            "DATABASE_URL_2",
+            "NEON_DB2_DIRECT_URL",
+            "NEON_SOURCE_DIRECT_URL",
+            "DATABASE_URL_2_DIRECT",
+            ...(env.VERCEL === "1" ? [] : ["DATABASE_URL"]),
+          ])
+        : firstConfiguredUrl(env, [
+            "DATABASE_URL_3",
+            "NEON_DB3_DIRECT_URL",
+            "MIGRATE_DATABASE_URL_3_DIRECT",
+            "DATABASE_URL_3_DIRECT",
+          ]),
     adminUrl: env[entry.adminUrlKey]?.trim() || undefined,
     applicationName: entry.applicationName,
   }));

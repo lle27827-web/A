@@ -57,6 +57,9 @@ const isVercel = process.env.VERCEL === "1";
 const configuredNodes = resolveDatabaseNodes(process.env);
 const databaseUrl =
   process.env.DATABASE_URL_2?.trim() ||
+  process.env.NEON_DB2_DIRECT_URL?.trim() ||
+  process.env.NEON_SOURCE_DIRECT_URL?.trim() ||
+  process.env.DATABASE_URL_2_DIRECT?.trim() ||
   (!isVercel ? process.env.DATABASE_URL?.trim() : undefined);
 const failoverCoordinatorUrl =
   process.env.DATABASE_FAILOVER_COORDINATOR_URL?.trim();
@@ -85,8 +88,8 @@ function usesNeonPooler(connectionString: string): boolean {
 if (!databaseUrl) {
   throw new Error(
     isVercel
-      ? "DATABASE_URL_2 must be set for DB2 on Vercel."
-      : "DATABASE_URL_2 or the local DATABASE_URL must be set.",
+      ? "A direct or runtime DB2 URL must be set for DB2 on Vercel."
+      : "A DB2 URL or the local DATABASE_URL must be set.",
   );
 }
 
@@ -192,16 +195,16 @@ function failoverStatePool(): pg.Pool | undefined {
 }
 
 /**
- * Business identities and join-code hashes live on DB4, the project's chosen
+ * Business identities and join-code hashes live on DB3, the project's chosen
  * control plane. Keep this callback narrow so application data routes cannot
  * accidentally use the registry as an unscoped query path.
  */
 export async function withBusinessRegistryClient<T>(
   operation: (client: pg.PoolClient) => Promise<T>,
 ): Promise<T> {
-  const registryPool = nodeForBackend("database_url_4")?.pool;
+  const registryPool = nodeForBackend("database_url_3")?.pool;
   if (!registryPool) {
-    throw new Error("Business registry requires the configured DB4 coordinator.");
+    throw new Error("Business registry requires the configured DB3 coordinator.");
   }
   const client = await registryPool.connect();
   try {
@@ -1417,7 +1420,6 @@ const allDatabaseBackends: readonly DatabaseBackend[] = [
   "database_url_1",
   "database_url",
   "database_url_3",
-  "database_url_4",
 ];
 
 async function getSwitchTargetStatus(
@@ -1935,8 +1937,8 @@ const defaultPool = nodeForBackend("database_url")?.pool ?? nodes[0]?.pool;
 if (!defaultPool) {
   throw new Error(
     isVercel
-      ? "DATABASE_URL_2 must be set for DB2 on Vercel."
-      : "DATABASE_URL_2 or the local DATABASE_URL must be set.",
+      ? "A direct or runtime DB2 URL must be set for DB2 on Vercel."
+      : "A DB2 URL or the local DATABASE_URL must be set.",
   );
 }
 

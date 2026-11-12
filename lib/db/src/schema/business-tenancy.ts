@@ -1,7 +1,7 @@
 import { boolean, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 /**
- * Business registry and memberships are stored on the DB4 coordinator only.
+ * Business registry and memberships are stored on the DB3 coordinator only.
  * Business rows are addressed by UUID; join codes are stored as hashes only.
  */
 export const businessesTable = pgTable("businesses", {

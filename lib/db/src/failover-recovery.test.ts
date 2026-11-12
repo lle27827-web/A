@@ -36,7 +36,7 @@ test("recent, unreachable, non-adjacent, or ambiguous switches do not auto-resto
   assert.equal(decision({ sourceReachable: false }).action, "manual");
   assert.equal(decision({ reverseSubscriptionEnabled: true }).action, "manual");
   assert.equal(decision({ forwardSubscriptionEnabled: null }).action, "manual");
-  assert.equal(decision({ targetBackend: "database_url_4" }).action, "manual");
+  assert.equal(decision({ targetBackend: "database_url_4" as never }).action, "manual");
   assert.equal(decision({ manualRecoveryRequired: true }).action, "manual");
 });
 
@@ -49,7 +49,7 @@ test("forced promotion requires explicit production enablement, a failed source 
     configuredBackends,
     coordinatorAvailable: true,
     independentCoordinator: false,
-    coordinatorBackend: "database_url_4" as const,
+    coordinatorBackend: "database_url_3" as const,
     sourceReachable: false,
     targetReachable: true,
   };

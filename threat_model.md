@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Sổ Công is a multi-business attendance, customer-card, appointment, service-pricing, reporting, and personal-work-history application. The web client is React/Vite, the API is Express, identity is verified through Clerk, and business data is stored in four shared Neon PostgreSQL stores partitioned by data domain. The business registry and membership coordinator lives on DB4. Personal notebooks are account-scoped and separate from business records.
+Sổ Công is a multi-business attendance, customer-card, appointment, service-pricing, reporting, and personal-work-history application. The web client is React/Vite, the API is Express, identity is verified through Clerk, and business data is stored in three shared Neon PostgreSQL stores partitioned by data domain. The target layout keeps facility attendance on DB1, cards/history on DB2, and personal/shared data plus the business registry and partition coordinator on DB3. DB4 remains a migration source until its data is copied and verified. Personal notebooks are account-scoped and separate from business records.
 
 ## Assets
 
@@ -15,7 +15,7 @@ Sổ Công is a multi-business attendance, customer-card, appointment, service-p
 ## Trust Boundaries
 
 - **Browser to API:** the browser supplies an authenticated Clerk token and may select a business. The selected business identifier is untrusted until the API confirms active membership; the client never receives database credentials.
-- **API to PostgreSQL:** the API has access to the four stores. Tenant isolation is enforced by verified server-side business scope and `business_id` predicates, not by hiding UI controls. DB4 also stores business identities and memberships.
+- **API to PostgreSQL:** the API has access to the three runtime stores. Tenant isolation is enforced by verified server-side business scope and `business_id` predicates, not by hiding UI controls. The business registry and membership data are stored on DB3.
 - **Owner to employee/manager:** owners may manage their active business; employees and managers receive only server-verified grants. The personal notebook is a separate authorization scope.
 - **Production to development:** Vercel and Replit use distinct environment configurations. A development test must not be pointed at production data, and a deployment migration must be additive and verified against each configured store.
 - **Print output boundary:** business and customer details are rendered in the browser and passed to the browser’s print dialog. Only the currently selected business’s identity may be used; customer values must be escaped before rendering.
@@ -49,7 +49,7 @@ The highest-risk exposure is cross-business access to customer phone numbers, ca
 
 ### Denial of Service
 
-Public business creation and join-code endpoints can be abused to consume database capacity or brute-force codes. Keep rate limits, bounded request validation, connection timeouts, and fail-closed behavior for registry or permission-store failures. A DB4 coordinator outage can make business authorization unavailable; personal notebooks may remain available, but the API MUST NOT grant stale business access as a fallback.
+Public business creation and join-code endpoints can be abused to consume database capacity or brute-force codes. Keep rate limits, bounded request validation, connection timeouts, and fail-closed behavior for registry or permission-store failures. A DB3 coordinator outage can make business authorization unavailable; personal notebooks may remain available, but the API MUST NOT grant stale business access as a fallback. The planned DB4→DB3 data copy has not been executed or verified, so do not deploy the three-store runtime against live data until cutover checks pass.
 
 ### Elevation of Privilege
 

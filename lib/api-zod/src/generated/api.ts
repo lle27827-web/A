@@ -95,12 +95,12 @@ export const DeleteRetentionDateRangeResponse = zod.object({
 
 
 /**
- * @summary Chủ sở hữu xem trạng thái phân vùng cố định của bốn kho
+ * @summary Chủ sở hữu xem trạng thái phân vùng cố định của ba kho
  */
 export const GetDatabaseStorageStatusResponse = zod.object({
   "enabled": zod.boolean(),
   "strategy": zod.enum(['replication_failover', 'partitioned_by_domain']),
-  "coordinatorBackend": zod.enum(['database_url_4']),
+  "coordinatorBackend": zod.enum(['database_url_3']),
   "coordinatorReady": zod.boolean().nullable(),
   "writeCursor": zod.string().nullable(),
   "nextRevision": zod.string().nullable(),
@@ -108,7 +108,7 @@ export const GetDatabaseStorageStatusResponse = zod.object({
   "readsRequireDb1": zod.boolean(),
   "readsRequireAllStores": zod.boolean(),
   "stores": zod.array(zod.object({
-  "backend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4']),
+  "backend": zod.enum(['database_url_1', 'database_url', 'database_url_3']),
   "configured": zod.boolean(),
   "eventJournalReady": zod.boolean().nullable()
 })),
@@ -120,10 +120,10 @@ export const GetDatabaseStorageStatusResponse = zod.object({
  * @summary Xem trạng thái chuyển database dự phòng
  */
 export const GetDatabaseFailoverStatusResponse = zod.object({
-  "activeBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4', 'switching']),
-  "coordinatorBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4', 'independent']),
+  "activeBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'switching']),
+  "coordinatorBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'independent']),
   "switchTargets": zod.array(zod.object({
-  "backend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4']),
+  "backend": zod.enum(['database_url_1', 'database_url', 'database_url_3']),
   "configured": zod.boolean(),
   "active": zod.boolean(),
   "canSwitch": zod.boolean(),
@@ -140,15 +140,15 @@ export const requestDatabaseFailoverBodyConfirmationMax = 80;
 
 
 export const RequestDatabaseFailoverBody = zod.object({
-  "fromBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4']),
-  "targetBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4']),
+  "fromBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3']),
+  "targetBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3']),
   "confirmation": zod.string().max(requestDatabaseFailoverBodyConfirmationMax),
   "force": zod.boolean().optional().describe('Chuyển cưỡng bức chỉ dùng khi ALLOW_FORCE_FAILOVER=1 và xác nhận có thể mất dữ liệu chưa đồng bộ.')
 })
 
 export const RequestDatabaseFailoverResponse = zod.object({
   "switched": zod.boolean(),
-  "activeBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4', 'switching']),
+  "activeBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'switching']),
   "message": zod.string()
 })
 
@@ -161,15 +161,15 @@ export const recoverDatabaseFailoverBodyConfirmationMax = 80;
 
 
 export const RecoverDatabaseFailoverBody = zod.object({
-  "fromBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4']),
-  "targetBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4']),
+  "fromBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3']),
+  "targetBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3']),
   "confirmation": zod.string().max(recoverDatabaseFailoverBodyConfirmationMax),
   "force": zod.boolean().optional().describe('Chuyển cưỡng bức chỉ dùng khi ALLOW_FORCE_FAILOVER=1 và xác nhận có thể mất dữ liệu chưa đồng bộ.')
 })
 
 export const RecoverDatabaseFailoverResponse = zod.object({
   "switched": zod.boolean(),
-  "activeBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'database_url_4', 'switching']),
+  "activeBackend": zod.enum(['database_url_1', 'database_url', 'database_url_3', 'switching']),
   "message": zod.string()
 })
 
