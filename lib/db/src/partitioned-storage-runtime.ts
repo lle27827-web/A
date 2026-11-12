@@ -43,7 +43,6 @@ const BACKEND_ORDER: readonly DatabaseBackend[] = [
   "database_url_1",
   "database_url",
   "database_url_3",
-  "database_url_4",
 ];
 const BASE_TABLES = new Set([
   "members",
@@ -160,7 +159,7 @@ export function isPartitionedStorageEnabled(): boolean {
 export type PartitionedStorageStatus = {
   enabled: boolean;
   strategy: "replication_failover" | "partitioned_by_domain";
-  coordinatorBackend: "database_url_4";
+  coordinatorBackend: "database_url_3";
   coordinatorReady: boolean | null;
   writeCursor: DatabaseBackend | null;
   nextRevision: string | null;
@@ -190,7 +189,7 @@ export async function getPartitionedStorageStatus(): Promise<PartitionedStorageS
   if (isPartitionedMode) {
     if (nodes.length !== BACKEND_ORDER.length ||
         BACKEND_ORDER.some((backend, index) => nodes[index]?.backend !== backend)) {
-      blockers.push("Cần cấu hình đủ bốn kho theo thứ tự DB1 → DB2 → DB3 → DB4.");
+      blockers.push("Cần cấu hình đủ ba kho theo thứ tự DB1 → DB2 → DB3.");
     } else {
       try {
         await verifyCoordinatorSchema();
@@ -204,8 +203,8 @@ export async function getPartitionedStorageStatus(): Promise<PartitionedStorageS
             return false;
           }
         }));
-        eventSchemasReady = journalStates.filter(Boolean).length >= 3;
-        const coordinator = nodesByBackend.get("database_url_4")!;
+        eventSchemasReady = journalStates.filter(Boolean).length >= 2;
+        const coordinator = nodesByBackend.get("database_url_3")!;
         const result = await coordinator.pool.query(
           `SELECT write_backend, next_revision::text
            FROM ${STATE_TABLE} WHERE id = 1`,
@@ -213,7 +212,7 @@ export async function getPartitionedStorageStatus(): Promise<PartitionedStorageS
         const row = result.rows[0];
         if (!row) {
           throw new PartitionStorageError(
-            "DB4 partition coordinator has not been initialized.",
+            "DB3 partition coordinator has not been initialized.",
             "partition_schema_missing",
           );
         }
@@ -244,20 +243,20 @@ export async function getPartitionedStorageStatus(): Promise<PartitionedStorageS
 
   if (isPartitionedMode) {
     blockers.push(
-      "Đọc cần ít nhất ba kho có nhật ký hoạt động; mỗi lần ghi mới phải có hai bản sao đã xác nhận.",
+      "Đọc cần ít nhất hai kho có nhật ký hoạt động; mỗi lần ghi mới phải có hai bản sao đã xác nhận.",
     );
-    if (!configuredBackends.has("database_url_4")) {
-      blockers.push("DB4 là bộ điều phối; nếu không truy cập được, ghi mới sẽ bị chặn.");
+    if (!configuredBackends.has("database_url_3")) {
+      blockers.push("DB3 là bộ điều phối; nếu không truy cập được, ghi mới sẽ bị chặn.");
     }
     if (eventSchemasReady === false) {
-      blockers.push("Cần có schema nhật ký trên ít nhất ba kho để đọc đủ dữ liệu khi một kho lỗi.");
+      blockers.push("Cần có schema nhật ký trên ít nhất hai kho để đọc đủ dữ liệu khi một kho lỗi.");
     }
   }
 
   return {
     enabled: isPartitionedMode,
     strategy: isPartitionedMode ? "partitioned_by_domain" : "replication_failover",
-    coordinatorBackend: "database_url_4",
+    coordinatorBackend: "database_url_3",
     coordinatorReady,
     writeCursor,
     nextRevision,
@@ -310,11 +309,11 @@ export async function withPartitionWriteMutex<T>(
   }
   requireConfiguredNodes();
   await verifyCoordinatorSchema();
-  const coordinator = nodesByBackend.get("database_url_4")!;
+  const coordinator = nodesByBackend.get("database_url_3")!;
   const hostname = new URL(coordinator.url).hostname;
   if (/-pooler(?:\.|$)/i.test(hostname)) {
     throw new PartitionStorageError(
-      "DB4 must use a direct PostgreSQL connection for cross-store operation locks.",
+      "DB3 must use a direct PostgreSQL connection for cross-store operation locks.",
       "partition_not_configured",
     );
   }
@@ -348,13 +347,13 @@ function requireConfiguredNodes(): RuntimeNode[] {
     BACKEND_ORDER.some((backend, index) => nodes[index]?.backend !== backend)
   ) {
     throw new PartitionStorageError(
-      "Partitioned storage requires all four databases in DB1–DB4 order.",
+      "Partitioned storage requires all three databases in DB1–DB3 order.",
       "partition_not_configured",
     );
   }
-  if (!nodesByBackend.has("database_url_4")) {
+  if (!nodesByBackend.has("database_url_3")) {
     throw new PartitionStorageError(
-      "DB4 coordinator is not configured.",
+      "DB3 coordinator is not configured.",
       "partition_not_configured",
     );
   }
@@ -410,7 +409,7 @@ async function verifyCoordinatorSchema(): Promise<void> {
   if (coordinatorSchemaReadyUntil > now) return;
   requireConfiguredNodes();
   try {
-    const coordinator = nodesByBackend.get("database_url_4")!;
+    const coordinator = nodesByBackend.get("database_url_3")!;
     const coordinatorResult = await coordinator.pool.query(
       `SELECT
         to_regclass($1) AS state,
@@ -421,7 +420,7 @@ async function verifyCoordinatorSchema(): Promise<void> {
     const row = coordinatorResult.rows[0];
     if (!row?.state || !row?.operations || !row?.sequences) {
       throw new PartitionStorageError(
-        "DB4 partition coordinator schema is incomplete.",
+        "DB3 partition coordinator schema is incomplete.",
         "partition_schema_missing",
       );
     }
@@ -514,7 +513,7 @@ export async function reservePartitionOperation(input: {
     }
   }
 
-  const coordinator = nodesByBackend.get("database_url_4")!;
+  const coordinator = nodesByBackend.get("database_url_3")!;
 
   const client = await coordinator.pool.connect();
   try {
@@ -550,7 +549,7 @@ export async function reservePartitionOperation(input: {
     const state = stateResult.rows[0];
     if (!state) {
       throw new PartitionStorageError(
-        "DB4 partition coordinator has not been initialized.",
+        "DB3 partition coordinator has not been initialized.",
         "partition_schema_missing",
       );
     }
@@ -637,7 +636,7 @@ export async function reservePartitionOperation(input: {
     await client.query("ROLLBACK").catch(() => undefined);
     if (error instanceof PartitionStorageError) throw error;
     throw new PartitionStorageError(
-      "DB4 could not safely reserve the partition operation.",
+      "DB3 could not safely reserve the partition operation.",
       "partition_coordinator_unavailable",
     );
   } finally {
@@ -657,7 +656,7 @@ export async function getReservedPartitionOperation(
   ) {
     throw new PartitionStorageError("Invalid partition operation request.", "partition_operation_conflict", 400);
   }
-  const coordinator = nodesByBackend.get("database_url_4")!;
+  const coordinator = nodesByBackend.get("database_url_3")!;
   const result = await coordinator.pool.query(
     `SELECT operation_id, request_hash, target_backend, revision::text,
       expected_event_count, result, state
@@ -718,7 +717,7 @@ async function persistDomainRoutePlan(
   if (!firstRoute) {
     throw new PartitionStorageError("The operation has no data-domain route.", "partition_operation_incomplete");
   }
-  const coordinator = nodesByBackend.get("database_url_4")!;
+  const coordinator = nodesByBackend.get("database_url_3")!;
   const replicaBackend = firstRoute.replica;
   const saved = await coordinator.pool.query(
     `UPDATE ${OPERATIONS_TABLE}
@@ -742,7 +741,7 @@ async function persistDomainRoutePlan(
   );
   if (saved.rowCount !== 1) {
     throw new PartitionStorageError(
-      "DB4 could not save the data-domain routing decision.",
+      "DB3 could not save the data-domain routing decision.",
       "partition_coordinator_unavailable",
     );
   }
@@ -876,7 +875,7 @@ async function reconcileDomainPartitionOperation(
   const actual = [...eventIds].sort();
   if (actual.length !== expected.length ||
       expected.some((eventId, index) => eventId !== actual[index])) return operation;
-  const coordinator = nodesByBackend.get("database_url_4")!;
+  const coordinator = nodesByBackend.get("database_url_3")!;
   const result = await coordinator.pool.query(
     `UPDATE ${OPERATIONS_TABLE}
      SET state = 'committed', error_code = NULL, updated_at = now()
@@ -897,7 +896,7 @@ export async function reconcilePartitionOperation(
   }
   const target = nodesByBackend.get(operation.targetBackend);
   const replica = nodesByBackend.get(operation.replicaBackend);
-  const coordinator = nodesByBackend.get("database_url_4");
+  const coordinator = nodesByBackend.get("database_url_3");
   if (!target || !replica || !coordinator) {
     throw new PartitionStorageError("Partition operation stores are unavailable.", "partition_not_configured");
   }
@@ -1080,7 +1079,7 @@ async function appendDomainPartitionOperation(
         if (rerouteError instanceof PartitionStorageError) error = rerouteError;
       }
     }
-    const coordinator = nodesByBackend.get("database_url_4")!;
+    const coordinator = nodesByBackend.get("database_url_3")!;
     await coordinator.pool.query(
       `UPDATE ${OPERATIONS_TABLE}
        SET state = 'needs_reconciliation', error_code = $2, updated_at = now()
@@ -1117,14 +1116,14 @@ async function appendDomainPartitionOperation(
         throw new Error(`Incomplete committed event copy on ${backend}.`);
       }
     }
-    const coordinator = nodesByBackend.get("database_url_4")!;
+    const coordinator = nodesByBackend.get("database_url_3")!;
     const committed = await coordinator.pool.query(
       `UPDATE ${OPERATIONS_TABLE}
        SET state = 'committed', error_code = NULL, updated_at = now()
        WHERE operation_id = $1 AND request_hash = $2`,
       [operation.operationId, operation.requestHash],
     );
-    if (committed.rowCount !== 1) throw new Error("DB4 did not confirm the operation.");
+    if (committed.rowCount !== 1) throw new Error("DB3 did not confirm the operation.");
     partitionReadCache.invalidate(mutations.map((mutation) => mutation.entityType));
   } catch {
     throw new PartitionStorageError(
@@ -1183,7 +1182,7 @@ export async function appendReservedPartitionOperation(
   }
   const target = nodesByBackend.get(operation.targetBackend);
   const replica = nodesByBackend.get(operation.replicaBackend);
-  const coordinator = nodesByBackend.get("database_url_4")!;
+  const coordinator = nodesByBackend.get("database_url_3")!;
   if (!target || !replica) {
     throw new PartitionStorageError("Reserved database is not configured.", "partition_not_configured");
   }
@@ -1206,12 +1205,12 @@ export async function appendReservedPartitionOperation(
         [operation.operationId, operation.requestHash],
       );
       if (committed.rowCount !== 1) {
-        throw new Error("DB4 operation journal did not confirm the commit.");
+        throw new Error("DB3 operation journal did not confirm the commit.");
       }
       partitionReadCache.invalidate(mutations.map((mutation) => mutation.entityType));
     } catch {
       throw new PartitionStorageError(
-        "The database write may be committed, but DB4 could not confirm it. Retry with the same operation ID.",
+        "The database write may be committed, but DB3 could not confirm it. Retry with the same operation ID.",
         "partition_operation_incomplete",
       );
     }
@@ -1455,12 +1454,11 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
   const baseQuery = `SELECT * FROM public."${tableName}"${
     baseConditions.length ? ` WHERE ${baseConditions.join(" AND ")}` : ""
   }`;
-  // Every committed event has two copies. Three readable stores cover any
-  // two-store copy pair while tolerating one store outage, so avoid querying
-  // DB4 on the healthy path.
+  // Every committed event has two copies. Two readable stores cover at least
+  // one copy of every pair across three stores while tolerating one outage.
   const eventReads = await readWithMinimumReplicaCount(
     nodes,
-    3,
+    2,
     (node) => node.pool.query(
       `SELECT event_id, operation_id, revision::text, entity_type, entity_key, action, payload
        FROM ${EVENT_TABLE}

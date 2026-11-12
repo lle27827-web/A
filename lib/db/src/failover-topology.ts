@@ -1,8 +1,7 @@
 export type DatabaseBackend =
   | "database_url_1"
   | "database_url"
-  | "database_url_3"
-  | "database_url_4";
+  | "database_url_3";
 
 export type PersistedDatabaseBackend = DatabaseBackend | "switching";
 export type FailoverCoordinatorBackend = DatabaseBackend | "independent";
@@ -45,12 +44,6 @@ const DATABASE_ENV = [
     adminUrlKey: "NEON_DB3_DIRECT_URL",
     applicationName: "so-cong-db-replica-3",
   },
-  {
-    backend: "database_url_4",
-    urlKey: "DATABASE_URL_4",
-    adminUrlKey: "NEON_DB4_DIRECT_URL",
-    applicationName: "so-cong-db-replica-4",
-  },
 ] as const;
 
 const REPLICATION_EDGES: readonly ReplicationEdge[] = [
@@ -67,12 +60,6 @@ const REPLICATION_EDGES: readonly ReplicationEdge[] = [
     subscriptionName: "socong_db3_from_source_v1",
   },
   {
-    publisher: "database_url_3",
-    subscriber: "database_url_4",
-    publicationName: "socong_db3_to_db4_v1",
-    subscriptionName: "socong_db4_from_db3_v1",
-  },
-  {
     publisher: "database_url",
     subscriber: "database_url_1",
     publicationName: "socong_db2_to_db1_v1",
@@ -83,12 +70,6 @@ const REPLICATION_EDGES: readonly ReplicationEdge[] = [
     subscriber: "database_url",
     publicationName: "socong_db3_to_db2_v1",
     subscriptionName: "socong_db2_from_db3_v1",
-  },
-  {
-    publisher: "database_url_4",
-    subscriber: "database_url_3",
-    publicationName: "socong_db4_to_db3_v1",
-    subscriptionName: "socong_db3_from_db4_v1",
   },
 ];
 
@@ -105,24 +86,18 @@ export function resolveDatabaseNodes(
     applicationName: entry.applicationName,
   }));
 
-  if (configured[3].url && !configured[2].url) {
-    throw new Error(
-      "DATABASE_URL_4 requires DATABASE_URL_3 so the replication chain has no gaps.",
-    );
-  }
-
   if (!configured[0].url) {
-    if (configured[2].url || configured[3].url) {
+    if (configured[2].url) {
       throw new Error(
-        "DATABASE_URL_3 and DATABASE_URL_4 require DATABASE_URL_1 and DATABASE_URL_2 to preserve the failover chain.",
+        "DATABASE_URL_3 requires DATABASE_URL_1 and DATABASE_URL_2 to preserve the three-store topology.",
       );
     }
     return configured[1].url ? [configured[1]] : [];
   }
 
-  if ((configured[2].url || configured[3].url) && !configured[1].url) {
+  if (configured[2].url && !configured[1].url) {
     throw new Error(
-      "DATABASE_URL_3 and DATABASE_URL_4 require DATABASE_URL_2 as the second link in the failover chain.",
+      "DATABASE_URL_3 requires DATABASE_URL_2 as the second link in the three-store topology.",
     );
   }
 
@@ -140,12 +115,12 @@ export function resolveFailoverCoordinatorBackend(
 ): DatabaseBackend {
   const backend =
     value?.trim() ||
-    (nodes.some((node) => node.backend === "database_url_4")
-      ? "database_url_4"
+    (nodes.some((node) => node.backend === "database_url_3")
+      ? "database_url_3"
       : "database_url");
-  if (backend !== "database_url" && backend !== "database_url_4") {
+  if (backend !== "database_url" && backend !== "database_url_3") {
     throw new Error(
-      "DATABASE_FAILOVER_COORDINATOR_BACKEND must be database_url or database_url_4.",
+      "DATABASE_FAILOVER_COORDINATOR_BACKEND must be database_url or database_url_3.",
     );
   }
   if (!nodes.some((node) => node.backend === backend)) {
@@ -223,7 +198,6 @@ export function isPersistedDatabaseBackend(
     backend === "database_url_1" ||
     backend === "database_url" ||
     backend === "database_url_3" ||
-    backend === "database_url_4" ||
     backend === "switching"
   );
 }
