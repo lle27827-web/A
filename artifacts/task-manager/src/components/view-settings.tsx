@@ -163,7 +163,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
               <button type="button" className="settings-link platform-billing-entry" aria-expanded={billingAdminOpen}
                 aria-controls="settings-platform-billing"
                 onClick={() => setBillingAdminOpen((value) => !value)} data-testid="button-open-platform-billing">
-                <KeyRound size={15} aria-hidden="true" /><span className="grow"><strong>Thanh toán và quyền nền tảng</strong><span className="muted">Chính sách phí, tài khoản và yêu cầu thanh toán</span></span><ChevronRight size={16} aria-hidden="true" />
+                <KeyRound size={15} aria-hidden="true" /><span className="grow"><strong>Quản lý tài khoản người dùng</strong><span className="muted">Danh sách tài khoản ứng dụng, quyền và thanh toán</span></span><ChevronRight size={16} aria-hidden="true" />
               </button>
               <div id="settings-platform-billing" hidden={!billingAdminOpen}>
                 {billingAdminOpen && <PlatformBillingAdmin />}

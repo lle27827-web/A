@@ -301,8 +301,11 @@ export function PlatformBillingAdmin() {
       </div>
     </section>
     <section className="billing-admin-section">
-      <div className="billing-section-heading"><div><span>03</span><h4>Tài khoản và quyền</h4></div>
+      <div className="billing-section-heading"><div><span>03</span><h4>Quản lý tài khoản người dùng</h4></div>
         <span className="billing-total-count" data-testid="text-billing-account-count">{accounts?.totalCount ?? 0} tài khoản</span></div>
+      <p className="billing-policy-note" data-testid="text-all-app-accounts">
+        Danh sách lấy từ toàn bộ tài khoản ứng dụng; dùng phân trang để xem hết khi có nhiều tài khoản.
+      </p>
       <form className="billing-search" onSubmit={applySearch} role="search">
         <Search size={16} aria-hidden="true" /><label className="sr-only" htmlFor="billing-account-search">Tìm tài khoản</label>
         <input id="billing-account-search" value={searchInput} maxLength={120} onChange={(event) => setSearchInput(event.target.value)}

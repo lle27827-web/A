@@ -362,8 +362,8 @@ export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus
           <button type="button" className="settings-link platform-billing-entry" aria-expanded={billingAdminOpen}
             aria-controls="personal-platform-billing" onClick={() => setBillingAdminOpen((value) => !value)}
             data-testid="button-open-personal-platform-billing">
-            <strong>Quản lý tài khoản và phí</strong>
-            <span>{billingAdminOpen ? 'Ẩn bảng quản trị' : 'Mở bảng quản trị nền tảng'}</span>
+            <strong>Quản lý tài khoản người dùng</strong>
+            <span>{billingAdminOpen ? 'Ẩn danh sách tài khoản và quyền' : 'Xem đầy đủ tài khoản ứng dụng và quyền'}</span>
           </button>
           {billingAdminOpen && <div id="personal-platform-billing"><PlatformBillingAdmin /></div>}
         </>}
