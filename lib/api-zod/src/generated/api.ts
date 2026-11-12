@@ -2291,7 +2291,8 @@ export const ListPlatformBillingAccountsResponse = zod.object({
 })),
   "totalCount": zod.int(),
   "limit": zod.int(),
-  "offset": zod.int()
+  "offset": zod.int(),
+  "registryAvailable": zod.boolean().describe('Cho biết kho gói và quyền có truy cập được hay không; danh sách Clerk vẫn được trả về nếu kho này tạm gián đoạn.')
 })
 
 

@@ -214,10 +214,13 @@ router.get("/platform/billing/accounts", requirePlatformAdmin, async (req, res):
   const offset = parseOffset(req.query.offset);
   try {
     const result = await listPlatformBillingAccounts({ query, limit, offset });
+    if (!result.registryAvailable) {
+      req.log?.warn("Billing registry is unavailable; returning Clerk account directory without entitlement details");
+    }
     res.json(ListPlatformBillingAccountsResponse.parse(result));
   } catch (error) {
     req.log?.error({ err: error }, "Unable to list platform billing accounts");
-    sendBillingError(res, error, "Chưa thể tải danh sách tài khoản.");
+    sendBillingError(res, error, "Không thể tải danh sách tài khoản từ hệ thống đăng nhập. Kiểm tra kết nối Clerk phía máy chủ rồi thử lại.");
   }
 });
 

@@ -1346,12 +1346,15 @@ components:
               access: { $ref: "#/components/schemas/SubscriptionAccess" }
     PlatformBillingAccountsPage:
       type: object
-      required: [items, totalCount, limit, offset]
+      required: [items, totalCount, limit, offset, registryAvailable]
       properties:
         items: { type: array, items: { $ref: "#/components/schemas/PlatformBillingAccount" } }
         totalCount: { type: integer }
         limit: { type: integer }
         offset: { type: integer }
+        registryAvailable:
+          type: boolean
+          description: Cho biết kho gói và quyền có truy cập được hay không; danh sách Clerk vẫn được trả về nếu kho này tạm gián đoạn.
     PlatformRenewalRequest:
       type: object
       required: [product, months]

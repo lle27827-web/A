@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { AuthStatus, FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
-import { ArrowLeft, BookHeart, Building2, ChevronDown, ChevronRight, CreditCard, History, Home, KeyRound, Menu, Printer, Trash2, X } from 'lucide-react';
+import { ArrowLeft, BookHeart, Building2, ChevronDown, ChevronRight, CreditCard, History, Home, Keyboard, KeyRound, Menu, Printer, Trash2, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
@@ -91,14 +91,15 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   const [, navigate] = useLocation();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [deleteHistoryOpen, setDeleteHistoryOpen] = useState(false);
-  const [businessAccessOpen, setBusinessAccessOpen] = useState(false);
-  const [accountManagerOpen, setAccountManagerOpen] = useState(false);
-  const [billingSettingsOpen, setBillingSettingsOpen] = useState(false);
+  const [activePanel, setActivePanel] = useState<'business' | 'accounts' | 'billing' | 'shortcuts' | 'printing' | null>(null);
   const [payrollPrintOpen, setPayrollPrintOpen] = useState(false);
   const printPrefs = printPreferences ?? DEFAULT_PRINT_PREFERENCES;
 
   useEffect(() => {
-    if (!open) setPayrollPrintOpen(false);
+    if (!open) {
+      setPayrollPrintOpen(false);
+      setActivePanel(null);
+    }
   }, [open]);
 
   function pickHistory(month: string, date: string) {
@@ -118,37 +119,39 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
         <DialogPrimitive.Overlay className="settings-overlay" />
         <DialogPrimitive.Content className="settings-dialog" data-testid="dialog-view-settings">
           <div className="dialog-head">
-            <DialogPrimitive.Title asChild><h2>Cài đặt</h2></DialogPrimitive.Title>
+            <DialogPrimitive.Title asChild><h2>{activePanel ? ({
+              business: 'Doanh nghiệp và mã tham gia',
+              accounts: 'Quản lý tài khoản người dùng',
+              billing: 'Phí và thanh toán',
+              shortcuts: 'Phím tắt',
+              printing: 'In phiếu và thẻ',
+            } as const)[activePanel] : 'Cài đặt'}</h2></DialogPrimitive.Title>
             <DialogPrimitive.Close asChild><button type="button" className="icon-btn" aria-label="Đóng cài đặt"><X size={18} /></button></DialogPrimitive.Close>
           </div>
           <>
           <DialogPrimitive.Description className="sub">
-            {isOwner ? 'Lịch sử, cấp quyền quản lý và sổ cá nhân.' : canManageGrants ? 'Lịch sử tháng, quyền quản lý trong phạm vi được cấp và sổ cá nhân.' : 'Lịch sử tháng và sổ cá nhân.'}
+            {activePanel === 'accounts' ? 'Danh sách tài khoản và chi tiết dịch vụ, thời hạn, quyền truy cập.'
+              : activePanel === 'billing' ? 'Cấu hình phí, mã QR và xác nhận giao dịch.'
+                : activePanel === 'business' ? 'Quản lý cơ sở đang tham gia và mã kết nối.'
+                  : activePanel === 'shortcuts' ? 'Gán phím tắt riêng cho thiết bị này.'
+                    : activePanel === 'printing' ? 'Chọn mẫu, khổ giấy và tùy chọn in.'
+                      : isOwner ? 'Lịch sử, cấp quyền quản lý và sổ cá nhân.' : canManageGrants ? 'Lịch sử tháng, quyền quản lý trong phạm vi được cấp và sổ cá nhân.' : 'Lịch sử tháng và sổ cá nhân.'}
           </DialogPrimitive.Description>
 
+          {activePanel === null ? <>
           <Link href="/personal" className="settings-link personal-entry" onClick={() => onOpenChange(false)} data-testid="link-personal-notebook">
             <BookHeart size={17} aria-hidden="true" /><span className="grow"><strong>Chấm công cá nhân</strong><span className="muted">Sổ riêng của tài khoản bạn</span></span><ChevronRight size={16} aria-hidden="true" />
           </Link>
 
           {businessStatus && onBusinessSelected && onContinuePersonal && onRefreshStatus && (
-            <button type="button" className="settings-link" aria-expanded={businessAccessOpen} aria-controls="settings-business-access"
-              onClick={() => setBusinessAccessOpen((value) => !value)} data-testid="button-open-business-access">
+            <button type="button" className="settings-link"
+              onClick={() => setActivePanel('business')} data-testid="button-open-business-access">
               <Building2 size={15} aria-hidden="true" /><span className="grow"><strong>Doanh nghiệp và mã tham gia</strong><span className="muted">Tên doanh nghiệp, mã tham gia và chuyển cơ sở</span></span><ChevronRight size={16} aria-hidden="true" />
             </button>
           )}
-          {businessStatus && onBusinessSelected && onContinuePersonal && onRefreshStatus && (
-            <div id="settings-business-access" hidden={!businessAccessOpen}>
-              {businessAccessOpen && (
-              <BusinessAccessSettings status={businessStatus} onBusinessSelected={onBusinessSelected}
-                onContinuePersonal={() => { onOpenChange(false); onContinuePersonal(); }}
-                onRefreshStatus={onRefreshStatus} onCloseSettings={() => onOpenChange(false)}
-                onRoleSelected={onRoleSelected} />
-              )}
-            </div>
-          )}
 
           {canHistory && (
-            <button type="button" className="settings-link" onClick={() => setHistoryOpen(true)} data-testid="button-open-history-months">
+            <button type="button" className="settings-link" onClick={() => { onOpenChange(false); setHistoryOpen(true); }} data-testid="button-open-history-months">
               <History size={15} aria-hidden="true" /><span className="grow"><strong>Xem lịch sử tháng</strong><span className="muted">{permissions.viewRevenue ? 'Doanh thu và dữ liệu cơ sở theo tháng' : 'Nhân viên theo tháng'}</span></span><ChevronRight size={16} aria-hidden="true" />
             </button>
           )}
@@ -161,22 +164,14 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
 
           {isPlatformAdmin && (
             <>
-              <button type="button" className="settings-link platform-billing-entry" aria-expanded={accountManagerOpen}
-                aria-controls="settings-platform-accounts"
-                onClick={() => setAccountManagerOpen((value) => !value)} data-testid="button-open-platform-accounts">
+              <button type="button" className="settings-link platform-billing-entry"
+                onClick={() => setActivePanel('accounts')} data-testid="button-open-platform-accounts">
                 <KeyRound size={15} aria-hidden="true" /><span className="grow"><strong>Quản lý tài khoản người dùng</strong><span className="muted">Xem từng tài khoản, thời hạn dùng thử, gói và quyền</span></span><ChevronRight size={16} aria-hidden="true" />
               </button>
-              <div id="settings-platform-accounts" hidden={!accountManagerOpen}>
-                {accountManagerOpen && <PlatformBillingAdmin view="accounts" />}
-              </div>
-              <button type="button" className="settings-link platform-billing-entry" aria-expanded={billingSettingsOpen}
-                aria-controls="settings-platform-billing"
-                onClick={() => setBillingSettingsOpen((value) => !value)} data-testid="button-open-platform-billing">
+              <button type="button" className="settings-link platform-billing-entry"
+                onClick={() => setActivePanel('billing')} data-testid="button-open-platform-billing">
                 <CreditCard size={15} aria-hidden="true" /><span className="grow"><strong>Phí và thanh toán</strong><span className="muted">Bật phí riêng, mã QR và duyệt yêu cầu thanh toán</span></span><ChevronRight size={16} aria-hidden="true" />
               </button>
-              <div id="settings-platform-billing" hidden={!billingSettingsOpen}>
-                {billingSettingsOpen && <PlatformBillingAdmin view="billing" />}
-              </div>
             </>
           )}
 
@@ -186,9 +181,34 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
             </button>
           )}
 
-          {shortcutActions && <KeyboardShortcutsSettings actions={shortcutActions} storageScope={shortcutStorageScope} />}
+          {shortcutActions && <button type="button" className="settings-link" onClick={() => setActivePanel('shortcuts')} data-testid="button-open-keyboard-shortcuts">
+            <Keyboard size={15} aria-hidden="true" /><span className="grow"><strong>Phím tắt</strong><span className="muted">Gán thao tác cho bàn phím trên thiết bị</span></span><ChevronRight size={16} aria-hidden="true" />
+          </button>}
 
           {onPrintPreferencesChange && (
+            <button type="button" className="settings-link" onClick={() => setActivePanel('printing')} data-testid="button-open-print-settings">
+              <Printer size={15} aria-hidden="true" /><span className="grow"><strong>In phiếu và thẻ</strong><span className="muted">Tùy chỉnh mẫu, khổ giấy và tự động in</span></span><ChevronRight size={16} aria-hidden="true" />
+            </button>
+          )}
+
+          <nav className="window-nav bottom" aria-label="Điều hướng cửa sổ">
+            <Link href={homeHref} onClick={() => onOpenChange(false)} className="btn ghost nav-home-action" data-testid="link-settings-home"><Home size={14} aria-hidden="true" />Trang chính</Link>
+            <button type="button" className="btn ghost nav-return-action" onClick={() => onOpenChange(false)} data-testid="button-settings-back"><ArrowLeft size={14} aria-hidden="true" />Trở về</button>
+          </nav>
+          </> : <section className="settings-panel-view" data-testid={`settings-panel-${activePanel}`}>
+            <button type="button" className="settings-link settings-panel-back" onClick={() => setActivePanel(null)} data-testid="button-settings-panel-back">
+              <ArrowLeft size={15} aria-hidden="true" /><span>Quay lại Cài đặt</span>
+            </button>
+            {activePanel === 'business' && businessStatus && onBusinessSelected && onContinuePersonal && onRefreshStatus && (
+              <BusinessAccessSettings status={businessStatus} onBusinessSelected={onBusinessSelected}
+                onContinuePersonal={() => { onOpenChange(false); onContinuePersonal(); }}
+                onRefreshStatus={onRefreshStatus} onCloseSettings={() => onOpenChange(false)}
+                onRoleSelected={onRoleSelected} />
+            )}
+            {activePanel === 'accounts' && isPlatformAdmin && <PlatformBillingAdmin view="accounts" />}
+            {activePanel === 'billing' && isPlatformAdmin && <PlatformBillingAdmin view="billing" />}
+            {activePanel === 'shortcuts' && shortcutActions && <KeyboardShortcutsSettings actions={shortcutActions} storageScope={shortcutStorageScope} expanded />}
+            {activePanel === 'printing' && onPrintPreferencesChange && (
             <section className="print-settings" aria-labelledby="print-settings-title">
               <h3 id="print-settings-title"><Printer size={16} aria-hidden="true" />In phiếu và thẻ</h3>
               {printProfileError && (
@@ -305,12 +325,8 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
                 </details>
               )}
             </section>
-          )}
-
-          <nav className="window-nav bottom" aria-label="Điều hướng cửa sổ">
-            <Link href={homeHref} onClick={() => onOpenChange(false)} className="btn ghost nav-home-action" data-testid="link-settings-home"><Home size={14} aria-hidden="true" />Trang chính</Link>
-            <button type="button" className="btn ghost nav-return-action" onClick={() => onOpenChange(false)} data-testid="button-settings-back"><ArrowLeft size={14} aria-hidden="true" />Trở về</button>
-          </nav>
+            )}
+          </section>}
           </>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

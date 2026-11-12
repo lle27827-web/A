@@ -14,9 +14,10 @@ import {
   type KeyboardShortcutBindings,
 } from '@/lib/keyboard-shortcuts';
 
-export function KeyboardShortcutsSettings({ actions, storageScope = 'device' }: {
+export function KeyboardShortcutsSettings({ actions, storageScope = 'device', expanded = false }: {
   actions: KeyboardShortcutAction[];
   storageScope?: string;
+  expanded?: boolean;
 }) {
   const [bindings, setBindings] = useState<KeyboardShortcutBindings>(() => readDeviceShortcutBindings(storageScope));
   const [screenActions, setScreenActions] = useState<KeyboardShortcutAction[]>([]);
@@ -171,7 +172,7 @@ export function KeyboardShortcutsSettings({ actions, storageScope = 'device' }: 
   }
 
   return (
-    <details className="keyboard-shortcuts-settings" aria-labelledby="keyboard-shortcuts-title" data-testid="section-keyboard-shortcuts">
+    <details className="keyboard-shortcuts-settings" open={expanded || undefined} aria-labelledby="keyboard-shortcuts-title" data-testid="section-keyboard-shortcuts">
       <summary className="keyboard-shortcuts-summary">
         <span className="keyboard-shortcuts-summary-title" id="keyboard-shortcuts-title">
           <Keyboard size={16} aria-hidden="true" />Phím tắt

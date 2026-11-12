@@ -226,6 +226,8 @@ export interface PlatformBillingAccountsPage {
   totalCount: number;
   limit: number;
   offset: number;
+  /** Cho biết kho gói và quyền có truy cập được hay không; danh sách Clerk vẫn được trả về nếu kho này tạm gián đoạn. */
+  registryAvailable: boolean;
 }
 
 export type PlatformRenewalRequestProduct = typeof PlatformRenewalRequestProduct[keyof typeof PlatformRenewalRequestProduct];

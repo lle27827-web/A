@@ -7,7 +7,7 @@ import {
 } from '@workspace/api-client-react';
 import type { AuthStatus, PersonalService, PersonalSession } from '@workspace/api-client-react';
 import { serviceAttendanceLabel, summarizeServiceAttendance } from '@/lib/service-duration-summary';
-import { AlertCircle, ArrowLeft, BookHeart, CalendarDays, Check, ChevronLeft, ChevronRight, CreditCard, Home, KeyRound, LogIn, Menu, Plus, Scale, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, BookHeart, Building2, CalendarDays, Check, ChevronLeft, ChevronRight, CreditCard, Home, Keyboard, KeyRound, LogIn, Menu, Plus, Scale, X } from 'lucide-react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
 import { DatePickerDialog } from '@/components/date-picker-dialog';
@@ -110,8 +110,7 @@ export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus
   const [error, setError] = useState('');
   const [pendingHistorySpeech, setPendingHistorySpeech] = useState<PersonalSession | null>(null);
   const [shortcutSettingsOpen, setShortcutSettingsOpen] = useState(false);
-  const [accountManagerOpen, setAccountManagerOpen] = useState(false);
-  const [billingSettingsOpen, setBillingSettingsOpen] = useState(false);
+  const [personalSettingsPanel, setPersonalSettingsPanel] = useState<'business' | 'accounts' | 'billing' | 'shortcuts' | null>(null);
 
   const createService = useCreatePersonalService();
   const updateService = useUpdatePersonalService();
@@ -357,34 +356,52 @@ export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus
       {dlg?.kind === 'compare' && <ComparisonDialog month={month} date={date} canCompare={canCompareFacilityEmployees} onClose={() => setDlg(null)} onUpdated={refresh} />}
       {dlg?.kind === 'date' && <DatePickerDialog value={date} title="Chọn ngày" immediate onClose={() => setDlg(null)} onSelect={(d) => { setDlg(null); goPeriod(monthOf(d), d); }} />}
       {confirm && <ConfirmDialog state={confirm} busy={deleteService.isPending || deleteShift.isPending} onClose={() => setConfirm(null)} />}
-      {shortcutSettingsOpen && <Modal title="Cài đặt" description="Chọn vai trò, cơ sở và phím tắt cho thiết bị này."
-        onClose={() => setShortcutSettingsOpen(false)} testId="dialog-personal-settings">
-        {businessStatus.isPlatformAdmin && <>
-          <button type="button" className="settings-link platform-billing-entry" aria-expanded={accountManagerOpen}
-            aria-controls="personal-platform-accounts" onClick={() => setAccountManagerOpen((value) => !value)}
-            data-testid="button-open-personal-platform-accounts">
-            <KeyRound size={16} aria-hidden="true" />
-            <span><strong>Quản lý tài khoản người dùng</strong>
-              <span>{accountManagerOpen ? 'Ẩn danh sách tài khoản' : 'Xem thời hạn dùng thử, gói và quyền'}</span></span>
-            <ChevronRight size={16} aria-hidden="true" />
+      {shortcutSettingsOpen && <Modal
+        title={personalSettingsPanel ? ({
+          business: 'Doanh nghiệp và mã tham gia',
+          accounts: 'Quản lý tài khoản người dùng',
+          billing: 'Phí và thanh toán',
+          shortcuts: 'Phím tắt',
+        } as const)[personalSettingsPanel] : 'Cài đặt'}
+        description={personalSettingsPanel
+          ? 'Thiết lập riêng cho mục đã chọn.'
+          : 'Chọn một mục để mở màn hình cài đặt riêng.'}
+        onClose={() => { setShortcutSettingsOpen(false); setPersonalSettingsPanel(null); }}
+        testId="dialog-personal-settings">
+        {personalSettingsPanel ? <>
+          <button type="button" className="settings-link settings-panel-back" onClick={() => setPersonalSettingsPanel(null)} data-testid="button-personal-settings-back">
+            <ArrowLeft size={15} aria-hidden="true" /><span>Quay lại Cài đặt</span>
           </button>
-          {accountManagerOpen && <div id="personal-platform-accounts"><PlatformBillingAdmin view="accounts" /></div>}
-          <button type="button" className="settings-link platform-billing-entry" aria-expanded={billingSettingsOpen}
-            aria-controls="personal-platform-billing" onClick={() => setBillingSettingsOpen((value) => !value)}
-            data-testid="button-open-personal-platform-billing">
-            <CreditCard size={16} aria-hidden="true" />
-            <span><strong>Phí và thanh toán</strong>
-              <span>{billingSettingsOpen ? 'Ẩn cài đặt phí và mã QR' : 'Bật phí và duyệt thanh toán'}</span></span>
-            <ChevronRight size={16} aria-hidden="true" />
+          {personalSettingsPanel === 'business' && <BusinessAccessSettings status={businessStatus} onBusinessSelected={onBusinessSelected}
+            onContinuePersonal={() => { setShortcutSettingsOpen(false); setPersonalSettingsPanel(null); onContinuePersonal(); }}
+            onRefreshStatus={onRefreshStatus}
+            onCloseSettings={() => { setShortcutSettingsOpen(false); setPersonalSettingsPanel(null); }}
+            onRoleSelected={onRoleSelected} />}
+          {personalSettingsPanel === 'accounts' && businessStatus.isPlatformAdmin && <PlatformBillingAdmin view="accounts" />}
+          {personalSettingsPanel === 'billing' && businessStatus.isPlatformAdmin && <PlatformBillingAdmin view="billing" />}
+          {personalSettingsPanel === 'shortcuts' && <KeyboardShortcutsSettings actions={shortcutActions} expanded />}
+        </> : <>
+          {businessStatus.isPlatformAdmin && <>
+            <button type="button" className="settings-link platform-billing-entry" onClick={() => setPersonalSettingsPanel('accounts')}
+              data-testid="button-open-personal-platform-accounts">
+              <KeyRound size={16} aria-hidden="true" />
+              <span><strong>Quản lý tài khoản người dùng</strong><span>Xem thời hạn dùng thử, gói và quyền</span></span>
+              <ChevronRight size={16} aria-hidden="true" />
+            </button>
+            <button type="button" className="settings-link platform-billing-entry" onClick={() => setPersonalSettingsPanel('billing')}
+              data-testid="button-open-personal-platform-billing">
+              <CreditCard size={16} aria-hidden="true" />
+              <span><strong>Phí và thanh toán</strong><span>Bật phí và duyệt thanh toán</span></span>
+              <ChevronRight size={16} aria-hidden="true" />
+            </button>
+          </>}
+          <button type="button" className="settings-link" onClick={() => setPersonalSettingsPanel('business')} data-testid="button-personal-settings-business">
+            <Building2 size={16} aria-hidden="true" /><span><strong>Doanh nghiệp và mã tham gia</strong><span>Quản lý cơ sở và mã kết nối</span></span><ChevronRight size={16} aria-hidden="true" />
           </button>
-          {billingSettingsOpen && <div id="personal-platform-billing"><PlatformBillingAdmin view="billing" /></div>}
+          <button type="button" className="settings-link" onClick={() => setPersonalSettingsPanel('shortcuts')} data-testid="button-personal-settings-shortcuts">
+            <Keyboard size={16} aria-hidden="true" /><span><strong>Phím tắt</strong><span>Gán thao tác cho bàn phím trên thiết bị</span></span><ChevronRight size={16} aria-hidden="true" />
+          </button>
         </>}
-        <BusinessAccessSettings status={businessStatus} onBusinessSelected={onBusinessSelected}
-          onContinuePersonal={() => { setShortcutSettingsOpen(false); onContinuePersonal(); }}
-          onRefreshStatus={onRefreshStatus} onCloseSettings={() => setShortcutSettingsOpen(false)}
-          onRoleSelected={onRoleSelected} />
-        <h3 className="personal-settings-subheading">Phím tắt</h3>
-        <KeyboardShortcutsSettings actions={shortcutActions} />
       </Modal>}
     </PersonalFrame>
   );

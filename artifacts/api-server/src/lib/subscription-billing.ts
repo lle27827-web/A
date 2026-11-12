@@ -704,39 +704,61 @@ export async function listPlatformBillingAccounts(input: {
     ...(input.query ? { query: input.query } : {}),
   });
   const userIds = page.data.map((user) => user.id);
-  const directory = await withBusinessRegistryClient(async (client) => {
-    const settings = await getSettings(client);
-    if (!userIds.length) return { personal: new Map<string, AccessRow>(), businesses: [] as Array<{
+  const unavailableSettings: BillingSettingsRow = {
+    business_billing_enabled: false,
+    personal_billing_enabled: false,
+    qr_available: false,
+  };
+  let registryAvailable = true;
+  let directory: {
+    personal: Map<string, AccessRow>;
+    businesses: Array<{
       user_id: string; id: string; name: string; role: "owner" | "employee";
       trial_started_at: Date | string | null; trial_ends_at: Date | string | null;
       paid_until: Date | string | null; manual_access: boolean | null;
-    }>, settings };
-    const [personalRows, businessRows] = await Promise.all([
-      client.query<PersonalAccessDbRow>(
-        `SELECT user_id, trial_started_at, trial_ends_at, paid_until, manual_access
-         FROM public.personal_subscriptions WHERE user_id = ANY($1::text[])`,
-        [userIds],
-      ),
-      client.query<{
-        user_id: string; id: string; name: string; role: "owner" | "employee";
-        trial_started_at: Date | string | null; trial_ends_at: Date | string | null;
-        paid_until: Date | string | null; manual_access: boolean | null;
-      }>(`
-        SELECT m.user_id, b.id, b.name, m.role,
-          s.trial_started_at, s.trial_ends_at, s.paid_until, s.manual_access
-        FROM public.business_memberships m
-        JOIN public.businesses b ON b.id = m.business_id
-        LEFT JOIN public.business_subscriptions s ON s.business_id = b.id
-        WHERE m.user_id = ANY($1::text[]) AND m.active = true
-        ORDER BY b.name, m.role
-      `, [userIds]),
-    ]);
-    return {
-      personal: new Map(personalRows.rows.map((row) => [row.user_id, row])),
-      businesses: businessRows.rows,
-      settings,
+    }>;
+    settings: BillingSettingsRow;
+  };
+  try {
+    directory = await withBusinessRegistryClient(async (client) => {
+      const settings = await getSettings(client);
+      if (!userIds.length) return { personal: new Map<string, AccessRow>(), businesses: [], settings };
+      const [personalRows, businessRows] = await Promise.all([
+        client.query<PersonalAccessDbRow>(
+          `SELECT user_id, trial_started_at, trial_ends_at, paid_until, manual_access
+           FROM public.personal_subscriptions WHERE user_id = ANY($1::text[])`,
+          [userIds],
+        ),
+        client.query<{
+          user_id: string; id: string; name: string; role: "owner" | "employee";
+          trial_started_at: Date | string | null; trial_ends_at: Date | string | null;
+          paid_until: Date | string | null; manual_access: boolean | null;
+        }>(`
+          SELECT m.user_id, b.id, b.name, m.role,
+            s.trial_started_at, s.trial_ends_at, s.paid_until, s.manual_access
+          FROM public.business_memberships m
+          JOIN public.businesses b ON b.id = m.business_id
+          LEFT JOIN public.business_subscriptions s ON s.business_id = b.id
+          WHERE m.user_id = ANY($1::text[]) AND m.active = true
+          ORDER BY b.name, m.role
+        `, [userIds]),
+      ]);
+      return {
+        personal: new Map(personalRows.rows.map((row) => [row.user_id, row])),
+        businesses: businessRows.rows,
+        settings,
+      };
+    });
+  } catch {
+    // Keep the Clerk account directory visible during a billing-registry outage.
+    // The UI marks entitlement details unavailable and disables access controls.
+    registryAvailable = false;
+    directory = {
+      personal: new Map<string, AccessRow>(),
+      businesses: [],
+      settings: unavailableSettings,
     };
-  });
+  }
   const byUser = new Map<string, AdminAccount>();
   for (const user of page.data) {
     const email = user.primaryEmailAddress?.emailAddress?.trim().toLowerCase() || null;
@@ -766,5 +788,6 @@ export async function listPlatformBillingAccounts(input: {
     totalCount: page.totalCount,
     limit: input.limit,
     offset: input.offset,
+    registryAvailable,
   };
 }

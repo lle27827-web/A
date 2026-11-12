@@ -20,7 +20,6 @@ import {
 import type { PlatformBillingAccount, SubscriptionAccess, SubscriptionPaymentRequest } from '@workspace/api-client-react';
 import { AlertCircle, Building2, Check, ChevronLeft, ChevronRight, Clock3, CreditCard, Search, ShieldCheck, Upload, UserRound } from 'lucide-react';
 import { errorText } from '@/lib/massage';
-import { Modal } from '@/components/modal';
 
 const PAGE_SIZE = 10;
 const money = (value: number) => `${new Intl.NumberFormat('vi-VN').format(value)} ₫`;
@@ -123,52 +122,66 @@ function AccessDetails({ id, title, access, busy, onChange, onRenew }: {
   </section>;
 }
 
-function AccountRow({ account, busy, isOpen, onOpenChange, updatePersonal, updateBusiness, renew }: {
+function AccountRow({ account, onSelect, registryAvailable }: {
   account: PlatformBillingAccount;
-  busy: boolean;
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  updatePersonal: (userId: string, allowed: boolean) => void;
-  updateBusiness: (businessId: string, allowed: boolean) => void;
-  renew: (product: 'personal' | 'business', months: 1 | 6 | 12, userId?: string, businessId?: string) => void;
+  registryAvailable: boolean;
+  onSelect: () => void;
 }) {
-  const dialogTitle = account.name || account.email || 'Tài khoản ứng dụng';
-  return <>
-    <article className="billing-account" data-testid={`card-billing-account-${account.userId}`}>
-      <button type="button" className="billing-account-head-button" aria-haspopup="dialog"
-        aria-label={`Xem chi tiết tài khoản ${dialogTitle}`}
-        onClick={() => onOpenChange(!isOpen)} data-testid={`button-open-billing-account-${account.userId}`}>
+  const title = account.name || account.email || 'Tài khoản ứng dụng';
+  return <article className="billing-account" data-testid={`card-billing-account-${account.userId}`}>
+      <button type="button" className="billing-account-head-button"
+        aria-label={`Xem chi tiết tài khoản ${title}`}
+        onClick={onSelect} data-testid={`button-open-billing-account-${account.userId}`}>
         <span className="billing-avatar">{account.name.trim().charAt(0).toLocaleUpperCase('vi-VN') || 'T'}</span>
         <span className="billing-account-identity">
           <strong data-testid={`text-billing-account-name-${account.userId}`}>{account.name}</strong>
           <small data-testid={`text-billing-account-email-${account.userId}`}>{account.email || 'Chưa có email'} · Tạo ngày {dateValue(account.createdAt)}</small>
-          <small className="billing-account-summary">Sổ cá nhân: {accessLabel(account.personal)} · {account.businesses.length} cơ sở</small>
+          <small className="billing-account-summary">{registryAvailable
+            ? `Sổ cá nhân: ${accessLabel(account.personal)} · ${account.businesses.length} cơ sở`
+            : 'Thông tin gói tạm thời chưa truy cập được'}</small>
         </span>
         <span className="billing-account-id">Xem chi tiết</span>
-        <ChevronRight size={16} className={isOpen ? 'billing-account-chevron open' : 'billing-account-chevron'} aria-hidden="true" />
+        <ChevronRight size={16} aria-hidden="true" />
       </button>
-    </article>
-    {isOpen && <Modal title={dialogTitle} description="Thông tin dịch vụ, thời hạn dùng thử và quyền truy cập của tài khoản này."
-      onClose={() => onOpenChange(false)} testId={`dialog-billing-account-${account.userId}`} className="billing-account-details-dialog">
-      <div className="billing-account-detail-meta">
-        <span>{account.email || 'Chưa có email'}</span>
-        <span>Tạo tài khoản: {dateValue(account.createdAt)}</span>
-        <span title={account.userId}>Mã tài khoản: {account.userId}</span>
-      </div>
-      <div className="billing-account-detail-list">
-        <AccessDetails id={`personal-${account.userId}`} title="Sổ cá nhân" access={account.personal} busy={busy}
-          onChange={(allowed) => updatePersonal(account.userId, allowed)}
-          onRenew={(months) => renew('personal', months, account.userId)} />
-        {account.businesses.length ? account.businesses.map((business) => <AccessDetails key={business.id}
-          id={`business-${business.id}`} title={`${business.name} · ${business.role === 'owner' ? 'Chủ doanh nghiệp' : 'Nhân viên'}`}
-          access={business.access} busy={busy} onChange={(allowed) => updateBusiness(business.id, allowed)}
-          onRenew={(months) => renew('business', months, undefined, business.id)} />)
-          : <div className="billing-empty compact" data-testid={`empty-account-businesses-${account.userId}`}>
-            <Building2 size={18} aria-hidden="true" /><strong>Chưa tham gia cơ sở nào</strong>
-          </div>}
-      </div>
-    </Modal>}
-  </>;
+    </article>;
+}
+
+function AccountDetailsPage({ account, busy, registryAvailable, onBack, updatePersonal, updateBusiness, renew }: {
+  account: PlatformBillingAccount;
+  busy: boolean;
+  registryAvailable: boolean;
+  onBack: () => void;
+  updatePersonal: (userId: string, allowed: boolean) => void;
+  updateBusiness: (businessId: string, allowed: boolean) => void;
+  renew: (product: 'personal' | 'business', months: 1 | 6 | 12, userId?: string, businessId?: string) => void;
+}) {
+  return <section className="billing-account-detail-page" data-testid={`page-billing-account-${account.userId}`}>
+    <button type="button" className="settings-link settings-panel-back" onClick={onBack} data-testid="button-billing-account-back">
+      <ChevronLeft size={15} aria-hidden="true" /><span>Quay lại danh sách tài khoản</span>
+    </button>
+    <header className="billing-account-detail-heading">
+      <span className="billing-avatar">{account.name.trim().charAt(0).toLocaleUpperCase('vi-VN') || 'T'}</span>
+      <div><h4>{account.name}</h4><p>{account.email || 'Chưa có email'}</p></div>
+    </header>
+    <div className="billing-account-detail-meta">
+      <span>Tạo tài khoản: {dateValue(account.createdAt)}</span>
+      <span title={account.userId}>Mã tài khoản: {account.userId}</span>
+    </div>
+    {registryAvailable ? <div className="billing-account-detail-list">
+      <AccessDetails id={`personal-${account.userId}`} title="Sổ cá nhân" access={account.personal} busy={busy}
+        onChange={(allowed) => updatePersonal(account.userId, allowed)}
+        onRenew={(months) => renew('personal', months, account.userId)} />
+      {account.businesses.length ? account.businesses.map((business) => <AccessDetails key={business.id}
+        id={`business-${business.id}`} title={`${business.name} · ${business.role === 'owner' ? 'Chủ doanh nghiệp' : 'Nhân viên'}`}
+        access={business.access} busy={busy} onChange={(allowed) => updateBusiness(business.id, allowed)}
+        onRenew={(months) => renew('business', months, undefined, business.id)} />)
+        : <div className="billing-empty compact" data-testid={`empty-account-businesses-${account.userId}`}>
+          <Building2 size={18} aria-hidden="true" /><strong>Chưa tham gia cơ sở nào</strong>
+        </div>}
+    </div> : <div className="billing-query-error" role="status" data-testid={`status-account-registry-unavailable-${account.userId}`}>
+      Tài khoản đăng nhập đã tải được, nhưng kho gói và quyền đang mất kết nối. Không thể chỉnh quyền cho đến khi kho này hoạt động lại.
+    </div>}
+  </section>;
 }
 
 function RenewActions({ prefix, disabled, onChoose }: {
@@ -315,6 +328,7 @@ export function PlatformBillingAdmin({ view }: { view: 'accounts' | 'billing' })
   </section>;
   const settings = settingsQuery.data;
   const accounts = accountsQuery.data;
+  const selectedAccount = accounts?.items.find((account) => account.userId === selectedAccountId);
   const requests = requestsQuery.data ?? [];
   return <section className="platform-billing-admin" aria-labelledby="platform-billing-title" data-testid="platform-billing-admin">
     <header className="billing-admin-heading">
@@ -368,6 +382,13 @@ export function PlatformBillingAdmin({ view }: { view: 'accounts' | 'billing' })
       <p className="billing-policy-note" data-testid="text-all-app-accounts">
         Danh sách gồm toàn bộ tài khoản đã đăng ký ứng dụng. Chọn một tài khoản để xem trạng thái gói và quản lý quyền.
       </p>
+      {accounts && !accounts.registryAvailable && <div className="billing-query-error" role="status" data-testid="status-account-registry-unavailable">
+        Danh sách tài khoản đã tải được từ hệ thống đăng nhập, nhưng kho gói/quyền chưa kết nối. Thông tin này sẽ tự hiện lại khi kho hoạt động.
+      </div>}
+      {selectedAccount ? <AccountDetailsPage account={selectedAccount} busy={busy}
+        registryAvailable={accounts?.registryAvailable === true}
+        onBack={() => setSelectedAccountId(null)}
+        updatePersonal={changePersonal} updateBusiness={changeBusiness} renew={renew} /> : <>
       <form className="billing-search" onSubmit={applySearch} role="search">
         <Search size={16} aria-hidden="true" /><label className="sr-only" htmlFor="billing-account-search">Tìm tài khoản</label>
         <input id="billing-account-search" value={searchInput} maxLength={120} onChange={(event) => setSearchInput(event.target.value)}
@@ -375,14 +396,13 @@ export function PlatformBillingAdmin({ view }: { view: 'accounts' | 'billing' })
         <button type="submit" className="btn small" data-testid="button-search-billing-accounts">Tìm</button>
       </form>
       {accountsQuery.isLoading ? <div className="billing-account-skeleton" data-testid="billing-accounts-loading"><span /><span /><span /></div> :
-        accountsQuery.isError ? <div className="billing-query-error" role="alert" data-testid="billing-accounts-error">Không tải được danh sách tài khoản.
+        accountsQuery.isError ? <div className="billing-query-error" role="alert" data-testid="billing-accounts-error">{errorText(accountsQuery.error, 'Không tải được danh sách tài khoản. Kiểm tra cấu hình Clerk và thử lại.')}
           <button type="button" onClick={() => void accountsQuery.refetch()} data-testid="button-retry-billing-accounts">Thử lại</button></div> :
           !accounts?.items.length ? <div className="billing-empty" data-testid="billing-accounts-empty">
             <UserRound size={20} aria-hidden="true" /><strong>Không tìm thấy tài khoản</strong><span>Thử từ khóa khác hoặc xóa bộ lọc tìm kiếm.</span>
           </div> : <div className="billing-account-list">
-          {accounts.items.map((account) => <AccountRow key={account.userId} account={account} busy={busy}
-              isOpen={selectedAccountId === account.userId} onOpenChange={(open) => setSelectedAccountId(open ? account.userId : null)}
-              updatePersonal={changePersonal} updateBusiness={changeBusiness} renew={renew} />)}
+          {accounts.items.map((account) => <AccountRow key={account.userId} account={account} registryAvailable={accounts.registryAvailable}
+            onSelect={() => setSelectedAccountId(account.userId)} />)}
           </div>}
       {accounts && accounts.totalCount > PAGE_SIZE && <nav className="billing-pagination" aria-label="Phân trang tài khoản">
         <span data-testid="text-billing-page">{offset + 1}–{Math.min(offset + PAGE_SIZE, accounts.totalCount)} / {accounts.totalCount}</span>
@@ -391,6 +411,7 @@ export function PlatformBillingAdmin({ view }: { view: 'accounts' | 'billing' })
         <button className="btn small" type="button" disabled={offset + PAGE_SIZE >= accounts.totalCount || accountsQuery.isFetching}
           onClick={() => setOffset(offset + PAGE_SIZE)} data-testid="button-billing-page-next">Tiếp<ChevronRight size={14} /></button>
       </nav>}
+      </>}
     </section>}
     {view === 'billing' && <section className="billing-admin-section">
       <div className="billing-section-heading"><div><span>04</span><h4>Yêu cầu thanh toán</h4></div>
