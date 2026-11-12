@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type { AuthStatus, FacilityPermissions, MemberRecord } from '@workspace/api-client-react';
-import { ArrowLeft, BookHeart, Building2, ChevronDown, ChevronRight, History, Home, KeyRound, Menu, Printer, Trash2, X } from 'lucide-react';
+import { ArrowLeft, BookHeart, Building2, ChevronDown, ChevronRight, CreditCard, History, Home, KeyRound, Menu, Printer, Trash2, X } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { HistoryMonthsDialog } from '@/components/history-months-dialog';
 import { HistoryDeleteDialog } from '@/components/history-delete-dialog';
@@ -92,7 +92,8 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   const [historyOpen, setHistoryOpen] = useState(false);
   const [deleteHistoryOpen, setDeleteHistoryOpen] = useState(false);
   const [businessAccessOpen, setBusinessAccessOpen] = useState(false);
-  const [billingAdminOpen, setBillingAdminOpen] = useState(false);
+  const [accountManagerOpen, setAccountManagerOpen] = useState(false);
+  const [billingSettingsOpen, setBillingSettingsOpen] = useState(false);
   const [payrollPrintOpen, setPayrollPrintOpen] = useState(false);
   const printPrefs = printPreferences ?? DEFAULT_PRINT_PREFERENCES;
 
@@ -160,13 +161,21 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
 
           {isPlatformAdmin && (
             <>
-              <button type="button" className="settings-link platform-billing-entry" aria-expanded={billingAdminOpen}
-                aria-controls="settings-platform-billing"
-                onClick={() => setBillingAdminOpen((value) => !value)} data-testid="button-open-platform-billing">
-                <KeyRound size={15} aria-hidden="true" /><span className="grow"><strong>Quản lý tài khoản người dùng</strong><span className="muted">Danh sách tài khoản ứng dụng, quyền và thanh toán</span></span><ChevronRight size={16} aria-hidden="true" />
+              <button type="button" className="settings-link platform-billing-entry" aria-expanded={accountManagerOpen}
+                aria-controls="settings-platform-accounts"
+                onClick={() => setAccountManagerOpen((value) => !value)} data-testid="button-open-platform-accounts">
+                <KeyRound size={15} aria-hidden="true" /><span className="grow"><strong>Quản lý tài khoản người dùng</strong><span className="muted">Xem từng tài khoản, thời hạn dùng thử, gói và quyền</span></span><ChevronRight size={16} aria-hidden="true" />
               </button>
-              <div id="settings-platform-billing" hidden={!billingAdminOpen}>
-                {billingAdminOpen && <PlatformBillingAdmin />}
+              <div id="settings-platform-accounts" hidden={!accountManagerOpen}>
+                {accountManagerOpen && <PlatformBillingAdmin view="accounts" />}
+              </div>
+              <button type="button" className="settings-link platform-billing-entry" aria-expanded={billingSettingsOpen}
+                aria-controls="settings-platform-billing"
+                onClick={() => setBillingSettingsOpen((value) => !value)} data-testid="button-open-platform-billing">
+                <CreditCard size={15} aria-hidden="true" /><span className="grow"><strong>Phí và thanh toán</strong><span className="muted">Bật phí riêng, mã QR và duyệt yêu cầu thanh toán</span></span><ChevronRight size={16} aria-hidden="true" />
+              </button>
+              <div id="settings-platform-billing" hidden={!billingSettingsOpen}>
+                {billingSettingsOpen && <PlatformBillingAdmin view="billing" />}
               </div>
             </>
           )}

@@ -393,25 +393,37 @@ option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
 .billing-search input::placeholder { color: hsl(var(--muted-foreground)); }
 .billing-account-list, .billing-request-list { display: grid; gap: 8px; }
 .billing-account { border: 1px solid hsl(var(--border) / .65); border-radius: 9px; overflow: hidden; background: hsl(var(--card)); }
-.billing-account-head { display: flex; align-items: center; gap: 9px; padding: 9px 10px; background: hsl(var(--muted) / .25); }
+.billing-account-head-button { display: flex; align-items: center; gap: 9px; width: 100%; min-width: 0; padding: 10px; border: 0; color: hsl(var(--foreground)); background: hsl(var(--muted) / .28); font: inherit; text-align: left; cursor: pointer; }
+.billing-account-head-button:hover { background: hsl(var(--muted) / .52); }
+.billing-account-head-button:focus-visible { outline: 2px solid hsl(var(--primary)); outline-offset: -2px; }
 .billing-avatar { flex: 0 0 auto; width: 29px; height: 29px; display: grid; place-items: center; border-radius: 8px 8px 8px 3px; color: hsl(var(--primary)); background: hsl(var(--primary) / .12); font-size: 12px; font-weight: 800; }
 .billing-account-identity { display: grid; gap: 2px; min-width: 0; flex: 1; }
 .billing-account-identity strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
 .billing-account-identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: hsl(var(--muted-foreground)); font-size: 9px; }
+.billing-account-identity .billing-account-summary { color: hsl(var(--foreground)); font-weight: 700; }
 .billing-account-id { flex: 0 0 auto; padding: 3px 6px; border-radius: 99px; color: hsl(var(--muted-foreground)); background: hsl(var(--background) / .38); font-size: 8px; }
-.billing-account-products { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.billing-product-access { min-width: 0; padding: 9px 10px; border-top: 1px solid hsl(var(--border) / .42); }
-.billing-product-access + .billing-product-access { border-left: 1px solid hsl(var(--border) / .42); }
-.billing-product-title { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; color: hsl(var(--primary)); font-size: 10px; }
+.billing-account-chevron { flex: 0 0 auto; transition: transform .18s ease; }
+.billing-account-chevron.open { transform: rotate(90deg); }
+.billing-account-details-dialog { width: min(calc(100vw - 24px), 640px); }
+.billing-account-detail-meta { display: grid; gap: 5px; margin: 0 0 12px; padding: 10px; border-radius: 8px; color: hsl(var(--muted-foreground)); background: hsl(var(--muted) / .3); font-size: 10px; overflow-wrap: anywhere; }
+.billing-account-detail-list { display: grid; gap: 9px; }
+.billing-detail-scope { min-width: 0; padding: 11px; border: 1px solid hsl(var(--border) / .58); border-radius: 9px; background: hsl(var(--muted) / .18); }
+.billing-detail-scope-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.billing-detail-scope-heading > div { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; min-width: 0; }
+.billing-detail-scope-heading strong { font-size: 12px; overflow-wrap: anywhere; }
+.billing-detail-status { padding: 3px 7px; border-radius: 99px; color: hsl(var(--muted-foreground)); background: hsl(var(--muted) / .55); font-size: 9px; font-weight: 700; }
+.billing-detail-status.allowed { color: hsl(var(--ok)); }
+.billing-detail-status.blocked { color: hsl(var(--destructive)); }
+.billing-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: 0; }
+.billing-detail-grid > div { min-width: 0; padding: 7px 8px; border-radius: 6px; background: hsl(var(--card) / .72); }
+.billing-detail-grid dt { margin: 0 0 3px; color: hsl(var(--muted-foreground)); font-size: 9px; }
+.billing-detail-grid dd { margin: 0; font-size: 10px; font-weight: 700; overflow-wrap: anywhere; }
+.billing-detail-actions { display: grid; gap: 7px; margin-top: 9px; padding-top: 8px; border-top: 1px solid hsl(var(--border) / .4); }
 .billing-access-control { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
 .billing-access-copy strong { font-size: 9px; }
 .billing-access-copy small { font-size: 8px; }
 .billing-renew-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
 .billing-renew-actions .btn { min-height: 26px; padding: 0 7px; font-size: 9px; }
-.billing-business-access { display: grid; gap: 5px; padding: 8px 0; border-top: 1px dashed hsl(var(--border) / .45); }
-.billing-business-name { display: flex; justify-content: space-between; gap: 8px; font-size: 9px; }
-.billing-business-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.billing-business-name small { flex: 0 0 auto; color: hsl(var(--muted-foreground)); font-size: 8px; }
 .billing-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding-top: 9px; }
 .billing-pagination > span { margin-right: auto; color: hsl(var(--muted-foreground)); font-size: 9px; font-variant-numeric: tabular-nums; }
 .billing-payment-request { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px; border: 1px solid hsl(var(--border) / .6); border-radius: 8px; background: hsl(var(--muted) / .15); }
@@ -502,8 +514,8 @@ option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
 
 @media (max-width: 620px) {
   .billing-settings-switches { grid-template-columns: minmax(0, 1fr); }
-  .billing-account-products { grid-template-columns: minmax(0, 1fr); }
-  .billing-product-access + .billing-product-access { border-left: 0; }
+  .billing-account-id { display: none; }
+  .billing-detail-grid { grid-template-columns: minmax(0, 1fr); }
   .billing-payment-request { align-items: flex-start; flex-direction: column; }
   .billing-request-actions { width: 100%; }
   .billing-request-actions .btn { flex: 1; }
