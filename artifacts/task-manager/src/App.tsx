@@ -194,14 +194,14 @@ function SignedInApplication({
         <Route path="/sign-in/*?"><Redirect to={signedInDestination} replace /></Route>
         <Route path="/sign-up/*?"><Redirect to={signedInDestination} replace /></Route>
         <Route path="/personal">{personalNeedsPayment
-          ? <SubscriptionAccessScreen product="personal" auth={status} onGoBusiness={hasSelectedFacility ? onContinueBusiness : undefined} />
+          ? <SubscriptionAccessScreen product="personal" auth={status} onSignOut={onSignOut} onGoBusiness={hasSelectedFacility ? onContinueBusiness : undefined} />
           : <PersonalPage onSignOut={onSignOut} homeHref={showFacility ? '/' : null}
               businessStatus={status} onBusinessSelected={onBusinessSelected}
               onContinuePersonal={onContinuePersonal} onRefreshStatus={onRefreshStatus}
               onRoleSelected={onRoleSelected} />}</Route>
         <Route>
           {showFacility ? (
-            businessNeedsPayment ? <SubscriptionAccessScreen product="business" auth={status} /> : <AppShell
+            businessNeedsPayment ? <SubscriptionAccessScreen product="business" auth={status} onSignOut={onSignOut} /> : <AppShell
               key={`${userId ?? 'account'}:${status.businessId ?? 'none'}`}
               userId={userId}
               isOwner={isOwner}
