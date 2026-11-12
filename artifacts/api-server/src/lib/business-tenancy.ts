@@ -246,7 +246,7 @@ export async function listBusinessesForIdentityWithClient(
   }
   const result = await client.query(
     `SELECT DISTINCT b.id::text, b.name,
-       CASE WHEN m.role = 'owner' THEN 'owner' ELSE 'employee' END AS role
+        CASE WHEN b.owner_user_id = m.user_id THEN 'owner' ELSE 'employee' END AS role
      FROM public.businesses b
      JOIN public.business_memberships m ON m.business_id = b.id
      WHERE b.active = true AND m.active = true
@@ -276,7 +276,8 @@ export async function listCurrentBusinessMembersWithClient(
   input: { businessId: string; ownerUserId: string; isPlatformAdmin: boolean },
 ): Promise<BusinessMemberSummary[]> {
   const result = await client.query(
-    `SELECT lower(m.email) AS email, m.role
+    `SELECT lower(m.email) AS email,
+        CASE WHEN b.owner_user_id = m.user_id THEN 'owner' ELSE 'employee' END AS role
      FROM public.business_memberships AS m
      JOIN public.businesses AS b ON b.id = m.business_id
      WHERE m.business_id = $1::uuid

@@ -24,6 +24,7 @@ test("lists an identity's businesses with DISTINCT-safe ordering", async () => {
     role: "employee",
   }]);
   assert.match(queryText, /SELECT DISTINCT b\.id::text/);
+  assert.match(queryText, /CASE WHEN b\.owner_user_id = m\.user_id THEN 'owner' ELSE 'employee' END AS role/);
   assert.match(queryText, /ORDER BY b\.name, b\.id::text/);
 });
 
@@ -51,6 +52,7 @@ test("keeps both active business memberships and their distinct roles for a mult
   ]);
   assert.match(queryText, /b\.active = true AND m\.active = true/);
   assert.match(queryText, /m\.user_id = \$1/);
+  assert.match(queryText, /CASE WHEN b\.owner_user_id = m\.user_id THEN 'owner' ELSE 'employee' END AS role/);
   assert.deepEqual(queryValues, ["multi-business-user"]);
 });
 
@@ -84,6 +86,7 @@ test("lists only active members from the selected business for its owner", async
   assert.match(queryText, /m\.active = true/);
   assert.match(queryText, /b\.active = true/);
   assert.match(queryText, /b\.owner_user_id = \$2/);
+  assert.match(queryText, /CASE WHEN b\.owner_user_id = m\.user_id THEN 'owner' ELSE 'employee' END AS role/);
   assert.deepEqual(queryValues, ["business-a", "owner-user-a", false]);
 });
 
