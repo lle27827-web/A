@@ -93,6 +93,7 @@ export function AppShell({
   employeeView,
   desktopLeftPanel,
   isOwner,
+  isPlatformAdmin,
   permissions,
   userId,
   authStatusMessage,
@@ -107,6 +108,7 @@ export function AppShell({
   employeeView: ReactNode;
   desktopLeftPanel?: ReactNode;
   isOwner: boolean;
+  isPlatformAdmin: boolean;
   permissions: FacilityPermissions;
   userId?: string | null;
   authStatusMessage?: string;
@@ -386,7 +388,7 @@ export function AppShell({
                 <button type="button" className="link-soft as-button" onClick={onSignOut} data-testid="button-sign-out">Đăng xuất</button>
                 <ViewSettings prefs={prefs} members={members}
                   open={settingsOpen} onOpenChange={setSettingsOpen} onApply={applyView}
-                  isOwner={isOwner} permissions={permissions}
+                  isOwner={isOwner} isPlatformAdmin={isPlatformAdmin} permissions={permissions}
                   canManageGrants={isOwner || hasFacilityAccess(permissions)}
                   homeHref={homeHref}
                   shortcutActions={shortcutActions}

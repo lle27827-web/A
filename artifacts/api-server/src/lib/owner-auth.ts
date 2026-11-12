@@ -17,6 +17,10 @@ import {
 } from "./business-tenancy";
 import { and } from "drizzle-orm";
 import { personalOnlyBusinessAccess } from "./business-access-policy";
+import {
+  getBusinessSubscriptionAccess,
+  getPersonalSubscriptionAccess,
+} from "./subscription-billing";
 
 const secretKey = process.env.APP_CLERK_SECRET_KEY?.trim();
 const publishableKey = process.env.APP_CLERK_PUBLISHABLE_KEY?.trim();
@@ -292,6 +296,40 @@ export async function apiAuthorizationGate(
     res.status(403).json({ error: "Yêu cầu không được gửi từ ứng dụng này." });
     return;
   }
+  if (path === "/platform/billing" || path.startsWith("/platform/billing/")) {
+    try {
+      const status = await getOwnerAuthStatus(req);
+      if (!status.authenticated) {
+        res.status(401).json({ error: "Vui lòng đăng nhập để quản lý gói dịch vụ." });
+        return;
+      }
+      if (!status.isPlatformAdmin) {
+        res.status(403).json({ error: "Chỉ quản trị viên nền tảng được phép." });
+        return;
+      }
+      res.locals.facilityAuth = status;
+      next();
+    } catch (error) {
+      req.log?.error({ err: error }, "Unable to verify platform billing administrator");
+      res.status(503).json({ error: "Không thể xác minh quyền quản trị nền tảng." });
+    }
+    return;
+  }
+  if (path === "/subscriptions" || path.startsWith("/subscriptions/")) {
+    try {
+      const status = await getOwnerAuthStatus(req);
+      if (!status.authenticated || !status.userId) {
+        res.status(401).json({ error: "Vui lòng đăng nhập để xem gói dịch vụ." });
+        return;
+      }
+      res.locals.facilityAuth = status;
+      next();
+    } catch (error) {
+      req.log?.error({ err: error }, "Unable to verify subscription request");
+      res.status(503).json({ error: "Không thể xác minh tài khoản." });
+    }
+    return;
+  }
   if (path === "/personal" || path.startsWith("/personal/")) {
     const userId = getAuth(req).userId;
     if (!userId) {
@@ -301,9 +339,26 @@ export async function apiAuthorizationGate(
     res.locals.personalUserId = userId;
     const needsComparisonPermission = path === "/personal/comparison" ||
       path === "/personal/sync" || path === "/personal/comparison/members";
+    let billingChecked = false;
     try {
       const status = await getOwnerAuthStatus(req);
       res.locals.facilityAuth = status;
+      if (!status.isPlatformAdmin) {
+        if (needsComparisonPermission && status.businessId) {
+          billingChecked = true;
+          const businessAccess = await getBusinessSubscriptionAccess(status.businessId);
+          if (!businessAccess.accessAllowed) {
+            res.status(402).json({ error: "Gói doanh nghiệp đã hết hạn hoặc đang bị khóa.", scope: "business" });
+            return;
+          }
+        }
+        billingChecked = true;
+        const personalAccess = await getPersonalSubscriptionAccess(status.userId ?? userId, Boolean(status.email));
+        if (!personalAccess.accessAllowed) {
+          res.status(402).json({ error: "Gói chấm công cá nhân đã hết hạn hoặc đang bị khóa.", scope: "personal" });
+          return;
+        }
+      }
       if (needsComparisonPermission) {
         if (status.businessAccessAvailable === false) {
           res.status(503).json({ error: "Quyền cơ sở chưa sẵn sàng để đối chiếu." });
@@ -329,6 +384,11 @@ export async function apiAuthorizationGate(
       }
       next();
     } catch (error) {
+      if (billingChecked) {
+        req.log?.error({ err: error }, "Unable to verify subscription access for personal route");
+        res.status(503).json({ error: "Chưa thể kiểm tra quyền sử dụng. Vui lòng thử lại." });
+        return;
+      }
       if (needsComparisonPermission) {
         req.log?.error({ err: error }, "Unable to verify comparison permissions");
         res.status(503).json({ error: "Không thể xác minh quyền đối chiếu." });
@@ -377,6 +437,13 @@ export async function apiAuthorizationGate(
     if (!status.businessId) {
       res.status(409).json({ error: "Hãy chọn hoặc tham gia một doanh nghiệp trước khi mở dữ liệu cơ sở." });
       return;
+    }
+    if (!status.isPlatformAdmin) {
+      const businessAccess = await getBusinessSubscriptionAccess(status.businessId);
+      if (!businessAccess.accessAllowed) {
+        res.status(402).json({ error: "Gói doanh nghiệp đã hết hạn hoặc đang bị khóa.", scope: "business" });
+        return;
+      }
     }
     if (status.isOwner) { next(); return; }
     if (await managerRequestAllowed(req, status.permissions, status.businessId)) { next(); return; }

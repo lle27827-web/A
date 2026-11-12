@@ -5,6 +5,7 @@ import { MutationCache, QueryClient, QueryClientProvider, useQueryClient } from 
 import { Route, Switch, Router as WouterRouter, Redirect, useLocation, useSearch } from 'wouter';
 import type { AuthStatus, FacilityPermissions } from '@workspace/api-client-react';
 import {
+  getGetSubscriptionStatusQueryKey,
   flushOfflineMutationQueue,
   getAuthStatus,
   getGetAuthStatusQueryKey,
@@ -14,6 +15,7 @@ import {
   setBusinessIdGetter,
   setOfflineSyncUserId,
   useGetAuthStatus,
+  useGetSubscriptionStatus,
 } from '@workspace/api-client-react';
 import { Toaster, toast } from 'sonner';
 import { ALL_PERMISSIONS, AppShell, NO_PERMISSIONS, hasFacilityAccess, useShell } from '@/components/app-shell';
@@ -33,6 +35,7 @@ import { postAuthPath, retrySessionCheck, sessionScreen, validateRestoredSession
 import { createWebSessionTokenGetter } from '@/lib/web-session-token';
 import { playSaveChime } from '@/lib/save-chime';
 import { BusinessAccessSettings } from '@/components/business-access-settings';
+import { SubscriptionAccessScreen, shouldGateSubscription } from '@/components/subscription-access';
 import { Modal } from '@/components/modal';
 import {
   completeBusinessRoleOnboarding,
@@ -150,6 +153,7 @@ function SignedInApplication({
   onSignOut,
   onBusinessSelected,
   onContinuePersonal,
+  onContinueBusiness,
   onRefreshStatus,
   showRoleOnboarding,
   onRoleSelected,
@@ -164,6 +168,7 @@ function SignedInApplication({
   workspaceMode: WorkspaceMode;
   onBusinessSelected: (id: string) => Promise<void>;
   onContinuePersonal: () => void;
+  onContinueBusiness: () => void;
   onRefreshStatus: () => Promise<AuthStatus | undefined>;
   showRoleOnboarding: boolean;
   onRoleSelected: (role: BusinessRolePreference) => void;
@@ -173,25 +178,34 @@ function SignedInApplication({
 }) {
   const search = useSearch();
   const [location, setLocation] = useLocation();
+  const subscriptionQuery = useGetSubscriptionStatus({
+    query: { queryKey: [...getGetSubscriptionStatusQueryKey(), userId ?? 'account', status.businessId ?? 'personal'] },
+  });
   const signedInDestination = postAuthPath(search);
   const facility = hasFacilityAccess(permissions);
   const hasSelectedFacility = Boolean(status.businessId && facility);
   const showFacility = hasSelectedFacility && workspaceMode === 'business';
+  const billing = subscriptionQuery.data;
+  const personalNeedsPayment = !status.isPlatformAdmin && shouldGateSubscription(billing?.personal);
+  const businessNeedsPayment = !status.isPlatformAdmin && showFacility && shouldGateSubscription(billing?.business);
   return (
     <AppGestureProvider key={userId ?? 'account'} userId={userId ?? undefined}>
       <Switch>
         <Route path="/sign-in/*?"><Redirect to={signedInDestination} replace /></Route>
         <Route path="/sign-up/*?"><Redirect to={signedInDestination} replace /></Route>
-        <Route path="/personal"><PersonalPage onSignOut={onSignOut} homeHref={showFacility ? '/' : null}
-          businessStatus={status} onBusinessSelected={onBusinessSelected}
-          onContinuePersonal={onContinuePersonal} onRefreshStatus={onRefreshStatus}
-          onRoleSelected={onRoleSelected} /></Route>
+        <Route path="/personal">{personalNeedsPayment
+          ? <SubscriptionAccessScreen product="personal" auth={status} onGoBusiness={hasSelectedFacility ? onContinueBusiness : undefined} />
+          : <PersonalPage onSignOut={onSignOut} homeHref={showFacility ? '/' : null}
+              businessStatus={status} onBusinessSelected={onBusinessSelected}
+              onContinuePersonal={onContinuePersonal} onRefreshStatus={onRefreshStatus}
+              onRoleSelected={onRoleSelected} />}</Route>
         <Route>
           {showFacility ? (
-            <AppShell
+            businessNeedsPayment ? <SubscriptionAccessScreen product="business" auth={status} /> : <AppShell
               key={`${userId ?? 'account'}:${status.businessId ?? 'none'}`}
               userId={userId}
               isOwner={isOwner}
+              isPlatformAdmin={status.isPlatformAdmin}
               permissions={permissions}
               onSignOut={onSignOut}
               employeeView={<EmployeeModeView />}
@@ -461,6 +475,13 @@ function AuthenticatedApplication() {
     }
     setLocation('/personal');
   };
+  const onContinueBusiness = () => {
+    setWorkspaceMode('business');
+    if (workspaceModeStorageKey) {
+      try { window.localStorage.setItem(workspaceModeStorageKey, 'business'); } catch { /* keep the in-memory scope */ }
+    }
+    setLocation('/');
+  };
   const onRoleSelected = (role: BusinessRolePreference) => {
     saveBusinessRolePreference(userId, role);
   };
@@ -483,6 +504,7 @@ function AuthenticatedApplication() {
       workspaceMode={workspaceMode}
       onBusinessSelected={onBusinessSelected}
       onContinuePersonal={onContinuePersonal}
+      onContinueBusiness={onContinueBusiness}
       onRefreshStatus={onRefreshStatus}
       showRoleOnboarding={showRoleOnboarding}
       onRoleSelected={onRoleSelected}

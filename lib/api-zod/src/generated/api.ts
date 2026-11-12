@@ -2110,3 +2110,268 @@ export const GetMemberPayrollResponse = zod.object({
 })
 
 
+/**
+ * @summary Trạng thái gói cá nhân và cơ sở đang chọn
+ */
+export const GetSubscriptionStatusResponse = zod.object({
+  "personal": zod.object({
+  "billingEnabled": zod.boolean(),
+  "accessAllowed": zod.boolean(),
+  "status": zod.enum(['free', 'trial', 'paid', 'manual', 'expired', 'blocked', 'verification_required']),
+  "trialStartedAt": zod.coerce.date().nullable(),
+  "trialEndsAt": zod.coerce.date().nullable(),
+  "paidUntil": zod.coerce.date().nullable(),
+  "manualAccess": zod.boolean().nullable()
+}),
+  "business": zod.union([zod.object({
+  "billingEnabled": zod.boolean(),
+  "accessAllowed": zod.boolean(),
+  "status": zod.enum(['free', 'trial', 'paid', 'manual', 'expired', 'blocked', 'verification_required']),
+  "trialStartedAt": zod.coerce.date().nullable(),
+  "trialEndsAt": zod.coerce.date().nullable(),
+  "paidUntil": zod.coerce.date().nullable(),
+  "manualAccess": zod.boolean().nullable()
+}),zod.null()]),
+  "paymentQrAvailable": zod.boolean(),
+  "prices": zod.object({
+  "businessMonthly": zod.literal(100000),
+  "businessYearly": zod.literal(1000000),
+  "personalMonthly": zod.literal(20000),
+  "personalYearly": zod.literal(200000)
+})
+})
+
+
+/**
+ * @summary Tải mã QR thanh toán hiện tại
+ */
+export const GetSubscriptionQrResponse = zod.unknown()
+
+
+/**
+ * @summary Danh sách yêu cầu thanh toán của tài khoản
+ */
+export const ListMySubscriptionPaymentRequestsResponseItem = zod.object({
+  "id": zod.uuid(),
+  "userId": zod.string(),
+  "product": zod.enum(['business', 'personal']),
+  "months": zod.union([zod.literal(1),zod.literal(12)]),
+  "amountVnd": zod.int(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "createdAt": zod.coerce.date(),
+  "businessId": zod.uuid().nullable(),
+  "businessName": zod.string().nullable()
+})
+export const ListMySubscriptionPaymentRequestsResponse = zod.array(ListMySubscriptionPaymentRequestsResponseItem)
+
+
+/**
+ * @summary Gửi yêu cầu để quản trị viên xác nhận thanh toán thủ công
+ */
+export const createSubscriptionPaymentRequestBodyIdempotencyKeyMin = 8;
+export const createSubscriptionPaymentRequestBodyIdempotencyKeyMax = 128;
+
+
+export const createSubscriptionPaymentRequestBodyIdempotencyKeyRegExp = new RegExp('^[A-Za-z0-9:_-]+$');
+
+
+export const CreateSubscriptionPaymentRequestBody = zod.object({
+  "product": zod.enum(['business', 'personal']),
+  "months": zod.union([zod.literal(1),zod.literal(12)]),
+  "businessId": zod.uuid().optional(),
+  "idempotencyKey": zod.string().min(createSubscriptionPaymentRequestBodyIdempotencyKeyMin).max(createSubscriptionPaymentRequestBodyIdempotencyKeyMax).regex(createSubscriptionPaymentRequestBodyIdempotencyKeyRegExp)
+})
+
+export const CreateSubscriptionPaymentRequestResponse = zod.object({
+  "id": zod.uuid(),
+  "userId": zod.string(),
+  "product": zod.enum(['business', 'personal']),
+  "months": zod.union([zod.literal(1),zod.literal(12)]),
+  "amountVnd": zod.int(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "createdAt": zod.coerce.date(),
+  "businessId": zod.uuid().nullable(),
+  "businessName": zod.string().nullable()
+})
+
+
+/**
+ * @summary Xem cấu hình phí nền tảng
+ */
+export const GetPlatformBillingSettingsResponse = zod.object({
+  "businessBillingEnabled": zod.boolean(),
+  "personalBillingEnabled": zod.boolean(),
+  "trialDays": zod.literal(30),
+  "qrAvailable": zod.boolean(),
+  "prices": zod.object({
+  "businessMonthly": zod.literal(100000),
+  "businessYearly": zod.literal(1000000),
+  "personalMonthly": zod.literal(20000),
+  "personalYearly": zod.literal(200000)
+})
+})
+
+
+/**
+ * @summary Bật hoặc tắt riêng phí doanh nghiệp và phí cá nhân
+ */
+export const UpdatePlatformBillingSettingsBody = zod.object({
+  "businessBillingEnabled": zod.boolean().optional(),
+  "personalBillingEnabled": zod.boolean().optional()
+})
+
+export const UpdatePlatformBillingSettingsResponse = zod.object({
+  "businessBillingEnabled": zod.boolean(),
+  "personalBillingEnabled": zod.boolean(),
+  "trialDays": zod.literal(30),
+  "qrAvailable": zod.boolean(),
+  "prices": zod.object({
+  "businessMonthly": zod.literal(100000),
+  "businessYearly": zod.literal(1000000),
+  "personalMonthly": zod.literal(20000),
+  "personalYearly": zod.literal(200000)
+})
+})
+
+
+/**
+ * @summary Tải hoặc thay mã QR thanh toán
+ */
+export const UploadPlatformPaymentQrResponse = zod.void()
+
+
+/**
+ * @summary Danh sách tài khoản và trạng thái quyền truy cập
+ */
+export const listPlatformBillingAccountsQueryQueryMax = 120;
+
+export const listPlatformBillingAccountsQueryLimitDefault = 50;
+export const listPlatformBillingAccountsQueryLimitMax = 100;
+
+export const listPlatformBillingAccountsQueryOffsetDefault = 0;
+export const listPlatformBillingAccountsQueryOffsetMin = 0;
+
+
+
+export const ListPlatformBillingAccountsQueryParams = zod.object({
+  "query": zod.coerce.string().max(listPlatformBillingAccountsQueryQueryMax).optional(),
+  "limit": zod.coerce.number().int().min(1).max(listPlatformBillingAccountsQueryLimitMax).default(listPlatformBillingAccountsQueryLimitDefault),
+  "offset": zod.coerce.number().int().min(listPlatformBillingAccountsQueryOffsetMin).default(listPlatformBillingAccountsQueryOffsetDefault)
+})
+
+export const ListPlatformBillingAccountsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "userId": zod.string(),
+  "email": zod.email().nullable(),
+  "name": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "personal": zod.object({
+  "billingEnabled": zod.boolean(),
+  "accessAllowed": zod.boolean(),
+  "status": zod.enum(['free', 'trial', 'paid', 'manual', 'expired', 'blocked', 'verification_required']),
+  "trialStartedAt": zod.coerce.date().nullable(),
+  "trialEndsAt": zod.coerce.date().nullable(),
+  "paidUntil": zod.coerce.date().nullable(),
+  "manualAccess": zod.boolean().nullable()
+}),
+  "businesses": zod.array(zod.object({
+  "id": zod.uuid(),
+  "name": zod.string(),
+  "role": zod.enum(['owner', 'employee']),
+  "access": zod.object({
+  "billingEnabled": zod.boolean(),
+  "accessAllowed": zod.boolean(),
+  "status": zod.enum(['free', 'trial', 'paid', 'manual', 'expired', 'blocked', 'verification_required']),
+  "trialStartedAt": zod.coerce.date().nullable(),
+  "trialEndsAt": zod.coerce.date().nullable(),
+  "paidUntil": zod.coerce.date().nullable(),
+  "manualAccess": zod.boolean().nullable()
+})
+}))
+})),
+  "totalCount": zod.int(),
+  "limit": zod.int(),
+  "offset": zod.int()
+})
+
+
+/**
+ * @summary Bật hoặc tắt quyền dùng cá nhân của một tài khoản
+ */
+export const updatePlatformPersonalAccessPathUserIdMax = 128;
+
+
+
+export const UpdatePlatformPersonalAccessParams = zod.object({
+  "userId": zod.coerce.string().min(1).max(updatePlatformPersonalAccessPathUserIdMax)
+})
+
+export const UpdatePlatformPersonalAccessBody = zod.object({
+  "allowed": zod.boolean()
+})
+
+export const UpdatePlatformPersonalAccessResponse = zod.void()
+
+
+/**
+ * @summary Bật hoặc tắt quyền dùng của một cơ sở
+ */
+export const UpdatePlatformBusinessAccessParams = zod.object({
+  "businessId": zod.uuid()
+})
+
+export const UpdatePlatformBusinessAccessBody = zod.object({
+  "allowed": zod.boolean()
+})
+
+export const UpdatePlatformBusinessAccessResponse = zod.void()
+
+
+/**
+ * @summary Cấp thêm một, sáu hoặc mười hai tháng
+ */
+export const RenewPlatformSubscriptionBody = zod.object({
+  "product": zod.enum(['business', 'personal']),
+  "months": zod.union([zod.literal(1),zod.literal(6),zod.literal(12)]),
+  "userId": zod.string().optional(),
+  "businessId": zod.uuid().optional()
+})
+
+export const RenewPlatformSubscriptionResponse = zod.void()
+
+
+/**
+ * @summary Danh sách yêu cầu thanh toán chờ quản trị viên xác nhận
+ */
+export const ListPlatformPaymentRequestsQueryParams = zod.object({
+  "status": zod.enum(['pending', 'approved', 'rejected']).optional()
+})
+
+export const ListPlatformPaymentRequestsResponseItem = zod.object({
+  "id": zod.uuid(),
+  "userId": zod.string(),
+  "product": zod.enum(['business', 'personal']),
+  "months": zod.union([zod.literal(1),zod.literal(12)]),
+  "amountVnd": zod.int(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "createdAt": zod.coerce.date(),
+  "businessId": zod.uuid().nullable(),
+  "businessName": zod.string().nullable()
+})
+export const ListPlatformPaymentRequestsResponse = zod.array(ListPlatformPaymentRequestsResponseItem)
+
+
+/**
+ * @summary Xác nhận hoặc từ chối một thanh toán thủ công
+ */
+export const ReviewPlatformPaymentRequestParams = zod.object({
+  "requestId": zod.uuid()
+})
+
+export const ReviewPlatformPaymentRequestBody = zod.object({
+  "decision": zod.enum(['approved', 'rejected'])
+})
+
+export const ReviewPlatformPaymentRequestResponse = zod.void()
+
+

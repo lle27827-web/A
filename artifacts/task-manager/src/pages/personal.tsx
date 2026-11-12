@@ -17,6 +17,7 @@ import { PersonalServiceDialog, PersonalShiftDialog } from '@/components/persona
 import { ServiceList, ShiftList } from '@/components/personal/personal-lists';
 import { KeyboardShortcutsSettings } from '@/components/keyboard-shortcuts-settings';
 import { BusinessAccessSettings } from '@/components/business-access-settings';
+import { PlatformBillingAdmin } from '@/components/platform-billing-admin';
 import type { BusinessRolePreference } from '@/lib/business-role-preference';
 import { formatShortDate, formatShortDayMonth } from '@/lib/attendance';
 import { errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth } from '@/lib/massage';
@@ -109,6 +110,7 @@ export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus
   const [error, setError] = useState('');
   const [pendingHistorySpeech, setPendingHistorySpeech] = useState<PersonalSession | null>(null);
   const [shortcutSettingsOpen, setShortcutSettingsOpen] = useState(false);
+  const [billingAdminOpen, setBillingAdminOpen] = useState(false);
 
   const createService = useCreatePersonalService();
   const updateService = useUpdatePersonalService();
@@ -356,6 +358,15 @@ export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus
       {confirm && <ConfirmDialog state={confirm} busy={deleteService.isPending || deleteShift.isPending} onClose={() => setConfirm(null)} />}
       {shortcutSettingsOpen && <Modal title="Cài đặt" description="Chọn vai trò, cơ sở và phím tắt cho thiết bị này."
         onClose={() => setShortcutSettingsOpen(false)} testId="dialog-personal-settings">
+        {businessStatus.isPlatformAdmin && <>
+          <button type="button" className="settings-link platform-billing-entry" aria-expanded={billingAdminOpen}
+            aria-controls="personal-platform-billing" onClick={() => setBillingAdminOpen((value) => !value)}
+            data-testid="button-open-personal-platform-billing">
+            <strong>Quản lý tài khoản và phí</strong>
+            <span>{billingAdminOpen ? 'Ẩn bảng quản trị' : 'Mở bảng quản trị nền tảng'}</span>
+          </button>
+          {billingAdminOpen && <div id="personal-platform-billing"><PlatformBillingAdmin /></div>}
+        </>}
         <BusinessAccessSettings status={businessStatus} onBusinessSelected={onBusinessSelected}
           onContinuePersonal={() => { setShortcutSettingsOpen(false); onContinuePersonal(); }}
           onRefreshStatus={onRefreshStatus} onCloseSettings={() => setShortcutSettingsOpen(false)}

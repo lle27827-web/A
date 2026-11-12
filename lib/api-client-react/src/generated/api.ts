@@ -37,6 +37,7 @@ import type {
   BusinessPrintProfileInput,
   CardHoursInput,
   CreateBusinessInput,
+  CreateSubscriptionPaymentRequest,
   DatabaseFailoverInput,
   DatabaseFailoverResult,
   DatabaseFailoverStatus,
@@ -54,6 +55,8 @@ import type {
   ListAttendanceParams,
   ListMembersParams,
   ListPersonalComparisonMembersParams,
+  ListPlatformBillingAccountsParams,
+  ListPlatformPaymentRequestsParams,
   ListServiceSessionsParams,
   ListTreatmentCardsParams,
   MassageSummary,
@@ -74,6 +77,12 @@ import type {
   PersonalSettingsInput,
   PersonalSyncInput,
   PersonalSyncResult,
+  PlatformBillingAccountsPage,
+  PlatformBillingSettings,
+  PlatformBusinessAccessUpdateInput,
+  PlatformPaymentRequestReviewInput,
+  PlatformPersonalAccessUpdateInput,
+  PlatformRenewalRequest,
   PreviewRetentionDateRangeParams,
   RetentionDateRangeDeleteResult,
   RetentionDateRangeInput,
@@ -84,9 +93,12 @@ import type {
   ServiceSessionInput,
   ServiceTypeInput,
   ServiceTypeRecord,
+  SubscriptionPaymentRequest,
+  SubscriptionStatus,
   TreatmentCard,
   TreatmentCardInput,
-  TreatmentCardUpdate
+  TreatmentCardUpdate,
+  UpdatePlatformBillingSettings
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -519,7 +531,7 @@ export const getGetDatabaseStorageStatusUrl = () => {
 }
 
 /**
- * @summary Chủ sở hữu xem trạng thái phân vùng cố định của bốn kho
+ * @summary Chủ sở hữu xem trạng thái phân vùng cố định của ba kho
  */
 export const getDatabaseStorageStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<DatabaseStorageStatus> => {
 
@@ -566,7 +578,7 @@ export type GetDatabaseStorageStatusQueryError = ErrorType<void>
 
 
 /**
- * @summary Chủ sở hữu xem trạng thái phân vùng cố định của bốn kho
+ * @summary Chủ sở hữu xem trạng thái phân vùng cố định của ba kho
  */
 
 export function useGetDatabaseStorageStatus<TData = Awaited<ReturnType<typeof getDatabaseStorageStatus>>, TError = ErrorType<void>>(
@@ -5478,4 +5490,1099 @@ export function useGetMemberPayroll<TData = Awaited<ReturnType<typeof getMemberP
 
 
 
+
+export const getGetSubscriptionStatusUrl = () => {
+
+
+
+
+  return `/api/subscriptions/status`
+}
+
+/**
+ * @summary Trạng thái gói cá nhân và cơ sở đang chọn
+ */
+export const getSubscriptionStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<SubscriptionStatus> => {
+
+  return customFetch<SubscriptionStatus>(getGetSubscriptionStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSubscriptionStatusQueryKey = () => {
+    return [
+    `/api/subscriptions/status`
+    ] as const;
+    }
+
+
+export const getGetSubscriptionStatusQueryOptions = <TData = Awaited<ReturnType<typeof getSubscriptionStatus>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSubscriptionStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSubscriptionStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSubscriptionStatus>>> = ({ signal }) => getSubscriptionStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSubscriptionStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSubscriptionStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getSubscriptionStatus>>>
+export type GetSubscriptionStatusQueryError = ErrorType<void>
+
+
+/**
+ * @summary Trạng thái gói cá nhân và cơ sở đang chọn
+ */
+
+export function useGetSubscriptionStatus<TData = Awaited<ReturnType<typeof getSubscriptionStatus>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSubscriptionStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSubscriptionStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSubscriptionQrUrl = () => {
+
+
+
+
+  return `/api/subscriptions/qr`
+}
+
+/**
+ * @summary Tải mã QR thanh toán hiện tại
+ */
+export const getSubscriptionQr = async ( options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetSubscriptionQrUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSubscriptionQrQueryKey = () => {
+    return [
+    `/api/subscriptions/qr`
+    ] as const;
+    }
+
+
+export const getGetSubscriptionQrQueryOptions = <TData = Awaited<ReturnType<typeof getSubscriptionQr>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSubscriptionQr>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSubscriptionQrQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSubscriptionQr>>> = ({ signal }) => getSubscriptionQr({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSubscriptionQr>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSubscriptionQrQueryResult = NonNullable<Awaited<ReturnType<typeof getSubscriptionQr>>>
+export type GetSubscriptionQrQueryError = ErrorType<void>
+
+
+/**
+ * @summary Tải mã QR thanh toán hiện tại
+ */
+
+export function useGetSubscriptionQr<TData = Awaited<ReturnType<typeof getSubscriptionQr>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSubscriptionQr>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSubscriptionQrQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListMySubscriptionPaymentRequestsUrl = () => {
+
+
+
+
+  return `/api/subscriptions/payment-requests`
+}
+
+/**
+ * @summary Danh sách yêu cầu thanh toán của tài khoản
+ */
+export const listMySubscriptionPaymentRequests = async ( options?: Parameters<typeof customFetch>[1]): Promise<SubscriptionPaymentRequest[]> => {
+
+  return customFetch<SubscriptionPaymentRequest[]>(getListMySubscriptionPaymentRequestsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMySubscriptionPaymentRequestsQueryKey = () => {
+    return [
+    `/api/subscriptions/payment-requests`
+    ] as const;
+    }
+
+
+export const getListMySubscriptionPaymentRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listMySubscriptionPaymentRequests>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMySubscriptionPaymentRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMySubscriptionPaymentRequestsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMySubscriptionPaymentRequests>>> = ({ signal }) => listMySubscriptionPaymentRequests({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMySubscriptionPaymentRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMySubscriptionPaymentRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listMySubscriptionPaymentRequests>>>
+export type ListMySubscriptionPaymentRequestsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Danh sách yêu cầu thanh toán của tài khoản
+ */
+
+export function useListMySubscriptionPaymentRequests<TData = Awaited<ReturnType<typeof listMySubscriptionPaymentRequests>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMySubscriptionPaymentRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMySubscriptionPaymentRequestsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSubscriptionPaymentRequestUrl = () => {
+
+
+
+
+  return `/api/subscriptions/payment-requests`
+}
+
+/**
+ * @summary Gửi yêu cầu để quản trị viên xác nhận thanh toán thủ công
+ */
+export const createSubscriptionPaymentRequest = async (createSubscriptionPaymentRequestBody: CreateSubscriptionPaymentRequest, options?: Parameters<typeof customFetch>[1]): Promise<SubscriptionPaymentRequest> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<SubscriptionPaymentRequest>(getCreateSubscriptionPaymentRequestUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(createSubscriptionPaymentRequestBody)
+  }
+);}
+
+
+
+
+
+export const getCreateSubscriptionPaymentRequestMutationKey = () => ['createSubscriptionPaymentRequest'] as const;
+
+export const getCreateSubscriptionPaymentRequestMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSubscriptionPaymentRequest>>, TError,CreateSubscriptionPaymentRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSubscriptionPaymentRequest>>, TError,CreateSubscriptionPaymentRequestMutationVariables, TContext> => {
+
+const mutationKey = getCreateSubscriptionPaymentRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSubscriptionPaymentRequest>>, CreateSubscriptionPaymentRequestMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSubscriptionPaymentRequest(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSubscriptionPaymentRequestMutationResult = NonNullable<Awaited<ReturnType<typeof createSubscriptionPaymentRequest>>>
+    export type CreateSubscriptionPaymentRequestMutationBody = BodyType<CreateSubscriptionPaymentRequest>
+    export type CreateSubscriptionPaymentRequestMutationError = ErrorType<void>
+    export type CreateSubscriptionPaymentRequestMutationVariables = {data: BodyType<CreateSubscriptionPaymentRequest>}
+
+    /**
+ * @summary Gửi yêu cầu để quản trị viên xác nhận thanh toán thủ công
+ */
+export const useCreateSubscriptionPaymentRequest = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSubscriptionPaymentRequest>>, TError,CreateSubscriptionPaymentRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSubscriptionPaymentRequest>>,
+        TError,
+        CreateSubscriptionPaymentRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateSubscriptionPaymentRequestMutationOptions(options));
+    }
+
+export const getGetPlatformBillingSettingsUrl = () => {
+
+
+
+
+  return `/api/platform/billing`
+}
+
+/**
+ * @summary Xem cấu hình phí nền tảng
+ */
+export const getPlatformBillingSettings = async ( options?: Parameters<typeof customFetch>[1]): Promise<PlatformBillingSettings> => {
+
+  return customFetch<PlatformBillingSettings>(getGetPlatformBillingSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPlatformBillingSettingsQueryKey = () => {
+    return [
+    `/api/platform/billing`
+    ] as const;
+    }
+
+
+export const getGetPlatformBillingSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getPlatformBillingSettings>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlatformBillingSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPlatformBillingSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPlatformBillingSettings>>> = ({ signal }) => getPlatformBillingSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPlatformBillingSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPlatformBillingSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getPlatformBillingSettings>>>
+export type GetPlatformBillingSettingsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Xem cấu hình phí nền tảng
+ */
+
+export function useGetPlatformBillingSettings<TData = Awaited<ReturnType<typeof getPlatformBillingSettings>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlatformBillingSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPlatformBillingSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdatePlatformBillingSettingsUrl = () => {
+
+
+
+
+  return `/api/platform/billing`
+}
+
+/**
+ * @summary Bật hoặc tắt riêng phí doanh nghiệp và phí cá nhân
+ */
+export const updatePlatformBillingSettings = async (updatePlatformBillingSettingsBody: UpdatePlatformBillingSettings, options?: Parameters<typeof customFetch>[1]): Promise<PlatformBillingSettings> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<PlatformBillingSettings>(getUpdatePlatformBillingSettingsUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updatePlatformBillingSettingsBody)
+  }
+);}
+
+
+
+
+
+export const getUpdatePlatformBillingSettingsMutationKey = () => ['updatePlatformBillingSettings'] as const;
+
+export const getUpdatePlatformBillingSettingsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlatformBillingSettings>>, TError,UpdatePlatformBillingSettingsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePlatformBillingSettings>>, TError,UpdatePlatformBillingSettingsMutationVariables, TContext> => {
+
+const mutationKey = getUpdatePlatformBillingSettingsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePlatformBillingSettings>>, UpdatePlatformBillingSettingsMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updatePlatformBillingSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePlatformBillingSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updatePlatformBillingSettings>>>
+    export type UpdatePlatformBillingSettingsMutationBody = BodyType<UpdatePlatformBillingSettings>
+    export type UpdatePlatformBillingSettingsMutationError = ErrorType<void>
+    export type UpdatePlatformBillingSettingsMutationVariables = {data: BodyType<UpdatePlatformBillingSettings>}
+
+    /**
+ * @summary Bật hoặc tắt riêng phí doanh nghiệp và phí cá nhân
+ */
+export const useUpdatePlatformBillingSettings = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlatformBillingSettings>>, TError,UpdatePlatformBillingSettingsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePlatformBillingSettings>>,
+        TError,
+        UpdatePlatformBillingSettingsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdatePlatformBillingSettingsMutationOptions(options));
+    }
+
+export const getUploadPlatformPaymentQrUrl = () => {
+
+
+
+
+  return `/api/platform/billing/qr`
+}
+
+/**
+ * @summary Tải hoặc thay mã QR thanh toán
+ */
+export const uploadPlatformPaymentQr = async (uploadPlatformPaymentQrBody: Blob, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getUploadPlatformPaymentQrUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'image/png', ...getHeaders(options?.headers) },
+    body: uploadPlatformPaymentQrBody
+  }
+);}
+
+
+
+
+
+export const getUploadPlatformPaymentQrMutationKey = () => ['uploadPlatformPaymentQr'] as const;
+
+export const getUploadPlatformPaymentQrMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadPlatformPaymentQr>>, TError,UploadPlatformPaymentQrMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof uploadPlatformPaymentQr>>, TError,UploadPlatformPaymentQrMutationVariables, TContext> => {
+
+const mutationKey = getUploadPlatformPaymentQrMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadPlatformPaymentQr>>, UploadPlatformPaymentQrMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  uploadPlatformPaymentQr(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UploadPlatformPaymentQrMutationResult = NonNullable<Awaited<ReturnType<typeof uploadPlatformPaymentQr>>>
+    export type UploadPlatformPaymentQrMutationBody = BodyType<Blob>
+    export type UploadPlatformPaymentQrMutationError = ErrorType<void>
+    export type UploadPlatformPaymentQrMutationVariables = {data: BodyType<Blob>}
+
+    /**
+ * @summary Tải hoặc thay mã QR thanh toán
+ */
+export const useUploadPlatformPaymentQr = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadPlatformPaymentQr>>, TError,UploadPlatformPaymentQrMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof uploadPlatformPaymentQr>>,
+        TError,
+        UploadPlatformPaymentQrMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUploadPlatformPaymentQrMutationOptions(options));
+    }
+
+export const getListPlatformBillingAccountsUrl = (params?: ListPlatformBillingAccountsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/platform/billing/accounts?${stringifiedParams}` : `/api/platform/billing/accounts`
+}
+
+/**
+ * @summary Danh sách tài khoản và trạng thái quyền truy cập
+ */
+export const listPlatformBillingAccounts = async (params?: ListPlatformBillingAccountsParams, options?: Parameters<typeof customFetch>[1]): Promise<PlatformBillingAccountsPage> => {
+
+  return customFetch<PlatformBillingAccountsPage>(getListPlatformBillingAccountsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPlatformBillingAccountsQueryKey = (params?: ListPlatformBillingAccountsParams,) => {
+    return [
+    `/api/platform/billing/accounts`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListPlatformBillingAccountsQueryOptions = <TData = Awaited<ReturnType<typeof listPlatformBillingAccounts>>, TError = ErrorType<void>>(params?: ListPlatformBillingAccountsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPlatformBillingAccounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPlatformBillingAccountsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPlatformBillingAccounts>>> = ({ signal }) => listPlatformBillingAccounts(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPlatformBillingAccounts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPlatformBillingAccountsQueryResult = NonNullable<Awaited<ReturnType<typeof listPlatformBillingAccounts>>>
+export type ListPlatformBillingAccountsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Danh sách tài khoản và trạng thái quyền truy cập
+ */
+
+export function useListPlatformBillingAccounts<TData = Awaited<ReturnType<typeof listPlatformBillingAccounts>>, TError = ErrorType<void>>(
+ params?: ListPlatformBillingAccountsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPlatformBillingAccounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPlatformBillingAccountsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdatePlatformPersonalAccessUrl = (userId: string,) => {
+
+
+
+
+  return `/api/platform/billing/accounts/${userId}/personal-access`
+}
+
+/**
+ * @summary Bật hoặc tắt quyền dùng cá nhân của một tài khoản
+ */
+export const updatePlatformPersonalAccess = async (userId: string,
+    platformPersonalAccessUpdateInput: PlatformPersonalAccessUpdateInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getUpdatePlatformPersonalAccessUrl(userId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(platformPersonalAccessUpdateInput)
+  }
+);}
+
+
+
+
+
+export const getUpdatePlatformPersonalAccessMutationKey = () => ['updatePlatformPersonalAccess'] as const;
+
+export const getUpdatePlatformPersonalAccessMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlatformPersonalAccess>>, TError,UpdatePlatformPersonalAccessMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePlatformPersonalAccess>>, TError,UpdatePlatformPersonalAccessMutationVariables, TContext> => {
+
+const mutationKey = getUpdatePlatformPersonalAccessMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePlatformPersonalAccess>>, UpdatePlatformPersonalAccessMutationVariables> = (props) => {
+          const {userId,data} = props ?? {};
+
+          return  updatePlatformPersonalAccess(userId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePlatformPersonalAccessMutationResult = NonNullable<Awaited<ReturnType<typeof updatePlatformPersonalAccess>>>
+    export type UpdatePlatformPersonalAccessMutationBody = BodyType<PlatformPersonalAccessUpdateInput>
+    export type UpdatePlatformPersonalAccessMutationError = ErrorType<void>
+    export type UpdatePlatformPersonalAccessMutationVariables = {userId: string;data: BodyType<PlatformPersonalAccessUpdateInput>}
+
+    /**
+ * @summary Bật hoặc tắt quyền dùng cá nhân của một tài khoản
+ */
+export const useUpdatePlatformPersonalAccess = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlatformPersonalAccess>>, TError,UpdatePlatformPersonalAccessMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePlatformPersonalAccess>>,
+        TError,
+        UpdatePlatformPersonalAccessMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdatePlatformPersonalAccessMutationOptions(options));
+    }
+
+export const getUpdatePlatformBusinessAccessUrl = (businessId: string,) => {
+
+
+
+
+  return `/api/platform/billing/businesses/${businessId}/access`
+}
+
+/**
+ * @summary Bật hoặc tắt quyền dùng của một cơ sở
+ */
+export const updatePlatformBusinessAccess = async (businessId: string,
+    platformBusinessAccessUpdateInput: PlatformBusinessAccessUpdateInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getUpdatePlatformBusinessAccessUrl(businessId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(platformBusinessAccessUpdateInput)
+  }
+);}
+
+
+
+
+
+export const getUpdatePlatformBusinessAccessMutationKey = () => ['updatePlatformBusinessAccess'] as const;
+
+export const getUpdatePlatformBusinessAccessMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlatformBusinessAccess>>, TError,UpdatePlatformBusinessAccessMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePlatformBusinessAccess>>, TError,UpdatePlatformBusinessAccessMutationVariables, TContext> => {
+
+const mutationKey = getUpdatePlatformBusinessAccessMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePlatformBusinessAccess>>, UpdatePlatformBusinessAccessMutationVariables> = (props) => {
+          const {businessId,data} = props ?? {};
+
+          return  updatePlatformBusinessAccess(businessId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePlatformBusinessAccessMutationResult = NonNullable<Awaited<ReturnType<typeof updatePlatformBusinessAccess>>>
+    export type UpdatePlatformBusinessAccessMutationBody = BodyType<PlatformBusinessAccessUpdateInput>
+    export type UpdatePlatformBusinessAccessMutationError = ErrorType<void>
+    export type UpdatePlatformBusinessAccessMutationVariables = {businessId: string;data: BodyType<PlatformBusinessAccessUpdateInput>}
+
+    /**
+ * @summary Bật hoặc tắt quyền dùng của một cơ sở
+ */
+export const useUpdatePlatformBusinessAccess = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlatformBusinessAccess>>, TError,UpdatePlatformBusinessAccessMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePlatformBusinessAccess>>,
+        TError,
+        UpdatePlatformBusinessAccessMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdatePlatformBusinessAccessMutationOptions(options));
+    }
+
+export const getRenewPlatformSubscriptionUrl = () => {
+
+
+
+
+  return `/api/platform/billing/renewals`
+}
+
+/**
+ * @summary Cấp thêm một, sáu hoặc mười hai tháng
+ */
+export const renewPlatformSubscription = async (platformRenewalRequest: PlatformRenewalRequest, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getRenewPlatformSubscriptionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(platformRenewalRequest)
+  }
+);}
+
+
+
+
+
+export const getRenewPlatformSubscriptionMutationKey = () => ['renewPlatformSubscription'] as const;
+
+export const getRenewPlatformSubscriptionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renewPlatformSubscription>>, TError,RenewPlatformSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof renewPlatformSubscription>>, TError,RenewPlatformSubscriptionMutationVariables, TContext> => {
+
+const mutationKey = getRenewPlatformSubscriptionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof renewPlatformSubscription>>, RenewPlatformSubscriptionMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  renewPlatformSubscription(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RenewPlatformSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof renewPlatformSubscription>>>
+    export type RenewPlatformSubscriptionMutationBody = BodyType<PlatformRenewalRequest>
+    export type RenewPlatformSubscriptionMutationError = ErrorType<void>
+    export type RenewPlatformSubscriptionMutationVariables = {data: BodyType<PlatformRenewalRequest>}
+
+    /**
+ * @summary Cấp thêm một, sáu hoặc mười hai tháng
+ */
+export const useRenewPlatformSubscription = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renewPlatformSubscription>>, TError,RenewPlatformSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof renewPlatformSubscription>>,
+        TError,
+        RenewPlatformSubscriptionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRenewPlatformSubscriptionMutationOptions(options));
+    }
+
+export const getListPlatformPaymentRequestsUrl = (params?: ListPlatformPaymentRequestsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/platform/billing/payment-requests?${stringifiedParams}` : `/api/platform/billing/payment-requests`
+}
+
+/**
+ * @summary Danh sách yêu cầu thanh toán chờ quản trị viên xác nhận
+ */
+export const listPlatformPaymentRequests = async (params?: ListPlatformPaymentRequestsParams, options?: Parameters<typeof customFetch>[1]): Promise<SubscriptionPaymentRequest[]> => {
+
+  return customFetch<SubscriptionPaymentRequest[]>(getListPlatformPaymentRequestsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPlatformPaymentRequestsQueryKey = (params?: ListPlatformPaymentRequestsParams,) => {
+    return [
+    `/api/platform/billing/payment-requests`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListPlatformPaymentRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listPlatformPaymentRequests>>, TError = ErrorType<void>>(params?: ListPlatformPaymentRequestsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPlatformPaymentRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPlatformPaymentRequestsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPlatformPaymentRequests>>> = ({ signal }) => listPlatformPaymentRequests(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPlatformPaymentRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPlatformPaymentRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listPlatformPaymentRequests>>>
+export type ListPlatformPaymentRequestsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Danh sách yêu cầu thanh toán chờ quản trị viên xác nhận
+ */
+
+export function useListPlatformPaymentRequests<TData = Awaited<ReturnType<typeof listPlatformPaymentRequests>>, TError = ErrorType<void>>(
+ params?: ListPlatformPaymentRequestsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPlatformPaymentRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPlatformPaymentRequestsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getReviewPlatformPaymentRequestUrl = (requestId: string,) => {
+
+
+
+
+  return `/api/platform/billing/payment-requests/${requestId}`
+}
+
+/**
+ * @summary Xác nhận hoặc từ chối một thanh toán thủ công
+ */
+export const reviewPlatformPaymentRequest = async (requestId: string,
+    platformPaymentRequestReviewInput: PlatformPaymentRequestReviewInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getReviewPlatformPaymentRequestUrl(requestId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(platformPaymentRequestReviewInput)
+  }
+);}
+
+
+
+
+
+export const getReviewPlatformPaymentRequestMutationKey = () => ['reviewPlatformPaymentRequest'] as const;
+
+export const getReviewPlatformPaymentRequestMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewPlatformPaymentRequest>>, TError,ReviewPlatformPaymentRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reviewPlatformPaymentRequest>>, TError,ReviewPlatformPaymentRequestMutationVariables, TContext> => {
+
+const mutationKey = getReviewPlatformPaymentRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reviewPlatformPaymentRequest>>, ReviewPlatformPaymentRequestMutationVariables> = (props) => {
+          const {requestId,data} = props ?? {};
+
+          return  reviewPlatformPaymentRequest(requestId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReviewPlatformPaymentRequestMutationResult = NonNullable<Awaited<ReturnType<typeof reviewPlatformPaymentRequest>>>
+    export type ReviewPlatformPaymentRequestMutationBody = BodyType<PlatformPaymentRequestReviewInput>
+    export type ReviewPlatformPaymentRequestMutationError = ErrorType<void>
+    export type ReviewPlatformPaymentRequestMutationVariables = {requestId: string;data: BodyType<PlatformPaymentRequestReviewInput>}
+
+    /**
+ * @summary Xác nhận hoặc từ chối một thanh toán thủ công
+ */
+export const useReviewPlatformPaymentRequest = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewPlatformPaymentRequest>>, TError,ReviewPlatformPaymentRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reviewPlatformPaymentRequest>>,
+        TError,
+        ReviewPlatformPaymentRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReviewPlatformPaymentRequestMutationOptions(options));
+    }
 

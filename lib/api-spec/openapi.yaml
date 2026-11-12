@@ -18,6 +18,8 @@ tags:
     description: Chuyển đổi database dự phòng
   - name: members
     description: Thành viên
+  - name: billing
+    description: Cấp quyền, dùng thử và phí dịch vụ
 paths:
   /history-months:
     get:
@@ -1060,8 +1062,319 @@ paths:
               schema: { $ref: "#/components/schemas/MemberPayroll" }
         "400": { description: Tháng không hợp lệ }
         "404": { description: Không tìm thấy nhân viên }
+  /subscriptions/status:
+    get:
+      operationId: getSubscriptionStatus
+      tags: [billing]
+      summary: Trạng thái gói cá nhân và cơ sở đang chọn
+      responses:
+        "200":
+          description: Quyền truy cập và giá các gói.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubscriptionStatus" }
+        "401": { description: Cần đăng nhập }
+        "503": { description: Kho điều phối thanh toán chưa sẵn sàng }
+  /subscriptions/qr:
+    get:
+      operationId: getSubscriptionQr
+      tags: [billing]
+      summary: Tải mã QR thanh toán hiện tại
+      responses:
+        "200":
+          description: Ảnh mã QR.
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "404": { description: Chưa có mã QR }
+  /subscriptions/payment-requests:
+    get:
+      operationId: listMySubscriptionPaymentRequests
+      tags: [billing]
+      summary: Danh sách yêu cầu thanh toán của tài khoản
+      responses:
+        "200":
+          description: Yêu cầu thanh toán của người dùng hiện tại.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/SubscriptionPaymentRequest" } }
+    post:
+      operationId: createSubscriptionPaymentRequest
+      tags: [billing]
+      summary: Gửi yêu cầu để quản trị viên xác nhận thanh toán thủ công
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateSubscriptionPaymentRequest" }
+      responses:
+        "201":
+          description: Yêu cầu mới hoặc yêu cầu trùng khóa idempotency.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubscriptionPaymentRequest" }
+        "400": { description: Thông tin yêu cầu không hợp lệ }
+        "403": { description: Chỉ chủ doanh nghiệp được yêu cầu gia hạn gói cơ sở }
+        "409": { description: Tính phí đang tắt hoặc chưa có mã QR }
+  /platform/billing:
+    get:
+      operationId: getPlatformBillingSettings
+      tags: [billing]
+      summary: Xem cấu hình phí nền tảng
+      responses:
+        "200":
+          description: Cấu hình gói và trạng thái ảnh QR.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlatformBillingSettings" }
+        "403": { description: Chỉ quản trị viên nền tảng được phép }
+    patch:
+      operationId: updatePlatformBillingSettings
+      tags: [billing]
+      summary: Bật hoặc tắt riêng phí doanh nghiệp và phí cá nhân
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdatePlatformBillingSettings" }
+      responses:
+        "200":
+          description: Cấu hình sau khi lưu.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlatformBillingSettings" }
+        "403": { description: Chỉ quản trị viên nền tảng được phép }
+  /platform/billing/qr:
+    put:
+      operationId: uploadPlatformPaymentQr
+      tags: [billing]
+      summary: Tải hoặc thay mã QR thanh toán
+      requestBody:
+        required: true
+        content:
+          image/png: { schema: { type: string, format: binary } }
+          image/jpeg: { schema: { type: string, format: binary } }
+          image/webp: { schema: { type: string, format: binary } }
+      responses:
+        "204": { description: Đã lưu ảnh QR }
+        "400": { description: Ảnh không hợp lệ hoặc vượt quá dung lượng cho phép }
+        "403": { description: Chỉ quản trị viên nền tảng được phép }
+  /platform/billing/accounts:
+    get:
+      operationId: listPlatformBillingAccounts
+      tags: [billing]
+      summary: Danh sách tài khoản và trạng thái quyền truy cập
+      parameters:
+        - { in: query, name: query, schema: { type: string, maxLength: 120 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { in: query, name: offset, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200":
+          description: Tài khoản Clerk cùng gói cá nhân và các cơ sở sở hữu.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlatformBillingAccountsPage" }
+        "403": { description: Chỉ quản trị viên nền tảng được phép }
+  /platform/billing/accounts/{userId}/personal-access:
+    patch:
+      operationId: updatePlatformPersonalAccess
+      tags: [billing]
+      summary: Bật hoặc tắt quyền dùng cá nhân của một tài khoản
+      parameters:
+        - { in: path, name: userId, required: true, schema: { type: string, minLength: 1, maxLength: 128 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlatformPersonalAccessUpdateInput" }
+      responses:
+        "204": { description: Đã cập nhật quyền cá nhân }
+        "403": { description: Chỉ quản trị viên nền tảng được phép }
+  /platform/billing/businesses/{businessId}/access:
+    patch:
+      operationId: updatePlatformBusinessAccess
+      tags: [billing]
+      summary: Bật hoặc tắt quyền dùng của một cơ sở
+      parameters:
+        - { in: path, name: businessId, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlatformBusinessAccessUpdateInput" }
+      responses:
+        "204": { description: Đã cập nhật quyền cơ sở }
+        "403": { description: Chỉ quản trị viên nền tảng được phép }
+        "404": { description: Không tìm thấy cơ sở }
+  /platform/billing/renewals:
+    post:
+      operationId: renewPlatformSubscription
+      tags: [billing]
+      summary: Cấp thêm một, sáu hoặc mười hai tháng
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlatformRenewalRequest" }
+      responses:
+        "204": { description: Đã gia hạn gói }
+        "400": { description: Thông tin gia hạn không hợp lệ }
+        "404": { description: Không tìm thấy tài khoản hoặc cơ sở }
+  /platform/billing/payment-requests:
+    get:
+      operationId: listPlatformPaymentRequests
+      tags: [billing]
+      summary: Danh sách yêu cầu thanh toán chờ quản trị viên xác nhận
+      parameters:
+        - { in: query, name: status, schema: { type: string, enum: [pending, approved, rejected] } }
+      responses:
+        "200":
+          description: Yêu cầu thanh toán.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/SubscriptionPaymentRequest" } }
+        "403": { description: Chỉ quản trị viên nền tảng được phép }
+  /platform/billing/payment-requests/{requestId}:
+    patch:
+      operationId: reviewPlatformPaymentRequest
+      tags: [billing]
+      summary: Xác nhận hoặc từ chối một thanh toán thủ công
+      parameters:
+        - { in: path, name: requestId, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlatformPaymentRequestReviewInput" }
+      responses:
+        "204": { description: Đã xử lý yêu cầu }
+        "403": { description: Chỉ quản trị viên nền tảng được phép }
+        "404": { description: Không tìm thấy yêu cầu thanh toán }
 components:
   schemas:
+    SubscriptionAccess:
+      type: object
+      required: [billingEnabled, accessAllowed, status, trialStartedAt, trialEndsAt, paidUntil, manualAccess]
+      properties:
+        billingEnabled: { type: boolean }
+        accessAllowed: { type: boolean }
+        status: { type: string, enum: [free, trial, paid, manual, expired, blocked, verification_required] }
+        trialStartedAt: { type: [string, "null"], format: date-time }
+        trialEndsAt: { type: [string, "null"], format: date-time }
+        paidUntil: { type: [string, "null"], format: date-time }
+        manualAccess: { type: [boolean, "null"] }
+    SubscriptionStatus:
+      type: object
+      required: [personal, business, paymentQrAvailable, prices]
+      properties:
+        personal: { $ref: "#/components/schemas/SubscriptionAccess" }
+        business:
+          anyOf:
+            - { $ref: "#/components/schemas/SubscriptionAccess" }
+            - { type: "null" }
+        paymentQrAvailable: { type: boolean }
+        prices:
+          type: object
+          required: [businessMonthly, businessYearly, personalMonthly, personalYearly]
+          properties:
+            businessMonthly: { type: integer, enum: [100000] }
+            businessYearly: { type: integer, enum: [1000000] }
+            personalMonthly: { type: integer, enum: [20000] }
+            personalYearly: { type: integer, enum: [200000] }
+    SubscriptionPaymentRequest:
+      type: object
+      required: [id, userId, product, months, amountVnd, status, createdAt, businessId, businessName]
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string }
+        product: { type: string, enum: [business, personal] }
+        months: { type: integer, enum: [1, 12] }
+        amountVnd: { type: integer }
+        status: { type: string, enum: [pending, approved, rejected] }
+        createdAt: { type: string, format: date-time }
+        businessId: { type: [string, "null"], format: uuid }
+        businessName: { type: [string, "null"] }
+    CreateSubscriptionPaymentRequest:
+      type: object
+      required: [product, months, idempotencyKey]
+      properties:
+        product: { type: string, enum: [business, personal] }
+        months: { type: integer, enum: [1, 12] }
+        businessId: { type: string, format: uuid }
+        idempotencyKey: { type: string, minLength: 8, maxLength: 128, pattern: "^[A-Za-z0-9:_-]+$" }
+    PlatformBillingSettings:
+      type: object
+      required: [businessBillingEnabled, personalBillingEnabled, trialDays, qrAvailable, prices]
+      properties:
+        businessBillingEnabled: { type: boolean }
+        personalBillingEnabled: { type: boolean }
+        trialDays: { type: integer, enum: [30] }
+        qrAvailable: { type: boolean }
+        prices:
+          type: object
+          required: [businessMonthly, businessYearly, personalMonthly, personalYearly]
+          properties:
+            businessMonthly: { type: integer, enum: [100000] }
+            businessYearly: { type: integer, enum: [1000000] }
+            personalMonthly: { type: integer, enum: [20000] }
+            personalYearly: { type: integer, enum: [200000] }
+    UpdatePlatformBillingSettings:
+      type: object
+      minProperties: 1
+      properties:
+        businessBillingEnabled: { type: boolean }
+        personalBillingEnabled: { type: boolean }
+    PlatformBillingAccount:
+      type: object
+      required: [userId, email, name, createdAt, personal, businesses]
+      properties:
+        userId: { type: string }
+        email: { type: [string, "null"], format: email }
+        name: { type: string }
+        createdAt: { type: string, format: date-time }
+        personal: { $ref: "#/components/schemas/SubscriptionAccess" }
+        businesses:
+          type: array
+          items:
+            type: object
+            required: [id, name, role, access]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              role: { type: string, enum: [owner, employee] }
+              access: { $ref: "#/components/schemas/SubscriptionAccess" }
+    PlatformBillingAccountsPage:
+      type: object
+      required: [items, totalCount, limit, offset]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/PlatformBillingAccount" } }
+        totalCount: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    PlatformRenewalRequest:
+      type: object
+      required: [product, months]
+      properties:
+        product: { type: string, enum: [business, personal] }
+        months: { type: integer, enum: [1, 6, 12] }
+        userId: { type: string }
+        businessId: { type: string, format: uuid }
+    PlatformPersonalAccessUpdateInput:
+      type: object
+      required: [allowed]
+      properties:
+        allowed: { type: boolean }
+    PlatformBusinessAccessUpdateInput:
+      type: object
+      required: [allowed]
+      properties:
+        allowed: { type: boolean }
+    PlatformPaymentRequestReviewInput:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [approved, rejected] }
     PersonalSettingsInput:
       type: object
       required: [useFacilityRates]

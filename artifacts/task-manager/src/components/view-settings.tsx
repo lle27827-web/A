@@ -11,6 +11,7 @@ import type { BusinessRolePreference } from '@/lib/business-role-preference';
 import { MonthlyPayrollPrint } from '@/components/monthly-payroll-print';
 import { PrintPreview } from '@/components/print-preview';
 import { KeyboardShortcutsSettings } from '@/components/keyboard-shortcuts-settings';
+import { PlatformBillingAdmin } from '@/components/platform-billing-admin';
 import type { KeyboardShortcutAction } from '@/lib/keyboard-shortcuts';
 import {
   DEFAULT_PRINT_PREFERENCES,
@@ -58,13 +59,14 @@ export function useViewPrefs(userId?: string | null, businessId?: string | null)
   return [prefs, update] as const;
 }
 
-export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOwner, permissions, canManageGrants, homeHref, shortcutActions, shortcutStorageScope, printPreferences, onPrintPreferencesChange, onSaveBusinessPrintProfile, printProfileReady = true, printProfileSaving = false, printProfileError, onRetryPrintProfile, businessStatus, onBusinessSelected, onContinuePersonal, onRefreshStatus, onRoleSelected }: {
+export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOwner, isPlatformAdmin = false, permissions, canManageGrants, homeHref, shortcutActions, shortcutStorageScope, printPreferences, onPrintPreferencesChange, onSaveBusinessPrintProfile, printProfileReady = true, printProfileSaving = false, printProfileError, onRetryPrintProfile, businessStatus, onBusinessSelected, onContinuePersonal, onRefreshStatus, onRoleSelected }: {
   prefs: ViewPrefs;
   members: MemberRecord[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onApply: (prefs: ViewPrefs) => void;
   isOwner: boolean;
+  isPlatformAdmin?: boolean;
   permissions: FacilityPermissions;
   canManageGrants: boolean;
   homeHref: string;
@@ -90,6 +92,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
   const [historyOpen, setHistoryOpen] = useState(false);
   const [deleteHistoryOpen, setDeleteHistoryOpen] = useState(false);
   const [businessAccessOpen, setBusinessAccessOpen] = useState(false);
+  const [billingAdminOpen, setBillingAdminOpen] = useState(false);
   const [payrollPrintOpen, setPayrollPrintOpen] = useState(false);
   const printPrefs = printPreferences ?? DEFAULT_PRINT_PREFERENCES;
 
@@ -153,6 +156,19 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
             <button type="button" className="settings-link" onClick={() => { onOpenChange(false); setGrantsOpen(true); }} data-testid="button-open-access-grants">
               <KeyRound size={15} aria-hidden="true" /><span className="grow"><strong>Cấp quyền quản lý</strong><span className="muted">{isOwner ? 'Danh sách và quyền của nhiều tài khoản' : 'Xem và cấp trong phạm vi quyền của bạn'}</span></span><ChevronRight size={16} aria-hidden="true" />
             </button>
+          )}
+
+          {isPlatformAdmin && (
+            <>
+              <button type="button" className="settings-link platform-billing-entry" aria-expanded={billingAdminOpen}
+                aria-controls="settings-platform-billing"
+                onClick={() => setBillingAdminOpen((value) => !value)} data-testid="button-open-platform-billing">
+                <KeyRound size={15} aria-hidden="true" /><span className="grow"><strong>Thanh toán và quyền nền tảng</strong><span className="muted">Chính sách phí, tài khoản và yêu cầu thanh toán</span></span><ChevronRight size={16} aria-hidden="true" />
+              </button>
+              <div id="settings-platform-billing" hidden={!billingAdminOpen}>
+                {billingAdminOpen && <PlatformBillingAdmin />}
+              </div>
+            </>
           )}
 
           {isOwner && (

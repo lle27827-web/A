@@ -29,3 +29,4 @@
 - [Keyboard shortcut storage](keyboard-shortcut-storage.md) — keep keyboard shortcut bindings local to each device.
 - [pnpm override enforcement](pnpm-overrides.md) — keep security overrides in the root manifest and verify lockfile resolution; workspace config alone may not update installed versions.
 - [Business audit history](audit-log-partitioning.md) — tenant-scope audit entries and commit them with the business change on the shared DB pair.
+- [Independent subscription billing](subscription-billing.md) — keep personal and business fees separate; start trials only after that product's fee is enabled, and store the small QR in DB3.

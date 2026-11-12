@@ -5,6 +5,273 @@
  * API công khai để quản lý dữ liệu nhân viên, chấm công, dịch vụ và thẻ liệu trình.
  * OpenAPI spec version: 0.1.0
  */
+export type SubscriptionAccessStatus = typeof SubscriptionAccessStatus[keyof typeof SubscriptionAccessStatus];
+
+
+export const SubscriptionAccessStatus = {
+  free: 'free',
+  trial: 'trial',
+  paid: 'paid',
+  manual: 'manual',
+  expired: 'expired',
+  blocked: 'blocked',
+  verification_required: 'verification_required',
+} as const;
+
+export interface SubscriptionAccess {
+  billingEnabled: boolean;
+  accessAllowed: boolean;
+  status: SubscriptionAccessStatus;
+  /** @nullable */
+  trialStartedAt: string | null;
+  /** @nullable */
+  trialEndsAt: string | null;
+  /** @nullable */
+  paidUntil: string | null;
+  /** @nullable */
+  manualAccess: boolean | null;
+}
+
+export type SubscriptionStatusPricesBusinessMonthly = typeof SubscriptionStatusPricesBusinessMonthly[keyof typeof SubscriptionStatusPricesBusinessMonthly];
+
+
+export const SubscriptionStatusPricesBusinessMonthly = {
+  NUMBER_100000: 100000,
+} as const;
+
+export type SubscriptionStatusPricesBusinessYearly = typeof SubscriptionStatusPricesBusinessYearly[keyof typeof SubscriptionStatusPricesBusinessYearly];
+
+
+export const SubscriptionStatusPricesBusinessYearly = {
+  NUMBER_1000000: 1000000,
+} as const;
+
+export type SubscriptionStatusPricesPersonalMonthly = typeof SubscriptionStatusPricesPersonalMonthly[keyof typeof SubscriptionStatusPricesPersonalMonthly];
+
+
+export const SubscriptionStatusPricesPersonalMonthly = {
+  NUMBER_20000: 20000,
+} as const;
+
+export type SubscriptionStatusPricesPersonalYearly = typeof SubscriptionStatusPricesPersonalYearly[keyof typeof SubscriptionStatusPricesPersonalYearly];
+
+
+export const SubscriptionStatusPricesPersonalYearly = {
+  NUMBER_200000: 200000,
+} as const;
+
+export type SubscriptionStatusPrices = {
+  businessMonthly: SubscriptionStatusPricesBusinessMonthly;
+  businessYearly: SubscriptionStatusPricesBusinessYearly;
+  personalMonthly: SubscriptionStatusPricesPersonalMonthly;
+  personalYearly: SubscriptionStatusPricesPersonalYearly;
+};
+
+export interface SubscriptionStatus {
+  personal: SubscriptionAccess;
+  business: SubscriptionAccess | null;
+  paymentQrAvailable: boolean;
+  prices: SubscriptionStatusPrices;
+}
+
+export type SubscriptionPaymentRequestProduct = typeof SubscriptionPaymentRequestProduct[keyof typeof SubscriptionPaymentRequestProduct];
+
+
+export const SubscriptionPaymentRequestProduct = {
+  business: 'business',
+  personal: 'personal',
+} as const;
+
+export type SubscriptionPaymentRequestMonths = typeof SubscriptionPaymentRequestMonths[keyof typeof SubscriptionPaymentRequestMonths];
+
+
+export const SubscriptionPaymentRequestMonths = {
+  NUMBER_1: 1,
+  NUMBER_12: 12,
+} as const;
+
+export type SubscriptionPaymentRequestStatus = typeof SubscriptionPaymentRequestStatus[keyof typeof SubscriptionPaymentRequestStatus];
+
+
+export const SubscriptionPaymentRequestStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export interface SubscriptionPaymentRequest {
+  id: string;
+  userId: string;
+  product: SubscriptionPaymentRequestProduct;
+  months: SubscriptionPaymentRequestMonths;
+  amountVnd: number;
+  status: SubscriptionPaymentRequestStatus;
+  createdAt: string;
+  /** @nullable */
+  businessId: string | null;
+  /** @nullable */
+  businessName: string | null;
+}
+
+export type CreateSubscriptionPaymentRequestProduct = typeof CreateSubscriptionPaymentRequestProduct[keyof typeof CreateSubscriptionPaymentRequestProduct];
+
+
+export const CreateSubscriptionPaymentRequestProduct = {
+  business: 'business',
+  personal: 'personal',
+} as const;
+
+export type CreateSubscriptionPaymentRequestMonths = typeof CreateSubscriptionPaymentRequestMonths[keyof typeof CreateSubscriptionPaymentRequestMonths];
+
+
+export const CreateSubscriptionPaymentRequestMonths = {
+  NUMBER_1: 1,
+  NUMBER_12: 12,
+} as const;
+
+export interface CreateSubscriptionPaymentRequest {
+  product: CreateSubscriptionPaymentRequestProduct;
+  months: CreateSubscriptionPaymentRequestMonths;
+  businessId?: string;
+  /**
+     * @minLength 8
+     * @maxLength 128
+     * @pattern ^[A-Za-z0-9:_-]+$
+     */
+  idempotencyKey: string;
+}
+
+export type PlatformBillingSettingsTrialDays = typeof PlatformBillingSettingsTrialDays[keyof typeof PlatformBillingSettingsTrialDays];
+
+
+export const PlatformBillingSettingsTrialDays = {
+  NUMBER_30: 30,
+} as const;
+
+export type PlatformBillingSettingsPricesBusinessMonthly = typeof PlatformBillingSettingsPricesBusinessMonthly[keyof typeof PlatformBillingSettingsPricesBusinessMonthly];
+
+
+export const PlatformBillingSettingsPricesBusinessMonthly = {
+  NUMBER_100000: 100000,
+} as const;
+
+export type PlatformBillingSettingsPricesBusinessYearly = typeof PlatformBillingSettingsPricesBusinessYearly[keyof typeof PlatformBillingSettingsPricesBusinessYearly];
+
+
+export const PlatformBillingSettingsPricesBusinessYearly = {
+  NUMBER_1000000: 1000000,
+} as const;
+
+export type PlatformBillingSettingsPricesPersonalMonthly = typeof PlatformBillingSettingsPricesPersonalMonthly[keyof typeof PlatformBillingSettingsPricesPersonalMonthly];
+
+
+export const PlatformBillingSettingsPricesPersonalMonthly = {
+  NUMBER_20000: 20000,
+} as const;
+
+export type PlatformBillingSettingsPricesPersonalYearly = typeof PlatformBillingSettingsPricesPersonalYearly[keyof typeof PlatformBillingSettingsPricesPersonalYearly];
+
+
+export const PlatformBillingSettingsPricesPersonalYearly = {
+  NUMBER_200000: 200000,
+} as const;
+
+export type PlatformBillingSettingsPrices = {
+  businessMonthly: PlatformBillingSettingsPricesBusinessMonthly;
+  businessYearly: PlatformBillingSettingsPricesBusinessYearly;
+  personalMonthly: PlatformBillingSettingsPricesPersonalMonthly;
+  personalYearly: PlatformBillingSettingsPricesPersonalYearly;
+};
+
+export interface PlatformBillingSettings {
+  businessBillingEnabled: boolean;
+  personalBillingEnabled: boolean;
+  trialDays: PlatformBillingSettingsTrialDays;
+  qrAvailable: boolean;
+  prices: PlatformBillingSettingsPrices;
+}
+
+export interface UpdatePlatformBillingSettings {
+  businessBillingEnabled?: boolean;
+  personalBillingEnabled?: boolean;
+}
+
+export type PlatformBillingAccountBusinessesItemRole = typeof PlatformBillingAccountBusinessesItemRole[keyof typeof PlatformBillingAccountBusinessesItemRole];
+
+
+export const PlatformBillingAccountBusinessesItemRole = {
+  owner: 'owner',
+  employee: 'employee',
+} as const;
+
+export type PlatformBillingAccountBusinessesItem = {
+  id: string;
+  name: string;
+  role: PlatformBillingAccountBusinessesItemRole;
+  access: SubscriptionAccess;
+};
+
+export interface PlatformBillingAccount {
+  userId: string;
+  /** @nullable */
+  email: string | null;
+  name: string;
+  createdAt: string;
+  personal: SubscriptionAccess;
+  businesses: PlatformBillingAccountBusinessesItem[];
+}
+
+export interface PlatformBillingAccountsPage {
+  items: PlatformBillingAccount[];
+  totalCount: number;
+  limit: number;
+  offset: number;
+}
+
+export type PlatformRenewalRequestProduct = typeof PlatformRenewalRequestProduct[keyof typeof PlatformRenewalRequestProduct];
+
+
+export const PlatformRenewalRequestProduct = {
+  business: 'business',
+  personal: 'personal',
+} as const;
+
+export type PlatformRenewalRequestMonths = typeof PlatformRenewalRequestMonths[keyof typeof PlatformRenewalRequestMonths];
+
+
+export const PlatformRenewalRequestMonths = {
+  NUMBER_1: 1,
+  NUMBER_6: 6,
+  NUMBER_12: 12,
+} as const;
+
+export interface PlatformRenewalRequest {
+  product: PlatformRenewalRequestProduct;
+  months: PlatformRenewalRequestMonths;
+  userId?: string;
+  businessId?: string;
+}
+
+export interface PlatformPersonalAccessUpdateInput {
+  allowed: boolean;
+}
+
+export interface PlatformBusinessAccessUpdateInput {
+  allowed: boolean;
+}
+
+export type PlatformPaymentRequestReviewInputDecision = typeof PlatformPaymentRequestReviewInputDecision[keyof typeof PlatformPaymentRequestReviewInputDecision];
+
+
+export const PlatformPaymentRequestReviewInputDecision = {
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export interface PlatformPaymentRequestReviewInput {
+  decision: PlatformPaymentRequestReviewInputDecision;
+}
+
 export interface PersonalSettingsInput {
   useFacilityRates: boolean;
 }
@@ -1361,4 +1628,33 @@ memberId: number;
  */
 month: string;
 };
+
+export type ListPlatformBillingAccountsParams = {
+/**
+ * @maxLength 120
+ */
+query?: string;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+/**
+ * @minimum 0
+ */
+offset?: number;
+};
+
+export type ListPlatformPaymentRequestsParams = {
+status?: ListPlatformPaymentRequestsStatus;
+};
+
+export type ListPlatformPaymentRequestsStatus = typeof ListPlatformPaymentRequestsStatus[keyof typeof ListPlatformPaymentRequestsStatus];
+
+
+export const ListPlatformPaymentRequestsStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
 
