@@ -18,6 +18,7 @@ import { ServiceList, ShiftList } from '@/components/personal/personal-lists';
 import { KeyboardShortcutsSettings } from '@/components/keyboard-shortcuts-settings';
 import { BusinessAccessSettings } from '@/components/business-access-settings';
 import { PlatformBillingAdmin } from '@/components/platform-billing-admin';
+import { AccountEmailSetting } from '@/components/account-email-setting';
 import type { BusinessRolePreference } from '@/lib/business-role-preference';
 import { formatShortDate, formatShortDayMonth } from '@/lib/attendance';
 import { errorText, formatMinutes, formatMonth, formatVnd, monthOf, shiftMonth } from '@/lib/massage';
@@ -368,6 +369,7 @@ export default function PersonalPage({ onSignOut, homeHref = '/', businessStatus
           : 'Chọn một mục để mở màn hình cài đặt riêng.'}
         onClose={() => { setShortcutSettingsOpen(false); setPersonalSettingsPanel(null); }}
         testId="dialog-personal-settings">
+        <AccountEmailSetting email={businessStatus.email} />
         {personalSettingsPanel ? <>
           <button type="button" className="settings-link settings-panel-back" onClick={() => setPersonalSettingsPanel(null)} data-testid="button-personal-settings-back">
             <ArrowLeft size={15} aria-hidden="true" /><span>Quay lại Cài đặt</span>

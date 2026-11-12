@@ -408,6 +408,15 @@ option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
 .settings-panel-view { display: grid; gap: 12px; min-width: 0; }
 .settings-panel-back { margin: 0 0 2px; }
 .settings-dialog.settings-admin-panel { width: min(920px, calc(100vw - 32px)); max-width: calc(100vw - 20px); }
+.account-email-setting { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 10px; margin: 12px 0; padding: 12px; border: 1px solid hsl(var(--border) / .72); border-radius: 10px; color: hsl(var(--foreground)); background: hsl(var(--muted) / .3); }
+.account-email-setting > svg { color: hsl(var(--primary)); }
+.account-email-copy { display: grid; gap: 3px; min-width: 0; }
+.account-email-copy strong { font-size: 14px; font-weight: 850; }
+.account-email-copy span { overflow-wrap: anywhere; font-size: 14px; font-weight: 700; }
+.account-email-copy small { color: hsl(var(--foreground)); font-size: 12px; font-weight: 650; }
+.account-email-setting > button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 10px; border: 1px solid hsl(var(--border)); border-radius: 8px; color: hsl(var(--foreground)); background: hsl(var(--card)); font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.account-email-setting > button:disabled { cursor: not-allowed; opacity: .55; }
+.account-email-setting > button:focus-visible { outline: 3px solid hsl(var(--primary)); outline-offset: 2px; }
 .billing-account-detail-page { display: grid; gap: 12px; min-width: 0; }
 .billing-account-detail-heading { display: flex; align-items: center; gap: 10px; padding: 11px; border: 1px solid hsl(var(--border) / .55); border-radius: 9px; background: hsl(var(--muted) / .22); }
 .billing-account-detail-heading .billing-avatar { width: 36px; height: 36px; font-size: 15px; }

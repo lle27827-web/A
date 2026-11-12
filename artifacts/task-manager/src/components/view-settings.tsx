@@ -12,6 +12,7 @@ import { MonthlyPayrollPrint } from '@/components/monthly-payroll-print';
 import { PrintPreview } from '@/components/print-preview';
 import { KeyboardShortcutsSettings } from '@/components/keyboard-shortcuts-settings';
 import { PlatformBillingAdmin } from '@/components/platform-billing-admin';
+import { AccountEmailSetting } from '@/components/account-email-setting';
 import type { KeyboardShortcutAction } from '@/lib/keyboard-shortcuts';
 import {
   DEFAULT_PRINT_PREFERENCES,
@@ -137,6 +138,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
                     : activePanel === 'printing' ? 'Chọn mẫu, khổ giấy và tùy chọn in.'
                       : isOwner ? 'Lịch sử, cấp quyền quản lý và sổ cá nhân.' : canManageGrants ? 'Lịch sử tháng, quyền quản lý trong phạm vi được cấp và sổ cá nhân.' : 'Lịch sử tháng và sổ cá nhân.'}
           </DialogPrimitive.Description>
+          <AccountEmailSetting email={businessStatus?.email} />
 
           {activePanel === null ? <>
           <Link href="/personal" className="settings-link personal-entry" onClick={() => onOpenChange(false)} data-testid="link-personal-notebook">
