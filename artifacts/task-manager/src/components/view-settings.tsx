@@ -117,7 +117,7 @@ export function ViewSettings({ prefs, members, open, onOpenChange, onApply, isOw
       </DialogPrimitive.Trigger>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="settings-overlay" />
-        <DialogPrimitive.Content className="settings-dialog" data-testid="dialog-view-settings">
+        <DialogPrimitive.Content className={`settings-dialog${activePanel === 'accounts' || activePanel === 'billing' ? ' settings-admin-panel' : ''}`} data-testid="dialog-view-settings">
           <div className="dialog-head">
             <DialogPrimitive.Title asChild><h2>{activePanel ? ({
               business: 'Doanh nghiệp và mã tham gia',
