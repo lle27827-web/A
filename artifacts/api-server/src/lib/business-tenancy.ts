@@ -34,11 +34,11 @@ type BusinessRegistryClient = {
 
 const JOIN_FAILURE_LIMIT = 5;
 const JOIN_FAILURE_WINDOW = "15 minutes";
-export const MAX_ACTIVE_BUSINESSES_PER_OWNER = 10;
+export const MAX_BUSINESSES_PER_OWNER = 1;
 
 export class BusinessCreationLimitError extends Error {
   constructor() {
-    super("Tài khoản đã đạt giới hạn 10 cơ sở đang hoạt động.");
+    super("Mỗi tài khoản chỉ được tạo một cơ sở với vai trò chủ doanh nghiệp.");
   }
 }
 
@@ -155,12 +155,12 @@ export async function ensureBusinessCreationCapacity(
     [`so-cong:business-create:${ownerUserId}`],
   );
   const result = await client.query(
-    `SELECT COUNT(*)::int AS active_count
+    `SELECT COUNT(*)::int AS owned_count
      FROM public.businesses
-     WHERE owner_user_id = $1 AND active = true`,
+     WHERE owner_user_id = $1`,
     [ownerUserId],
   );
-  if (Number(result.rows[0]?.active_count ?? 0) >= MAX_ACTIVE_BUSINESSES_PER_OWNER) {
+  if (Number(result.rows[0]?.owned_count ?? 0) >= MAX_BUSINESSES_PER_OWNER) {
     throw new BusinessCreationLimitError();
   }
 }

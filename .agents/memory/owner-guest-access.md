@@ -21,17 +21,17 @@ Every signed-in account may keep a separate personal employee notebook: own atte
 
 **How to apply:** derive identity only from the verified session; scope all personal data by account, including owner accounts. Personal writes never change facility data. Comparison requires a separate comparison grant, independent of employee-list visibility; it shows daily/monthly **pay** and service/customer-name details, not facility cash revenue, phone numbers or another account's private notebook. Membership may enable the joined user to choose the facility's service catalog for their own notebook, but does not grant general facility access. Revoking facility rights must not erase the account's own notebook.
 
-Accounts that have not completed role onboarding see the personal, owner, and employee choices once; skipping defaults to the personal notebook. Businesses are logical partitions by `business_id` in the existing four shared Neon stores, not separate physical databases. Joining with the 10-digit code creates membership but does not grant facility permissions by itself.
+Accounts that have not completed role onboarding see the personal, owner, and employee choices once; skipping defaults to the personal notebook. Businesses are logical partitions by `business_id` in the three shared Neon stores, not separate physical databases. Joining with the 10-digit code creates membership but does not grant facility permissions by itself.
 
-**Why:** the user chose personal as the default, selected shared four-database partitioning, and kept facility access under owner-managed permissions.
+**Why:** the user chose personal as the default, selected shared three-database partitioning, and kept facility access under owner-managed permissions.
 
 **How to apply:** keep role and business setup in Settings; identify the business from the verified 10-digit join code on the server. Preserve current business data and personal notebooks when changing the account's workspace choice.
 
-Resolve a business membership only by the authenticated Clerk user ID; email is profile data and must not grant membership by itself. Each facility request must use the active business ID verified by server-side membership checks, with no route fallback to a default tenant. Keep user-to-business membership many-to-many so one account can join multiple businesses.
+Resolve a business membership only by the authenticated Clerk user ID; email is profile data and must not grant membership by itself. Each facility request must use the active business ID verified by server-side membership checks, with no route fallback to a default tenant. An account may join multiple businesses as an employee but may create at most one business as its owner; count inactive businesses too.
 
-**Why:** the user requires the business code to establish tenant scope before access is granted, and existing users may belong to more than one business.
+**Why:** the user requires the business code to establish tenant scope before access is granted, may join multiple businesses, and now limits each account to one owner-created business.
 
-**How to apply:** use the 10-digit code to create a membership linking the user identity to the selected business; keep owner-granted facility permissions separate. Derive all facility query scopes from verified server auth, not request bodies, email matches, or default IDs.
+**How to apply:** use the 10-digit code to create a membership linking the user identity to the selected business; keep owner-granted facility permissions separate. Serialize creation attempts by verified user ID and reject a second owned business in the server transaction. Derive all facility query scopes from verified server auth, not request bodies, email matches, or default IDs.
 
 Business identity and settings must stay isolated by business, including print name, address, tax code, phone number, and device print preferences. Store business identity on the server under the selected business; scope device preferences and employee-specific shortcuts by user and business. Never keep facility phone details in unscoped browser storage.
 

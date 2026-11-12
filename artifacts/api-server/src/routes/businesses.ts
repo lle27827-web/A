@@ -58,7 +58,7 @@ router.post("/businesses", async (req, res): Promise<void> => {
     }));
   } catch (error) {
     if (error instanceof BusinessCreationLimitError) {
-      res.status(429).json({ error: error.message });
+      res.status(409).json({ error: error.message });
       return;
     }
     req.log?.error({ err: error }, "Unable to create business");

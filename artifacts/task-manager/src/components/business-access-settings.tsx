@@ -77,7 +77,9 @@ export function BusinessAccessSettings({
   const busy = createBusiness.isPending || joinBusiness.isPending || rotateJoinCode.isPending || leaveBusiness.isPending;
   const businesses = status.businesses ?? [];
   const activeBusiness = businesses.find((business) => business.id === status.businessId);
-  const activeOwnerBusiness = activeBusiness?.role === 'owner' ? activeBusiness : null;
+  const activeOwnerBusiness = activeBusiness?.role === 'owner'
+    ? activeBusiness
+    : businesses.find((business) => business.role === 'owner') ?? null;
   const selectedRole = isOnboarding ? setupRole : role;
   const canJoinWithCode = shouldShowBusinessJoinForm(selectedRole, businesses.length);
   const canLeaveActiveBusiness = Boolean(
@@ -99,8 +101,8 @@ export function BusinessAccessSettings({
       setBusinessName('');
       await onRefreshStatus();
       setNotice('Đã tạo cơ sở. Mã tham gia chỉ hiển thị tại đây; hãy lưu lại và chia sẻ riêng với nhân viên.');
-    } catch {
-      setError('Chưa thể tạo cơ sở. Hãy kiểm tra tên và thử lại.');
+    } catch (caught) {
+      setError(getApiErrorMessage(caught) ?? 'Chưa thể tạo cơ sở. Hãy kiểm tra tên và thử lại.');
     }
   }
 
@@ -311,11 +313,19 @@ export function BusinessAccessSettings({
             <div className="business-created" data-testid="active-business-settings">
               <span className="business-access-label">DOANH NGHIỆP</span>
               <strong>{activeOwnerBusiness.name}</strong>
+              <p>Mỗi tài khoản chỉ được tạo một cơ sở với vai trò chủ doanh nghiệp.</p>
               <p>Mã hiện tại không thể xem lại. Tạo mã mới sẽ vô hiệu mã tham gia cũ nhưng không ảnh hưởng nhân viên đã liên kết.</p>
-              <button type="button" className="btn primary small" onClick={() => void rotateCode(activeOwnerBusiness.id)} disabled={busy}>
-                {busy ? <LoaderCircle size={14} className="spin" aria-hidden="true" /> : <RefreshCw size={14} aria-hidden="true" />}
-                Tạo mã mới
-              </button>
+              <div className="business-access-actions">
+                {status.businessId !== activeOwnerBusiness.id && (
+                  <button type="button" className="btn primary small" onClick={() => void activateBusiness(activeOwnerBusiness.id)} disabled={busy}>
+                    Mở cơ sở<ArrowRight size={14} aria-hidden="true" />
+                  </button>
+                )}
+                <button type="button" className="btn small" onClick={() => void rotateCode(activeOwnerBusiness.id)} disabled={busy}>
+                  {busy ? <LoaderCircle size={14} className="spin" aria-hidden="true" /> : <RefreshCw size={14} aria-hidden="true" />}
+                  Tạo mã mới
+                </button>
+              </div>
             </div>
           ) : (
             <form className="business-access-form" onSubmit={(event) => void createWorkspace(event)} aria-busy={busy}>
