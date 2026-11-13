@@ -4191,3 +4191,203 @@ body:has(.modal-backdrop) .screen-nav {
     padding: clamp(12px, 1.35vw, 22px);
   }
 }
+
+/* Desktop business home: one continuous revenue column beside the existing
+   permission-aware shortcuts. Other routes keep their persistent navigation. */
+@media (min-width: 900px) {
+  .app.desktop-revenue-layout:not(.attendance-app) {
+    display: grid;
+    grid-template-columns: minmax(310px, 42fr) minmax(0, 58fr);
+    grid-template-rows: 68px auto minmax(0, 1fr);
+  }
+
+  .app.desktop-revenue-layout:not(.attendance-app) > .topbar {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .app.desktop-revenue-layout:not(.attendance-app) > .desktop-revenue-panel {
+    grid-column: 1;
+    grid-row: 2 / 4;
+    padding: 18px clamp(14px, 1.6vw, 24px) 28px;
+  }
+
+  .app.desktop-revenue-layout:not(.attendance-app) > .desktop-rail {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .app.desktop-revenue-layout:not(.attendance-app) > .main {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  .app.desktop-home-layout .desktop-rail-nav {
+    display: none;
+  }
+
+  .app.desktop-home-layout > .desktop-rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app.desktop-home-layout > .main .home > .tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    gap: 14px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .app.desktop-home-layout > .main .home > .tiles .tile {
+    min-height: 118px;
+    padding: 17px;
+    border: 2px solid hsl(var(--frame-border));
+    border-radius: 14px;
+    background: hsl(var(--tile-background));
+    box-shadow: 0 3px 0 hsl(var(--shadow-color) / .12);
+    transition: transform .16s ease, background-color .16s ease, box-shadow .16s ease;
+  }
+
+  .app.desktop-home-layout > .main .home > .tiles .tile:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 0 hsl(var(--shadow-color) / .14);
+    background: hsl(40 48% 96%);
+  }
+
+  .app.desktop-home-layout > .main .home > .tiles .tile strong {
+    color: hsl(var(--tile-foreground));
+    font-size: clamp(16px, 1.15vw, 20px);
+    line-height: 1.35;
+  }
+
+  .app.desktop-home-layout > .main .home > .tiles .tile > svg,
+  .app.desktop-home-layout > .main .home > .tiles .tile .tile-go {
+    color: hsl(var(--tile-accent));
+  }
+}
+
+@media (min-width: 900px) and (max-width: 1099px) {
+  .app.desktop-home-layout > .main .home > .tiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Screen-only legibility pass. Print and receipt output intentionally retain
+   their existing type scale and templates. */
+@media screen {
+  :is(.app, .personal, .settings-dialog, .dialog, .modal-backdrop) :is(
+    small,
+    .btn.small,
+    .banner button,
+    .muted,
+    .sub,
+    .count,
+    .view-only,
+    .stat dt,
+    .data-table caption,
+    .data-table thead th,
+    .initials,
+    .initials.tiny,
+    .form-error,
+    .field,
+    .hint,
+    .warn-text,
+    .card-hint,
+    .tile-kicker,
+    .rev-label,
+    .group-title,
+    .card-list-meta,
+    .facts dt,
+    .personal-period span,
+    .dc-wd,
+    .dc-meta,
+    .cell-stack .muted,
+    .legacy h3,
+    .keyboard-shortcuts-help,
+    .employee-summary,
+    .rev-breakdown dt,
+    .visit-note,
+    .mode-pill,
+    .net-revenue-values span,
+    .date-picker-option .muted,
+    .date-picker-badge,
+    .tag,
+    .lock-note,
+    .p-pill,
+    .p-date,
+    .p-note,
+    .cmp-section h3,
+    .cmp-pair-title,
+    .cmp-shift,
+    .cmp-none,
+    .shift-date,
+    .shift-facts dt,
+    .grant-group legend,
+    .status-chip,
+    .chip,
+    .footer,
+    .appointments-kicker,
+    .appointment-status,
+    .appointment-when,
+    .appointment-time,
+    .appointment-note,
+    .staff-activity-count,
+    .billing-admin-kicker,
+    .billing-section-heading > small,
+    .billing-section-heading > div > span,
+    .billing-total-count,
+    .billing-admin-heading p,
+    .billing-toggle-card strong,
+    .billing-access-copy strong,
+    .billing-toggle-card small,
+    .billing-qr-empty,
+    .billing-qr-copy > strong,
+    .billing-qr-copy p,
+    .billing-search input,
+    .billing-policy-note,
+    .billing-qr-status,
+    .billing-pending-count,
+    .billing-account-identity strong,
+    .billing-account-identity small,
+    .billing-account-id,
+    .billing-account-detail-heading p,
+    .billing-account-detail-meta,
+    .billing-detail-status,
+    .billing-detail-grid dt,
+    .billing-detail-grid dd,
+    .billing-request-main strong,
+    .billing-request-main small,
+    .billing-pagination > span,
+    .billing-request-actions,
+    .billing-renew-actions .btn,
+    .billing-request-actions .btn,
+    .billing-manual-review-note,
+    .billing-empty strong,
+    .billing-empty span,
+    .billing-notice,
+    .billing-query-error,
+    .billing-admin-error,
+    .workspace-kicker,
+    .workspace-eyebrow,
+    .workspace-business-index,
+    .workspace-form-note,
+    .business-access-label,
+    .business-connected-row strong,
+    .business-access-message,
+    .workspace-personal-link,
+    .workspace-personal-copy p,
+    .workspace-footnote,
+    .workspace-switch-trigger,
+    .workspace-current,
+    .workspace-switch-error,
+    .history-banner input[type="month"],
+    .night-shift-badge,
+    .employee-summary > span > span,
+    .empty p
+  ) {
+    font-size: max(13px, .85em) !important;
+    font-weight: 700 !important;
+    line-height: 1.45;
+  }
+}

@@ -180,6 +180,7 @@ export function AppShell({
   const showResults = query.trim().length > 0;
   const employeeMode = isOwner && prefs.mode === 'employee';
   const desktopRevenueLayout = desktopLayout && permissions.viewRevenue && !employeeMode && desktopLeftPanel != null;
+  const desktopHomeLayout = desktopRevenueLayout && (location === '/' || location === '/attendance') && !showResults;
 
   useEffect(() => {
     if (printProfileQuery.data) {
@@ -358,7 +359,7 @@ export function AppShell({
 
   return (
     <Ctx.Provider value={ctx}>
-      <div className={desktopRevenueLayout ? 'app desktop-revenue-layout' : 'app'}>
+      <div className={desktopRevenueLayout ? `app desktop-revenue-layout${desktopHomeLayout ? ' desktop-home-layout' : ''}` : 'app'}>
         <a className="skip-link" href="#main" data-testid="link-skip-main">Bỏ qua đến nội dung chính</a>
         <header className="topbar">
           <div className="topbar-inner">
