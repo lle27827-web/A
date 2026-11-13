@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomInt, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import { withBusinessRegistryClient } from "@workspace/db";
 
 export const DEFAULT_BUSINESS_ID = "00000000-0000-4000-8000-000000000001";
@@ -10,6 +10,7 @@ export type BusinessSummary = {
   role: BusinessRole | "platform_admin";
 };
 export type BusinessMemberSummary = {
+  userId: string;
   email: string;
   role: BusinessRole;
 };
@@ -42,8 +43,34 @@ export class BusinessCreationLimitError extends Error {
   }
 }
 
-const hashJoinCode = (code: string) =>
-  createHash("sha256").update(code, "utf8").digest("hex");
+function joinCodeSecret(): string {
+  const secret = process.env.JOIN_CODE_HMAC_SECRET?.trim();
+  if (!secret || secret.length < 32) {
+    throw new Error("JOIN_CODE_HMAC_SECRET must be configured with at least 32 characters.");
+  }
+  return secret;
+}
+
+export function hashJoinCodeForStorage(code: string, secret = joinCodeSecret()): string {
+  return createHmac("sha256", secret)
+    .update(`so-cong:business-join-code:v1\0${code}`, "utf8")
+    .digest("hex");
+}
+
+function legacyJoinCodeHash(code: string): string {
+  return createHash("sha256").update(code, "utf8").digest("hex");
+}
+
+function joinCodeHashesEqual(left: string, right: string): boolean {
+  if (!/^[a-f0-9]{64}$/i.test(left) || !/^[a-f0-9]{64}$/i.test(right)) return false;
+  return timingSafeEqual(Buffer.from(left, "hex"), Buffer.from(right, "hex"));
+}
+
+function joinCodeCandidates(code: string): string[] {
+  const hmac = hashJoinCodeForStorage(code);
+  const legacy = legacyJoinCodeHash(code);
+  return [hmac, legacy];
+}
 
 const normalizeEmail = (email: string | null | undefined) => email?.trim().toLowerCase() ?? "";
 
@@ -276,14 +303,20 @@ export async function listCurrentBusinessMembersWithClient(
   input: { businessId: string; ownerUserId: string; isPlatformAdmin: boolean },
 ): Promise<BusinessMemberSummary[]> {
   const result = await client.query(
-    `SELECT lower(m.email) AS email,
+    `SELECT m.user_id AS user_id, lower(m.email) AS email,
         CASE WHEN b.owner_user_id = m.user_id THEN 'owner' ELSE 'employee' END AS role
      FROM public.business_memberships AS m
      JOIN public.businesses AS b ON b.id = m.business_id
      WHERE m.business_id = $1::uuid
        AND m.active = true
        AND b.active = true
-       AND (b.owner_user_id = $2 OR $3::boolean = true)
+       AND (
+         b.owner_user_id = $2 OR $3::boolean = true OR EXISTS (
+           SELECT 1 FROM public.business_memberships requester
+           WHERE requester.business_id = b.id
+             AND requester.user_id = $2 AND requester.active = true
+         )
+       )
      ORDER BY CASE WHEN m.role = 'owner' THEN 0 ELSE 1 END, lower(m.email)`,
     [input.businessId, input.ownerUserId, input.isPlatformAdmin],
   );
@@ -294,10 +327,125 @@ export async function listCurrentBusinessMembersWithClient(
       throw new Error("Business registry returned an unsupported membership role.");
     }
     return {
+      userId: String(row.user_id),
       email: String(row.email).trim().toLowerCase(),
       role,
     };
   });
+}
+
+export async function isActiveBusinessMemberEmail(
+  businessId: string,
+  email: string,
+): Promise<boolean> {
+  const normalizedEmail = normalizeEmail(email);
+  if (!businessId || !normalizedEmail) return false;
+  return withBusinessRegistryClient(async (client) => {
+    const result = await client.query(
+      `SELECT 1
+       FROM public.business_memberships m
+       JOIN public.businesses b ON b.id = m.business_id
+       WHERE m.business_id = $1::uuid
+         AND lower(btrim(m.email)) = $2
+         AND m.active = true AND b.active = true
+       LIMIT 1`,
+      [businessId, normalizedEmail],
+    );
+    return result.rows.length > 0;
+  });
+}
+
+export async function deactivateBusinessMemberWithClient(
+  client: BusinessRegistryClient,
+  input: { businessId: string; ownerUserId: string; targetUserId: string },
+): Promise<{ email: string } | null> {
+  const member = await client.query(
+    `UPDATE public.business_memberships m
+     SET active = false
+     FROM public.businesses b
+     WHERE m.business_id = $1::uuid AND m.user_id = $2
+       AND m.business_id = b.id AND b.owner_user_id = $3
+       AND b.active = true AND m.active = true AND m.role = 'employee'
+     RETURNING lower(m.email) AS email`,
+    [input.businessId, input.targetUserId, input.ownerUserId],
+  );
+  const row = member.rows[0];
+  if (!row) return null;
+  await client.query(
+    `INSERT INTO public.billing_audit_events
+      (id, actor_user_id, action, target_type, target_id, details)
+     VALUES ($1::uuid, $2, 'business.member.deactivate', 'business-member', $3, $4::jsonb)`,
+    [randomUUID(), input.ownerUserId, input.targetUserId, JSON.stringify({ businessId: input.businessId })],
+  );
+  return { email: String(row.email) };
+}
+
+export async function transferBusinessOwnershipWithClient(
+  client: BusinessRegistryClient,
+  input: { businessId: string; ownerUserId: string; targetUserId: string },
+): Promise<{ ownerEmail: string } | null> {
+  await client.query("BEGIN");
+  try {
+    await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+      `so-cong:business-owner-transfer:${input.businessId}`,
+    ]);
+    await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+      `so-cong:business-create:${input.targetUserId}`,
+    ]);
+    const businessResult = await client.query(
+      `SELECT owner_user_id FROM public.businesses
+       WHERE id = $1::uuid AND active = true FOR UPDATE`,
+      [input.businessId],
+    );
+    if (String(businessResult.rows[0]?.owner_user_id ?? "") !== input.ownerUserId) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+    const otherOwnership = await client.query(
+      `SELECT 1 FROM public.businesses
+       WHERE owner_user_id = $1 AND active = true AND id <> $2::uuid LIMIT 1`,
+      [input.targetUserId, input.businessId],
+    );
+    if (otherOwnership.rows.length) {
+      throw new Error("Người nhận đã là chủ của một doanh nghiệp khác.");
+    }
+    const recipient = await client.query(
+      `SELECT lower(m.email) AS email
+       FROM public.business_memberships m
+       JOIN public.businesses b ON b.id = m.business_id
+       WHERE m.business_id = $1::uuid AND m.user_id = $2
+         AND m.active = true AND b.active = true
+       FOR UPDATE OF m`,
+      [input.businessId, input.targetUserId],
+    );
+    const ownerEmail = String(recipient.rows[0]?.email ?? "");
+    if (!ownerEmail) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+    await client.query(
+      `UPDATE public.businesses SET owner_user_id = $2, owner_email = $3
+       WHERE id = $1::uuid AND owner_user_id = $4`,
+      [input.businessId, input.targetUserId, ownerEmail, input.ownerUserId],
+    );
+    await client.query(
+      `UPDATE public.business_memberships
+       SET role = CASE WHEN user_id = $2 THEN 'owner' ELSE 'employee' END
+       WHERE business_id = $1::uuid AND user_id = ANY($3::text[])`,
+      [input.businessId, input.targetUserId, [input.ownerUserId, input.targetUserId]],
+    );
+    await client.query(
+      `INSERT INTO public.billing_audit_events
+        (id, actor_user_id, action, target_type, target_id, details)
+       VALUES ($1::uuid, $2, 'business.owner.transfer', 'business', $3, $4::jsonb)`,
+      [randomUUID(), input.ownerUserId, input.businessId, JSON.stringify({ newOwnerUserId: input.targetUserId })],
+    );
+    await client.query("COMMIT");
+    return { ownerEmail };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  }
 }
 
 export async function restorePendingDefaultBusinessOwnership(input: {
@@ -448,9 +596,9 @@ export async function createBusinessForOwner(input: {
       );
       await client.query(
         `INSERT INTO public.businesses
-          (id, name, owner_user_id, owner_email, join_code_hash, active)
-         VALUES ($1::uuid, $2, $3, $4, $5, true)`,
-        [id, name, input.userId, email, hashJoinCode(joinCode)],
+          (id, name, owner_user_id, owner_email, join_code_hash, join_code_hash_version, active)
+         VALUES ($1::uuid, $2, $3, $4, $5, 'hmac-sha256', true)`,
+        [id, name, input.userId, email, hashJoinCodeForStorage(joinCode)],
       );
       await client.query(
         `INSERT INTO public.business_memberships
@@ -473,8 +621,7 @@ export async function joinBusinessByCode(input: {
   code: string;
   ipAddress: string;
 }): Promise<JoinBusinessResult> {
-  const secret = process.env.APP_CLERK_SECRET_KEY?.trim();
-  if (!secret) throw new Error("Business join rate-limit key is not configured.");
+  const secret = joinCodeSecret();
   return withBusinessRegistryClient((client) =>
     joinBusinessByCodeWithClient(client, input, secret),
   );
@@ -498,13 +645,18 @@ export async function joinBusinessByCodeWithClient(
       return { kind: "rate-limited", retryAfterSeconds };
     }
 
+    const candidates = joinCodeCandidates(code);
     const found = await client.query(
-      `SELECT id::text, name FROM public.businesses
-       WHERE active = true AND join_code_hash = $1
+      `SELECT id::text, name, join_code_hash FROM public.businesses
+       WHERE active = true AND join_code_hash = ANY($1::text[])
        FOR SHARE`,
-      [hashJoinCode(code)],
+      [candidates],
     );
-    const row = found.rows[0];
+    const row = found.rows.find((candidate) =>
+      candidates.some((candidateHash) =>
+        joinCodeHashesEqual(String(candidate.join_code_hash ?? ""), candidateHash),
+      ),
+    );
     if (!row) {
       await recordJoinFailure(client, attemptKeys);
       await client.query("COMMIT");
@@ -555,10 +707,10 @@ export async function rotateBusinessJoinCodeWithClient(
   if (!/^[0-9a-f-]{36}$/i.test(input.businessId)) return null;
   const joinCode = makeJoinCode();
   const updated = await client.query(
-    `UPDATE public.businesses SET join_code_hash = $3
+    `UPDATE public.businesses SET join_code_hash = $3, join_code_hash_version = 'hmac-sha256'
      WHERE id = $1::uuid AND owner_user_id = $2 AND active = true
      RETURNING id`,
-    [input.businessId, input.ownerUserId, hashJoinCode(joinCode)],
+    [input.businessId, input.ownerUserId, hashJoinCodeForStorage(joinCode)],
   );
   return updated.rowCount ? joinCode : null;
 }

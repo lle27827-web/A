@@ -86,7 +86,7 @@ export { cardResponse } from "./massage-cards";
 
 function readPartitionedTableFresh<T extends Record<string, unknown>>(
   tableName: string,
-  businessId: string,
+  businessId = "00000000-0000-4000-8000-000000000001",
 ): Promise<T[]> {
   return readPartitionedTable<T>(tableName, { businessId }, { bypassCache: true });
 }
@@ -158,7 +158,7 @@ async function createPartitionedCard(
   input: TreatmentCardInput,
   values: ReturnType<typeof cardValues> & { businessId: string },
   operationId: string,
-  businessId: string,
+  businessId = "00000000-0000-4000-8000-000000000001",
   actorEmail: string | null,
 ) {
   return withPartitionWriteMutex(scopedCardLock("card-identities", businessId), () =>
@@ -875,7 +875,7 @@ export async function saveSession(
   id?: number,
   permissions?: FacilityPermissions,
   operationId?: string,
-  businessId = "00000000-0000-4000-8000-000000000001",
+  businessId: string,
 ) {
   const workDate = validDate(input.workDate);
   if (!isWorkDateWithinFutureLimit(workDate)) {
@@ -1212,7 +1212,7 @@ export async function deleteSession(
   id: number,
   permissions?: FacilityPermissions,
   operationId?: string,
-  businessId = "00000000-0000-4000-8000-000000000001",
+  businessId: string,
 ) {
   if (isPartitionedStorageEnabled()) {
     if (!operationId) throw new MassageError(400, "Thiếu mã chống ghi trùng khi xóa ca.");

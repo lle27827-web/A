@@ -889,17 +889,54 @@ export const JoinBusinessResponse = zod.object({
 
 
 /**
- * @summary Chủ cơ sở xem các tài khoản đang tham gia cơ sở đã chọn
+ * @summary Thành viên xem danh sách tài khoản đang tham gia cơ sở đã chọn
  */
 export const listCurrentBusinessMembersResponseEmailMax = 254;
 
 
 
 export const ListCurrentBusinessMembersResponseItem = zod.object({
+  "userId": zod.string(),
   "email": zod.email().max(listCurrentBusinessMembersResponseEmailMax),
   "role": zod.enum(['owner', 'employee'])
 })
 export const ListCurrentBusinessMembersResponse = zod.array(ListCurrentBusinessMembersResponseItem)
+
+
+/**
+ * @summary Gỡ một nhân viên khỏi doanh nghiệp
+ */
+export const removeBusinessMemberPathUserIdMax = 128;
+
+
+
+export const RemoveBusinessMemberParams = zod.object({
+  "id": zod.uuid(),
+  "userId": zod.coerce.string().min(1).max(removeBusinessMemberPathUserIdMax)
+})
+
+export const RemoveBusinessMemberResponse = zod.void()
+
+
+/**
+ * @summary Chuyển quyền sở hữu cho thành viên đang hoạt động
+ */
+export const TransferBusinessOwnershipParams = zod.object({
+  "id": zod.uuid()
+})
+
+export const transferBusinessOwnershipBodyTargetUserIdMax = 128;
+
+
+
+export const TransferBusinessOwnershipBody = zod.object({
+  "targetUserId": zod.string().min(1).max(transferBusinessOwnershipBodyTargetUserIdMax)
+})
+
+export const TransferBusinessOwnershipResponse = zod.object({
+  "transferred": zod.literal(true),
+  "ownerEmail": zod.email()
+})
 
 
 /**

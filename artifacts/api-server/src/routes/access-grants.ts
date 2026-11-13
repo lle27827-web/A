@@ -7,6 +7,7 @@ import { canManageGrant, hasOnlyActiveGrantEmployees, permissionsWithinDelegatio
 import { currentFacilityBusinessId, type OwnerAuthStatus } from "../lib/owner-auth";
 import { massageHandler, parseInput } from "./massage-errors";
 import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, upsertMutation } from "../lib/partitioned-mutations";
+import { isActiveBusinessMemberEmail } from "../lib/business-tenancy";
 
 const router: IRouter = Router();
 const output = (row: typeof managerGrantsTable.$inferSelect) => ({ id: row.id, email: row.email, permissions: safePermissions(row.permissions) });
@@ -16,6 +17,7 @@ const ownerEmail = () => normalizeEmail(process.env.ADMIN_EMAIL ?? "");
 function currentStatus(res: Response): OwnerAuthStatus {
   const status = res.locals.facilityAuth as OwnerAuthStatus | undefined;
   if (!status?.authenticated) throw new MassageError(401, "Vui lòng đăng nhập để quản lý quyền.");
+  if (!status.userId) throw new MassageError(401, "Không xác định được tài khoản đăng nhập.");
   return status;
 }
 
@@ -37,6 +39,9 @@ router.post("/access-grants", massageHandler(async (req, res) => {
   const businessId = currentFacilityBusinessId(res);
   const input = parseInput(SaveAccessGrantBody, { ...req.body, email: typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : req.body?.email });
   if (input.email === ownerEmail()) throw new MassageError(400, "Chủ sở hữu luôn có đầy đủ quyền, không cần cấp quyền.");
+  if (!await isActiveBusinessMemberEmail(businessId, input.email)) {
+    throw new MassageError(400, "Chỉ có thể cấp quyền cho tài khoản đang tham gia cơ sở này.");
+  }
   if (!status.isOwner && (!status.email || input.email === status.email)) {
     throw new MassageError(403, "Quản lý không thể tự cấp hoặc sửa quyền của chính mình.");
   }
@@ -80,7 +85,7 @@ router.post("/access-grants", massageHandler(async (req, res) => {
       operationId,
       lockName: "access-grants",
       action: existing ? "access-grant.update" : "access-grant.create",
-      request: { email: input.email, permissions, businessId },
+      request: { email: input.email, permissions, businessId, userId: status.userId },
       expectedEventCount: 1,
       idAllocations: existing ? {} : { manager_grants: 1 },
       build: (reserved) => {
@@ -101,7 +106,7 @@ router.post("/access-grants", massageHandler(async (req, res) => {
       operationId,
       "cấp quyền",
       "access-grant.save",
-      { email: input.email, permissions, businessId },
+      { email: input.email, permissions, businessId, userId: status.userId },
       async (tx) => (await tx.insert(managerGrantsTable)
         .values({ businessId, email: input.email, permissions, grantedBy: status.email })
         .onConflictDoUpdate({
@@ -132,16 +137,25 @@ router.delete("/access-grants/:id", massageHandler(async (req, res) => {
       operationId: operationIdFromRequest(req.get("Idempotency-Key"), "thu hồi quyền"),
       lockName: "access-grants",
       action: "access-grant.delete",
-      request: { id },
+      request: { id, businessId, userId: status.userId },
       expectedEventCount: 1,
       build: () => [deleteMutation("manager_grants", id)],
     });
   } else {
-    const [deleted] = await db.delete(managerGrantsTable).where(and(
-      eq(managerGrantsTable.id, id),
-      eq(managerGrantsTable.businessId, businessId),
-    )).returning({ id: managerGrantsTable.id });
-    if (!deleted) throw new MassageError(404, "Quyền đã được thu hồi hoặc không tồn tại.");
+    await idempotentTransaction(
+      operationIdFromRequest(req.get("Idempotency-Key"), "thu hồi quyền"),
+      "thu hồi quyền",
+      "access-grant.delete",
+      { id, businessId, userId: status.userId },
+      async (tx) => {
+        const [deleted] = await tx.delete(managerGrantsTable).where(and(
+          eq(managerGrantsTable.id, id),
+          eq(managerGrantsTable.businessId, businessId),
+        )).returning({ id: managerGrantsTable.id });
+        if (!deleted) throw new MassageError(404, "Quyền đã được thu hồi hoặc không tồn tại.");
+        return { deleted: true };
+      },
+    );
   }
   res.sendStatus(204);
 }));

@@ -10,6 +10,7 @@ export const businessesTable = pgTable("businesses", {
   ownerUserId: text("owner_user_id").notNull(),
   ownerEmail: text("owner_email").notNull(),
   joinCodeHash: text("join_code_hash").notNull(),
+  joinCodeHashVersion: text("join_code_hash_version").notNull().default("sha256"),
   facilityName: text("facility_name").notNull().default(""),
   facilityAddress: text("facility_address").notNull().default(""),
   facilityTaxCode: text("facility_tax_code").notNull().default(""),

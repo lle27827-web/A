@@ -1,3 +1,4 @@
+const LEGACY_DEFAULT_BUSINESS_ID = "00000000-0000-4000-8000-000000000001";
 import { createHash } from "node:crypto";
 import { and, asc, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { db, isPartitionedStorageEnabled, personalServicesTable as services, personalSessionsTable as sessions,
@@ -12,7 +13,6 @@ import { commitPartitionedMutations, deleteMutation, operationIdFromRequest, ups
 type Visit = PersonalComparisonVisit;
 const personalLock = (userId: string) =>
   `personal:${createHash("sha256").update(userId).digest("hex").slice(0, 48)}`;
-const LEGACY_DEFAULT_BUSINESS_ID = "00000000-0000-4000-8000-000000000001";
 const normalize = (s: string) => s.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
 const groupKey = (v: Visit) => JSON.stringify([v.workDate, normalize(v.serviceName)]);
 

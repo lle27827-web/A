@@ -150,6 +150,8 @@ export * from './subscriptionStatusPricesBusinessMonthly';
 export * from './subscriptionStatusPricesBusinessYearly';
 export * from './subscriptionStatusPricesPersonalMonthly';
 export * from './subscriptionStatusPricesPersonalYearly';
+export * from './transferBusinessOwnership200';
+export * from './transferOwnerInput';
 export * from './treatmentCard';
 export * from './treatmentCardInput';
 export * from './treatmentCardInputPurchasePaymentMethod';

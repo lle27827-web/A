@@ -8,7 +8,6 @@ import type { AccessGrant, FacilityPermissions, MemberRecord } from '@workspace/
 import { AlertCircle, ChevronDown, ChevronRight, KeyRound, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react';
 import { ConfirmDialog, ErrorBanner, Modal, Skeleton, type ConfirmState } from '@/components/modal';
 import { errorText } from '@/lib/massage';
-import { hasDuplicateManagerGrantEmail, managerGrantEmailInputValue, normalizeManagerGrantEmail } from '@/lib/manager-grant-email';
 
 type Scope = 'none' | 'all' | 'selected';
 type Draft = {
@@ -112,7 +111,7 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
   const joinedAccounts = useListCurrentBusinessMembers({
     query: {
       queryKey: getListCurrentBusinessMembersQueryKey(),
-      enabled: isOwner,
+      enabled: true,
       refetchOnWindowFocus: true,
     },
   });
@@ -157,13 +156,13 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!draft || save.isPending) return;
-    const email = normalizeManagerGrantEmail(draft.email, draft.id === null);
+    const email = draft.id === null
+      ? (joinedAccounts.data ?? []).find((member) => member.email === draft.email)?.email ?? ''
+      : draft.email.trim().toLowerCase();
     if (!email) {
-      return setError(draft.id === null
-        ? 'Tên Gmail chỉ dùng chữ, số và dấu chấm; không dùng dấu chấm ở đầu, cuối hoặc liền nhau.'
-        : 'Nhập email hợp lệ.');
+      return setError(draft.id === null ? 'Chọn tài khoản đang tham gia cơ sở.' : 'Không xác định được email tài khoản.');
     }
-    if (draft.id === null && hasDuplicateManagerGrantEmail(email, list.map((grant) => grant.email))) {
+    if (draft.id === null && list.some((grant) => grant.email.toLowerCase() === email)) {
       return setError('Email này đã có quyền. Hãy sửa dòng hiện có.');
     }
     if (draft.scope === 'selected' && draft.employeeIds.length === 0) return setError('Chọn ít nhất một nhân viên.');
@@ -215,19 +214,18 @@ export function AccessGrantsDialog({ members, isOwner, permissions, onClose }: {
         {draft ? (
           <form className="grant-form" onSubmit={submit} noValidate data-testid="form-access-grant">
             <h3 className="group-title">{draft.id === null ? 'Cấp quyền mới' : 'Sửa quyền'}</h3>
-            <label className="field grant-email-field" htmlFor="grant-email">Email
-              <span className="grant-email-control">
-                <input id="grant-email" type={draft.id === null ? 'text' : 'email'} inputMode="email" autoComplete="off"
-                  autoCapitalize="none" spellCheck={false} value={managerGrantEmailInputValue(draft.email, draft.id === null)} maxLength={254}
-                  readOnly={draft.id !== null}
-                  onChange={(e) => set('email', draft.id === null ? managerGrantEmailInputValue(e.target.value, true) : e.target.value)}
-                  aria-label={draft.id === null ? 'Tên tài khoản Gmail' : undefined}
-                  aria-invalid={!!error}
-                  aria-describedby={[draft.id === null ? 'grant-email-hint' : null, error ? 'grant-error' : null].filter(Boolean).join(' ') || undefined}
-                  data-testid="input-grant-email" />
-                {draft.id === null && <span className="grant-email-suffix" aria-hidden="true">@gmail.com</span>}
-              </span>
-              {draft.id === null && <span id="grant-email-hint" className="hint">Đuôi @gmail.com được thêm tự động; có thể dán địa chỉ Gmail đầy đủ.</span>}
+            <label className="field grant-email-field" htmlFor="grant-email">Tài khoản đang tham gia
+              {draft.id === null ? (
+                <select id="grant-email" value={draft.email} onChange={(event) => set('email', event.target.value)}
+                  aria-invalid={!!error} aria-describedby={error ? 'grant-error' : undefined}
+                  disabled={joinedAccounts.isPending || !joinedAccounts.data?.length} data-testid="input-grant-email">
+                  <option value="">{joinedAccounts.isPending ? 'Đang tải thành viên…' : 'Chọn thành viên'}</option>
+                  {(joinedAccounts.data ?? []).filter((member) => member.role !== 'owner')
+                    .map((member) => <option key={member.userId} value={member.email}>{member.email}</option>)}
+                </select>
+              ) : (
+                <input id="grant-email" type="email" value={draft.email} readOnly data-testid="input-grant-email" />
+              )}
             </label>
 
             <fieldset className="grant-group">

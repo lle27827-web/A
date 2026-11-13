@@ -95,6 +95,8 @@ import type {
   ServiceTypeRecord,
   SubscriptionPaymentRequest,
   SubscriptionStatus,
+  TransferBusinessOwnership200,
+  TransferOwnerInput,
   TreatmentCard,
   TreatmentCardInput,
   TreatmentCardUpdate,
@@ -2690,7 +2692,7 @@ export const getListCurrentBusinessMembersUrl = () => {
 }
 
 /**
- * @summary Chủ cơ sở xem các tài khoản đang tham gia cơ sở đã chọn
+ * @summary Thành viên xem danh sách tài khoản đang tham gia cơ sở đã chọn
  */
 export const listCurrentBusinessMembers = async ( options?: Parameters<typeof customFetch>[1]): Promise<BusinessMemberSummary[]> => {
 
@@ -2737,7 +2739,7 @@ export type ListCurrentBusinessMembersQueryError = ErrorType<void>
 
 
 /**
- * @summary Chủ cơ sở xem các tài khoản đang tham gia cơ sở đã chọn
+ * @summary Thành viên xem danh sách tài khoản đang tham gia cơ sở đã chọn
  */
 
 export function useListCurrentBusinessMembers<TData = Awaited<ReturnType<typeof listCurrentBusinessMembers>>, TError = ErrorType<void>>(
@@ -2757,6 +2759,171 @@ export function useListCurrentBusinessMembers<TData = Awaited<ReturnType<typeof 
 
 
 
+
+export const getRemoveBusinessMemberUrl = (id: string,
+    userId: string,) => {
+
+
+
+
+  return `/api/businesses/${id}/members/${userId}`
+}
+
+/**
+ * @summary Gỡ một nhân viên khỏi doanh nghiệp
+ */
+export const removeBusinessMember = async (id: string,
+    userId: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRemoveBusinessMemberUrl(id,userId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemoveBusinessMemberMutationKey = () => ['removeBusinessMember'] as const;
+
+export const getRemoveBusinessMemberMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeBusinessMember>>, TError,RemoveBusinessMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeBusinessMember>>, TError,RemoveBusinessMemberMutationVariables, TContext> => {
+
+const mutationKey = getRemoveBusinessMemberMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeBusinessMember>>, RemoveBusinessMemberMutationVariables> = (props) => {
+          const {id,userId} = props ?? {};
+
+          return  removeBusinessMember(id,userId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveBusinessMemberMutationResult = NonNullable<Awaited<ReturnType<typeof removeBusinessMember>>>
+
+    export type RemoveBusinessMemberMutationError = ErrorType<void>
+    export type RemoveBusinessMemberMutationVariables = {id: string;userId: string}
+
+    /**
+ * @summary Gỡ một nhân viên khỏi doanh nghiệp
+ */
+export const useRemoveBusinessMember = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeBusinessMember>>, TError,RemoveBusinessMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeBusinessMember>>,
+        TError,
+        RemoveBusinessMemberMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRemoveBusinessMemberMutationOptions(options));
+    }
+
+export const getTransferBusinessOwnershipUrl = (id: string,) => {
+
+
+
+
+  return `/api/businesses/${id}/transfer-ownership`
+}
+
+/**
+ * @summary Chuyển quyền sở hữu cho thành viên đang hoạt động
+ */
+export const transferBusinessOwnership = async (id: string,
+    transferOwnerInput: TransferOwnerInput, options?: Parameters<typeof customFetch>[1]): Promise<TransferBusinessOwnership200> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TransferBusinessOwnership200>(getTransferBusinessOwnershipUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(transferOwnerInput)
+  }
+);}
+
+
+
+
+
+export const getTransferBusinessOwnershipMutationKey = () => ['transferBusinessOwnership'] as const;
+
+export const getTransferBusinessOwnershipMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transferBusinessOwnership>>, TError,TransferBusinessOwnershipMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof transferBusinessOwnership>>, TError,TransferBusinessOwnershipMutationVariables, TContext> => {
+
+const mutationKey = getTransferBusinessOwnershipMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof transferBusinessOwnership>>, TransferBusinessOwnershipMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  transferBusinessOwnership(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TransferBusinessOwnershipMutationResult = NonNullable<Awaited<ReturnType<typeof transferBusinessOwnership>>>
+    export type TransferBusinessOwnershipMutationBody = BodyType<TransferOwnerInput>
+    export type TransferBusinessOwnershipMutationError = ErrorType<void>
+    export type TransferBusinessOwnershipMutationVariables = {id: string;data: BodyType<TransferOwnerInput>}
+
+    /**
+ * @summary Chuyển quyền sở hữu cho thành viên đang hoạt động
+ */
+export const useTransferBusinessOwnership = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transferBusinessOwnership>>, TError,TransferBusinessOwnershipMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof transferBusinessOwnership>>,
+        TError,
+        TransferBusinessOwnershipMutationVariables,
+        TContext
+      > => {
+      return useMutation(getTransferBusinessOwnershipMutationOptions(options));
+    }
 
 export const getGetCurrentBusinessPrintProfileUrl = () => {
 

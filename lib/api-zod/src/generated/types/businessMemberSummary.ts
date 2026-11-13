@@ -8,6 +8,7 @@
 import type { BusinessMemberSummaryRole } from './businessMemberSummaryRole';
 
 export interface BusinessMemberSummary {
+  userId: string;
   /** @maxLength 254 */
   email: string;
   role: BusinessMemberSummaryRole;

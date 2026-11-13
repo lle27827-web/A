@@ -485,18 +485,66 @@ paths:
     get:
       operationId: listCurrentBusinessMembers
       tags: [health]
-      summary: Chủ cơ sở xem các tài khoản đang tham gia cơ sở đã chọn
+      summary: Thành viên xem danh sách tài khoản đang tham gia cơ sở đã chọn
       responses:
         "200":
-          description: Email các thành viên đang tham gia cơ sở hiện tại
+          description: Danh sách tài khoản đang hoạt động trong cơ sở hiện tại
           content:
             application/json:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/BusinessMemberSummary" }
-        "403": { description: Chỉ chủ cơ sở được xem danh sách }
+        "403": { description: Cần là thành viên đang hoạt động }
         "409": { description: Chưa chọn cơ sở }
         "503": { description: Không thể đọc danh sách thành viên }
+  /businesses/{id}/members/{userId}:
+    delete:
+      operationId: removeBusinessMember
+      tags: [health]
+      summary: Gỡ một nhân viên khỏi doanh nghiệp
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 128 }
+      responses:
+        "204": { description: Đã thu hồi quyền trước khi vô hiệu hóa tư cách thành viên; lịch sử vẫn giữ nguyên }
+        "403": { description: Chỉ chủ cơ sở được gỡ nhân viên }
+        "404": { description: Thành viên không còn hoạt động }
+        "503": { description: Không thể gỡ thành viên }
+  /businesses/{id}/transfer-ownership:
+    post:
+      operationId: transferBusinessOwnership
+      tags: [health]
+      summary: Chuyển quyền sở hữu cho thành viên đang hoạt động
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TransferOwnerInput" }
+      responses:
+        "200":
+          description: Đã chuyển quyền trong một giao dịch
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [transferred, ownerEmail]
+                properties:
+                  transferred: { type: boolean, enum: [true] }
+                  ownerEmail: { type: string, format: email }
+        "403": { description: Chỉ chủ sở hữu được chuyển quyền }
+        "409": { description: Người nhận không phù hợp hoặc đã sở hữu doanh nghiệp khác }
+        "503": { description: Không thể chuyển quyền }
   /businesses/current/print-profile:
     get:
       operationId: getCurrentBusinessPrintProfile
@@ -1276,31 +1324,35 @@ components:
         paymentQrAvailable: { type: boolean }
         prices:
           type: object
-          required: [businessMonthly, businessYearly, personalMonthly, personalYearly]
+          required: [businessMonthly, businessHalfYear, businessYearly, personalMonthly, personalHalfYear, personalYearly]
           properties:
-            businessMonthly: { type: integer, enum: [100000] }
-            businessYearly: { type: integer, enum: [1000000] }
-            personalMonthly: { type: integer, enum: [20000] }
-            personalYearly: { type: integer, enum: [200000] }
+            businessMonthly: { type: integer, minimum: 0, maximum: 100000000 }
+            businessHalfYear: { type: integer, minimum: 0, maximum: 100000000 }
+            businessYearly: { type: integer, minimum: 0, maximum: 100000000 }
+            personalMonthly: { type: integer, minimum: 0, maximum: 100000000 }
+            personalHalfYear: { type: integer, minimum: 0, maximum: 100000000 }
+            personalYearly: { type: integer, minimum: 0, maximum: 100000000 }
     SubscriptionPaymentRequest:
       type: object
-      required: [id, userId, product, months, amountVnd, status, createdAt, businessId, businessName]
+      required: [id, userId, product, months, amountVnd, status, createdAt, businessId, businessName, referenceCode, rejectionReason]
       properties:
         id: { type: string, format: uuid }
         userId: { type: string }
         product: { type: string, enum: [business, personal] }
-        months: { type: integer, enum: [1, 12] }
+        months: { type: integer, enum: [1, 6, 12] }
         amountVnd: { type: integer }
         status: { type: string, enum: [pending, approved, rejected] }
         createdAt: { type: string, format: date-time }
         businessId: { type: [string, "null"], format: uuid }
         businessName: { type: [string, "null"] }
+        referenceCode: { type: string, pattern: "^[A-Z0-9]{8}$" }
+        rejectionReason: { type: [string, "null"] }
     CreateSubscriptionPaymentRequest:
       type: object
       required: [product, months, idempotencyKey]
       properties:
         product: { type: string, enum: [business, personal] }
-        months: { type: integer, enum: [1, 12] }
+        months: { type: integer, enum: [1, 6, 12] }
         businessId: { type: string, format: uuid }
         idempotencyKey: { type: string, minLength: 8, maxLength: 128, pattern: "^[A-Za-z0-9:_-]+$" }
     PlatformBillingSettings:
@@ -1529,10 +1581,16 @@ components:
         role: { type: string, enum: [owner, employee, platform_admin] }
     BusinessMemberSummary:
       type: object
-      required: [email, role]
+      required: [userId, email, role]
       properties:
+        userId: { type: string }
         email: { type: string, format: email, maxLength: 254 }
         role: { type: string, enum: [owner, employee] }
+    TransferOwnerInput:
+      type: object
+      required: [targetUserId]
+      properties:
+        targetUserId: { type: string, minLength: 1, maxLength: 128 }
     BusinessPrintProfile:
       type: object
       required: [facilityName, facilityAddress, facilityTaxCode, facilityPhone]

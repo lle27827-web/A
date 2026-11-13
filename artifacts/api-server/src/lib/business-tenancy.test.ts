@@ -86,3 +86,13 @@ test("print profile write fails closed when the owner predicate matches no busin
 
   assert.equal(profile, null);
 });
+
+test("join code storage uses a keyed, domain-separated HMAC", async () => {
+  const { hashJoinCodeForStorage } = await import("./business-tenancy");
+  const secret = "a-distinct-32-character-join-secret!";
+  const first = hashJoinCodeForStorage("1234567890", secret);
+  assert.match(first, /^[a-f0-9]{64}$/);
+  assert.equal(first, hashJoinCodeForStorage("1234567890", secret));
+  assert.notEqual(first, hashJoinCodeForStorage("1234567891", secret));
+  assert.notEqual(first, hashJoinCodeForStorage("1234567890", `${secret}x`));
+});

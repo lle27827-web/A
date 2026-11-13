@@ -483,9 +483,18 @@ export const BusinessMemberSummaryRole = {
 } as const;
 
 export interface BusinessMemberSummary {
+  userId: string;
   /** @maxLength 254 */
   email: string;
   role: BusinessMemberSummaryRole;
+}
+
+export interface TransferOwnerInput {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  targetUserId: string;
 }
 
 export interface BusinessPrintProfile {
@@ -1534,6 +1543,11 @@ export type ListPersonalComparisonMembersParams = {
  * @pattern ^\d{4}-(0[1-9]|1[0-2])$
  */
 month?: string;
+};
+
+export type TransferBusinessOwnership200 = {
+  transferred: true;
+  ownerEmail: string;
 };
 
 export type ListMembersParams = {
