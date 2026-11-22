@@ -1387,7 +1387,7 @@ function normalizeEventPayload(value: unknown): unknown {
 export async function readPartitionedTable<T extends Record<string, unknown>>(
   tableName: string,
   filter?: { ids?: number[]; email?: string; grantedBy?: string; userId?: string; businessId?: string },
-  options: { bypassCache?: boolean } = {},
+  options: { bypassCache?: boolean; allBusinesses?: boolean } = {},
 ): Promise<T[]> {
   requireConfiguredNodes();
   const keyColumn = TABLE_KEY_COLUMN[tableName];
@@ -1407,6 +1407,20 @@ export async function readPartitionedTable<T extends Record<string, unknown>>(
   }
   if (filter?.ids && !["members", "service_sessions", "attendance", "manager_grants", "card_usage_history", "employee_availability"].includes(tableName)) {
     throw new PartitionStorageError("ID filters are not supported for this table.", "partition_entity_invalid", 400);
+  }
+  // Facility tables must always be read for one business. Reading without a
+  // business id would return every business's rows, so it is refused unless
+  // a maintenance job explicitly opts in with allBusinesses.
+  if (
+    !filter?.businessId &&
+    options.allBusinesses !== true &&
+    !["personal_services", "personal_sessions", "personal_settings", "api_write_operations"].includes(tableName)
+  ) {
+    throw new PartitionStorageError(
+      "A business id is required to read this table.",
+      "partition_entity_invalid",
+      400,
+    );
   }
   const filterKey = stableJson(filter ?? {});
   const cachedRows = partitionReadCache.get<T>(tableName, filterKey, Date.now(), options.bypassCache === true);
@@ -1537,9 +1551,12 @@ export async function readPartitionedRowById<T extends Record<string, unknown>>(
   businessId?: string,
   options: { bypassCache?: boolean } = {},
 ): Promise<T | undefined> {
+  if (!businessId) {
+    throw new PartitionStorageError("A business id is required to read this row.", "partition_entity_invalid", 400);
+  }
   const rows = await readPartitionedTable<T>(
     tableName,
-    { ids: [id], ...(businessId ? { businessId } : {}) },
+    { ids: [id], businessId },
     options,
   );
   return rows[0];
@@ -1549,7 +1566,10 @@ export async function readPartitionedGrantByEmail<T extends Record<string, unkno
   email: string,
   businessId?: string,
 ): Promise<T | undefined> {
-  const rows = await readPartitionedTable<T>("manager_grants", { email, ...(businessId ? { businessId } : {}) });
+  if (!businessId) {
+    throw new PartitionStorageError("A business id is required to read grants.", "partition_entity_invalid", 400);
+  }
+  const rows = await readPartitionedTable<T>("manager_grants", { email, businessId });
   return rows[0];
 }
 
@@ -1557,5 +1577,8 @@ export async function readPartitionedGrantsByGrantor<T extends Record<string, un
   email: string,
   businessId?: string,
 ): Promise<T[]> {
-  return readPartitionedTable<T>("manager_grants", { grantedBy: email, ...(businessId ? { businessId } : {}) });
+  if (!businessId) {
+    throw new PartitionStorageError("A business id is required to read grants.", "partition_entity_invalid", 400);
+  }
+  return readPartitionedTable<T>("manager_grants", { grantedBy: email, businessId });
 }
