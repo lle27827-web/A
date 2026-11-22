@@ -872,9 +872,9 @@ export async function addCardHours(
 // serialize balance checks so simultaneous requests cannot overspend hours.
 export async function saveSession(
   input: ServiceSessionInput,
-  id?: number,
-  permissions?: FacilityPermissions,
-  operationId?: string,
+  id: number | undefined,
+  permissions: FacilityPermissions | undefined,
+  operationId: string | undefined,
   businessId: string,
 ) {
   const workDate = validDate(input.workDate);
@@ -1210,8 +1210,8 @@ async function savePartitionedSession(
 
 export async function deleteSession(
   id: number,
-  permissions?: FacilityPermissions,
-  operationId?: string,
+  permissions: FacilityPermissions | undefined,
+  operationId: string | undefined,
   businessId: string,
 ) {
   if (isPartitionedStorageEnabled()) {

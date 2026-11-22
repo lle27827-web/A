@@ -407,9 +407,9 @@ export async function cleanupExpiredHistory() {
   const cutoff = retentionCutoffDate();
   if (isPartitionedStorageEnabled()) {
     const [attendanceRaw, sessionsRaw, archivedRaw, personalRaw] = await Promise.all([
-      readPartitionedTable("attendance"),
-      readPartitionedTable("service_sessions"),
-      readPartitionedTable("card_usage_history"),
+      readPartitionedTable("attendance", undefined, { allBusinesses: true }),
+      readPartitionedTable("service_sessions", undefined, { allBusinesses: true }),
+      readPartitionedTable("card_usage_history", undefined, { allBusinesses: true }),
       readPartitionedTable("personal_sessions"),
     ]);
     const attendance = (attendanceRaw as unknown as (typeof attendanceTable.$inferSelect)[])

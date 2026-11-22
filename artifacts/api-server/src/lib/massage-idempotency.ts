@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, lt } from "drizzle-orm";
 import { apiWriteOperationsTable, db, hashPartitionRequest } from "@workspace/db";
 import { operationIdFromRequest } from "./partitioned-mutations";
 import { MassageError, type Tx } from "./massage-common";
@@ -48,4 +48,17 @@ export async function idempotentTransaction<T>(
     }).where(eq(apiWriteOperationsTable.operationId, key));
     return result;
   });
+}
+
+/**
+ * Duplicate-write protection only matters for a short time after a request,
+ * so stored replies (which can hold customer names and phone numbers) are
+ * removed after 30 days instead of being kept forever.
+ */
+export async function purgeOldWriteOperations(days = 30): Promise<number> {
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const removed = await db.delete(apiWriteOperationsTable)
+    .where(lt(apiWriteOperationsTable.createdAt, cutoff))
+    .returning({ operationId: apiWriteOperationsTable.operationId });
+  return removed.length;
 }

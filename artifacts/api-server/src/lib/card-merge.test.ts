@@ -6,6 +6,7 @@ import { db, pool, treatmentCardsTable as cards, cardTopUpsTable as payments,
   serviceSessionsTable as visits, membersTable, serviceTypesTable } from "@workspace/db";
 import { addCardHours, createCard, updateCard, saveSession, deleteCard, MassageError } from "./massage";
 import { getFacilityRevenue } from "./facility-revenue";
+import { DEFAULT_BUSINESS_ID } from "./business-tenancy";
 
 test("editing duplicate identity requires consent and preserves receipts, balances, used flag and payroll", async () => {
   const marker = randomUUID(), ids: number[] = [];
@@ -25,7 +26,7 @@ test("editing duplicate identity requires consent and preserves receipts, balanc
     const [service] = await db.insert(serviceTypesTable).values({ name: input.serviceType, hourlyRate: 40000 }).returning();
     serviceTypeId = service.id;
     const visit = await saveSession({ cardId: source.id, memberId, serviceTypeId,
-      workDate: "2091-01-06", minutes: 60, note: "old visit" });
+      workDate: "2091-01-06", minutes: 60, note: "old visit" }, undefined, undefined, undefined, DEFAULT_BUSINESS_ID);
     const beforeJanuary = await getFacilityRevenue("2091-01", "2091-01-05");
     const beforeFebruary = await getFacilityRevenue("2091-02", "2091-02-03");
     const draft = { customerName: `  ${input.customerName.toUpperCase()} `, phone: "090 123-4567",

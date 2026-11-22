@@ -6,6 +6,7 @@ import { db, pool, attendanceTable, membersTable, memberVersionsTable, serviceSe
 import { createEmployee, listMembersForPeriod, updateEmployee } from "./employee-history";
 import { createCard, currentBusinessDate, deleteMember, MassageError, saveSession } from "./massage";
 import { getFacilityRevenue } from "./facility-revenue";
+import { DEFAULT_BUSINESS_ID } from "./business-tenancy";
 
 test("deleting employees hides current records while keeping prior-month history and card hours unchanged", async () => {
   const marker = `History-${randomUUID()}`;
@@ -43,8 +44,8 @@ test("deleting employees hides current records while keeping prior-month history
     });
     cards.push(card.id);
     const input = { memberId: original.id, serviceTypeId: service.id, cardId: card.id, workDate: "2025-02-10", minutes: 30, note: "Original note", paymentMethod: null };
-    const visit = await saveSession(input);
-    const walkIn = await saveSession({ ...input, cardId: null, customerName: marker, workDate: "2025-02-11", paymentMethod: "cash" });
+    const visit = await saveSession(input, undefined, undefined, undefined, DEFAULT_BUSINESS_ID);
+    const walkIn = await saveSession({ ...input, cardId: null, customerName: marker, workDate: "2025-02-11", paymentMethod: "cash" }, undefined, undefined, undefined, DEFAULT_BUSINESS_ID);
     sessionIds.push(visit.id, walkIn.id);
     const [attendance] = await db.insert(attendanceTable).values({
       memberId: original.id, employeeName: `${marker}-old`, workDate: "2025-02-11", status: "present",
@@ -84,7 +85,7 @@ test("deleting employees hides current records while keeping prior-month history
     assert.deepEqual(reportAfter, reportBefore, "deleting an employee must not change any part of a prior-month report");
     await assert.rejects(deleteMember(original.id), status(404));
     await assert.rejects(updateEmployee(original.id, { name: "Should not rename" }), status(404));
-    await assert.rejects(saveSession({ ...input, minutes: 60 }), status(404));
+    await assert.rejects(saveSession({ ...input, minutes: 60 }, undefined, undefined, undefined, DEFAULT_BUSINESS_ID), status(404));
     assert.equal(await used(card.id), 30);
 
     // Vietnam midnight boundaries, not UTC month boundaries.
@@ -103,7 +104,7 @@ test("deleting employees hides current records while keeping prior-month history
 
     // Legacy names are recovered only from actual recorded visits, never invented.
     const legacy = await makeEmployee(`${marker}-legacy-old`, "2025-01-01T03:00:00Z");
-    const legacyVisit = await saveSession({ ...input, memberId: legacy.id, cardId: null, workDate: "2025-02-12", paymentMethod: "cash" });
+    const legacyVisit = await saveSession({ ...input, memberId: legacy.id, cardId: null, workDate: "2025-02-12", paymentMethod: "cash" }, undefined, undefined, undefined, DEFAULT_BUSINESS_ID);
     sessionIds.push(legacyVisit.id);
     await db.delete(memberVersionsTable).where(eq(memberVersionsTable.memberId, legacy.id));
     await updateEmployee(legacy.id, { name: `${marker}-legacy-now` });
@@ -115,13 +116,13 @@ test("deleting employees hides current records while keeping prior-month history
     assert.equal((await listMembersForPeriod("2025-02", unknown.id))[0]?.historicalNameSource, "unverified");
 
     // Backdated recorded visits still make a later-created employee visible.
-    const backdated = await saveSession({ ...input, memberId: later.id, cardId: null, workDate: "2025-02-13", paymentMethod: "cash" });
+    const backdated = await saveSession({ ...input, memberId: later.id, cardId: null, workDate: "2025-02-13", paymentMethod: "cash" }, undefined, undefined, undefined, DEFAULT_BUSINESS_ID);
     sessionIds.push(backdated.id);
     assert.equal((await listMembersForPeriod("2025-02", later.id))[0]?.historicalNameSource, "session");
 
     const raced = await makeEmployee(`${marker}-race`);
     const raceResults = await Promise.allSettled([
-      saveSession({ ...input, memberId: raced.id, workDate: currentBusinessDate() }),
+      saveSession({ ...input, memberId: raced.id, workDate: currentBusinessDate() }, undefined, undefined, undefined, DEFAULT_BUSINESS_ID),
       deleteMember(raced.id),
     ]);
     if (raceResults[0].status === "fulfilled") {

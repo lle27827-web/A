@@ -6,6 +6,7 @@ import { cardTopUpsTable, db, membersTable, pool, serviceSessionsTable, serviceT
 import { AddTreatmentCardHoursBody, GetMassageSummaryResponse } from "@workspace/api-zod";
 import { addCardHours, createCard, currentBusinessDate, deleteCard, MassageError, saveSession } from "./massage";
 import { getFacilityRevenue } from "./facility-revenue";
+import { DEFAULT_BUSINESS_ID } from "./business-tenancy";
 
 test("paid top-ups and duplicate sales retain history and recognize cash once on their own dates", async () => {
   const marker = `Topup-${randomUUID()}`;
@@ -86,7 +87,7 @@ test("paid top-ups and duplicate sales retain history and recognize cash once on
       const session = await saveSession({
         memberId, serviceTypeId: serviceId, cardId, minutes: 30, workDate: today,
         paymentMethod: cardId === null ? "cash" : null,
-      });
+      }, undefined, undefined, undefined, DEFAULT_BUSINESS_ID);
       sessionIds.push(session.id);
     }
     const report = GetMassageSummaryResponse.parse(await getFacilityRevenue(month, today));

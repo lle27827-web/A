@@ -4,6 +4,7 @@ import test from "node:test";
 import { eq, inArray, sql } from "drizzle-orm";
 import { db, pool, membersTable, serviceSessionsTable, treatmentCardsTable, serviceTypesTable } from "@workspace/db";
 import { addCardHours, cardResponse, createCard, currentBusinessDate, deleteCard, deleteMember, deleteSession, MassageError, saveSession, updateCard } from "./massage";
+import { DEFAULT_BUSINESS_ID } from "./business-tenancy";
 
 test("card balance and service payroll stay consistent through edits and concurrent use", async () => {
   const marker = `Verify-${randomUUID()}`;
@@ -13,7 +14,7 @@ test("card balance and service payroll stay consistent through edits and concurr
   let memberId: number | undefined;
   const record = async (input: Parameters<typeof saveSession>[0], id?: number) => {
     const normalized = input.cardId === null && !input.paymentMethod ? { ...input, paymentMethod: "cash" as const } : input;
-    const session = await saveSession(normalized, id);
+    const session = await saveSession(normalized, id, undefined, undefined, DEFAULT_BUSINESS_ID);
     if (!sessions.includes(session.id)) sessions.push(session.id);
     return session;
   };
@@ -68,7 +69,7 @@ test("card balance and service payroll stay consistent through edits and concurr
     const changedVisit = await record({ memberId, serviceTypeId: service.id, cardId: topupCard.id, workDate: "2026-10-13", minutes: 90, note: marker }, topupVisit.id);
     assert.equal(changedVisit.earnings, 150000);
     assert.equal(await balance(topupCard.id), 90);
-    await deleteSession(topupVisit.id);
+    await deleteSession(topupVisit.id, undefined, undefined, DEFAULT_BUSINESS_ID);
     assert.equal(await balance(topupCard.id), 0, "deleting a visit refunds its hours");
     const input = { memberId, serviceTypeId: service.id, cardId: a.id, workDate: currentBusinessDate(), minutes: 60, note: marker };
     const first = await record(input);
@@ -91,7 +92,7 @@ test("card balance and service payroll stay consistent through edits and concurr
     assert.equal(second.customerCharge, 125000);
     assert.equal(second.serviceType, `${marker}-new`);
     assert.equal(await balance(a.id), 120);
-    await deleteSession(second.id);
+    await deleteSession(second.id, undefined, undefined, DEFAULT_BUSINESS_ID);
     assert.equal(await balance(a.id), 90, "deleting a visit restores card hours");
     await assert.rejects(record({ ...input, minutes: 600 }), fails(409));
     await assert.rejects(updateCard(a.id, { totalMinutes: 80 }), fails(409));
@@ -145,7 +146,7 @@ test("card balance and service payroll stay consistent through edits and concurr
     assert.equal(await balance(removedCard.id), 60);
     const formerlyUsed = await makeCard(60);
     const lastVisit = await record({ ...input, cardId: formerlyUsed.id, minutes: 30 });
-    await deleteSession(lastVisit.id);
+    await deleteSession(lastVisit.id, undefined, undefined, DEFAULT_BUSINESS_ID);
     assert.equal(await balance(formerlyUsed.id), 0);
     await deleteCard(formerlyUsed.id);
     const [deletedFormerlyUsed] = await db.select().from(treatmentCardsTable).where(eq(treatmentCardsTable.id, formerlyUsed.id));

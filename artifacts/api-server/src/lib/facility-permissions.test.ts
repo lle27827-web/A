@@ -12,6 +12,7 @@ import sessionsRouter from "../routes/service-sessions";
 import grantsRouter from "../routes/access-grants";
 import { createEmployee } from "./employee-history";
 import { deleteSession, saveSession } from "./massage";
+import { DEFAULT_BUSINESS_ID } from "./business-tenancy";
 
 const req = (method: string, path: string, query = {}, body = {}) => ({ method, path, query, body }) as Request;
 
@@ -183,8 +184,8 @@ test("scoped reads and delegated grants stay within persisted manager permission
     assert.equal(await managerRequestAllowed(req("PATCH", `/service-sessions/${visits[0]}`, {}, { memberId: employees[1] }), permissions), false, "new employee must be allowed");
     assert.equal(await managerRequestAllowed(req("PATCH", `/service-sessions/${visits[0]}`, {}, { memberId: employees[0] }), permissions), true);
     assert.equal(await managerRequestAllowed(req("PATCH", `/service-sessions/${visits[0]}`, {}, { memberId: employees[0], cardId: 1 }), permissions), false);
-    await assert.rejects(deleteSession(visits[1], permissions), (e: unknown) => (e as { status: number }).status === 403);
-    await assert.rejects(saveSession({ memberId: employees[0], workDate: date, minutes: 60, note: "", paymentMethod: "cash" }, visits[1], permissions),
+    await assert.rejects(deleteSession(visits[1], permissions, undefined, DEFAULT_BUSINESS_ID), (e: unknown) => (e as { status: number }).status === 403);
+    await assert.rejects(saveSession({ memberId: employees[0], workDate: date, minutes: 60, note: "", paymentMethod: "cash" }, visits[1], permissions, undefined, DEFAULT_BUSINESS_ID),
       (e: unknown) => (e as { status: number }).status === 403, "locked source row must still belong to permitted scope");
     assert.equal((await db.select().from(serviceSessionsTable).where(eq(serviceSessionsTable.id, visits[1])))[0].memberId, employees[1]);
     assert.equal((await fetch(`${base}/owner/access-grants/${grant.id}`, { method: "DELETE" })).status, 204);
