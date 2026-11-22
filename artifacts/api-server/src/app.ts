@@ -1,5 +1,5 @@
 import express, { type Express } from "express";
-import { clerkMiddleware } from "@clerk/express";
+import { clerkMiddleware, getAuth } from "@clerk/express";
 import helmet from "helmet";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import pinoHttp from "pino-http";
@@ -14,11 +14,25 @@ const app: Express = express();
 app.set("trust proxy", 1);
 const clerkSecretKey = process.env.APP_CLERK_SECRET_KEY?.trim();
 const clerkPublishableKey = process.env.APP_CLERK_PUBLISHABLE_KEY?.trim();
+// Signed-in people are counted per account so many staff sharing one wifi
+// address are not blocked together; anonymous traffic is still counted per IP.
+function readRateLimitIdentity(req: express.Request): { key: string; signedIn: boolean } {
+  let userId: string | null = null;
+  try {
+    userId = getAuth(req).userId ?? null;
+  } catch {
+    userId = null;
+  }
+  return userId
+    ? { key: `user:${userId}`, signedIn: true }
+    : { key: `ip:${ipKeyGenerator(req.ip ?? "")}`, signedIn: false };
+}
 const apiRateLimit = rateLimit({
   windowMs: 60_000,
-  limit: 120,
+  limit: (req) => (readRateLimitIdentity(req).signedIn ? 300 : 120),
   standardHeaders: "draft-8",
   legacyHeaders: false,
+  keyGenerator: (req) => readRateLimitIdentity(req).key,
   skip: (req) => req.path === "/healthz",
 });
 const apiWriteRateLimit = rateLimit({
