@@ -12,6 +12,7 @@ import { hoChiMinhDate } from "../lib/employee-availability";
 import { managerRequestAllowed } from "../lib/owner-auth";
 import { saveSession } from "../lib/massage";
 import appointmentsRouter from "./appointments";
+import { DEFAULT_BUSINESS_ID } from "../lib/business-tenancy";
 
 function vietnamDateOffset(offset: number): string {
   const [year, month, day] = hoChiMinhDate().split("-").map(Number);
@@ -199,7 +200,7 @@ test("using a customer card completes only same-day appointments matching its na
     }).returning();
     appointmentIds.push(phoneMatch.id, nameMatch.id, otherDay.id, unrelated.id);
 
-    const session = await saveSession({ memberId: member.id, serviceTypeId: service.id, cardId: card.id, workDate: day, minutes: 60, note: "" });
+    const session = await saveSession({ memberId: member.id, serviceTypeId: service.id, cardId: card.id, workDate: day, minutes: 60, note: "" }, undefined, undefined, undefined, DEFAULT_BUSINESS_ID);
     sessionIds.push(session.id);
     const results = await db.select({ id: appointmentsTable.id, status: appointmentsTable.status })
       .from(appointmentsTable).where(inArray(appointmentsTable.id, appointmentIds));

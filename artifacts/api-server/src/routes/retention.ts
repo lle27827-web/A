@@ -17,6 +17,7 @@ import {
 } from "../lib/retention";
 import { currentFacilityBusinessId, requireOwner } from "../lib/owner-auth";
 import { retentionCronAuthorizationStatus } from "../lib/retention-auth";
+import { purgeOldWriteOperations } from "../lib/massage-idempotency";
 
 const router: IRouter = Router();
 const businessIdFor = currentFacilityBusinessId;
@@ -97,6 +98,13 @@ router.get("/retention/cleanup", async (req, res, next): Promise<void> => {
     res.set("Cache-Control", "no-store");
     const result = await cleanupExpiredHistory();
     req.log?.info(result, "Five-year attendance retention cleanup completed");
+    try {
+      const purged = await purgeOldWriteOperations();
+      req.log?.info({ purged }, "Old duplicate-write records removed");
+    } catch (purgeError) {
+      // Best effort: a failure here must not hide the retention result.
+      req.log?.warn({ err: purgeError }, "Could not remove old duplicate-write records");
+    }
     res.json(result);
   } catch (error) {
     next(error);
